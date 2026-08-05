@@ -349,11 +349,32 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
 
   sim_data_out <- list()
 
+  # Pooled, genhz-agnostic fallback matrices - an unweighted average of every available
+  # genhz key's matrix (positive-definite matrices form a convex cone, so the average
+  # stays positive-definite; the same reasoning build_kssl_fallback_matrix() documents for
+  # its own genhz = NULL pooling path). Used below whenever a row's genhz can't be matched
+  # to a specific key, instead of crashing.
+  pooled_property_corr <- Reduce(`+`, correlation_matrices) / length(correlation_matrices)
+  pooled_txt_corr <- if (!is.null(txt_correlation_matrices)) {
+    Reduce(`+`, txt_correlation_matrices) / length(txt_correlation_matrices)
+  } else {
+    NULL
+  }
+
   for (i in seq_len(nrow(sim_cokey))) {
     row <- sim_cokey[i, ]
     genhz_val <- as.character(row$genhz)
 
     local_corr <- correlation_matrices[[genhz_val]]
+    if (is.null(local_corr)) {
+      # classify_genhz() returns NA for a raw hzname that doesn't parse into one of the 7
+      # KSSL-covered master-horizon categories (blank/garbled/nonstandard hzname text).
+      # This lookup happens before this loop's tryCatch() below, so an unmatched genhz
+      # used to crash simulate_cokey_generalized() for the row's ENTIRE cokey - even when
+      # every property VALUE on this row was otherwise complete/infilled. Degrade to the
+      # pooled, genhz-agnostic matrix instead of aborting the cokey.
+      local_corr <- pooled_property_corr
+    }
 
     has_texture <- all(texture_cols_required %in% names(row))
 
@@ -362,6 +383,16 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
 
     if (has_texture && !is.null(txt_correlation_matrices)) {
       txt_corr <- txt_correlation_matrices[[genhz_val]]
+      if (is.null(txt_corr)) {
+        txt_corr <- pooled_txt_corr
+      }
+      # .kssl_texture_matrices() is documented as exactly singular for genhz E/Cr/R even
+      # when correctly matched (see R/kssl-reference-correlations.R) - chol() inside
+      # simulate_correlated_triangular() would otherwise error deterministically for those
+      # groups (again, before this loop's tryCatch() below - a whole-cokey crash). Nudge
+      # to the nearest positive-definite matrix defensively; cheap, and the same pattern
+      # already used elsewhere in this package (e.g. build_kssl_fallback_matrix()).
+      txt_corr <- ensure_positive_definite_matrix(txt_corr)
       # Order here (sand, silt, clay) must match txt_corr's own row/column order - preserved
       # exactly as the legacy source wires it, not changed.
       params_txt <- list(
@@ -369,15 +400,35 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
         c(row$silttotal_l, row$silttotal_r, row$silttotal_h),
         c(row$claytotal_l, row$claytotal_r, row$claytotal_h)
       )
-      sim_txt <- simulate_correlated_triangular(as.integer(row$sim_comppct), params_txt, txt_corr)
 
-      # ilr_forward()'s validated-to-match-compositions::ilr() transform, fed the physical
-      # sand/silt/clay values by role (not by column position) - see file header.
-      sim_txt_ilr <- ilr_forward(clay = sim_txt[, 3], sand = sim_txt[, 1], silt = sim_txt[, 2])
-      ilr1_vals <- sim_txt_ilr[, "z1"]
-      ilr2_vals <- sim_txt_ilr[, "z2"]
-      ilr1_lrh <- c(min(ilr1_vals), calculate_mode(ilr1_vals), max(ilr1_vals))
-      ilr2_lrh <- c(min(ilr2_vals), calculate_mode(ilr2_vals), max(ilr2_vals))
+      # A texture triplet with a leftover NA (e.g. infilling couldn't recover a value for
+      # this specific row) makes simulate_correlated_triangular()'s internal `if (c == a)`
+      # check evaluate to NA ("missing value where TRUE/FALSE needed") - this call happens
+      # before this loop's own tryCatch() below, so it used to crash the row's ENTIRE
+      # cokey. Contain the failure to "no texture for this row" instead: ilr1_lrh/ilr2_lrh
+      # stay NULL (as initialized above), and the has_texture check further below already
+      # treats NULL ilr1_lrh/ilr2_lrh as "texture unavailable for this row" gracefully.
+      texture_result <- tryCatch({
+        sim_txt <- simulate_correlated_triangular(as.integer(row$sim_comppct), params_txt, txt_corr)
+
+        # ilr_forward()'s validated-to-match-compositions::ilr() transform, fed the physical
+        # sand/silt/clay values by role (not by column position) - see file header.
+        sim_txt_ilr <- ilr_forward(clay = sim_txt[, 3], sand = sim_txt[, 1], silt = sim_txt[, 2])
+        ilr1_vals <- sim_txt_ilr[, "z1"]
+        ilr2_vals <- sim_txt_ilr[, "z2"]
+        list(
+          ilr1_lrh = c(min(ilr1_vals), calculate_mode(ilr1_vals), max(ilr1_vals)),
+          ilr2_lrh = c(min(ilr2_vals), calculate_mode(ilr2_vals), max(ilr2_vals))
+        )
+      }, error = function(e) {
+        message("simulate_cokey_generalized(): texture simulation failed for row ", i, ": ", e$message)
+        NULL
+      })
+
+      if (!is.null(texture_result)) {
+        ilr1_lrh <- texture_result$ilr1_lrh
+        ilr2_lrh <- texture_result$ilr2_lrh
+      }
     }
 
     param_list <- vector("list", length(param_order))
@@ -465,6 +516,17 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
     })
   }
 
-  final_df <- do.call(rbind, sim_data_out)
+  # dplyr::bind_rows() (not base do.call(rbind, ...)) - since one row's texture simulation
+  # can fail while a sibling row in the same cokey succeeds (see the texture tryCatch()
+  # above), sim_data_out can legitimately mix rows that have sand_total/silt_total/
+  # clay_total columns with rows that don't. Base rbind() requires identical columns
+  # across all inputs and errors ("numbers of columns of arguments do not match") on that
+  # mismatch - previously an unguarded whole-cokey crash. bind_rows() unions columns and
+  # fills the missing ones with NA, which is the correct semantics here (that row simply
+  # has no simulated texture).
+  # Preserve the pre-existing "no surviving rows -> NULL" contract (relied on by callers
+  # and by this function's own tests) - bind_rows(list()) would otherwise return a 0-row
+  # tibble instead of NULL.
+  final_df <- if (length(sim_data_out) == 0) NULL else dplyr::bind_rows(sim_data_out)
   return(final_df)
 }

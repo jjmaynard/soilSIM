@@ -238,7 +238,13 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
       }
     )
   })
-  sim_long <- do.call(rbind, sim_results)
+  # dplyr::bind_rows() (not base do.call(rbind, ...)) - one cokey can come back with
+  # texture columns (sand_total/silt_total/clay_total) while another lacks them entirely
+  # (e.g. every one of its rows had a texture triplet with a leftover NA - see
+  # simulate_cokey_generalized()'s own per-row texture tryCatch()). Base rbind() requires
+  # identical columns across all inputs and would otherwise drop the WHOLE mukey's data by
+  # erroring here. bind_rows() unions columns, filling NA where a given cokey has none.
+  sim_long <- dplyr::bind_rows(sim_results)
 
   if (is.null(sim_long) || nrow(sim_long) == 0) {
     return(NULL)

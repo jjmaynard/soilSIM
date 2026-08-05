@@ -1324,6 +1324,18 @@ apply_quantile_adjustment <- function(reference_quantiles, curr_values, prev_val
 # Enhanced distribution shape correction with Module 8 safety
 correct_distribution_shape <- function(curr_values, adjusted_curr) {
   tryCatch({
+    # A property column that's entirely (or almost entirely) NA for this group is a real,
+    # reachable case (e.g. a texture column simulate_cokey_generalized() left NA for some
+    # rows rather than crashing the whole cokey - see R/property-simulation.R). Without
+    # this guard, var(curr_values) on <2 non-NA values is NA (`if (NA > 0)` throws
+    # "missing value where TRUE/FALSE needed"), and ecdf()/quantile() on an all-NA
+    # adjusted_curr throws "'x' must have 1 or more non-missing values". Both were
+    # already caught by this function's own tryCatch() below (falling back to
+    # curr_values unadjusted), so this isn't a correctness fix - just replacing noisy,
+    # per-call warning spam with the same fallback taken directly.
+    if (sum(!is.na(curr_values)) < 2 || sum(!is.na(adjusted_curr)) < 1) {
+      return(curr_values)
+    }
     if (var(curr_values, na.rm = TRUE) > 0) {
       ecdf_adjusted <- ecdf(adjusted_curr)
       # Map back to original distribution while preserving order

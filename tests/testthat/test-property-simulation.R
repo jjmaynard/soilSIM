@@ -123,6 +123,46 @@ test_that("simulate_cokey_generalized() with texture columns produces sand+silt+
   expect_true(all(result$sand_total >= 0 & result$sand_total <= 100))
 })
 
+test_that("simulate_cokey_generalized() drops texture but keeps other properties when a texture triplet has a leftover NA", {
+  set.seed(7)
+  sim_cokey <- make_sim_cokey_data(texture = TRUE, sim_comppct = 20)
+  sim_cokey$sandtotal_l <- NA_real_ # simulates infilling failing to recover this one value
+  corr <- make_property_correlation_matrices()
+  txt_corr <- make_texture_correlation_matrices()
+
+  expect_message(
+    result <- simulate_cokey_generalized(sim_cokey, corr, txt_corr),
+    "texture simulation failed"
+  )
+  expect_equal(nrow(result), 20)
+  expect_true(all(c("db", "ph") %in% names(result)))
+  expect_false(any(c("sand_total", "silt_total", "clay_total") %in% names(result)))
+})
+
+test_that("simulate_cokey_generalized() falls back to a pooled matrix for an unmatched genhz instead of erroring", {
+  set.seed(5)
+  sim_cokey <- make_sim_cokey_data(texture = FALSE, sim_comppct = 25)
+  sim_cokey$genhz <- NA_character_ # classify_genhz()'s real output for an unparseable hzname
+  corr <- make_property_correlation_matrices() # keyed only by "A"/"B" - no NA entry
+
+  result <- simulate_cokey_generalized(sim_cokey, corr)
+  expect_equal(nrow(result), 25)
+  expect_true(all(c("db", "ph") %in% names(result)))
+})
+
+test_that("simulate_cokey_generalized() falls back to a pooled texture matrix for an unmatched genhz instead of erroring", {
+  set.seed(6)
+  sim_cokey <- make_sim_cokey_data(texture = TRUE, sim_comppct = 30)
+  sim_cokey$genhz <- "Z" # not a key in either correlation list below
+  corr <- make_property_correlation_matrices()
+  txt_corr <- make_texture_correlation_matrices()
+
+  result <- simulate_cokey_generalized(sim_cokey, corr, txt_corr)
+  expect_equal(nrow(result), 30)
+  totals <- result$sand_total + result$silt_total + result$clay_total
+  expect_true(all(abs(totals - 100) < 1e-6))
+})
+
 test_that("simulate_cokey_generalized() skips a row with no recognized properties rather than erroring", {
   sim_cokey <- data.frame(
     genhz = "A", sim_comppct = 10, compname = "x", mukey = "1", cokey = "1",

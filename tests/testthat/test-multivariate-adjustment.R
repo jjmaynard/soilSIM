@@ -68,6 +68,30 @@ test_that("check_missing_values_increase() reports the NA-count delta per proper
   expect_equal(result$clay_pct$increase, 1)
 })
 
+test_that("correct_distribution_shape() returns curr_values unadjusted for all-NA input rather than erroring", {
+  all_na <- rep(NA_real_, 5)
+  expect_silent(result <- correct_distribution_shape(all_na, all_na))
+  expect_equal(result, all_na)
+
+  # A single non-NA value: var() is undefined (NA), same guarded path.
+  one_value <- c(NA, NA, 5, NA)
+  expect_silent(result2 <- correct_distribution_shape(one_value, c(1, 2, 3, 4)))
+  expect_equal(result2, one_value)
+
+  # adjusted_curr all-NA (would break ecdf()/quantile()) while curr_values is fine.
+  expect_silent(result3 <- correct_distribution_shape(c(1, 2, 3, 4, 5), rep(NA_real_, 5)))
+  expect_equal(result3, c(1, 2, 3, 4, 5))
+})
+
+test_that("correct_distribution_shape() still performs a real correction when there's enough data", {
+  set.seed(11)
+  curr_values <- rnorm(50, mean = 10, sd = 2)
+  adjusted_curr <- curr_values * 1.5
+  result <- correct_distribution_shape(curr_values, adjusted_curr)
+  expect_equal(length(result), length(curr_values))
+  expect_true(all(is.finite(result)))
+})
+
 test_that("detect_simulation_properties() intersects known SSURGO/lab property names with the data's own columns", {
   df <- data.frame(cokey = "1", sandtotal = 40, claytotal = 20, unrelated_col = 1)
   detected <- detect_simulation_properties(df)
