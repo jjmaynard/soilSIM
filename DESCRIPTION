@@ -1,0 +1,63 @@
+Package: soilSIM
+Title: Multi-Source Soil Property Simulation and Bayesian Data Fusion
+Version: 0.1.0
+Authors@R: person("Jonathan", "Maynard", email = "jjmaynard9@gmail.com", role = c("aut", "cre"))
+Description: A data-source-agnostic framework for simulating soil properties
+    and fusing estimates from multiple soil data products. Provides
+    percentile-triplet and arbitrary-percentile distribution fitting,
+    correlated Monte Carlo simulation (including compositional texture
+    handling via isometric log-ratio transforms), Gaussian-process depth-trend
+    modeling, descriptive statistics/correlation analysis, and Bayesian
+    updating/fusion in both scalar and raster-native forms. Ships with
+    SSURGO and SOLUS100 data-source adapters (tabular acquisition/processing/
+    infilling for SSURGO, raster fetch for SOLUS100) wired into the fusion
+    pipeline as prior and likelihood sources respectively; the simulation and
+    fusion core is designed to accommodate additional gridded soil data
+    sources as further adapters.
+License: MIT + file LICENSE
+URL: https://jjmaynard.github.io/soilSIM/, https://github.com/jjmaynard/soilSIM
+BugReports: https://github.com/jjmaynard/soilSIM/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.1.0)
+Imports:
+    dplyr,
+    tidyr,
+    rlang,
+    Hmisc,
+    Matrix,
+    fitdistrplus,
+    jsonlite,
+    readr,
+    tools,
+    parallel,
+    stats,
+    utils,
+    terra,
+    soilDB,
+    digest,
+    GPfit,
+    stringr,
+    grDevices,
+    graphics,
+    aqp,
+    future,
+    future.apply
+Suggests:
+    readxl,
+    openxlsx,
+    ggplot2,
+    viridisLite,
+    corrplot,
+    rmarkdown,
+    tinytex,
+    httr,
+    truncnorm,
+    soiltexture,
+    knitr,
+    pkgdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr

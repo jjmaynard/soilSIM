@@ -1,0 +1,10 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^data-raw$
+^LICENSE\.md$
+^STUB_COMPLETION_TRACKER\.md$
+^docs$
+^pkgdown_site$
+^_pkgdown\.yml$
+^README\.Rmd$
+^\.github$

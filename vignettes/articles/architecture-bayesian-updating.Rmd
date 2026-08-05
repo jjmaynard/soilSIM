@@ -1,0 +1,347 @@
+---
+title: "Bayesian Updating (Scalar)"
+---
+
+## Overview
+This functional area is a standalone toolkit for fusing a prior belief distribution with observed/likelihood data via Bayesian updating, implemented entirely in `R/bayesian-updating.R`. It offers both exact closed-form fusion (for Normal, Beta, and Gamma families, plus a joint bivariate-Normal/ILR route for clay/sand/silt texture) and a fully general grid-based kernel density estimation (KDE) route that works for arbitrary distribution shapes given raw samples on both sides. It is the scalar/plain-vector counterpart of `R/raster-fusion.R`'s raster-native fusion - the same underlying arithmetic, reused directly by that file rather than duplicated - and is part of `soilSIM`'s generic, data-source-agnostic core: nothing in this file assumes SSURGO, SOLUS, or any other specific data source, only that a caller has a prior and a likelihood expressed either as distributional parameters or as raw samples.
+
+## Core Functions
+
+### Tier 1: Exact closed-form Normal-Normal fusion
+
+#### 1. `bayes_update_normal_normal()` - Precision-Weighted Conjugate Normal-Normal Posterior
+
+**Purpose**: Exact, closed-form Bayesian fusion of two Normal distributions (a prior and a likelihood) into a posterior Normal, via precision-weighted averaging.
+
+**Parameters**:
+```r
+bayes_update_normal_normal(prior_mu, prior_sigma, lik_mu, lik_sigma)
+```
+- `prior_mu`, `prior_sigma` - Prior mean/sd (numeric scalar or vector).
+- `lik_mu`, `lik_sigma` - Likelihood mean/sd (numeric scalar or vector, same length as the prior args).
+
+**Returns**: `list(mu = posterior mean, sigma = posterior sd)`.
+
+**Algorithm/behavior**: Converts each side's sd to precision (`1 / sigma^2`), sums the two precisions to get the posterior precision (`post_prec <- prior_prec + lik_prec`), takes the posterior sd as `sqrt(1 / post_prec)`, and computes the posterior mean as the precision-weighted average `(prior_mu * prior_prec + lik_mu * lik_prec) / post_prec`. This is the standard conjugate-Normal update rule: precisions (not variances) add. Documented invariants, enforced by `tests/testthat/test-bayesian-updating.R`: posterior `sigma <= min(prior_sigma, lik_sigma)` (fusing two beliefs can only sharpen, never widen, the estimate); posterior `mu` is bounded between `prior_mu` and `lik_mu`; and the function is symmetric under swapping `(prior_mu, prior_sigma)` with `(lik_mu, lik_sigma)` (prior/likelihood are just labels - the math doesn't care which side is which). It is fully vectorized, so `prior_mu`/`prior_sigma`/`lik_mu`/`lik_sigma` can all be equal-length vectors for elementwise fusion of many quantities/cells at once - the property `R/raster-fusion.R` relies on to apply this function unchanged to `SpatRaster` cell values.
+
+#### 2. `normal_to_lognormal_params()` - Raw-Space to Log-Space Moment Conversion
+
+**Purpose**: Moment-matches a raw-space Lognormal distribution's mean/sd onto the mu/sigma of its underlying (log-space) Normal, so that `bayes_update_normal_normal()` can be reused in log-space for strictly-positive, right-skewed properties (e.g. SOC, CEC) where fusing raw mean/sd as if Normal would let the posterior place probability mass below zero.
+
+**Parameters**:
+```r
+normal_to_lognormal_params(mu, sigma)
+```
+- `mu`, `sigma` - Raw-space mean/sd.
+
+**Returns**: `list(mu = log-space mu, sigma = log-space sigma)`.
+
+**Algorithm/behavior**: Computes `sigma_log <- sqrt(log(1 + (sigma / mu)^2))` and `mu_log <- log(mu) - sigma_log^2 / 2` - the standard closed-form moment-matching formulas relating a Lognormal's raw-space mean/sd to its underlying Normal's mu/sigma. The caller is expected to fuse in log-space via `bayes_update_normal_normal(mu_log_prior, sigma_log_prior, mu_log_lik, sigma_log_lik)` and then convert the result back with `lognormal_to_normal_params()`.
+
+#### 3. `lognormal_to_normal_params()` - Log-Space to Raw-Space Moment Conversion
+
+**Purpose**: Inverse of `normal_to_lognormal_params()` - converts log-space Normal(mu, sigma) parameters (e.g. a posterior produced by fusing in log-space) back to the raw-space Lognormal's mean/sd.
+
+**Parameters**:
+```r
+lognormal_to_normal_params(mu_log, sigma_log)
+```
+- `mu_log`, `sigma_log` - Log-space mean/sd.
+
+**Returns**: `list(mu = raw-space mean, sigma = raw-space sd)`.
+
+**Algorithm/behavior**: Computes `mu <- exp(mu_log + sigma_log^2 / 2)` and `sigma <- sqrt((exp(sigma_log^2) - 1) * exp(2 * mu_log + sigma_log^2))` - the standard closed-form Lognormal moment formulas, the exact algebraic inverse of `normal_to_lognormal_params()`.
+
+### Tier 2: Exact closed-form same-family fusion (Beta/Gamma)
+
+#### 4. `fuse_beta()` - Beta-Beta Conjugate Fusion via Density Multiplication
+
+**Purpose**: Exact, closed-form fusion of two independent Beta belief distributions of the same family, derived from multiplying their kernels: `Beta(a1,b1) x Beta(a2,b2) -> Beta(a1+a2-1, b1+b2-1)`.
+
+**Parameters**:
+```r
+fuse_beta(prior_alpha, prior_beta, lik_alpha, lik_beta)
+```
+- `prior_alpha`, `prior_beta` - Prior Beta shape parameters (numeric scalar or vector).
+- `lik_alpha`, `lik_beta` - Likelihood Beta shape parameters (numeric scalar or vector).
+
+**Returns**: `list(alpha = , beta = , feasible = )`.
+
+**Algorithm/behavior**: Computes `alpha <- prior_alpha + lik_alpha - 1` and `beta <- prior_beta + lik_beta - 1`, following directly from multiplying the two Beta kernels `x^(a-1)(1-x)^(b-1)` and recognizing the product as another (unnormalized) Beta kernel. This addition-of-shape-parameters-minus-one is the Beta-family analogue of Tier 1's addition of Normal precisions. Because the resulting `alpha`/`beta` must both stay positive to remain a valid distribution, the function also returns a `feasible` flag: `(prior_alpha + lik_alpha > 1) & (prior_beta + lik_beta > 1)`. Where `feasible` is `FALSE`, the documented fallback route is to re-express both input Betas as Normal moments via `beta_to_moments()`, fuse those moments with `bayes_update_normal_normal()`, and convert the result back with `moments_to_beta()`.
+
+#### 5. `fuse_gamma()` - Gamma-Gamma Conjugate Fusion via Density Multiplication
+
+**Purpose**: Exact, closed-form fusion of two independent Gamma (shape/rate) belief distributions of the same family: `Gamma(k1,r1) x Gamma(k2,r2) -> Gamma(k1+k2-1, r1+r2)`.
+
+**Parameters**:
+```r
+fuse_gamma(prior_shape, prior_rate, lik_shape, lik_rate)
+```
+- `prior_shape`, `prior_rate` - Prior Gamma shape/rate parameters (numeric scalar or vector).
+- `lik_shape`, `lik_rate` - Likelihood Gamma shape/rate parameters (numeric scalar or vector).
+
+**Returns**: `list(shape = , rate = , feasible = )`.
+
+**Algorithm/behavior**: Computes `shape <- prior_shape + lik_shape - 1` and `rate <- prior_rate + lik_rate`, derived from multiplying the two Gamma kernels `x^(k-1)exp(-r*x)` - rates add outright (like Normal precisions), while shapes add minus one (like Beta's `alpha`/`beta`). Validity requires the fused shape to stay positive, so `feasible <- (prior_shape + lik_shape > 1)` is returned alongside. As with `fuse_beta()`, the documented infeasible-cell fallback is to re-express both sides as Normal moments via `gamma_to_moments()`, fuse with `bayes_update_normal_normal()`, and convert back with `moments_to_gamma()`.
+
+#### 6. `moments_to_gamma()` - Method-of-Moments Gamma Fit
+
+**Purpose**: Converts a mean/variance pair into Gamma shape/rate parameters; used by the closed-form same-family route's infeasible-cell fallback.
+
+**Parameters**:
+```r
+moments_to_gamma(mean, var)
+```
+- `mean`, `var` - Mean/variance to convert.
+
+**Returns**: `list(shape = mean^2 / var, rate = mean / var)`.
+
+**Algorithm/behavior**: Direct application of the standard Gamma method-of-moments formulas (`shape = mean^2/var`, `rate = mean/var`); a one-line closed-form conversion, no iteration.
+
+#### 7. `moments_to_beta()` - Method-of-Moments Beta Fit
+
+**Purpose**: Converts a mean/variance pair into Beta alpha/beta parameters; used by the closed-form same-family route's infeasible-cell fallback.
+
+**Parameters**:
+```r
+moments_to_beta(mean, var)
+```
+- `mean`, `var` - Mean/variance to convert.
+
+**Returns**: `list(alpha = , beta = )`.
+
+**Algorithm/behavior**: Computes the common factor `common <- mean * (1 - mean) / var - 1`, then `alpha <- mean * common` and `beta <- (1 - mean) * common` - the standard Beta method-of-moments formulas.
+
+#### 8. `beta_to_moments()` - Beta's Own Mean/Variance
+
+**Purpose**: The inverse direction of `moments_to_beta()` - computes a Beta distribution's mean/variance from its own `(alpha, beta)` parameters, used to re-express an infeasible same-family fusion's inputs as Normal moments before falling back to `bayes_update_normal_normal()`.
+
+**Parameters**:
+```r
+beta_to_moments(alpha, beta)
+```
+- `alpha`, `beta` - Beta shape parameters.
+
+**Returns**: `list(mean = alpha / (alpha + beta), var = (alpha * beta) / ((alpha + beta)^2 * (alpha + beta + 1)))`.
+
+**Algorithm/behavior**: Direct application of the standard closed-form Beta mean/variance formulas.
+
+#### 9. `gamma_to_moments()` - Gamma's Own Mean/Variance
+
+**Purpose**: The inverse direction of `moments_to_gamma()` - computes a Gamma distribution's mean/variance from its own `(shape, rate)` parameters, used the same way as `beta_to_moments()` in the infeasible-cell fallback.
+
+**Parameters**:
+```r
+gamma_to_moments(shape, rate)
+```
+- `shape`, `rate` - Gamma shape/rate parameters.
+
+**Returns**: `list(mean = shape / rate, var = shape / rate^2)`.
+
+**Algorithm/behavior**: Direct application of the standard closed-form Gamma mean/variance formulas.
+
+#### 10. `bayes_fuse()` - Same-Family Dispatcher
+
+**Purpose**: Dispatches to the correct closed-form fusion function (Tier 1 or Tier 2) based on a `family` argument, given both sides' parameters as named lists.
+
+**Parameters**:
+```r
+bayes_fuse(prior_params, lik_params, family = c("normal", "beta", "gamma"))
+```
+- `prior_params`, `lik_params` - Named lists of that family's parameters: `list(mu=, sigma=)` for `"normal"`, `list(alpha=, beta=)` for `"beta"`, `list(shape=, rate=)` for `"gamma"`.
+- `family` - One of `"normal"`, `"beta"`, `"gamma"` (matched via `match.arg()`). Both sides must already be fit in this same family - there is no closed form for fusing mismatched families; `bayesian_update()` (Tier 3) is required for that.
+
+**Returns**: The matching `fuse_*()` function's return value (i.e. `bayes_update_normal_normal()`'s, `fuse_beta()`'s, or `fuse_gamma()`'s return shape, depending on `family`).
+
+**Algorithm/behavior**: A plain `switch()` on `family` (after `match.arg()` validates/defaults it) that unpacks `prior_params`/`lik_params`'s named elements and forwards them positionally to `bayes_update_normal_normal()`, `fuse_beta()`, or `fuse_gamma()`. No logic of its own beyond argument routing.
+
+### Tier 3: Fully general grid-KDE fusion
+
+#### 11. `bayesian_update()` - Grid-Based KDE Bayesian Update
+
+**Purpose**: Fully general Bayesian fusion of a prior and likelihood distribution, given only raw samples on both sides - no distributional family assumption, and the two sides need not even match families. Works by estimating both densities on a shared grid via kernel density estimation (KDE), multiplying them per Bayes' rule, normalizing, and resampling from the resulting posterior.
+
+**Parameters**:
+```r
+bayesian_update(prior_distribution, likelihood_distribution, grid_range = NULL,
+                 grid_resolution = 0.01, n = 1000)
+```
+- `prior_distribution`, `likelihood_distribution` - Numeric vectors of raw samples (not distributional parameters).
+- `grid_range` - Optional length-2 vector giving the grid's min/max. If `NULL` (the default), derived from the combined range of both inputs, padded by 1 on each side.
+- `grid_resolution` - Step size of the evaluation grid (default `0.01`).
+- `n` - Number of posterior samples to draw (default `1000`).
+
+**Returns**: A numeric vector of `n` samples drawn from the posterior distribution.
+
+**Algorithm/behavior**: If `grid_range` is not supplied, the grid bounds are set to `min(c(prior_distribution, likelihood_distribution)) - 1` and `max(...) + 1`; otherwise the supplied bounds are used directly. A regular grid `value_grid <- seq(grid_min, grid_max, by = grid_resolution)` is built. `stats::density()` (with `bw = "nrd0"`, the default bandwidth-selection rule) estimates each side's density evaluated over exactly that grid (`from = grid_min, to = grid_max, n = length(value_grid)`). Each density is then interpolated back onto `value_grid` via `stats::approxfun()`, and both are individually normalized to sum to 1 (`prior_prob / sum(prior_prob)`, likewise for likelihood) so they behave as discrete probability masses over the grid. The two normalized densities are multiplied elementwise (Bayes' rule: posterior proportional to prior times likelihood) and renormalized to sum to 1, giving `posterior_prob`. Finally, `n` samples are drawn from `value_grid` with `sample(..., prob = posterior_prob, replace = TRUE)`. This is fully general (any shape, any family, even mismatched sides between prior and likelihood) but considerably more expensive than the closed-form tiers, and it needs raw samples rather than distributional parameters on both sides.
+
+### Joint (compositional) fusion for texture (clay/sand/silt)
+
+#### 12. `fuse_bivariate_normal()` - Precision-Matrix Fusion for 2D Normal Beliefs
+
+**Purpose**: Fuses two independent bivariate Normal beliefs about the same 2D quantity (used here for ILR-transformed clay/sand/silt texture coordinates), the direct multivariate generalization of `bayes_update_normal_normal()`'s scalar-precision addition: precision MATRICES add instead of scalar precisions.
+
+**Parameters**:
+```r
+fuse_bivariate_normal(mu1, Sigma1, mu2, Sigma2)
+```
+- `mu1`, `mu2` - Length-2 mean vectors.
+- `Sigma1`, `Sigma2` - 2x2 covariance matrices.
+
+**Returns**: `list(mu = fused mean vector, Sigma = fused covariance matrix)`.
+
+**Algorithm/behavior**: Inverts each covariance matrix to get its precision matrix (`P1 <- solve(Sigma1)`, `P2 <- solve(Sigma2)`), sums the precision matrices and inverts back to get the posterior covariance (`Sigma_post <- solve(P1 + P2)`), and computes the posterior mean as `Sigma_post %*% (P1 %*% mu1 + P2 %*% mu2)` (the precision-weighted average, in matrix form) coerced to a plain numeric vector via `as.numeric()`.
+
+#### 13. `fuse_texture_group_from_triplets()` - Joint ILR-Space Texture Fusion
+
+**Purpose**: Fuses two full clay/sand/silt low-representative-high triplets (a prior set and a likelihood/observed set) jointly, in ILR (isometric log-ratio) space, so the fused posterior composition is guaranteed to sum to 100 by construction. This exists because independent per-fraction fusion (e.g. three separate `fuse_beta()` calls, one per texture fraction) measurably breaks sum-to-100 - documented upstream as an error of up to 10.5 percentage points on realistic synthetic data - since it ignores the negative cross-fraction correlation inherent to any 3-part composition.
+
+**Parameters**:
+```r
+fuse_texture_group_from_triplets(prior_triplets, lik_triplets, z_prior, z_lik,
+                                  n_mc = 2000, n_samples = 1000, total = 100)
+```
+- `prior_triplets`, `lik_triplets` - Named lists with elements `clay`, `sand`, `silt`, each a length-3 numeric vector `c(low, rep, high)`. These keys are positional-role placeholders matching `distributions.R`'s `estimate_ilr_moments_mc()` parameter naming (`low_clay`/`low_sand`/`low_silt`, i.e. position 1/2/3 of the ILR sequential binary partition), not an identity requirement - callers (e.g. a future `monte-carlo.R` `fuse_observed_data_into_priors()`) build them from `composition_groups$texture$members` in whatever order that configuration specifies.
+- `z_prior`, `z_lik` - Standard-normal quantile matching each side's low/high interval (e.g. `qnorm(0.95)` for a 5th/95th-percentile low/high).
+- `n_mc` - Monte Carlo sample size passed to `estimate_ilr_moments_mc()` (default `2000`).
+- `n_samples` - Number of posterior composition samples to draw (default `1000`).
+- `total` - Composition target sum (default `100`).
+
+**Returns**: `list(posterior_samples = <n_samples x 3 matrix, columns clay/sand/silt, guaranteed sum-to-`total` by construction>, ilr_mu = , ilr_Sigma = )`.
+
+**Algorithm/behavior**: Calls `distributions.R`'s `estimate_ilr_moments_mc()` once per side (prior and likelihood), each time unpacking that side's `clay`/`sand`/`silt` triplets into the `low_*`/`rep_*`/`high_*` arguments that function expects, along with that side's own `z` quantile and the shared `n_mc`. Each call returns an ILR-space `(mu, Sigma)` pair summarizing that side's belief about the 2D ILR-transformed composition. The two `(mu, Sigma)` pairs are then fused with `fuse_bivariate_normal()` (precision matrices add). Finally, `distributions.R`'s `sample_ilr_posterior(fused$mu, fused$Sigma, n = n_samples, total = total)` draws `n_samples` posterior composition samples in raw clay/sand/silt space, guaranteed by construction (via `ilr_inverse()`) to sum to `total` and stay within `[0, total]`. The function returns those samples alongside the fused ILR-space `mu`/`Sigma` for diagnostic use.
+
+### Shape-based dispatcher
+
+#### 14. `fuse_property()` - Top-Level Fusion Entry Point, Dispatching by Input Shape
+
+**Purpose**: A single entry point for scalar/tabular property fusion that dispatches between the general (Tier 3) and closed-form (Tiers 1/2) routes based on the SHAPE of the `prior`/`likelihood` arguments, rather than on a caller-supplied or heuristically-guessed method flag. Contrasted explicitly (in its own doc comment) with the raster-native reference `fuse_adaptive()` in `R/raster-fusion.R`, which instead dispatches between routes by AOI cell count - a concept with no tabular analogue.
+
+**Parameters**:
+```r
+fuse_property(prior, likelihood, family = NULL, bounds = NULL, method = NULL,
+              n_samples = 1000, grid_resolution = 0.01)
+```
+- `prior`, `likelihood` - Either numeric vectors of raw samples (both sides must be vectors), or named lists of family-native parameters matching `family` (both sides must be lists). Mixing shapes across `prior`/`likelihood` is an error.
+- `family` - Required when `prior`/`likelihood` are parameter lists; one of `"normal"`, `"beta"`, `"gamma"`. Ignored (and implicitly "general") when `prior`/`likelihood` are raw-sample vectors.
+- `bounds` - Unused currently; kept for interface symmetry with percentile-triplet-based callers.
+- `method` - Optional assertion/override: `"general"` or `"closed_form"`. The function errors if this doesn't match what the input shape implies, rather than silently overriding the shape-implied route.
+- `n_samples`, `grid_resolution` - Passed through to `bayesian_update()` for the general route.
+
+**Returns**: For the general route, a numeric vector of posterior samples (`bayesian_update()`'s native output). For the closed-form route, the family-native posterior parameter list (`bayes_fuse()`'s native output). These two return shapes are deliberately NOT unified into a fake-common contract - documented explicitly in the source, since the caller already knows which shape it passed in and therefore which shape it gets back.
+
+**Algorithm/behavior**: Determines `prior_is_vector`/`lik_is_vector` via `is.atomic(x) && is.numeric(x)` for each side, and errors immediately if they disagree (mixed shapes). `resolved_method` is set to `"general"` if both sides are vectors, else `"closed_form"`. If the caller supplied `method` and it doesn't `identical()`-match `resolved_method`, the function errors with a message naming both the requested and shape-implied methods, rather than silently picking one. For the general route, it forwards straight to `bayesian_update(prior, likelihood, grid_resolution = grid_resolution, n = n_samples)`. For the closed-form route, it requires `family` to be non-`NULL` (erroring otherwise) and forwards to `bayes_fuse(prior, likelihood, family = family)`.
+
+## Internal Connections
+
+```
+fuse_property(prior, likelihood, family, bounds, method, n_samples, grid_resolution)
+│
+├── shape check: is.atomic(prior) && is.numeric(prior)  (and same for likelihood)
+│
+├── [prior/likelihood are raw-sample vectors] -> resolved_method = "general"
+│   └── bayesian_update(prior, likelihood, grid_range = NULL,
+│                        grid_resolution, n = n_samples)
+│       ├── stats::density() x2 (prior_distribution, likelihood_distribution)
+│       ├── stats::approxfun() x2 -> interpolate onto shared value_grid
+│       └── sample(value_grid, prob = posterior_prob, replace = TRUE)
+│
+└── [prior/likelihood are named parameter lists] -> resolved_method = "closed_form"
+    └── bayes_fuse(prior_params, lik_params, family)
+        ├── family == "normal" -> bayes_update_normal_normal(prior_mu, prior_sigma, lik_mu, lik_sigma)
+        ├── family == "beta"   -> fuse_beta(prior_alpha, prior_beta, lik_alpha, lik_beta)
+        │                          [infeasible fallback, not automatic: beta_to_moments() ->
+        │                           bayes_update_normal_normal() -> moments_to_beta()]
+        └── family == "gamma"  -> fuse_gamma(prior_shape, prior_rate, lik_shape, lik_rate)
+                                    [infeasible fallback, not automatic: gamma_to_moments() ->
+                                     bayes_update_normal_normal() -> moments_to_gamma()]
+
+Separately (not reachable through fuse_property()/bayes_fuse()):
+
+fuse_texture_group_from_triplets(prior_triplets, lik_triplets, z_prior, z_lik, n_mc, n_samples, total)
+├── distributions.R::estimate_ilr_moments_mc()   [once for prior_triplets]
+├── distributions.R::estimate_ilr_moments_mc()   [once for lik_triplets]
+├── fuse_bivariate_normal(prior_moments$mu, prior_moments$Sigma,
+│                         lik_moments$mu, lik_moments$Sigma)
+└── distributions.R::sample_ilr_posterior(fused$mu, fused$Sigma, n_samples, total)
+
+normal_to_lognormal_params() / lognormal_to_normal_params()
+  - not called by any other function in this file; documented helpers a caller
+    uses around its own bayes_update_normal_normal() call to fuse strictly-
+    positive, right-skewed (Lognormal) properties in log-space.
+```
+
+Note that `fuse_bivariate_normal()` and the infeasible-cell fallback routes for `fuse_beta()`/`fuse_gamma()` are documented conventions, not automatic behavior wired into `bayes_fuse()`/`fuse_property()` - a caller hitting an infeasible cell (`feasible == FALSE`) must invoke the `*_to_moments()`/`moments_to_*()` fallback chain itself.
+
+## Dependencies
+
+### External packages
+```
+soilSIM (bayesian-updating.R)
+├── stats::density()    - kernel density estimation (bw = "nrd0"), used by bayesian_update()
+├── stats::approxfun()  - linear interpolation of KDE output onto the shared value grid
+├── base::sample()      - posterior resampling in bayesian_update()
+├── base::solve()       - covariance <-> precision matrix inversion in fuse_bivariate_normal()
+└── base::switch()/match.arg() - family dispatch in bayes_fuse()
+```
+
+### soilSIM dependencies
+```
+bayesian-updating.R
+└── distributions.R
+    ├── estimate_ilr_moments_mc()  - used by fuse_texture_group_from_triplets()
+    └── sample_ilr_posterior()     - used by fuse_texture_group_from_triplets()
+```
+
+### Integration status
+This file is **standalone and not currently called anywhere in `monte-carlo.R`** - the module's own header comment states this explicitly. It is a set of independently-tested building blocks for a future "update an SSURGO-derived prior against observed/field data" feature, not yet wired into the main Monte Carlo simulation pipeline.
+
+This contrasts with `R/raster-fusion.R`, which reuses these exact functions (`bayes_update_normal_normal()`, `fuse_beta()`, `fuse_gamma()`, the `*_to_moments()`/`moments_to_*()` helpers, `normal_to_lognormal_params()`/`lognormal_to_normal_params()`, `bayesian_update()`, and `fuse_bivariate_normal()`) as the computational core of a complete, adaptive, per-cell fusion pipeline (`fuse_adaptive()`/`fuse_property_adaptive()`) that routes between the closed-form and general tiers by AOI cell count and includes Lognormal/metalog adapters and infeasible-cell fallback handling automatically. In other words: `bayesian-updating.R` supplies the primitives with no top-level orchestrator of its own, while `raster-fusion.R` assembles those same primitives into one - though `raster-fusion.R` is, like this file, also not yet called from `monte-carlo.R`.
+
+## Data Flow In/Out
+
+**In**: A prior belief about a property (expressed either as distributional parameters - `mu`/`sigma` for Normal, `alpha`/`beta` for Beta, `shape`/`rate` for Gamma, or a full clay/sand/silt low/rep/high triplet - or as a raw numeric vector of prior samples), plus observed/likelihood data in the matching shape (parameters of the same family, or a raw numeric vector of observed samples).
+
+**Out**: A fused posterior belief in the shape implied by the input route - a posterior parameter list (`mu`/`sigma`, `alpha`/`beta`/`feasible`, or `shape`/`rate`/`feasible`) for the closed-form tiers; a numeric vector of posterior samples for the general grid-KDE tier; or, for texture, an `n_samples x 3` matrix of posterior clay/sand/silt composition samples (guaranteed sum-to-100) plus the fused ILR-space `mu`/`Sigma`.
+
+## Known Limitations
+
+- **Not wired into the Monte Carlo pipeline**: This is current integration status, not a defect - the file is intentionally a standalone toolkit (per its own header comment) for a not-yet-built "fuse observed/field data into an SSURGO-derived prior" feature. Nothing in `monte-carlo.R` calls into this file today.
+- **`fuse_beta()`/`fuse_gamma()` feasibility constraints**: the closed-form Beta-Beta and Gamma-Gamma fusion is only valid when the fused shape parameters stay positive (`prior_alpha + lik_alpha > 1` and `prior_beta + lik_beta > 1` for Beta; `prior_shape + lik_shape > 1` for Gamma). Both functions return a `feasible` flag rather than erroring, but applying the documented moment-based fallback (`*_to_moments()` -> `bayes_update_normal_normal()` -> `moments_to_*()`) on infeasible cells is left to the caller - it is not automatic.
+- **`bayesian_update()` requires raw samples, not parameters**, and is considerably more expensive than the closed-form tiers (density estimation plus grid evaluation on both sides, for every call) - it is the fully general fallback, not the default route.
+- **`fuse_property()`'s two return shapes are not unified**: the general route returns a sample vector while the closed-form route returns a parameter list - callers must already know (from the shape of what they passed in) which shape they'll get back.
+- **`fuse_texture_group_from_triplets()`'s `clay`/`sand`/`silt` keys are positional-role placeholders**, matching `estimate_ilr_moments_mc()`'s `low_clay`/`low_sand`/`low_silt` parameter-position convention (the ILR sequential binary partition), not an identity requirement - callers must build the triplets in whatever order their own composition-group configuration specifies.
+- **Independent per-fraction texture fusion is documented as measurably wrong**: fusing clay/sand/silt as three separate, independent `fuse_beta()` calls breaks sum-to-100 by up to 10.5 percentage points on realistic synthetic data (documented upstream) - this is the motivating reason `fuse_texture_group_from_triplets()` fuses jointly in ILR space instead, and is noted here as a limitation of the naive per-fraction approach that this file's joint route exists to avoid.
+
+## Usage Example
+
+```r
+library(soilSIM)
+
+# --- Tier 1: exact closed-form Normal-Normal fusion ---
+# Prior belief about mean pH from an SSURGO-derived estimate:
+prior_ph <- list(mu = 6.2, sigma = 0.4)
+# Likelihood: field-measured pH at a set of sample points:
+field_ph <- list(mu = 6.5, sigma = 0.2)
+
+posterior_ph <- bayes_update_normal_normal(
+  prior_mu = prior_ph$mu, prior_sigma = prior_ph$sigma,
+  lik_mu = field_ph$mu, lik_sigma = field_ph$sigma
+)
+# posterior_ph$sigma <= min(prior_ph$sigma, field_ph$sigma), by construction
+posterior_ph
+
+# --- Tier 3: fully general grid-KDE fusion, given raw samples on both sides ---
+set.seed(42)
+prior_samples <- rnorm(500, mean = 6.2, sd = 0.4)      # SSURGO-derived prior draws
+field_samples <- rnorm(30, mean = 6.5, sd = 0.2)       # observed field measurements
+
+posterior_samples <- bayesian_update(
+  prior_distribution = prior_samples,
+  likelihood_distribution = field_samples,
+  grid_resolution = 0.01,
+  n = 1000
+)
+mean(posterior_samples)
+sd(posterior_samples)
+```

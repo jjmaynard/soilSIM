@@ -1,0 +1,507 @@
+url: https://jjmaynard.github.io/soilSIM/
+
+# soilSIM/docs/ already holds hand-written developer/architecture reference docs
+# (.Rbuildignore'd) - build pkgdown's site into a different directory so it never
+# writes generated HTML into that folder.
+destination: pkgdown_site
+
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+  components:
+    intro:
+      text: Get Started
+      menu:
+      - text: "Tabular Monte Carlo simulation from SSURGO"
+        href: articles/getting-started-monte-carlo.html
+      - text: "Profile, component & depth simulation"
+        href: articles/profile-depth-simulation.html
+      - text: "Available water storage via Van Genuchten / ROSETTA"
+        href: articles/aws-van-genuchten.html
+      - text: "Multi-source raster fusion: SSURGO x SOLUS100"
+        href: articles/raster-fusion-ssurgo-solus.html
+    articles:
+      text: Architecture
+      menu:
+      - text: "Overview"
+        href: articles/architecture-overview.html
+      - text: "Data Acquisition & Processing"
+        href: articles/architecture-data-acquisition-processing.html
+      - text: "Statistics & Diagnostics"
+        href: articles/architecture-statistics-diagnostics.html
+      - text: "Distribution Fitting & Correlations"
+        href: articles/architecture-distribution-fitting-correlations.html
+      - text: "Monte Carlo Simulation"
+        href: articles/architecture-monte-carlo-simulation.html
+      - text: "GP Modeling & Multivariate Adjustment"
+        href: articles/architecture-gp-modeling-multivariate-adjustment.html
+      - text: "Profile, Component & Depth Simulation"
+        href: articles/architecture-profile-component-depth-simulation.html
+      - text: "AWS / Van Genuchten Modeling"
+        href: articles/architecture-aws-van-genuchten-modeling.html
+      - text: "Bayesian Updating"
+        href: articles/architecture-bayesian-updating.html
+      - text: "Multi-Source Raster Fusion Pipeline"
+        href: articles/architecture-multi-source-raster-fusion-pipeline.html
+      - text: "Utilities"
+        href: articles/architecture-utilities.html
+
+reference:
+- title: Data Acquisition & Processing
+  desc: >
+    The SSURGO adapter's tabular acquisition, cleaning, and infilling pipeline.
+  contents:
+  - download_ssurgo_tabular
+  - create_ssurgo_property_lookup_working
+  - validate_download_inputs_ssurgo
+  - validate_download_inputs_ssurgo_with_config
+  - generate_validation_report_ssurgo
+  - check_ssurgo_cache
+  - cache_ssurgo_data
+  - download_and_prepare_ssurgo
+  - process_ssurgo_data
+  - process_horizon_data_working_compatible
+  - process_component_data_working_compatible
+  - create_infill_compatible_dataset
+  - clean_property_data_ssurgo_compatible
+  - hz_quant_prob_mukey
+  - process_soil_properties_comprehensive
+  - infill_soil_property
+  - clean_property_data
+  - get_default_property_config
+  - create_custom_property_config
+  - validate_property_config
+  - get_rfv_range_category
+  - apply_property_constraints
+  - create_validation_config
+  - add_range_rule
+  - add_relationship_rule
+  - apply_validation_rules
+  - summarize_unsuitable_horizons
+  - infill_property_range_values
+  - learn_property_ranges
+  - get_property_contextual_ranges
+  - infill_missing_property_data
+  - horizon_name_property_infill
+  - infill_rfv_property_integrated
+  - infill_water_retention_saxton_rawls_integrated
+  - impute_rfv_values
+  - calculate_saxton_rawls_single
+
+- title: Statistics & Diagnostics
+  desc: Descriptive statistics, correlation analysis, and end-to-end workflow QA.
+  contents:
+  - analyze_soil_statistics
+  - run_comprehensive_correlation_analysis
+  - compute_stratified_correlations
+  - analyze_property_distributions
+  - fit_property_distributions
+  - detect_comprehensive_outliers
+  - validate_statistical_results
+  - generate_statistical_quality_report
+  - get_statistical_analysis_defaults
+  - validate_statistical_config
+  - identify_numeric_soil_properties
+  - compute_property_statistics
+  - get_appropriate_distributions
+  - analyze_texture_correlations
+  - validate_complete_workflow
+  - generate_validation_report
+  - assess_workflow_quality
+  - validate_monte_carlo_quality
+  - assess_simulation_coverage
+  - validate_distribution_fidelity
+  - validate_correlation_structures
+  - validate_correlation_preservation_diagnostics
+  - validate_within_depth_correlations
+  - assess_cholesky_decomposition
+  - validate_gp_model_workflow
+  - validate_gp_model_performance
+  - assess_depth_trend_realism
+  - validate_gp_predictions
+  - validate_soil_science_realism
+  - assess_property_constraints
+
+- title: Distribution Fitting & Correlations
+  desc: Percentile-triplet and arbitrary-percentile fitting, ILR transforms, correlation matrices (core).
+  contents:
+  - fit_normal_triplet
+  - quantile_normal
+  - fit_beta_mom
+  - fit_beta_mle_newton
+  - fit_beta_mle_newton_vec
+  - quantile_beta
+  - quantile_linear_cdf
+  - quantile_triangular
+  - tri_dist
+  - fit_metalog_linear
+  - quantile_metalog_linear
+  - check_metalog_feasible
+  - quantile_metalog_with_fallback
+  - resolve_property_family
+  - fit_percentile_triplet
+  - quantile_from_fit
+  - validate_fit_parameters
+  - ilr_forward
+  - ilr_inverse
+  - estimate_ilr_moments_mc
+  - sample_ilr_posterior
+  - ensure_positive_definite_matrix
+  - validate_correlation_matrix
+  - estimate_correlation_matrix_robust
+  - resolve_composition_groups
+  - restore_composition_properties
+  - simulate_from_percentiles
+  - generate_inverse_cdf_distribution
+  - compare_percentile_methods
+  - calculate_summary_statistics
+  - validate_percentile_methods_synthetic
+  - classify_genhz
+  - build_kssl_fallback_matrix
+
+- title: Monte Carlo Simulation
+  desc: Correlated Monte Carlo simulation engine (core).
+  contents:
+  - generate_monte_carlo_realizations
+  - simulate_correlated_properties
+  - sim_component_compositions
+  - setup_distributions
+  - prepare_simulation_parameters
+  - fuse_observed_data_into_priors
+  - configure_correlation_structure
+  - apply_simulation_constraints
+  - validate_monte_carlo_inputs
+  - validate_simulation_output
+  - get_monte_carlo_defaults
+  - normalize_monte_carlo_config
+  - validate_monte_carlo_config
+  - prepare_simulation_data
+  - extract_property_parameters
+  - estimate_property_correlations
+
+- title: GP Depth Modeling & Multivariate Adjustment
+  desc: Gaussian-process depth-trend modeling and Monte Carlo/GP integration (core).
+  contents:
+  - prepare_nrcs_training_data
+  - select_optimal_grouping
+  - validate_training_groups
+  - build_stratified_gp_models
+  - fit_individual_gp_model
+  - adjust_multivariate_depthwise_GP
+  - validate_correlation_preservation
+  - simulate_soil_properties
+  - match_soils_to_gp_models
+  - predict_gp_depth_trends
+  - validate_gp_models
+  - integrate_monte_carlo_with_gp
+  - apply_gp_depth_trends
+  - preserve_correlation_structure
+  - apply_nrcs_trend_adjustments
+  - match_simulations_to_nrcs_models
+  - extract_nrcs_depth_trends
+  - apply_local_gp_adjustments
+  - fit_local_gp_models
+  - apply_local_depth_trends
+  - convert_to_property_matrices
+  - convert_to_long_format
+  - validate_integration_results
+  - correct_distribution_shapes
+
+- title: Profile, Component & Depth Simulation
+  desc: Component composition and horizon depth/thickness simulation.
+  contents:
+  - remove_organic_layer
+  - slice_and_aggregate_soil_data
+  - sim_component_comp
+  - simulate_correlated_triangular
+  - calculate_mode
+  - simulate_cokey_generalized
+  - get_aws_data_by_mukey
+  - query_osd_distinctness
+  - infill_missing_distinctness
+  - infill_missing_depth_variability
+  - simulate_soil_profile_top_down
+  - simulate_soil_profile_bottom_up
+  - simulate_soil_profile_thickness
+  - simulate_and_perturb_soil_profiles
+  - simulate_profile_depths_by_collection
+  - simulate_profile_depths_by_collection_parallel
+  - simulate_profile_depths_by_mukey
+  - evaluate_simulated_depths
+
+- title: AWS / Van Genuchten Modeling
+  desc: Available water storage via ROSETTA pedotransfer parameters.
+  contents:
+  - van_genuchten
+  - simulate_vg_aws
+  - calculate_aws_df
+
+- title: Bayesian Updating
+  desc: Scalar Bayesian updating/fusion of a prior and observed data (core).
+  contents:
+  - bayes_update_normal_normal
+  - normal_to_lognormal_params
+  - lognormal_to_normal_params
+  - fuse_beta
+  - fuse_gamma
+  - moments_to_gamma
+  - moments_to_beta
+  - beta_to_moments
+  - gamma_to_moments
+  - bayes_fuse
+  - bayesian_update
+  - fuse_bivariate_normal
+  - fuse_texture_group_from_triplets
+  - fuse_property
+
+- title: Multi-Source Raster Fusion
+  desc: Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
+  contents:
+  - fit_normal_raster
+  - quantile_normal_raster
+  - quantile_linear_cdf_raster
+  - fit_beta_mom_raster
+  - quantile_beta_mom_raster
+  - fit_beta_mle_newton_raster
+  - quantile_beta_mle_newton_raster
+  - fit_metalog_linear_raster
+  - quantile_metalog_linear_raster
+  - check_metalog_feasibility_raster
+  - quantile_metalog_linear_with_fallback
+  - fit_gamma_mom_raster
+  - align_percentile_probs
+  - fuse_adaptive
+  - metalog_moments_raster
+  - resolve_property_dist
+  - fuse_property_adaptive
+  - group_members
+  - fuse_texture_group
+  - run_stage1_fusion
+  - run_stage1_fusion_group
+  - CACHE_TTL_SECONDS
+  - build_cache_key
+  - cache_get
+  - cache_set
+  - wrap_nested_rasters
+  - unwrap_nested_rasters
+  - fetch_ssurgo_mukey_raster
+  - infill_soil_data
+  - maybe_adjust_soil_data_depth_trend
+  - aggregate_depth_window_by_replicate
+  - property_to_sim_column
+  - simulate_ssurgo_mapunit_draws
+  - SSURGO_SIM_PROPERTY_COLUMNS
+  - rasterize_mukey_percentiles
+  - fetch_ssurgo_percentiles
+  - closest_solus_depth_slice
+  - fetch_solus_low_pred_high
+  - fetch_solus_percentiles
+
+- title: Utilities
+  desc: Shared validation, logging, configuration, and I/O helpers.
+  contents:
+  - is_unsuitable
+  - validate_data_quality
+  - check_required_columns
+  - validate_numeric_ranges
+  - standardize_property_names
+  - convert_depth_units
+  - safe_coalesce
+  - handle_missing_values
+  - read_soil_data
+  - write_soil_data
+  - backup_data
+  - load_configuration
+  - safe_correlation
+  - calculate_confidence_intervals
+  - normalize_values
+  - detect_outliers
+  - setup_logging
+  - log_message
+  - handle_workflow_error
+  - track_progress
+  - get_default_configuration
+  - validate_parameters
+  - merge_configurations
+  - export_workflow_metadata
+  - validate_properties
+  - get_available_properties
+  - get_predefined_properties
+  - extract_properties_from_dataframe
+  - validate_properties_with_synonyms
+  - get_default_synonyms
+  - create_property_lookup
+  - validate_wkt_geometry
+  - validate_wkt_string
+  - parse_wkt_geometry
+  - validate_geometry_validity
+  - validate_geometry_area
+  - validate_geometry_complexity
+  - validate_coordinate_bounds
+  - get_validation_defaults
+  - calculate_complexity_score
+  - validate_geographic_context
+  - validate_projected_context
+
+- title: Internal Implementation Details
+  desc: >
+    Non-exported helpers, internal file-grouping doc anchors, and constants that are
+    documented (so they have their own help page) but not part of soilSIM's public API.
+    Not part of the Get Started path - only relevant if you're reading soilSIM's source.
+  contents:
+  - .kssl_property_matrices
+  - .kssl_property_name_map
+  - .kssl_texture_matrices
+  - add_restriction_indicators_working
+  - advanced_string_parser_vectorized
+  - aggregate_rock_fragment_volume_working
+  - analyze_property_distributions_safe
+  - apply_basic_range_limits
+  - apply_composition_constraints
+  - apply_data_filtering
+  - apply_group_fallback_mean
+  - apply_local_gp_adjustments_with_correlations
+  - apply_nrcs_gp_adjustments_with_correlations
+  - as_lrh_triplet
+  - assess_component_quality
+  - assess_correlation_differences
+  - assess_correlation_matrix_properties
+  - assess_correlation_quality
+  - assess_correlation_stability_across_depths
+  - assess_cross_property_constraints
+  - assess_depth_correlation_preservation
+  - assess_distribution_quality
+  - assess_distributional_coverage
+  - assess_group_representation
+  - assess_outlier_quality
+  - assess_pedological_relationships
+  - assess_property_coverage
+  - assess_simulation_convergence
+  - assess_simulation_quality
+  - assess_single_cholesky_decomposition
+  - assess_single_gp_performance
+  - assess_trend_realism
+  - auto_detect_soil_properties
+  - aws_simulation
+  - bayesian_updating
+  - calculate_component_stats_working
+  - calculate_depth_weighted_mean
+  - calculate_derived_horizon_properties_working
+  - calculate_horizon_similarity
+  - calculate_missing_data_improvement
+  - calculate_overall_gp_performance
+  - calculate_overall_statistics_quality_score
+  - calculate_property_completeness_working
+  - calculate_property_lower_bound
+  - calculate_property_upper_bound
+  - calculate_simulation_quality_metrics
+  - calculate_workflow_performance
+  - check_data_sufficiency
+  - compare_distribution_moments
+  - compare_distribution_quantiles
+  - create_download_metadata
+  - cross_component_property_interpolation
+  - depth_simulation
+  - depth_weighted_property_infill
+  - detect_comprehensive_outliers_safe
+  - detect_distribution_anomalies
+  - detect_multivariate_outliers
+  - detect_statistical_outliers_soil_aware
+  - determine_grouping_column
+  - distribution_fitting_raster
+  - distributions
+  - ensure_essential_columns_working
+  - ensure_infilling_columns
+  - escape_html_text
+  - execute_ssurgo_query_working
+  - extract_component_parameters
+  - extract_percentile_pairs
+  - fetch_osd_horizons_cached
+  - filter_valid_numeric_properties
+  - fit_single_distribution
+  - flatten_simulation_array_to_long
+  - fuse_closed_form
+  - fuse_general_kde
+  - fuse_one_property_prior
+  - generate_comprehensive_diagnostics
+  - generate_html_report
+  - generate_markdown_report
+  - generate_outlier_summary
+  - generate_pdf_report
+  - generate_processing_quality_report
+  - generate_processing_summary
+  - generate_simulation_diagnostics
+  - generate_ssurgo_cache_key
+  - generate_statistical_quality_report_safe
+  - get_contextual_spread
+  - get_sum_constraints
+  - gp_modeling
+  - identify_soil_property_columns_working
+  - infer_simulation_properties
+  - k_fold_gp_cv
+  - kssl_reference_correlations
+  - merge_configurations_safe
+  - metalog_basis_matrix
+  - monte_carlo_simulation
+  - multivariate_adjustment
+  - optimize_gp_hyperparameters
+  - parse_single_string_advanced
+  - percentile_index
+  - percentile_interior
+  - percentile_sampling
+  - perform_distribution_tests
+  - perform_gp_cross_validation
+  - process_aoi_and_get_mukeys_working
+  - process_property_group
+  - process_property_group_fallback
+  - process_single_property
+  - property_simulation
+  - rank_distribution_fits
+  - raster_cache
+  - raster_digamma
+  - raster_fusion
+  - related_property_estimation
+  - remove_invalid_components_working
+  - remove_invalid_horizons_working_compatible
+  - render_report_as_markdown_lines
+  - render_value_as_lines
+  - resolve_real_properties
+  - run_comprehensive_correlation_analysis_safe
+  - run_parallel_simulation
+  - save_diagnostic_plot
+  - select_simulation_correlation_matrix
+  - set_verbose_logging
+  - sim_beta
+  - sim_kde
+  - sim_linear_cdf
+  - sim_normal
+  - sim_spline
+  - soil_infilling
+  - soil_statistics
+  - soilSIM-package
+  - solus_simulation
+  - ssurgo_data
+  - ssurgo_processing
+  - ssurgo_simulation
+  - standardize_horizon_name
+  - summarize_constraint_violations
+  - summarize_distributions
+  - test_distribution_fidelity
+  - theme_soil_diagnostics
+  - validate_component_data
+  - validate_correlation_matrices
+  - validate_correlation_matrix_quality
+  - validate_distribution_parameters
+  - validate_distribution_setup
+  - validate_horizon_characteristics
+  - validate_simulation_depth_trends
+  - validate_single_gp_predictions
+  - validate_statistical_results_safe
+  - validation_diagnostics
+  - vectorized_type_conversion
+  - within_component_property_interpolation
+  - wrap_percentile_list
