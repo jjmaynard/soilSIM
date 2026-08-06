@@ -296,6 +296,42 @@ rasterize_mukey_percentiles <- function(mukey_raster, percentile_by_mukey) {
   )
 }
 
+#' Compute Per-Mukey Percentile Rasters from Already-Simulated SSURGO Draws
+#'
+#' The quantile/rasterize half of [fetch_ssurgo_percentiles()], factored out so a single shared
+#' [simulate_ssurgo_mapunit_draws()] result can be reused across multiple properties instead of
+#' resimulating once per property - `simulate_cokey_generalized()` already simulates every
+#' recognized property jointly in one pass per cokey, so a caller that needs several properties
+#' from the same AOI/depth window (e.g. `run_stage1_fusion_group()`'s texture members) only needs
+#' to run the (expensive) simulation once and call this per property afterward.
+#'
+#' @param mukey_raster A categorical (factor) mukey `terra::SpatRaster` from
+#'   `fetch_ssurgo_mukey_raster()`.
+#' @param draws A data frame from `simulate_ssurgo_mapunit_draws()`, for the same AOI/depth
+#'   window `mukey_raster` covers.
+#' @param property_id One of `property_to_sim_column()`'s recognized ids.
+#' @param probs Percentile probabilities to compute (default `c(0.05, 0.25, 0.5, 0.75, 0.95)`).
+#' @return `list(values = <named list of percentile-value SpatRasters>, probs = probs)`, or `NULL`
+#'   if `property_id`'s simulated column isn't present in `draws`.
+#' @keywords internal
+percentiles_from_draws <- function(mukey_raster, draws, property_id,
+                                    probs = c(0.05, 0.25, 0.5, 0.75, 0.95)) {
+  sim_col <- property_to_sim_column(property_id)
+  if (!sim_col %in% names(draws)) return(NULL)
+
+  percentile_names <- sprintf("P%02d", round(probs * 100))
+  by_mukey <- draws |>
+    dplyr::group_by(mukey) |>
+    dplyr::summarise(q = list(stats::quantile(.data[[sim_col]], probs = probs, na.rm = TRUE)), .groups = "drop")
+  q_mat <- do.call(rbind, by_mukey$q)
+  colnames(q_mat) <- percentile_names
+  percentile_by_mukey <- cbind(mukey = by_mukey$mukey, as.data.frame(q_mat))
+
+  values <- rasterize_mukey_percentiles(mukey_raster, percentile_by_mukey)
+
+  list(values = values, probs = probs)
+}
+
 #' Fetch SSURGO Percentile-Value Rasters for an AOI
 #'
 #' The top-level SSURGO "prior" entry point for `R/raster-fusion.R`'s `fuse_property_adaptive()`:
@@ -318,18 +354,5 @@ fetch_ssurgo_percentiles <- function(aoi_vect, property_id, top_depth, bottom_de
   draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc)
   if (is.null(draws) || nrow(draws) == 0) return(NULL)
 
-  sim_col <- property_to_sim_column(property_id)
-  if (!sim_col %in% names(draws)) return(NULL)
-
-  percentile_names <- sprintf("P%02d", round(probs * 100))
-  by_mukey <- draws |>
-    dplyr::group_by(mukey) |>
-    dplyr::summarise(q = list(stats::quantile(.data[[sim_col]], probs = probs, na.rm = TRUE)), .groups = "drop")
-  q_mat <- do.call(rbind, by_mukey$q)
-  colnames(q_mat) <- percentile_names
-  percentile_by_mukey <- cbind(mukey = by_mukey$mukey, as.data.frame(q_mat))
-
-  values <- rasterize_mukey_percentiles(mukey_raster, percentile_by_mukey)
-
-  list(values = values, probs = probs)
+  percentiles_from_draws(mukey_raster, draws, property_id, probs)
 }

@@ -753,13 +753,42 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
   if (!is.null(group_result)) group_result <- unwrap_nested_rasters(group_result)
 
   if (is.null(group_result)) {
-    fetched <- lapply(members, function(m) {
-      ssurgo_key <- build_cache_key(aoi_vect, m$id, top_depth, bottom_depth, "ssurgo")
-      prior <- cache_get(ssurgo_key)
-      if (!is.null(prior)) prior <- unwrap_percentile_list(prior)
+    # Each member's own SSURGO percentile cache is still checked first (so a later single-
+    # property request, or a partially-cached group, still hits cache per member) - but if any
+    # member is missing, run the shared mukey-raster fetch + Monte Carlo simulation ONCE here
+    # rather than once per member. simulate_cokey_generalized() already simulates every
+    # recognized property (clay/sand/silt/db/ph/...) jointly per cokey in one pass, so calling
+    # fetch_ssurgo_percentiles() independently per texture member used to re-run that same
+    # (expensive - the dominant cost of the whole fusion pipeline) simulation 3 times for a
+    # 3-member group, to extract 3 columns that a single simulation pass already produces
+    # together. percentiles_from_draws() (R/ssurgo-simulation.R) is the shared quantile/
+    # rasterize step, factored out of fetch_ssurgo_percentiles() for exactly this reuse.
+    ssurgo_keys <- lapply(members, function(m) build_cache_key(aoi_vect, m$id, top_depth, bottom_depth, "ssurgo"))
+    ssurgo_cached <- lapply(ssurgo_keys, function(k) {
+      p <- cache_get(k)
+      if (!is.null(p)) unwrap_percentile_list(p) else NULL
+    })
+
+    shared_mukey_raster <- NULL
+    shared_draws <- NULL
+    if (any(vapply(ssurgo_cached, is.null, logical(1)))) {
+      shared_mukey_raster <- fetch_ssurgo_mukey_raster(aoi_vect)
+      if (!is.null(shared_mukey_raster)) {
+        shared_draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth)
+      }
+    }
+
+    fetched <- lapply(seq_along(members), function(idx) {
+      m <- members[[idx]]
+
+      prior <- ssurgo_cached[[idx]]
       if (is.null(prior)) {
-        prior <- fetch_ssurgo_percentiles(aoi_vect, m$id, top_depth, bottom_depth)
-        if (!is.null(prior)) cache_set(ssurgo_key, "ssurgo", wrap_percentile_list(prior))
+        prior <- if (is.null(shared_mukey_raster) || is.null(shared_draws)) {
+          NULL
+        } else {
+          percentiles_from_draws(shared_mukey_raster, shared_draws, m$id)
+        }
+        if (!is.null(prior)) cache_set(ssurgo_keys[[idx]], "ssurgo", wrap_percentile_list(prior))
       }
 
       solus_key <- build_cache_key(aoi_vect, m$id, top_depth, bottom_depth, "solus")
