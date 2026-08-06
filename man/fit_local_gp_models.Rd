@@ -8,6 +8,7 @@ fit_local_gp_models(
   cokey_data,
   properties,
   config = NULL,
+  gp_control = c(20, 10, 2),
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 }
@@ -17,6 +18,9 @@ fit_local_gp_models(
 \item{properties}{Properties to model}
 
 \item{config}{Configuration settings}
+
+\item{gp_control}{Passed through to \code{fit_local_gp_model_single()}'s \code{gp_control} - see its
+docs for why the default is much smaller than \code{GPfit::GP_fit()}'s own default.}
 
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's log level so
 \code{INFO}-level progress messages print for the duration of this call (default

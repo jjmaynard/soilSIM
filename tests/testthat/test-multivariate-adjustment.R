@@ -129,6 +129,23 @@ test_that("aggregate_property_by_depth()/fit_local_gp_model_single() fit a usabl
   expect_true(all(is.finite(preds$clay_pct)))
 })
 
+test_that("fit_local_gp_model_single()'s cheaper default gp_control matches GPfit::GP_fit()'s own default", {
+  sim_data <- make_sim_data(cokeys = "1", depths = c(0, 20, 50, 100), n_sims = 8)
+  cokey_data <- sim_data[sim_data$cokey == "1", ]
+  agg <- aggregate_property_by_depth(cokey_data, "clay_pct")
+
+  model_default <- fit_local_gp_model_single(agg, "clay_pct") # uses the fast default
+  model_thorough <- fit_local_gp_model_single(agg, "clay_pct", gp_control = c(200, 80, 2)) # GP_fit()'s own default
+
+  # Two independent numerical hyperparameter searches - expect the same optimum to within
+  # ordinary floating-point-level noise, not bit-for-bit identical.
+  expect_equal(model_default$gp_model$beta, model_thorough$gp_model$beta, tolerance = 1e-4)
+
+  preds_default <- generate_local_predictions(list(clay_pct = model_default), c(0, 50, 100))
+  preds_thorough <- generate_local_predictions(list(clay_pct = model_thorough), c(0, 50, 100))
+  expect_equal(preds_default$clay_pct, preds_thorough$clay_pct, tolerance = 1e-4)
+})
+
 test_that("apply_local_gp_adjustments() returns cokey_data unchanged when there are too few unique depths", {
   cokey_data <- data.frame(cokey = "1", hzdept_r = c(0, 20), simulation_number = 1:2, clay_pct = c(15, 18))
   result <- apply_local_gp_adjustments(cokey_data, "clay_pct", min_depths = 3)

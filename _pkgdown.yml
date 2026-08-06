@@ -205,6 +205,7 @@ reference:
   - extract_nrcs_depth_trends
   - apply_local_gp_adjustments
   - fit_local_gp_models
+  - fit_local_gp_model_single
   - apply_local_depth_trends
   - convert_to_property_matrices
   - convert_to_long_format
@@ -297,6 +298,7 @@ reference:
   - SSURGO_SIM_PROPERTY_COLUMNS
   - rasterize_mukey_percentiles
   - fetch_ssurgo_percentiles
+  - percentiles_from_draws
   - closest_solus_depth_slice
   - fetch_solus_low_pred_high
   - fetch_solus_percentiles

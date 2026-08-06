@@ -10,6 +10,7 @@ apply_local_gp_adjustments(
   preserve_correlations = TRUE,
   min_depths = 3,
   config = NULL,
+  gp_control = c(20, 10, 2),
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 }
@@ -23,6 +24,10 @@ apply_local_gp_adjustments(
 \item{min_depths}{Minimum depths required for GP fitting}
 
 \item{config}{Configuration from Module 8}
+
+\item{gp_control}{Passed through to \code{fit_local_gp_models()}/\code{fit_local_gp_model_single()}'s
+\code{gp_control} - see \code{fit_local_gp_model_single()}'s docs for why the default is much smaller
+than \code{GPfit::GP_fit()}'s own default.}
 
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's log level so
 \code{INFO}-level progress messages print for the duration of this call (default
