@@ -146,9 +146,17 @@ property_configs <- list(
 fusion_texture <- save_step(
   "fusion_texture_salinas",
   file.path(extdata_dir, "fusion_texture_salinas.rds"),
-  wrap_nested_rasters(run_stage1_fusion(
-    aoi, property_configs$clay, top_depth = 0, bottom_depth = 5,
-    composition_groups = composition_groups, property_configs = property_configs
+  # Must be run_stage1_fusion_group() directly, not run_stage1_fusion() - the latter's own
+  # dispatch (see its composition_group branch in R/raster-fusion.R) slices its return down
+  # to a single requested member (group_result[[property_config$id]]) even when
+  # composition_groups/property_configs describe a full group. That silently produced a
+  # ONE-member (clay only: posterior/dist/route/...) result here instead of the 3-member
+  # clay/sand/silt list the vignette's "Step 2" section actually consumes
+  # (fusion_texture$clay/$sand/$silt) - a genuine, previously-undiscovered bug: this script
+  # didn't match its own vignette's displayed "real call" comment, which already showed
+  # run_stage1_fusion_group() correctly.
+  wrap_nested_rasters(run_stage1_fusion_group(
+    aoi, "texture", composition_groups, property_configs, top_depth = 0, bottom_depth = 5
   ))
 )
 
