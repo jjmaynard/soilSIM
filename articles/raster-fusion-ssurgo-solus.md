@@ -79,8 +79,8 @@ fusion_clay$posterior$mu
 #> coord. ref. : NAD83 / Conus Albers (EPSG:5070)
 #> source(s)   : memory
 #> name        :     lyr.1
-#> min value   :  3.229073
-#> max value   : 29.673445
+#> min value   :  2.893044
+#> max value   : 27.828436
 terra::plot(fusion_clay$posterior$mu, main = "Fused posterior mean clay content (%)")
 ```
 
@@ -226,8 +226,8 @@ fusion_texture$clay$dist   # "texture_ilr" for every member - not the per-proper
 
 means <- sapply(fusion_texture, function(m) terra::global(m$posterior$value, "mean", na.rm = TRUE)[1, 1])
 means
-#>      clay      sand      silt 
-#>  5.132103 81.581425 13.286472
+#>     clay     sand     silt 
+#> 12.96215 59.93548 27.10238
 sum(means)
 #> [1] 100
 ```

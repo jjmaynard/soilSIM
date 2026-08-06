@@ -75,7 +75,14 @@ depth window.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">simulate_ssurgo_mapunit_draws</span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">top_depth</span>, <span class="va">bottom_depth</span>, n_mc <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">simulate_ssurgo_mapunit_draws</span><span class="op">(</span></span>
+<span>  <span class="va">aoi_vect</span>,</span>
+<span>  <span class="va">top_depth</span>,</span>
+<span>  <span class="va">bottom_depth</span>,</span>
+<span>  n_mc <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  parallel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  n_cores <span class="op">=</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">SSURGO_SIM_PROPERTY_COLUMNS</span></span></code></pre></div>
     </div>
@@ -98,6 +105,13 @@ depth window.</p>
 
 <dt id="arg-n-mc">n_mc<a class="anchor" aria-label="anchor" href="#arg-n-mc"></a></dt>
 <dd><p>Number of triangular draws <code><a href="sim_component_comp.html">sim_component_comp()</a></code> uses per component (default 1000).</p></dd>
+
+
+<dt id="arg-parallel-n-cores">parallel, n_cores<a class="anchor" aria-label="anchor" href="#arg-parallel-n-cores"></a></dt>
+<dd><p>Passed through to <code><a href="maybe_adjust_soil_data_depth_trend.html">maybe_adjust_soil_data_depth_trend()</a></code>'s
+<code>parallel</code>/<code>n_cores</code> - the depth-trend GP adjustment step is this function's dominant cost
+for AOIs with many cokeys, and each cokey's GP fitting is independent of every other cokey's.
+Default <code>parallel = FALSE</code> matches prior behavior exactly.</p></dd>
 
 </dl></div>
     <div class="section level2">

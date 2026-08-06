@@ -9,6 +9,7 @@ fit_local_gp_models(
   cokey_data,
   properties,
   config = NULL,
+  gp_control = c(20, 10, 2),
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 ```
@@ -26,6 +27,14 @@ fit_local_gp_models(
 - config:
 
   Configuration settings
+
+- gp_control:
+
+  Passed through to
+  [`fit_local_gp_model_single()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_model_single.md)'s
+  `gp_control` - see its docs for why the default is much smaller than
+  [`GPfit::GP_fit()`](https://rdrr.io/pkg/GPfit/man/GP_fit.html)'s own
+  default.
 
 - verbose:
 

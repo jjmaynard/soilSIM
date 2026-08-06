@@ -11,6 +11,7 @@ apply_local_gp_adjustments(
   preserve_correlations = TRUE,
   min_depths = 3,
   config = NULL,
+  gp_control = c(20, 10, 2),
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 ```
@@ -36,6 +37,16 @@ apply_local_gp_adjustments(
 - config:
 
   Configuration from Module 8
+
+- gp_control:
+
+  Passed through to
+  [`fit_local_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_models.md)/[`fit_local_gp_model_single()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_model_single.md)'s
+  `gp_control` - see
+  [`fit_local_gp_model_single()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_model_single.md)'s
+  docs for why the default is much smaller than
+  [`GPfit::GP_fit()`](https://rdrr.io/pkg/GPfit/man/GP_fit.html)'s own
+  default.
 
 - verbose:
 

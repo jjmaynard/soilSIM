@@ -26,6 +26,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/add_relationship_rule.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/add_restriction_indicators_working.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/adjust_one_cokey_depth_trend.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/advanced_string_parser_vectorized.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/aggregate_depth_window_by_replicate.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/aggregate_rock_fragment_volume_working.html</loc></url>
@@ -172,6 +173,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fit_beta_mom_raster.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fit_gamma_mom_raster.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fit_individual_gp_model.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_model_single.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_models.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear_raster.html</loc></url>
@@ -272,6 +274,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/percentile_index.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/percentile_interior.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/percentile_sampling.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/percentiles_from_draws.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/perform_distribution_tests.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/perform_gp_cross_validation.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/predict_gp_depth_trends.html</loc></url>

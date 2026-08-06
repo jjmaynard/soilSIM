@@ -64,6 +64,7 @@
 <span>  <span class="va">cokey_data</span>,</span>
 <span>  <span class="va">properties</span>,</span>
 <span>  config <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  gp_control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">20</span>, <span class="fl">10</span>, <span class="fl">2</span><span class="op">)</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"ssurgo.verbose"</span>, <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -82,6 +83,11 @@
 
 <dt id="arg-config">config<a class="anchor" aria-label="anchor" href="#arg-config"></a></dt>
 <dd><p>Configuration settings</p></dd>
+
+
+<dt id="arg-gp-control">gp_control<a class="anchor" aria-label="anchor" href="#arg-gp-control"></a></dt>
+<dd><p>Passed through to <code><a href="fit_local_gp_model_single.html">fit_local_gp_model_single()</a></code>'s <code>gp_control</code> - see its
+docs for why the default is much smaller than <code><a href="https://rdrr.io/pkg/GPfit/man/GP_fit.html" class="external-link">GPfit::GP_fit()</a></code>'s own default.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

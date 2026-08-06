@@ -436,6 +436,8 @@ Gaussian-process depth-trend modeling and Monte Carlo/GP integration
   : Apply Local GP Adjustments
 - [`fit_local_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_models.md)
   : Fit Local GP Models
+- [`fit_local_gp_model_single()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_model_single.md)
+  : Fit a Single Local GP Model
 - [`apply_local_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_depth_trends.md)
   : Apply Local Depth Trends
 - [`convert_to_property_matrices()`](https://jjmaynard.github.io/soilSIM/reference/convert_to_property_matrices.md)
@@ -725,6 +727,10 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
 - [`fetch_ssurgo_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_percentiles.md)
   : Fetch SSURGO Percentile-Value Rasters for an AOI
 
+- [`percentiles_from_draws()`](https://jjmaynard.github.io/soilSIM/reference/percentiles_from_draws.md)
+  : Compute Per-Mukey Percentile Rasters from Already-Simulated SSURGO
+  Draws
+
 - [`closest_solus_depth_slice()`](https://jjmaynard.github.io/soilSIM/reference/closest_solus_depth_slice.md)
   : Snap a Depth Window to the Nearest Native SOLUS Depth Slice
 
@@ -843,6 +849,9 @@ if you’re reading soilSIM’s source.
 
 - [`add_restriction_indicators_working()`](https://jjmaynard.github.io/soilSIM/reference/add_restriction_indicators_working.md)
   : Add Restriction Indicators (Working Version)
+
+- [`adjust_one_cokey_depth_trend()`](https://jjmaynard.github.io/soilSIM/reference/adjust_one_cokey_depth_trend.md)
+  : Depth-Trend GP Adjustment for a Single Cokey's Data
 
 - [`advanced_string_parser_vectorized()`](https://jjmaynard.github.io/soilSIM/reference/advanced_string_parser_vectorized.md)
   : Advanced String Parser (Vectorized)

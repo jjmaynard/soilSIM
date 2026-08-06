@@ -13,7 +13,14 @@ the requested depth window.
 ## Usage
 
 ``` r
-simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc = 1000)
+simulate_ssurgo_mapunit_draws(
+  aoi_vect,
+  top_depth,
+  bottom_depth,
+  n_mc = 1000,
+  parallel = FALSE,
+  n_cores = NULL
+)
 
 SSURGO_SIM_PROPERTY_COLUMNS
 ```
@@ -39,6 +46,15 @@ An object of class `character` of length 10.
   Number of triangular draws
   [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
   uses per component (default 1000).
+
+- parallel, n_cores:
+
+  Passed through to
+  [`maybe_adjust_soil_data_depth_trend()`](https://jjmaynard.github.io/soilSIM/reference/maybe_adjust_soil_data_depth_trend.md)'s
+  `parallel`/`n_cores` - the depth-trend GP adjustment step is this
+  function's dominant cost for AOIs with many cokeys, and each cokey's
+  GP fitting is independent of every other cokey's. Default
+  `parallel = FALSE` matches prior behavior exactly.
 
 ## Value
 

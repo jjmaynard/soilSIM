@@ -151,8 +151,8 @@ m resolution:</p>
 <span><span class="co">#&gt; coord. ref. : NAD83 / Conus Albers (EPSG:5070)</span></span>
 <span><span class="co">#&gt; source(s)   : memory</span></span>
 <span><span class="co">#&gt; name        :     lyr.1</span></span>
-<span><span class="co">#&gt; min value   :  3.229073</span></span>
-<span><span class="co">#&gt; max value   : 29.673445</span></span>
+<span><span class="co">#&gt; min value   :  2.893044</span></span>
+<span><span class="co">#&gt; max value   : 27.828436</span></span>
 <span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">mu</span>, main <span class="op">=</span> <span class="st">"Fused posterior mean clay content (%)"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-5-1.png" class="r-plt" alt="" width="576"></p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
@@ -272,8 +272,8 @@ fused clay + sand + silt sums to 100:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">means</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">fusion_texture</span>, <span class="kw">function</span><span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/global.html" class="external-link">global</a></span><span class="op">(</span><span class="va">m</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">value</span>, <span class="st">"mean"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="va">means</span></span>
-<span><span class="co">#&gt;      clay      sand      silt </span></span>
-<span><span class="co">#&gt;  5.132103 81.581425 13.286472</span></span>
+<span><span class="co">#&gt;     clay     sand     silt </span></span>
+<span><span class="co">#&gt; 12.96215 59.93548 27.10238</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">means</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 100</span></span></code></pre></div>
 <p>Mean fused clay/sand/silt percentages sum to 100 across the AOI - the

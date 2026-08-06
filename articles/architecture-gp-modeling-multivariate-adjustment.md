@@ -636,7 +636,8 @@ model objects (same shape as
 `model` element), only for properties with \>= 3 aggregated depth points
 and non-zero variance. **Algorithm**: For each property, aggregates via
 `aggregate_property_by_depth()`, checks variance, and fits via
-`fit_local_gp_model_single()` (min-max depth scaling +
+[`fit_local_gp_model_single()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_model_single.md)
+(min-max depth scaling +
 [`GPfit::GP_fit()`](https://rdrr.io/pkg/GPfit/man/GP_fit.html)).
 
 #### `apply_local_depth_trends()`
@@ -742,7 +743,8 @@ per-depth quantile-nudge and ECDF-remap steps inside
 `generate_local_predictions()`
 ([`predict_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/predict_gp_depth_trends.md)
 over a set of locally-fit models), `aggregate_property_by_depth()` /
-`fit_local_gp_model_single()` (used by
+[`fit_local_gp_model_single()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_model_single.md)
+(used by
 [`fit_local_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_models.md)),
 `merge_adjusted_data()` (row-matched merge-back used by
 [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md)),

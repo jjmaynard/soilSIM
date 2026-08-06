@@ -743,7 +743,7 @@ Named list of fitted model objects (same shape as
 only for properties with &gt;= 3 aggregated depth points and non-zero
 variance. <strong>Algorithm</strong>: For each property, aggregates via
 <code>aggregate_property_by_depth()</code>, checks variance, and fits
-via <code>fit_local_gp_model_single()</code> (min-max depth scaling +
+via <code><a href="../reference/fit_local_gp_model_single.html">fit_local_gp_model_single()</a></code> (min-max depth scaling +
 <code><a href="https://rdrr.io/pkg/GPfit/man/GP_fit.html" class="external-link">GPfit::GP_fit()</a></code>).</p>
 </div>
 <div class="section level4">
@@ -852,7 +852,7 @@ and ECDF-remap steps inside
 <code>generate_local_predictions()</code>
 (<code><a href="../reference/predict_gp_depth_trends.html">predict_gp_depth_trends()</a></code> over a set of locally-fit
 models), <code>aggregate_property_by_depth()</code> /
-<code>fit_local_gp_model_single()</code> (used by
+<code><a href="../reference/fit_local_gp_model_single.html">fit_local_gp_model_single()</a></code> (used by
 <code><a href="../reference/fit_local_gp_models.html">fit_local_gp_models()</a></code>), <code>merge_adjusted_data()</code>
 (row-matched merge-back used by <code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code>),
 <code>validate_data_integrity()</code> /
