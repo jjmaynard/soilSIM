@@ -359,6 +359,7 @@ reference:
   - .kssl_property_name_map
   - .kssl_texture_matrices
   - add_restriction_indicators_working
+  - adjust_one_cokey_depth_trend
   - advanced_string_parser_vectorized
   - aggregate_rock_fragment_volume_working
   - analyze_property_distributions_safe

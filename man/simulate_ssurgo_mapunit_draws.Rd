@@ -9,7 +9,14 @@
 An object of class \code{character} of length 10.
 }
 \usage{
-simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc = 1000)
+simulate_ssurgo_mapunit_draws(
+  aoi_vect,
+  top_depth,
+  bottom_depth,
+  n_mc = 1000,
+  parallel = FALSE,
+  n_cores = NULL
+)
 
 SSURGO_SIM_PROPERTY_COLUMNS
 }
@@ -19,6 +26,11 @@ SSURGO_SIM_PROPERTY_COLUMNS
 \item{top_depth, bottom_depth}{Numeric depth window bounds in cm.}
 
 \item{n_mc}{Number of triangular draws \code{sim_component_comp()} uses per component (default 1000).}
+
+\item{parallel, n_cores}{Passed through to \code{maybe_adjust_soil_data_depth_trend()}'s
+\code{parallel}/\code{n_cores} - the depth-trend GP adjustment step is this function's dominant cost
+for AOIs with many cokeys, and each cokey's GP fitting is independent of every other cokey's.
+Default \code{parallel = FALSE} matches prior behavior exactly.}
 }
 \value{
 A data frame, one row per \code{mukey}/\code{cokey}/\code{simulation_number} replicate, with simulated

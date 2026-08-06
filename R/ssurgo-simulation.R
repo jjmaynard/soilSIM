@@ -80,6 +80,24 @@ infill_soil_data <- function(df) {
   df
 }
 
+#' Depth-Trend GP Adjustment for a Single Cokey's Data
+#'
+#' The per-cokey unit of work `maybe_adjust_soil_data_depth_trend()` maps over every cokey,
+#' factored out so it can be dispatched to parallel workers unchanged.
+#'
+#' @param cokey_data Simulation data for a single cokey.
+#' @param properties Character vector of property column names to adjust.
+#' @param min_depths Minimum distinct depths required to attempt GP fitting.
+#' @return `cokey_data`, depth-trend-adjusted where possible.
+#' @keywords internal
+adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths) {
+  n_depths <- length(unique(cokey_data$hzdept_r[!is.na(cokey_data$hzdept_r)]))
+  if (n_depths < min_depths) {
+    return(cokey_data)
+  }
+  apply_local_gp_adjustments(cokey_data, properties = properties, min_depths = min_depths)
+}
+
 #' Depth-Trend GP Adjustment, Guarded by `GPfit` Availability
 #'
 #' Applies `apply_local_gp_adjustments()` (`R/multivariate-adjustment.R` - fits its own local GP
@@ -88,13 +106,27 @@ infill_soil_data <- function(df) {
 #' with fewer than `min_depths` distinct depths pass through unadjusted, exactly as the original
 #' per-cokey guard did.
 #'
+#' Each cokey's GP fitting is completely independent of every other cokey's, so this step is
+#' embarrassingly parallel - profiling on a real AOI showed it as the dominant cost of the whole
+#' SSURGO simulation pipeline (see `apply_local_gp_adjustments()`/`fit_local_gp_model_single()`),
+#' so for AOIs with many cokeys, `parallel = TRUE` can give a further speedup roughly proportional
+#' to available cores on top of the sequential-path optimizations already applied there.
+#'
 #' @param sim_long Long-format simulated data with `cokey`, `hzdept_r`, and property columns.
 #' @param properties Character vector of property column names to adjust.
 #' @param min_depths Minimum distinct depths required to attempt GP fitting (default 2, matching
 #'   the source's `length(unique_depths) >= 2` guard).
+#' @param parallel Logical; if `TRUE`, process cokeys across multiple worker processes via the
+#'   `parallel` package (default `FALSE` - sequential, matching prior behavior exactly). Mirrors
+#'   the Windows-cluster/`mclapply` pattern already used by `multivariate-adjustment.R`'s
+#'   `process_cokeys_parallel()` - falls back to sequential processing if the parallel setup
+#'   itself errors.
+#' @param n_cores Number of worker processes to use when `parallel = TRUE` (default
+#'   `max(1, parallel::detectCores() - 1)`).
 #' @return `sim_long`, depth-trend-adjusted where possible.
 #' @export
-maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths = 2) {
+maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths = 2,
+                                                parallel = FALSE, n_cores = NULL) {
   if (!requireNamespace("GPfit", quietly = TRUE)) {
     warning("GPfit not installed - skipping depth-trend GP adjustment.")
     return(sim_long)
@@ -105,16 +137,47 @@ maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths 
     return(sim_long)
   }
 
-  sim_long |>
-    dplyr::group_by(cokey) |>
-    dplyr::group_modify(function(cokey_data, ...) {
-      n_depths <- length(unique(cokey_data$hzdept_r[!is.na(cokey_data$hzdept_r)]))
-      if (n_depths < min_depths) {
-        return(cokey_data)
-      }
-      apply_local_gp_adjustments(cokey_data, properties = properties, min_depths = min_depths)
-    }) |>
-    dplyr::ungroup()
+  if (!parallel) {
+    return(
+      sim_long |>
+        dplyr::group_by(cokey) |>
+        dplyr::group_modify(function(cokey_data, ...) {
+          adjust_one_cokey_depth_trend(cokey_data, properties, min_depths)
+        }) |>
+        dplyr::ungroup()
+    )
+  }
+
+  cokey_groups <- split(sim_long, sim_long$cokey)
+  if (is.null(n_cores)) {
+    n_cores <- max(1, parallel::detectCores() - 1)
+  }
+
+  adjusted <- tryCatch({
+    if (.Platform$OS.type == "windows") {
+      cl <- parallel::makeCluster(n_cores)
+      on.exit(parallel::stopCluster(cl))
+
+      # Load the package (and therefore all its Imports, including dplyr and GPfit) on each
+      # worker, and propagate the current logging option - mirrors the same fix already applied
+      # to monte-carlo.R's run_parallel_simulation() and multivariate-adjustment.R's
+      # process_cokeys_parallel().
+      parallel::clusterEvalQ(cl, library(soilSIM))
+      current_log_cfg <- getOption("soil_workflow_log_config")
+      parallel::clusterCall(cl, function(cfg) options(soil_workflow_log_config = cfg), current_log_cfg)
+
+      parallel::parLapply(cl, cokey_groups, adjust_one_cokey_depth_trend,
+                           properties = properties, min_depths = min_depths)
+    } else {
+      parallel::mclapply(cokey_groups, adjust_one_cokey_depth_trend,
+                          properties = properties, min_depths = min_depths, mc.cores = n_cores)
+    }
+  }, error = function(e) {
+    handle_workflow_error(e, "Parallel depth-trend adjustment", "warn")
+    lapply(cokey_groups, adjust_one_cokey_depth_trend, properties = properties, min_depths = min_depths)
+  })
+
+  dplyr::bind_rows(adjusted)
 }
 
 #' Thickness-Weighted Mean of Simulated Properties over a Depth Window
@@ -183,10 +246,15 @@ property_to_sim_column <- function(property_id) {
 #' @param aoi_vect A `terra::SpatVector` AOI.
 #' @param top_depth,bottom_depth Numeric depth window bounds in cm.
 #' @param n_mc Number of triangular draws `sim_component_comp()` uses per component (default 1000).
+#' @param parallel,n_cores Passed through to `maybe_adjust_soil_data_depth_trend()`'s
+#'   `parallel`/`n_cores` - the depth-trend GP adjustment step is this function's dominant cost
+#'   for AOIs with many cokeys, and each cokey's GP fitting is independent of every other cokey's.
+#'   Default `parallel = FALSE` matches prior behavior exactly.
 #' @return A data frame, one row per `mukey`/`cokey`/`simulation_number` replicate, with simulated
 #'   property columns aggregated over the depth window - or `NULL` if the tabular fetch fails.
 #' @export
-simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000) {
+simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
+                                           parallel = FALSE, n_cores = NULL) {
   # download_ssurgo_tabular()/process_aoi_and_get_mukeys_working() (R/ssurgo-acquisition.R)
   # always assume their aoi_wkt argument is lon/lat EPSG:4326 (hardcoded there), regardless of
   # aoi_vect's actual CRS - extracting WKT directly from an already-projected aoi_vect (e.g.
@@ -251,7 +319,8 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
   }
 
   property_cols <- intersect(SSURGO_SIM_PROPERTY_COLUMNS, names(sim_long))
-  sim_long <- maybe_adjust_soil_data_depth_trend(sim_long, property_cols)
+  sim_long <- maybe_adjust_soil_data_depth_trend(sim_long, property_cols,
+                                                  parallel = parallel, n_cores = n_cores)
 
   aggregate_depth_window_by_replicate(
     sim_long, top_depth, bottom_depth, property_cols,

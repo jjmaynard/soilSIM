@@ -50,6 +50,35 @@ test_that("maybe_adjust_soil_data_depth_trend() passes through cokeys with fewer
   expect_equal(sort(result$db), sort(sim_long$db))
 })
 
+test_that("maybe_adjust_soil_data_depth_trend() parallel = TRUE matches parallel = FALSE", {
+  testthat::skip_if_not_installed("GPfit")
+  set.seed(99)
+  build_cokey <- function(id, depths) {
+    data.frame(
+      cokey = id, hzdept_r = depths, hzdepb_r = depths + 20,
+      simulation_number = 1,
+      db = 1.2 + 0.02 * depths + stats::rnorm(length(depths), sd = 0.02)
+    )
+  }
+  sim_long <- rbind(
+    build_cokey("1", c(0, 20, 50, 100)),
+    build_cokey("2", c(0, 30, 60)),
+    build_cokey("3", c(0, 20, 40, 80, 120))
+  )
+
+  res_seq <- maybe_adjust_soil_data_depth_trend(sim_long, "db", min_depths = 2, parallel = FALSE)
+  res_par <- maybe_adjust_soil_data_depth_trend(sim_long, "db", min_depths = 2, parallel = TRUE, n_cores = 2)
+
+  order_cols <- c("cokey", "hzdept_r")
+  res_seq <- res_seq[do.call(order, res_seq[order_cols]), ]
+  res_par <- res_par[do.call(order, res_par[order_cols]), ]
+
+  expect_equal(nrow(res_par), nrow(res_seq))
+  expect_equal(res_par$cokey, res_seq$cokey)
+  expect_equal(res_par$hzdept_r, res_seq$hzdept_r)
+  expect_equal(res_par$db, res_seq$db, tolerance = 1e-6)
+})
+
 test_that("maybe_adjust_soil_data_depth_trend() warns and passes through when GPfit isn't installed", {
   testthat::skip_if(nzchar(system.file(package = "GPfit")), "GPfit is installed - guard path not exercised")
   sim_long <- data.frame(cokey = "1", hzdept_r = c(0, 20), hzdepb_r = c(20, 50), simulation_number = 1, db = c(1.2, 1.5))
