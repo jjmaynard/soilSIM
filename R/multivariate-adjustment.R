@@ -765,22 +765,23 @@ convert_to_property_matrices <- function(simulation_data,
     prop_matrix <- matrix(NA, nrow = length(unique_depths), ncol = length(sim_numbers))
 
     tryCatch({
-      for (i in seq_along(unique_depths)) {
-        depth <- unique_depths[i]
-
-        for (j in seq_along(sim_numbers)) {
-          sim_num <- sim_numbers[j]
-
-          # Find matching value using Module 8 safe operations
-          value <- simulation_data |>
-            dplyr::filter(hzdept_r == depth, simulation_number == sim_num) |>
-            dplyr::pull(.data[[prop]])
-
-          if (length(value) > 0 && !is.na(value[1])) {
-            prop_matrix[i, j] <- value[1]
-          }
-        }
-      }
+      # Vectorized lookup instead of a per-cell dplyr::filter()/pull() over the whole
+      # data frame (was O(depths * sims * nrow(simulation_data)), with per-call dplyr/rlang
+      # NSE overhead on top - profiling on a real AOI showed this single loop accounting for
+      # ~60% of simulate_ssurgo_mapunit_draws()'s total runtime). match() against a combined
+      # depth/simulation_number key finds the FIRST matching row for each (depth, sim_num)
+      # cell, preserving the original's value[1] semantics exactly; unmatched or NA values
+      # both correctly collapse to NA. Order of `target_key` matches matrix()'s column-major
+      # fill (depth varies fastest, matching row index; sim_number varies slowest, matching
+      # column index).
+      row_key <- paste(simulation_data$hzdept_r, simulation_data$simulation_number, sep = "\r")
+      target_key <- paste(
+        rep(unique_depths, times = length(sim_numbers)),
+        rep(sim_numbers, each = length(unique_depths)),
+        sep = "\r"
+      )
+      match_idx <- match(target_key, row_key)
+      prop_matrix[] <- simulation_data[[prop]][match_idx]
 
       # Only include if we have some valid data
       valid_data_count <- sum(!is.na(prop_matrix))
@@ -826,57 +827,47 @@ convert_to_long_format <- function(adjusted_matrices,
 
   log_message("DEBUG", "Converting adjusted matrices to long format", category = "MultivarAdjust")
 
-  result_list <- list()
+  metadata_cols <- intersect(
+    c("cokey", "compname", "mukey", "hzdept_r", "hzdepb_r", "simulation_number", "unique_id"),
+    names(original_data)
+  )
 
-  for (i in seq_along(unique_depths)) {
-    depth <- unique_depths[i]
-
-    track_progress(i, length(unique_depths), "Converting depths", update_frequency = max(1, length(unique_depths) %/% 10))
-
-    for (j in seq_along(sim_numbers)) {
-      sim_num <- sim_numbers[j]
-
-      # Get original row for metadata using Module 8 safe operations
-      original_row <- tryCatch({
-        original_data |>
-          dplyr::filter(hzdept_r == depth, simulation_number == sim_num) |>
-          dplyr::slice(1)
-      }, error = function(e) {
-        handle_workflow_error(e, paste("Original row retrieval for depth", depth, "sim", sim_num), "warn")
-        return(data.frame())
-      })
-
-      if (nrow(original_row) > 0) {
-        # Start with metadata using Module 8 safe column selection
-        metadata_cols <- intersect(
-          c("cokey", "compname", "mukey", "hzdept_r", "hzdepb_r", "simulation_number", "unique_id"),
-          names(original_row)
-        )
-
-        new_row <- original_row |>
-          dplyr::select(dplyr::all_of(metadata_cols))
-
-        # Add adjusted property values
-        for (prop in properties) {
-          if (prop %in% names(adjusted_matrices)) {
-            adj_matrix <- adjusted_matrices[[prop]]
-            if (i <= nrow(adj_matrix) && j <= ncol(adj_matrix)) {
-              new_row[[prop]] <- adj_matrix[i, j]
-            }
-          }
-        }
-
-        result_list[[length(result_list) + 1]] <- new_row
-      }
-    }
-  }
-
-  # Combine all rows with error handling
+  # Vectorized "first matching row" lookup instead of a per-(depth, sim_num) cell
+  # dplyr::filter()/slice(1) over the whole original_data data frame - the same anti-pattern
+  # already fixed in convert_to_property_matrices() (was O(depths * sims * nrow(original_data))
+  # with per-call dplyr/rlang NSE overhead; profiling on a real AOI showed this the
+  # next-largest remaining bottleneck at ~48% of simulate_ssurgo_mapunit_draws()'s total
+  # runtime after that first fix). Grid order (depth outer/slower, sim_num inner/faster)
+  # matches the original nested loop's row order exactly.
   result_df <- tryCatch({
-    if (length(result_list) > 0) {
-      dplyr::bind_rows(result_list)
-    } else {
+    grid_depth <- rep(unique_depths, each = length(sim_numbers))
+    grid_sim <- rep(sim_numbers, times = length(unique_depths))
+
+    row_key <- paste(original_data$hzdept_r, original_data$simulation_number, sep = "\r")
+    target_key <- paste(grid_depth, grid_sim, sep = "\r")
+    match_idx <- match(target_key, row_key)
+    keep <- !is.na(match_idx)
+
+    if (!any(keep)) {
       data.frame()
+    } else {
+      out <- original_data[match_idx[keep], metadata_cols, drop = FALSE]
+
+      # Matrix row/col indices (into unique_depths/sim_numbers) for each kept grid cell, to
+      # pull the corresponding adjusted value out of each property's matrix.
+      depth_idx <- rep(seq_along(unique_depths), each = length(sim_numbers))[keep]
+      sim_idx <- rep(seq_along(sim_numbers), times = length(unique_depths))[keep]
+
+      for (prop in properties) {
+        if (prop %in% names(adjusted_matrices)) {
+          adj_matrix <- adjusted_matrices[[prop]]
+          valid <- depth_idx <= nrow(adj_matrix) & sim_idx <= ncol(adj_matrix)
+          vals <- rep(NA_real_, length(depth_idx))
+          vals[valid] <- adj_matrix[cbind(depth_idx[valid], sim_idx[valid])]
+          out[[prop]] <- vals
+        }
+      }
+      out
     }
   }, error = function(e) {
     handle_workflow_error(e, "Long format data binding", "warn")
