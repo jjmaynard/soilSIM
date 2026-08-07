@@ -429,7 +429,7 @@ validate_data_quality <- function(data,
     log_message("WARN", paste("Quality score calculation error:", e$message), category = "Validation")
 
     # Fallback overall quality
-    validation_result$overall_quality <- list(
+    validation_result$overall_quality <<- list(
       score = 0.8,  # Default decent score
       grade = "Good",
       validation_passed = TRUE,
