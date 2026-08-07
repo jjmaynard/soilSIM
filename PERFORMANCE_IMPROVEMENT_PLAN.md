@@ -42,7 +42,8 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 | `fuse_texture_group()` (50k-cell synthetic raster) | 150.34s | 193-357s (variable) | **0.4-0.8x - no win** (kept anyway: memory-safer, bit-identical, see Tier 1 notes) | `641a441` |
 | `process_single_cokey()` split-once (500 cokeys x 20 rows, synthetic) | 0.91s | 0.08s | 11.4x | `89a3553` |
 | `apply_sum_constraints()` (150 horizons x 2000 realizations, synthetic) | 3.71s | 1.16s | 3.2x | `78e5502` |
-| `optimize_gp_hyperparameters()` gp_control (20 reps, 12-pt series) | 82.70s | 16.97s | 4.9x | TBD |
+| `optimize_gp_hyperparameters()` gp_control (20 reps, 12-pt series) | 82.70s | 16.97s | 4.9x | `29896d1` |
+| `simulate_vg_aws()` drop rowwise() (200 rows x 500 sims, synthetic) | 2.90s | 0.47s | 6.2x | TBD |
 
 ## Benchmark infrastructure
 
@@ -159,9 +160,17 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
   once before the loop; called repeatedly across pipeline stages on overlapping data.
   - [ ] Benchmarked before / Fixed / Regression test / Benchmarked after / Committed
 
-- [ ] `R/aws-simulation.R::simulate_vg_aws()` - unnecessary `dplyr::rowwise()` around an
+- [x] `R/aws-simulation.R::simulate_vg_aws()` - unnecessary `dplyr::rowwise()` around an
   already-vectorized `van_genuchten()` call.
-  - [ ] Benchmarked before / Fixed / Regression test / Benchmarked after / Committed
+  - [x] Benchmarked before: 2.90s (synthetic 200 rows x 500 simulations).
+  - [x] Fixed: dropped `dplyr::rowwise()`/`ungroup()`; `van_genuchten()` is pure elementwise
+    arithmetic so `dplyr::mutate()` already vectorizes it correctly without row-at-a-time
+    dispatch.
+  - [x] Regression test added: `test-aws-simulation.R` - asserts `theta_fc`/`theta_pwp` are
+    `identical()` (not just `equal()`) to per-row `van_genuchten()` calls, since this is a pure
+    vectorization with no room for even floating-point drift.
+  - [x] Benchmarked after: 0.47s - **~6.2x**.
+  - [x] Committed + pushed
 
 ## Tier 3 - low priority (confirmed zero internal callers via `grep` - exported API only)
 

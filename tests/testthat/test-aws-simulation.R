@@ -33,6 +33,26 @@ test_that("simulate_vg_aws() returns a named list with AWHC = theta_fc - theta_p
   }
 })
 
+test_that("simulate_vg_aws()'s vectorized mutate() matches the original dplyr::rowwise() version bit-for-bit", {
+  # Regression test for the PERFORMANCE_IMPROVEMENT_PLAN.md Tier 2 simulate_vg_aws() fix: van
+  # Genuchten's theta_fc/theta_pwp columns are now computed via a plain vectorized mutate()
+  # instead of dplyr::rowwise() - since van_genuchten() is pure elementwise arithmetic, this must
+  # be bit-identical, not just close.
+  data <- make_rosetta_shaped_data()
+  result <- simulate_vg_aws(data, n_simulations = 10)
+
+  for (df in result) {
+    expected_fc <- vapply(seq_len(nrow(df)), function(i) {
+      van_genuchten(-33 * 10.19716, df$alpha[i], df$n[i], df$theta_r[i], df$theta_s[i])
+    }, numeric(1))
+    expected_pwp <- vapply(seq_len(nrow(df)), function(i) {
+      van_genuchten(-1500 * 10.19716, df$alpha[i], df$n[i], df$theta_r[i], df$theta_s[i])
+    }, numeric(1))
+    expect_identical(df$theta_fc, expected_fc)
+    expect_identical(df$theta_pwp, expected_pwp)
+  }
+})
+
 test_that("simulate_vg_aws() skips rows with any missing van Genuchten parameter", {
   data <- make_rosetta_shaped_data()
   data$theta_s[1] <- NA

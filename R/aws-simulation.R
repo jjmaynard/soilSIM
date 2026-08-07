@@ -112,14 +112,16 @@ simulate_vg_aws <- function(data, n_simulations = 100) {
       sim_num = seq_len(n_simulations)
     )
 
-    # Calculate water retention at FC and PWP for each set of sampled parameters using the van Genuchten function
+    # Calculate water retention at FC and PWP for each set of sampled parameters using the van
+    # Genuchten function. PERF: van_genuchten() is already pure vectorized arithmetic (no
+    # per-row state), so the dplyr::rowwise() here just added per-row dispatch overhead for
+    # nothing - dropped in favor of a plain vectorized mutate() (see
+    # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 2).
     results <- results |>
-      dplyr::rowwise() |>
       dplyr::mutate(
         theta_fc  = van_genuchten(h_fc, alpha, n, theta_r, theta_s),   # Water content at Field Capacity
         theta_pwp = van_genuchten(h_pwp, alpha, n, theta_r, theta_s)    # Water content at Permanent Wilting Point
-      ) |>
-      dplyr::ungroup()
+      )
 
     # Calculate Available Water Holding Capacity (AWHC) as the difference between FC and PWP
     results$AWHC <- results$theta_fc - results$theta_pwp
