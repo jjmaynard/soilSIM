@@ -43,8 +43,11 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 
 ## Benchmark infrastructure
 
-- [ ] `data-raw/benchmark_performance.R` created (maintainer-run, not part of package build) - one
-  function per pipeline stage below, `system.time()`/`Rprof()` on the small test AOI.
+- [x] `data-raw/benchmark_performance.R` created (maintainer-run, not part of package build) - one
+  function per pipeline stage below, `system.time()`/`Rprof()` on the small test AOI. Commit
+  `a690a5d` (scaffolding) + `4964a40` (real `<<-` scoping bug in `validate_data_quality()`'s error
+  handler, found while smoke-testing benchmark #3 and fixed since it silently broke
+  `integrate_monte_carlo_with_gp()`'s error fallback).
 
 ## Tier 1 - high-confidence, high-impact, confirmed hot path
 
