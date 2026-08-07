@@ -39,7 +39,8 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 | *(prior session)* `fit_local_gp_model_single` gp_control | - | - | ~5x per GP_fit() call | `f77cb32` |
 | *(prior session)* `apply_quantile_adjustment` vectorized | 14.66s | 8.77s | 1.67x (small AOI) | `2a5ad74` |
 | *(prior session)* full SSURGO pipeline, real Salinas AOI | 1998.58s | 211.43s | 9.45x | `5f7693d` |
-| `fuse_texture_group()` (50k-cell synthetic raster) | 150.34s | 193-357s (variable) | **0.4-0.8x - no win** (kept anyway: memory-safer, bit-identical, see Tier 1 notes) | TBD |
+| `fuse_texture_group()` (50k-cell synthetic raster) | 150.34s | 193-357s (variable) | **0.4-0.8x - no win** (kept anyway: memory-safer, bit-identical, see Tier 1 notes) | `641a441` |
+| `process_single_cokey()` split-once (500 cokeys x 20 rows, synthetic) | 0.91s | 0.08s | 11.4x | TBD |
 
 ## Benchmark infrastructure
 
@@ -84,13 +85,22 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
     `Rprof()` profiling if this ever shows up as a real bottleneck on an actual AOI run.
   - [x] Committed + pushed
 
-- [ ] `R/multivariate-adjustment.R::process_single_cokey()` - `dplyr::filter()` rescans full
-  multi-cokey `simulation_data` once per cokey instead of `split()`-once.
-  - [ ] Benchmarked before
-  - [ ] Fixed
-  - [ ] Regression test added
-  - [ ] Benchmarked after, logged above
-  - [ ] Committed + pushed
+- [x] `R/multivariate-adjustment.R::process_single_cokey()` - `dplyr::filter()` rescanned the
+  full multi-cokey `simulation_data` once per cokey instead of `split()`-once.
+  - [x] Benchmarked before: 0.91s (synthetic 500 cokeys x 20 rows/cokey via
+    `process_cokeys_sequential()`).
+  - [x] Fixed: `integrate_monte_carlo_with_gp()` now splits `simulation_data` by cokey once
+    (`split(simulation_data, simulation_data$cokey)`) and passes the resulting `cokey_groups`
+    list down through `process_cokeys_parallel()`/`process_cokeys_sequential()` to
+    `process_single_cokey()`, which now takes the already-filtered `cokey_data` directly instead
+    of `simulation_data` + re-filtering. `split()` partitions rows identically to the old
+    `dplyr::filter(cokey == !!cokey)` (same rows, same order) - a pure row-extraction move, not a
+    behavior change.
+  - [x] Regression test added: updated the two existing direct-call tests in
+    `test-multivariate-adjustment.R` (`process_cokeys_sequential()`/`process_cokeys_parallel()`)
+    to pass `split(sim_data, sim_data$cokey)` per the new signature; both still pass.
+  - [x] Benchmarked after: 0.08s - **~11.4x** at the same 500-cokey scale.
+  - [x] Committed + pushed
 
 - [ ] `R/monte-carlo.R::apply_sum_constraints()` - nested per-(horizon,realization)-cell loop
   instead of vectorized array ops (sibling constraint functions already do this correctly).

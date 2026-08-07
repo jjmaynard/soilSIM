@@ -124,15 +124,22 @@ integrate_monte_carlo_with_gp <- function(simulation_results,
   unique_cokeys <- unique(simulation_data$cokey)
   log_message("INFO", paste("Processing", length(unique_cokeys), "unique cokeys"), category = "MultivarAdjust")
 
+  # PERF: process_single_cokey() previously re-filtered the FULL multi-cokey simulation_data
+  # (dplyr::filter(cokey == !!cokey)) once per cokey - O(rows x cokeys) instead of O(rows). Split
+  # once here instead (mirrors the split()-based fix already applied to
+  # maybe_adjust_soil_data_depth_trend()/run_stage1_fusion_group() elsewhere in this package), and
+  # pass each cokey's own pre-split subset down - see PERFORMANCE_IMPROVEMENT_PLAN.md Tier 1.
+  cokey_groups <- split(simulation_data, simulation_data$cokey)
+
   # Process cokeys with progress tracking
   if (parallel && length(unique_cokeys) > 1) {
     integrated_results <- process_cokeys_parallel(
-      simulation_data, unique_cokeys, properties, gp_models, cokey_mapping,
+      cokey_groups, unique_cokeys, properties, gp_models, cokey_mapping,
       use_nrcs_gp, use_local_gp, preserve_correlations, n_cores, config
     )
   } else {
     integrated_results <- process_cokeys_sequential(
-      simulation_data, unique_cokeys, properties, gp_models, cokey_mapping,
+      cokey_groups, unique_cokeys, properties, gp_models, cokey_mapping,
       use_nrcs_gp, use_local_gp, preserve_correlations, config
     )
   }
@@ -1021,14 +1028,14 @@ detect_simulation_properties <- function(simulation_data) {
 }
 
 # Enhanced parallel processing with Module 8 progress tracking
-process_cokeys_parallel <- function(simulation_data, unique_cokeys, properties,
+process_cokeys_parallel <- function(cokey_groups, unique_cokeys, properties,
                                     gp_models, cokey_mapping, use_nrcs_gp, use_local_gp,
                                     preserve_correlations, n_cores, config) {
 
   run_parallel_lapply(
     unique_cokeys,
     function(cokey) {
-      process_single_cokey(simulation_data, cokey, properties, gp_models,
+      process_single_cokey(cokey_groups[[as.character(cokey)]], cokey, properties, gp_models,
                             cokey_mapping, use_nrcs_gp, use_local_gp,
                             preserve_correlations, config)
     },
@@ -1041,7 +1048,7 @@ process_cokeys_parallel <- function(simulation_data, unique_cokeys, properties,
     future_seed = TRUE,
     op_name = "cokey integration",
     sequential_fallback = function() {
-      process_cokeys_sequential(simulation_data, unique_cokeys, properties,
+      process_cokeys_sequential(cokey_groups, unique_cokeys, properties,
                                  gp_models, cokey_mapping, use_nrcs_gp, use_local_gp,
                                  preserve_correlations, config)
     }
@@ -1049,7 +1056,7 @@ process_cokeys_parallel <- function(simulation_data, unique_cokeys, properties,
 }
 
 # Enhanced sequential processing with Module 8 progress tracking
-process_cokeys_sequential <- function(simulation_data, unique_cokeys, properties,
+process_cokeys_sequential <- function(cokey_groups, unique_cokeys, properties,
                                       gp_models, cokey_mapping, use_nrcs_gp, use_local_gp,
                                       preserve_correlations, config) {
 
@@ -1063,7 +1070,7 @@ process_cokeys_sequential <- function(simulation_data, unique_cokeys, properties
     # Progress tracking using Module 8
     track_progress(i, length(unique_cokeys), "Processing cokeys", update_frequency = 10)
 
-    result <- process_single_cokey(simulation_data, cokey, properties, gp_models,
+    result <- process_single_cokey(cokey_groups[[as.character(cokey)]], cokey, properties, gp_models,
                                             cokey_mapping, use_nrcs_gp, use_local_gp,
                                             preserve_correlations, config)
 
@@ -1074,14 +1081,11 @@ process_cokeys_sequential <- function(simulation_data, unique_cokeys, properties
 }
 
 # Enhanced single cokey processing with Module 8 error handling
-process_single_cokey <- function(simulation_data, cokey, properties, gp_models,
+process_single_cokey <- function(cokey_data, cokey, properties, gp_models,
                                           cokey_mapping, use_nrcs_gp, use_local_gp,
                                           preserve_correlations, config) {
 
   tryCatch({
-    # Extract data for this cokey
-    cokey_data <- simulation_data |> dplyr::filter(cokey == !!cokey)
-
     if (nrow(cokey_data) < 2) {
       log_message("DEBUG", paste("Insufficient data for cokey", cokey), category = "MultivarAdjust")
       return(NULL)

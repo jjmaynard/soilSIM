@@ -193,7 +193,7 @@ test_that("process_single_cokey()/process_cokeys_sequential() integrate local GP
   config <- get_default_configuration("validation")
 
   results <- process_cokeys_sequential(
-    sim_data, unique(sim_data$cokey), c("clay_pct", "sand_pct"),
+    split(sim_data, sim_data$cokey), unique(sim_data$cokey), c("clay_pct", "sand_pct"),
     gp_models = NULL, cokey_mapping = NULL,
     use_nrcs_gp = FALSE, use_local_gp = TRUE,
     preserve_correlations = TRUE, config = config
@@ -239,7 +239,7 @@ test_that("process_cokeys_parallel() produces the same results as process_cokeys
   # code defect (see the skipped test above, which isolates and documents this environment
   # limitation).
   results <- suppressWarnings(process_cokeys_parallel(
-    sim_data, unique(sim_data$cokey), c("clay_pct", "sand_pct"),
+    split(sim_data, sim_data$cokey), unique(sim_data$cokey), c("clay_pct", "sand_pct"),
     gp_models = NULL, cokey_mapping = NULL,
     use_nrcs_gp = FALSE, use_local_gp = TRUE,
     preserve_correlations = TRUE, n_cores = 2, config = config
