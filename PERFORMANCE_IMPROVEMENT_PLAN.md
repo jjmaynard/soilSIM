@@ -43,7 +43,8 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 | `process_single_cokey()` split-once (500 cokeys x 20 rows, synthetic) | 0.91s | 0.08s | 11.4x | `89a3553` |
 | `apply_sum_constraints()` (150 horizons x 2000 realizations, synthetic) | 3.71s | 1.16s | 3.2x | `78e5502` |
 | `optimize_gp_hyperparameters()` gp_control (20 reps, 12-pt series) | 82.70s | 16.97s | 4.9x | `29896d1` |
-| `simulate_vg_aws()` drop rowwise() (200 rows x 500 sims, synthetic) | 2.90s | 0.47s | 6.2x | TBD |
+| `simulate_vg_aws()` drop rowwise() (200 rows x 500 sims, synthetic) | 2.90s | 0.47s | 6.2x | `490dc21` |
+| `is_unsuitable()` vectorized toupper/trimws (200k rows, synthetic) | 70.12s | 9.47s | 7.4x | TBD |
 
 ## Benchmark infrastructure
 
@@ -156,9 +157,18 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
   whole-frame character-matrix coercion per row on every horizon needing range infilling.
   - [ ] Benchmarked before / Fixed / Regression test / Benchmarked after / Committed
 
-- [ ] `R/utils.R::is_unsuitable()` - per-row scalar `toupper()`/`trimws()` instead of vectorized
+- [x] `R/utils.R::is_unsuitable()` - per-row scalar `toupper()`/`trimws()` instead of vectorized
   once before the loop; called repeatedly across pipeline stages on overlapping data.
-  - [ ] Benchmarked before / Fixed / Regression test / Benchmarked after / Committed
+  - [x] Benchmarked before: 70.12s (synthetic 200,000 rows).
+  - [x] Fixed: `toupper(trimws(hznames))`/`toupper(trimws(as.character(data$desgnmaster)))`
+    computed once (vectorized) before the loop instead of per-row inside it; the loop's own
+    per-row classification logic (`grepl()` pattern matching) is unchanged.
+  - [x] Regression test added: new `tests/testthat/test-utils.R` (no prior test file existed for
+    `utils.R`) - covers mixed case/whitespace, `NA` handling, a missing `desgnmaster` column, and
+    a missing `hzname_col`.
+  - [x] Benchmarked after: 9.47s - **~7.4x**, with an identical unsuitable-row count
+    (140,016) before/after, confirming correctness.
+  - [x] Committed + pushed
 
 - [x] `R/aws-simulation.R::simulate_vg_aws()` - unnecessary `dplyr::rowwise()` around an
   already-vectorized `van_genuchten()` call.

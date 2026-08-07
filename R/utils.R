@@ -50,10 +50,17 @@ is_unsuitable <- function(data,
   n <- length(hznames)
   unsuitable <- rep(FALSE, n)
 
+  # PERF: toupper()/trimws() were previously recomputed per-row inside the loop below (called
+  # from multiple pipeline stages on overlapping data - see PERFORMANCE_IMPROVEMENT_PLAN.md Tier
+  # 2) - vectorized once here instead. The loop's own classification logic (which pattern a given
+  # row matches) stays row-dependent and unchanged.
+  hz_upper <- toupper(trimws(hznames))
+  master_upper <- if (has_desgnmaster) toupper(trimws(as.character(data$desgnmaster))) else rep(NA_character_, n)
+
   # PRIORITY 1: Always check horizon names first (R, Cr, O should ALWAYS be unsuitable)
   for (i in seq_len(n)) {
-    hz <- toupper(trimws(hznames[i]))
-    master <- if (has_desgnmaster) toupper(trimws(as.character(data$desgnmaster[i]))) else NA
+    hz <- hz_upper[i]
+    master <- master_upper[i]
 
     if (is.na(hz) || hz == "") {
       if (!is.na(master) && master %in% c("R", "O")) {
