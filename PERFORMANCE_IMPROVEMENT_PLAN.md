@@ -40,7 +40,8 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 | *(prior session)* `apply_quantile_adjustment` vectorized | 14.66s | 8.77s | 1.67x (small AOI) | `2a5ad74` |
 | *(prior session)* full SSURGO pipeline, real Salinas AOI | 1998.58s | 211.43s | 9.45x | `5f7693d` |
 | `fuse_texture_group()` (50k-cell synthetic raster) | 150.34s | 193-357s (variable) | **0.4-0.8x - no win** (kept anyway: memory-safer, bit-identical, see Tier 1 notes) | `641a441` |
-| `process_single_cokey()` split-once (500 cokeys x 20 rows, synthetic) | 0.91s | 0.08s | 11.4x | TBD |
+| `process_single_cokey()` split-once (500 cokeys x 20 rows, synthetic) | 0.91s | 0.08s | 11.4x | `89a3553` |
+| `apply_sum_constraints()` (150 horizons x 2000 realizations, synthetic) | 3.71s | 1.16s | 3.2x | TBD |
 
 ## Benchmark infrastructure
 
@@ -102,13 +103,23 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
   - [x] Benchmarked after: 0.08s - **~11.4x** at the same 500-cokey scale.
   - [x] Committed + pushed
 
-- [ ] `R/monte-carlo.R::apply_sum_constraints()` - nested per-(horizon,realization)-cell loop
+- [x] `R/monte-carlo.R::apply_sum_constraints()` - nested per-(horizon,realization)-cell loop
   instead of vectorized array ops (sibling constraint functions already do this correctly).
-  - [ ] Benchmarked before
-  - [ ] Fixed
-  - [ ] Regression test added
-  - [ ] Benchmarked after, logged above
-  - [ ] Committed + pushed
+  - [x] Benchmarked before: 3.71s (synthetic 150 horizons x 2000 realizations).
+  - [x] Fixed: `apply(results[, prop_indices, , drop=FALSE], c(1,3), sum)` computes every
+    (horizon, realization) cell's sum at once; a single `ifelse()`-built rescale-factor matrix
+    (1 = no-op for cells already within tolerance or with `current_sum <= 0`) replaces the
+    per-cell `if`; the factor matrix is applied to each property slice in one broadcasted
+    multiply. Matches the vectorization pattern already used by
+    `apply_range_constraints_batch()`/`apply_relationship_constraints()`/
+    `apply_physical_constraints()` in the same file.
+  - [x] Regression test added: `test-monte-carlo.R` - reimplements the original scalar loop
+    inline and asserts bit-identical output (tolerance 1e-12) plus matching `adjustments` count,
+    including a zero-sum-cell and an already-within-tolerance-cell edge case that must both stay
+    untouched.
+  - [x] Benchmarked after: 1.16s - **~3.2x**, with `adjustments` count (299,907) identical
+    before/after, confirming correctness.
+  - [x] Committed + pushed
 
 - [ ] `R/gp-modeling.R::fit_individual_gp_model()`/`optimize_gp_hyperparameters()` - same
   `GPfit::GP_fit()` control-effort bug already fixed once elsewhere, but ~16x worse here (5-fold

@@ -2379,15 +2379,20 @@ apply_sum_constraints <- function(results, constraints, properties) {
     prop_indices <- prop_indices[!is.na(prop_indices)]
 
     if (length(prop_indices) >= 2) {
-      for (h in seq_len(dim(results)[1])) {
-        for (r in seq_len(dim(results)[3])) {
-          current_sum <- sum(results[h, prop_indices, r])
-          if (current_sum > 0 && abs(current_sum - constraint$target_sum) > 0.01) {
-            results[h, prop_indices, r] <- results[h, prop_indices, r] * constraint$target_sum / current_sum
-            adjustments <- adjustments + 1
-          }
-        }
+      # PERF: previously a nested for(h) for(r) loop computing sum(results[h, prop_indices, r])
+      # and rescaling one (horizon, realization) cell at a time - vectorized via apply() across
+      # the property dimension for every cell at once, matching the pattern
+      # apply_range_constraints_batch()/apply_relationship_constraints()/
+      # apply_physical_constraints() already use elsewhere in this file (see
+      # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 1). Cells with current_sum <= 0 or already within
+      # 0.01 of target_sum get factor = 1 (a no-op multiply, bit-identical to leaving them alone).
+      current_sum <- apply(results[, prop_indices, , drop = FALSE], c(1, 3), sum)
+      needs_adjustment <- current_sum > 0 & abs(current_sum - constraint$target_sum) > 0.01
+      factor <- ifelse(needs_adjustment, constraint$target_sum / current_sum, 1)
+      for (p in prop_indices) {
+        results[, p, ] <- results[, p, ] * factor
       }
+      adjustments <- adjustments + sum(needs_adjustment)
     }
   }
   return(list(data = results, summary = list(adjustments = adjustments)))

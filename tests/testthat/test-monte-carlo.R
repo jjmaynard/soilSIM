@@ -562,3 +562,52 @@ test_that("summarize_distributions()/validate_distribution_setup() count real va
   validation_result <- validate_distribution_setup(distributions, c("clay_pct", "sand_pct"), list())
   expect_equal(validation_result$validity_rate, 2 / 3, tolerance = 1e-8)
 })
+
+test_that("apply_sum_constraints() vectorized rescale matches the original per-cell scalar loop", {
+  # Regression test for the PERFORMANCE_IMPROVEMENT_PLAN.md Tier 1 apply_sum_constraints() fix:
+  # reimplements the ORIGINAL nested for(h) for(r) scalar loop here and checks the vectorized
+  # version produces identical output, including on edge cases (a zero-sum cell that must be left
+  # untouched, and a cell already within the 0.01 tolerance that must also be left untouched).
+  old_scalar <- function(results, constraints, properties) {
+    adjustments <- 0
+    for (constraint_name in names(constraints)) {
+      constraint <- constraints[[constraint_name]]
+      prop_indices <- match(constraint$properties, properties)
+      prop_indices <- prop_indices[!is.na(prop_indices)]
+      if (length(prop_indices) >= 2) {
+        for (h in seq_len(dim(results)[1])) {
+          for (r in seq_len(dim(results)[3])) {
+            current_sum <- sum(results[h, prop_indices, r])
+            if (current_sum > 0 && abs(current_sum - constraint$target_sum) > 0.01) {
+              results[h, prop_indices, r] <- results[h, prop_indices, r] * constraint$target_sum / current_sum
+              adjustments <- adjustments + 1
+            }
+          }
+        }
+      }
+    }
+    list(data = results, summary = list(adjustments = adjustments))
+  }
+
+  set.seed(7)
+  n_horizons <- 6; n_realizations <- 5
+  properties <- c("clay_pct", "sand_pct", "silt_pct", "pH")
+  results <- array(
+    runif(n_horizons * length(properties) * n_realizations, 10, 50),
+    dim = c(n_horizons, length(properties), n_realizations)
+  )
+  # Cell (1,,1): zero-sum edge case (must stay untouched by both versions).
+  results[1, 1:3, 1] <- 0
+  # Cell (2,,1): already within tolerance of target_sum=100 (must stay untouched).
+  results[2, 1:3, 1] <- c(33.33, 33.33, 33.34)
+
+  constraints <- list(texture = list(properties = c("clay_pct", "sand_pct", "silt_pct"), target_sum = 100))
+
+  expected <- old_scalar(results, constraints, properties)
+  actual <- apply_sum_constraints(results, constraints, properties)
+
+  expect_equal(actual$data, expected$data, tolerance = 1e-12)
+  expect_equal(actual$summary$adjustments, expected$summary$adjustments)
+  expect_equal(unname(actual$data[1, 1:3, 1]), c(0, 0, 0))
+  expect_equal(unname(actual$data[2, 1:3, 1]), c(33.33, 33.33, 33.34))
+})
