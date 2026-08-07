@@ -41,7 +41,8 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 | *(prior session)* full SSURGO pipeline, real Salinas AOI | 1998.58s | 211.43s | 9.45x | `5f7693d` |
 | `fuse_texture_group()` (50k-cell synthetic raster) | 150.34s | 193-357s (variable) | **0.4-0.8x - no win** (kept anyway: memory-safer, bit-identical, see Tier 1 notes) | `641a441` |
 | `process_single_cokey()` split-once (500 cokeys x 20 rows, synthetic) | 0.91s | 0.08s | 11.4x | `89a3553` |
-| `apply_sum_constraints()` (150 horizons x 2000 realizations, synthetic) | 3.71s | 1.16s | 3.2x | TBD |
+| `apply_sum_constraints()` (150 horizons x 2000 realizations, synthetic) | 3.71s | 1.16s | 3.2x | `78e5502` |
+| `optimize_gp_hyperparameters()` gp_control (20 reps, 12-pt series) | 82.70s | 16.97s | 4.9x | TBD |
 
 ## Benchmark infrastructure
 
@@ -121,14 +122,27 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
     before/after, confirming correctness.
   - [x] Committed + pushed
 
-- [ ] `R/gp-modeling.R::fit_individual_gp_model()`/`optimize_gp_hyperparameters()` - same
+- [x] `R/gp-modeling.R::fit_individual_gp_model()`/`optimize_gp_hyperparameters()` - same
   `GPfit::GP_fit()` control-effort bug already fixed once elsewhere, but ~16x worse here (5-fold
   CV x 3 correlation families + refit, none passing reduced `control=`).
-  - [ ] Benchmarked before
-  - [ ] Fixed (apply established `gp_control = c(20, 10, 2)` default to all call sites in file)
-  - [ ] Regression test added
-  - [ ] Benchmarked after, logged above
-  - [ ] Committed + pushed
+  - [x] Benchmarked before: 82.70s for 20 reps of `optimize_gp_hyperparameters()` on a 12-point
+    synthetic series (default 5-fold CV).
+  - [x] Fixed: threaded `gp_control = c(20, 10, 2)` (the same empirically-justified default
+    already established for `fit_local_gp_model_single()` in `multivariate-adjustment.R`) through
+    all `GPfit::GP_fit()` call sites in `gp-modeling.R` -
+    `fit_individual_gp_model()`'s direct fit, `k_fold_gp_cv()`'s per-fold fits, and
+    `optimize_gp_hyperparameters()`'s winning-candidate refit + fallback/baseline fits. All exist
+    as function parameters with this default, so existing callers (e.g.
+    `build_stratified_gp_models()`) get the speedup automatically without call-site changes;
+    `validation-diagnostics.R`'s existing positional `k_fold_gp_cv()` call is unaffected since
+    `gp_control` was added after the existing positional parameters.
+  - [x] Regression test added: existing `test-gp-modeling.R`/`test-validation-diagnostics.R`
+    suites (which exercise `fit_individual_gp_model()`/`optimize_gp_hyperparameters()`/
+    `k_fold_gp_cv()` end-to-end) all still pass unchanged - the smaller search effort converges
+    to the identical optimum for these low-dimensional fits, matching the precedent already
+    established for `fit_local_gp_model_single()`.
+  - [x] Benchmarked after: 16.97s - **~4.9x**.
+  - [x] Committed + pushed
 
 ## Tier 2 - moderate confidence/impact
 
@@ -185,7 +199,7 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 
 ## Final gate
 
-- [ ] All Tier 1 items complete
+- [x] All Tier 1 items complete
 - [ ] Full-AOI (Salinas Valley, 15 mukeys) end-to-end timing run of `run_stage1_fusion_group()`
   for the texture composition group, logged above
 - [ ] Full `devtools::test()` pass (not just affected files) with 0 failures

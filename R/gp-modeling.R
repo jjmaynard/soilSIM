@@ -497,10 +497,19 @@ build_stratified_gp_models <- function(processed_nrcs_data,
 #' @param data Input data for the group
 #' @param property Property name to model
 #' @param optimize_hyperparameters Whether to optimize hyperparameters
+#' @param gp_control Passed through to `GPfit::GP_fit()`'s `control` argument (population size /
+#'   iteration counts for its internal hyperparameter search). Defaults to `c(20, 10, 2)`, far
+#'   below `GP_fit()`'s own default `c(200*d, 80*d, 2*d)` - see
+#'   `fit_local_gp_model_single()`'s docs (`multivariate-adjustment.R`) for the empirical
+#'   justification (identical fitted results, ~5x faster per call). Only used when
+#'   `optimize_hyperparameters = TRUE` calls through to `optimize_gp_hyperparameters()`/
+#'   `k_fold_gp_cv()` (many `GP_fit()` calls per fit - 5-fold CV x 3 correlation candidates + a
+#'   refit), or by the direct `GP_fit()` call when `optimize_hyperparameters = FALSE`.
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return List containing GP model and diagnostics
 #' @export
 fit_individual_gp_model <- function(data, property, optimize_hyperparameters = TRUE,
+                                    gp_control = c(20, 10, 2),
                                     verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
@@ -557,9 +566,9 @@ fit_individual_gp_model <- function(data, property, optimize_hyperparameters = T
 
     # Fit GP model with optimization
     if (optimize_hyperparameters) {
-      gp_model <- optimize_gp_hyperparameters(scaled_depths, values)
+      gp_model <- optimize_gp_hyperparameters(scaled_depths, values, gp_control = gp_control)
     } else {
-      gp_model <- GPfit::GP_fit(X = as.matrix(scaled_depths), Y = values)
+      gp_model <- GPfit::GP_fit(X = as.matrix(scaled_depths), Y = values, control = gp_control)
     }
 
     # Calculate diagnostics
@@ -1719,9 +1728,13 @@ create_model_summary <- function(gp_models, processed_nrcs_data) {
 #' @param corr_candidates Named list of `corr` specs to pass to
 #'   [GPfit::GP_fit()] (e.g. `list(type = "exponential", power = 1.95)`).
 #'
+#' @param gp_control Passed through to each fold's `GPfit::GP_fit()` `control` argument - see
+#'   `fit_individual_gp_model()`'s docs for why the default is much smaller than `GP_fit()`'s own
+#'   default. This is the highest-multiplier call site in the package: `n_folds x
+#'   length(corr_candidates)` `GP_fit()` calls per invocation.
 #' @return List with `mean_rmse_by_candidate`, a named list of mean held-out
 #'   RMSE per candidate (`NA` for a candidate that failed on every fold).
-k_fold_gp_cv <- function(X, Y, n_folds, corr_candidates) {
+k_fold_gp_cv <- function(X, Y, n_folds, corr_candidates, gp_control = c(20, 10, 2)) {
   X <- as.matrix(X)
   n <- length(Y)
   n_folds <- max(2, min(n_folds, n))
@@ -1740,7 +1753,8 @@ k_fold_gp_cv <- function(X, Y, n_folds, corr_candidates) {
       if (length(train_idx) < 2 || length(test_idx) < 1) next
 
       fold_rmse <- tryCatch({
-        model <- GPfit::GP_fit(X = X[train_idx, , drop = FALSE], Y = Y[train_idx], corr = corr_spec)
+        model <- GPfit::GP_fit(X = X[train_idx, , drop = FALSE], Y = Y[train_idx], corr = corr_spec,
+                                control = gp_control)
         pred <- GPfit::predict.GP(model, xnew = X[test_idx, , drop = FALSE])
         sqrt(mean((pred$Y_hat - Y[test_idx])^2))
       }, error = function(e) NA_real_)
@@ -1770,10 +1784,16 @@ k_fold_gp_cv <- function(X, Y, n_folds, corr_candidates) {
 #' @param X Scaled predictor matrix (depths).
 #' @param Y Response vector.
 #' @param n_folds Number of cross-validation folds.
+#' @param gp_control Passed through to every `GPfit::GP_fit()` call this function makes
+#'   (`k_fold_gp_cv()`'s per-fold fits, the winning-candidate refit, and the fallback/baseline
+#'   fits) - see `fit_individual_gp_model()`'s docs for why the default is much smaller than
+#'   `GP_fit()`'s own default. With the default 5 folds x 3 correlation candidates + a refit,
+#'   this is ~16 `GP_fit()` calls per invocation - the single highest-multiplier fix in the
+#'   package's performance audit (see PERFORMANCE_IMPROVEMENT_PLAN.md).
 #'
 #' @return A `"GP"`-classed [GPfit::GP_fit()] model, with a `cv_results`
 #'   attribute describing the cross-validation that selected it.
-optimize_gp_hyperparameters <- function(X, Y, n_folds = 5) {
+optimize_gp_hyperparameters <- function(X, Y, n_folds = 5, gp_control = c(20, 10, 2)) {
   tryCatch({
     X <- as.matrix(X)
     n <- length(Y)
@@ -1790,7 +1810,7 @@ optimize_gp_hyperparameters <- function(X, Y, n_folds = 5) {
     # meaningful; fall back to a single baseline model otherwise (matches
     # the previous stub's behavior for very small inputs).
     cv <- if (n >= 2 * effective_folds) {
-      k_fold_gp_cv(X, Y, effective_folds, corr_candidates)
+      k_fold_gp_cv(X, Y, effective_folds, corr_candidates, gp_control = gp_control)
     } else {
       NULL
     }
@@ -1802,9 +1822,9 @@ optimize_gp_hyperparameters <- function(X, Y, n_folds = 5) {
       best_corr <- corr_candidates[[best_name]]
 
       final_model <- tryCatch({
-        GPfit::GP_fit(X = X, Y = Y, corr = best_corr)
+        GPfit::GP_fit(X = X, Y = Y, corr = best_corr, control = gp_control)
       }, error = function(e) {
-        GPfit::GP_fit(X = X, Y = Y)
+        GPfit::GP_fit(X = X, Y = Y, control = gp_control)
       })
 
       attr(final_model, "cv_results") <- list(
@@ -1818,7 +1838,7 @@ optimize_gp_hyperparameters <- function(X, Y, n_folds = 5) {
     }
 
     # Not enough data for meaningful cross-validation - single baseline fit.
-    baseline_model <- GPfit::GP_fit(X = X, Y = Y)
+    baseline_model <- GPfit::GP_fit(X = X, Y = Y, control = gp_control)
     attr(baseline_model, "cv_results") <- list(
       folds = effective_folds,
       corr_candidates = names(corr_candidates),
@@ -1829,7 +1849,7 @@ optimize_gp_hyperparameters <- function(X, Y, n_folds = 5) {
 
   }, error = function(e) {
     log_message("WARN", paste("Hyperparameter optimization failed, using default:", e$message), category = "GPModeling")
-    return(GPfit::GP_fit(X = as.matrix(X), Y = Y))
+    return(GPfit::GP_fit(X = as.matrix(X), Y = Y, control = gp_control))
   })
 }
 
