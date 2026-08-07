@@ -27,6 +27,33 @@ test_that("calculate_safe_gp_ratio() clamps extreme ratios and returns 1 for inv
   expect_equal(calculate_safe_gp_ratio(c(1000, 1), 2), 0.1)  # clamped to min 0.1
 })
 
+test_that("apply_quantile_adjustment() matches a direct per-element quantile() computation", {
+  set.seed(21)
+  n_sims <- 50
+  curr_values <- rnorm(n_sims, mean = 20, sd = 3)
+  prev_values <- rnorm(n_sims, mean = 18, sd = 3)
+  reference_quantiles <- runif(n_sims)
+  gp_ratio <- 1.1
+
+  result <- apply_quantile_adjustment(reference_quantiles, curr_values, prev_values, gp_ratio, n_sims)
+  expect_length(result, n_sims)
+
+  # Hand-computed via the same per-element logic the old loop used, to confirm the vectorized
+  # quantile() call (one sort, all probs at once) is equivalent to n_sims separate single-prob
+  # quantile() calls.
+  expected <- vapply(seq_len(n_sims), function(j) {
+    qv <- stats::quantile(curr_values, probs = reference_quantiles[j], na.rm = TRUE, names = FALSE)
+    qv + (prev_values[j] * gp_ratio - qv)
+  }, numeric(1))
+  expect_equal(result, expected, tolerance = 1e-9)
+})
+
+test_that("apply_quantile_adjustment() falls back to curr_values on error", {
+  result <- apply_quantile_adjustment(reference_quantiles = c(0.5, 0.5), curr_values = c(NA_real_, NA_real_),
+                                       prev_values = c(1, 2), gp_ratio = 1, n_sims = 2)
+  expect_equal(result, c(NA_real_, NA_real_))
+})
+
 test_that("get_property_constraints()/apply_range_constraints() enforce known plausible ranges", {
   texture <- get_property_constraints("claytotal")
   expect_equal(texture$range, c(0, 100))
