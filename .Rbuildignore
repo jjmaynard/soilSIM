@@ -3,6 +3,7 @@
 ^data-raw$
 ^LICENSE\.md$
 ^STUB_COMPLETION_TRACKER\.md$
+^PERFORMANCE_IMPROVEMENT_PLAN\.md$
 ^docs$
 ^pkgdown_site$
 ^_pkgdown\.yml$
