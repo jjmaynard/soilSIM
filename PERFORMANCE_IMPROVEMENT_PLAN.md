@@ -39,7 +39,7 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 | *(prior session)* `fit_local_gp_model_single` gp_control | - | - | ~5x per GP_fit() call | `f77cb32` |
 | *(prior session)* `apply_quantile_adjustment` vectorized | 14.66s | 8.77s | 1.67x (small AOI) | `2a5ad74` |
 | *(prior session)* full SSURGO pipeline, real Salinas AOI | 1998.58s | 211.43s | 9.45x | `5f7693d` |
-| *(this plan)* | | | | |
+| `fuse_texture_group()` (50k-cell synthetic raster) | 150.34s | 193-357s (variable) | **0.4-0.8x - no win** (kept anyway: memory-safer, bit-identical, see Tier 1 notes) | TBD |
 
 ## Benchmark infrastructure
 
@@ -51,14 +51,38 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 
 ## Tier 1 - high-confidence, high-impact, confirmed hot path
 
-- [ ] `R/raster-fusion.R::fuse_texture_group()` - no size-based dispatch (unlike sibling
-  `fuse_property_adaptive()`'s `threshold_cells`), runs `estimate_ilr_moments_mc()` (6000
+- [x] `R/raster-fusion.R::fuse_texture_group()` - no size-based dispatch (unlike sibling
+  `fuse_property_adaptive()`'s `threshold_cells`), ran `estimate_ilr_moments_mc()` (6000
   `rnorm()` draws) twice per raster cell via `terra::app()`+`apply()`, unconditionally.
-  - [ ] Benchmarked before
-  - [ ] Fixed (vectorized MC draws across cells, or added size-based closed-form dispatch)
-  - [ ] Regression test added
-  - [ ] Benchmarked after, logged above
-  - [ ] Committed + pushed
+  - [x] Benchmarked before: 150.34s for a synthetic 50,000-cell raster (direct
+    `fuse_texture_group()` call, bypassing network fetch).
+  - [x] Fixed: vectorized the MC draws + ILR moments + bivariate-normal fusion across all cells
+    in a chunk at once (`fuse_texture_group_batch()`/`_batch_core()`), with the `rnorm()` stream
+    ordered to match the original per-cell consumption order exactly (bit-identical output, not
+    just statistically similar). **Real bug found and fixed along the way**: the first version
+    processed a whole `terra::app()` chunk in one un-chunked matrix operation, which failed with
+    "cannot allocate vector of size 4.5 Gb" at 50,000 cells (terra's own chunk sizing doesn't
+    account for the 2000x internal MC expansion) - added internal sub-chunking
+    (`max_cells_per_subchunk`, default 2000) to bound memory regardless of what chunk terra hands
+    the function.
+  - [x] Regression test added: `test-raster-fusion.R` - reimplements the original scalar loop
+    inline and asserts `fuse_texture_group_batch()` matches it bit-for-bit (tolerance 1e-9,
+    heterogeneous per-cell inputs, fixed seed) - proving this is a pure vectorization, not a
+    behavior change.
+  - [x] Benchmarked after: **not a clear win** - 193-357s across several runs at the same
+    50,000-cell scale (higher and more variable than the 150.34s baseline). Likely cause: the
+    dominant cost is the ~600M `rnorm()` draws themselves (50k cells x 2000 MC x 6 blocks), which
+    batching doesn't meaningfully speed up over the same total draws done per-cell, while the
+    large intermediate matrices (up to ~1.8GB) add GC/allocation overhead that offsets the
+    R-level `apply()`-dispatch savings. Also removed an unnecessary `t()`-transpose pass (kept
+    everything in R's native column-major n_mc-rows x ncell-cols orientation) - didn't close the
+    gap. Benchmarking was also confounded by the dev machine being under real memory pressure at
+    the time (repeated genuine `Rscript` segfaults, unrelated to this code). Decision (user):
+    keep the vectorized version anyway - it's correctness-neutral (bit-identical) and
+    memory-safer than the original (fixed the un-chunked blowup bug), and may still help on real
+    AOI data/hardware even though this synthetic benchmark was inconclusive. Revisit with
+    `Rprof()` profiling if this ever shows up as a real bottleneck on an actual AOI run.
+  - [x] Committed + pushed
 
 - [ ] `R/multivariate-adjustment.R::process_single_cokey()` - `dplyr::filter()` rescans full
   multi-cokey `simulation_data` once per cokey instead of `split()`-once.

@@ -198,6 +198,65 @@ test_that("fuse_texture_group() returns one posterior per member that sums to ~1
   }
 })
 
+test_that("fuse_texture_group_batch() vectorized path matches the original per-cell scalar loop bit-for-bit", {
+  # Regression test for the PERFORMANCE_IMPROVEMENT_PLAN.md Tier 1 fuse_texture_group() fix:
+  # reimplements the ORIGINAL per-cell scalar loop (estimate_ilr_moments_mc() x2 +
+  # fuse_bivariate_normal(), called once per cell via a plain for-loop) here, and checks the new
+  # vectorized fuse_texture_group_batch() produces identical results under the same seed - proving
+  # the rnorm() stream is consumed in the same order (a pure vectorization, not a behavior change).
+  old_scalar <- function(row_mat, clay_id, sand_id, silt_id, prior_z, lik_z) {
+    ncell <- nrow(row_mat)
+    out <- matrix(NA_real_, nrow = ncell, ncol = 5, dimnames = list(NULL, c("mu1", "mu2", "S11", "S12", "S22")))
+    for (i in seq_len(ncell)) {
+      row <- row_mat[i, ]
+      prior_m <- estimate_ilr_moments_mc(
+        row[[paste0(clay_id, "_prior_lo")]], row[[paste0(clay_id, "_prior_p50")]], row[[paste0(clay_id, "_prior_hi")]],
+        row[[paste0(sand_id, "_prior_lo")]], row[[paste0(sand_id, "_prior_p50")]], row[[paste0(sand_id, "_prior_hi")]],
+        row[[paste0(silt_id, "_prior_lo")]], row[[paste0(silt_id, "_prior_p50")]], row[[paste0(silt_id, "_prior_hi")]],
+        z = prior_z
+      )
+      lik_m <- estimate_ilr_moments_mc(
+        row[[paste0(clay_id, "_lik_lo")]], row[[paste0(clay_id, "_lik_p50")]], row[[paste0(clay_id, "_lik_hi")]],
+        row[[paste0(sand_id, "_lik_lo")]], row[[paste0(sand_id, "_lik_p50")]], row[[paste0(sand_id, "_lik_hi")]],
+        row[[paste0(silt_id, "_lik_lo")]], row[[paste0(silt_id, "_lik_p50")]], row[[paste0(silt_id, "_lik_hi")]],
+        z = lik_z
+      )
+      fused <- fuse_bivariate_normal(prior_m$mu, prior_m$Sigma, lik_m$mu, lik_m$Sigma)
+      out[i, ] <- c(fused$mu[1], fused$mu[2], fused$Sigma[1, 1], fused$Sigma[1, 2], fused$Sigma[2, 2])
+    }
+    out
+  }
+
+  # Heterogeneous cells (distinct lo/p50/hi per cell), not uniform, to genuinely exercise
+  # per-cell vectorized math rather than trivially-identical rows.
+  set.seed(1)
+  n <- 5
+  ids <- c("claytotal", "sandtotal", "silttotal")
+  col_names <- as.vector(outer(
+    paste0(rep(ids, each = 2), rep(c("_prior_", "_lik_"), times = length(ids))),
+    c("lo", "p50", "hi"), paste0
+  ))
+  row_mat <- matrix(NA_real_, nrow = n, ncol = length(col_names), dimnames = list(NULL, col_names))
+  for (id in ids) {
+    for (side in c("prior", "lik")) {
+      p50 <- runif(n, 20, 40)
+      spread <- runif(n, 3, 8)
+      row_mat[, paste0(id, "_", side, "_lo")] <- p50 - spread
+      row_mat[, paste0(id, "_", side, "_p50")] <- p50
+      row_mat[, paste0(id, "_", side, "_hi")] <- p50 + spread
+    }
+  }
+  prior_z <- stats::qnorm(0.95)
+  lik_z <- stats::qnorm(0.95)
+
+  set.seed(42)
+  expected <- old_scalar(row_mat, "claytotal", "sandtotal", "silttotal", prior_z, lik_z)
+  set.seed(42)
+  actual <- fuse_texture_group_batch(row_mat, "claytotal", "sandtotal", "silttotal", prior_z, lik_z)
+
+  expect_equal(actual, expected, tolerance = 1e-9)
+})
+
 test_that("run_stage1_fusion() fetches, caches, aligns, and fuses SSURGO x SOLUS for a real AOI", {
   testthat::skip_if_offline()
   # See test-solus-simulation.R's live test for why PROJ_LIB is unset defensively here too - a

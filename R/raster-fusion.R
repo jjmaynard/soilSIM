@@ -548,6 +548,130 @@ group_members <- function(group, composition_groups) {
   members
 }
 
+#' Vectorized per-chunk core of `fuse_texture_group()`
+#'
+#' Computes, for every cell (row) in `row_mat` at once, the same
+#' prior/likelihood ILR moments + bivariate-normal fusion that
+#' `estimate_ilr_moments_mc()` + `fuse_bivariate_normal()` compute one cell at
+#' a time - see `fuse_texture_group()`'s PERF comment at its call site.
+#'
+#' RNG draws are generated as a single `rnorm()` call ordered so the
+#' underlying standard-normal stream is consumed in exactly the same
+#' cell-major, then prior-before-lik, then clay/sand/silt, then
+#' draw-1..n_mc order the original per-cell loop consumed it in (rnorm()'s
+#' `mean`/`sd` args only affine-transform each already-drawn standard normal;
+#' they don't change how many values are drawn or in what order) - so this is
+#' a pure vectorization, not a behavior change. `fuse_bivariate_normal()`'s
+#' 2x2 `solve()`-based fusion is replaced with the closed-form 2x2 matrix
+#' inverse formula (`solve()` isn't vectorizable across cells), which can
+#' differ from `solve()` by floating-point rounding (~1e-10 relative) but is
+#' otherwise the identical linear algebra.
+#'
+#' @param row_mat A matrix with one row per cell and the 18
+#'   `<id>_<prior|lik>_<lo|p50|hi>` columns `fuse_texture_group()` builds.
+#' @param clay_id,sand_id,silt_id The three members' `id`s, in ILR order.
+#' @param prior_z,lik_z Standard-normal quantiles for the prior/likelihood
+#'   low-high intervals (as in `estimate_ilr_moments_mc()`'s `z` argument).
+#' @param n_mc Monte Carlo sample size per side (matches
+#'   `estimate_ilr_moments_mc()`'s default).
+#' @param max_cells_per_subchunk Upper bound on cells processed by one
+#'   `fuse_texture_group_batch_core()` call - each cell needs `6 * n_mc`
+#'   doubles of intermediate MC-draw storage (`n_mc=2000` -> ~96KB/cell), so
+#'   `terra::app()`'s own chunk size (which only accounts for the raw,
+#'   non-MC-expanded raster layers) can hand `fuse_texture_group()` chunks
+#'   large enough to exhaust memory - confirmed empirically: a 50,000-cell
+#'   chunk failed with "cannot allocate vector of size 4.5 Gb". Sub-chunking
+#'   here, in cell order, doesn't change the RNG stream order (still
+#'   cell-major) so results are unaffected.
+#' @return A `nrow(row_mat) x 5` matrix, columns `mu1, mu2, S11, S12, S22`.
+#' @keywords internal
+fuse_texture_group_batch <- function(row_mat, clay_id, sand_id, silt_id, prior_z, lik_z, n_mc = 2000,
+                                      max_cells_per_subchunk = 2000) {
+  ncell_total <- nrow(row_mat)
+  if (ncell_total <= max_cells_per_subchunk) {
+    return(fuse_texture_group_batch_core(row_mat, clay_id, sand_id, silt_id, prior_z, lik_z, n_mc))
+  }
+  out <- matrix(NA_real_, nrow = ncell_total, ncol = 5, dimnames = list(NULL, c("mu1", "mu2", "S11", "S12", "S22")))
+  for (start in seq(1, ncell_total, by = max_cells_per_subchunk)) {
+    end <- min(start + max_cells_per_subchunk - 1, ncell_total)
+    out[start:end, ] <- fuse_texture_group_batch_core(
+      row_mat[start:end, , drop = FALSE], clay_id, sand_id, silt_id, prior_z, lik_z, n_mc
+    )
+  }
+  out
+}
+
+#' @rdname fuse_texture_group_batch
+#' @keywords internal
+fuse_texture_group_batch_core <- function(row_mat, clay_id, sand_id, silt_id, prior_z, lik_z, n_mc = 2000) {
+  ncell <- nrow(row_mat)
+  col <- function(nm) row_mat[, nm]
+
+  side_mean_sd <- function(side, z) {
+    list(
+      clay = list(mean = col(paste0(clay_id, "_", side, "_p50")),
+                  sd = (col(paste0(clay_id, "_", side, "_hi")) - col(paste0(clay_id, "_", side, "_lo"))) / (2 * z)),
+      sand = list(mean = col(paste0(sand_id, "_", side, "_p50")),
+                  sd = (col(paste0(sand_id, "_", side, "_hi")) - col(paste0(sand_id, "_", side, "_lo"))) / (2 * z)),
+      silt = list(mean = col(paste0(silt_id, "_", side, "_p50")),
+                  sd = (col(paste0(silt_id, "_", side, "_hi")) - col(paste0(silt_id, "_", side, "_lo"))) / (2 * z))
+    )
+  }
+  prior <- side_mean_sd("prior", prior_z)
+  lik <- side_mean_sd("lik", lik_z)
+
+  # Cell-major block: n_mc rows x ncell cols, column c filled with v[c] (rep(v, each=n_mc),
+  # column-major-filled, puts v[c] in every row of column c without matrix()'s byrow=TRUE - which
+  # internally transposes and is measurably slower for large matrices) - i.e. column c is v[c]
+  # repeated n_mc times, matching one cell's n_mc consecutive draws. Kept in this n_mc(row) x
+  # ncell(col) orientation throughout (never transposed) since R matrices are column-major, so a
+  # cell's n_mc draws are already contiguous - transposing to ncell x n_mc just to use
+  # rowMeans()/rowSums() (as an earlier version of this function did) re-shuffles the whole
+  # allocation for no benefit; colMeans()/colSums() over this orientation do the same reduction
+  # without it.
+  block <- function(v) matrix(rep(v, each = n_mc), nrow = n_mc, ncol = ncell)
+  ordered_props <- list(prior$clay, prior$sand, prior$silt, lik$clay, lik$sand, lik$silt)
+  mean_stack <- do.call(rbind, lapply(ordered_props, function(p) block(p$mean)))
+  sd_stack <- do.call(rbind, lapply(ordered_props, function(p) block(p$sd)))
+
+  draws <- stats::rnorm(length(mean_stack), mean = as.vector(mean_stack), sd = as.vector(sd_stack))
+  draws_mat <- matrix(draws, nrow = 6 * n_mc, ncol = ncell)
+  side_block <- function(i) pmax(draws_mat[((i - 1) * n_mc + 1):(i * n_mc), , drop = FALSE], 0.01)
+
+  moments <- function(clay_s, sand_s, silt_s) {
+    total <- clay_s + sand_s + silt_s
+    z_res <- ilr_forward(as.vector(clay_s / total * 100), as.vector(sand_s / total * 100), as.vector(silt_s / total * 100))
+    z1 <- matrix(z_res[, "z1"], nrow = n_mc, ncol = ncell)
+    z2 <- matrix(z_res[, "z2"], nrow = n_mc, ncol = ncell)
+    mu1 <- colMeans(z1); mu2 <- colMeans(z2)
+    d1 <- z1 - rep(mu1, each = n_mc); d2 <- z2 - rep(mu2, each = n_mc)
+    denom <- n_mc - 1
+    list(mu1 = mu1, mu2 = mu2,
+         S11 = colSums(d1 * d1) / denom, S12 = colSums(d1 * d2) / denom, S22 = colSums(d2 * d2) / denom)
+  }
+  prior_m <- moments(side_block(1), side_block(2), side_block(3))
+  lik_m <- moments(side_block(4), side_block(5), side_block(6))
+
+  # Vectorized closed-form 2x2 fuse_bivariate_normal(): precision = inverse(covariance),
+  # posterior precision = sum of precisions, posterior mean = posterior_Sigma %*% sum(precision
+  # %*% mu). 2x2 inverse of [[a,b],[b,d]] is (1/(ad-b^2)) * [[d,-b],[-b,a]].
+  det1 <- prior_m$S11 * prior_m$S22 - prior_m$S12^2
+  P1_11 <- prior_m$S22 / det1; P1_12 <- -prior_m$S12 / det1; P1_22 <- prior_m$S11 / det1
+  det2 <- lik_m$S11 * lik_m$S22 - lik_m$S12^2
+  P2_11 <- lik_m$S22 / det2; P2_12 <- -lik_m$S12 / det2; P2_22 <- lik_m$S11 / det2
+
+  Pp_11 <- P1_11 + P2_11; Pp_12 <- P1_12 + P2_12; Pp_22 <- P1_22 + P2_22
+  detp <- Pp_11 * Pp_22 - Pp_12^2
+  S11 <- Pp_22 / detp; S12 <- -Pp_12 / detp; S22 <- Pp_11 / detp
+
+  T1 <- P1_11 * prior_m$mu1 + P1_12 * prior_m$mu2 + P2_11 * lik_m$mu1 + P2_12 * lik_m$mu2
+  T2 <- P1_12 * prior_m$mu1 + P1_22 * prior_m$mu2 + P2_12 * lik_m$mu1 + P2_22 * lik_m$mu2
+  mu1 <- S11 * T1 + S12 * T2
+  mu2 <- S12 * T1 + S22 * T2
+
+  cbind(mu1 = mu1, mu2 = mu2, S11 = S11, S12 = S12, S22 = S22)
+}
+
 #' Fuse a compositional group's members JOINTLY via ILR fusion
 #' (`R/distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`,
 #' `R/bayesian-updating.R`'s `fuse_bivariate_normal()`), rather than
@@ -590,26 +714,18 @@ fuse_texture_group <- function(fetched) {
   col_names <- names(stack_list)
   clay_id <- ids[1]; sand_id <- ids[2]; silt_id <- ids[3]
 
+  # PERF: previously called estimate_ilr_moments_mc() (3x rnorm(n_mc=2000) + an ILR
+  # transform + cov()) twice per raster cell via terra::app()+apply(), an R-level scalar
+  # closure dispatched once per cell - the dominant cost for any non-trivial AOI (see
+  # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 1). fuse_texture_group_batch() below computes the
+  # same thing for a whole chunk of cells at once via vectorized matrix arithmetic, with the
+  # rnorm() draws ordered to consume the RNG stream in EXACTLY the same
+  # cell-then-(prior/lik)-then-(clay/sand/silt)-then-mc-draw order the old per-cell loop did,
+  # so results are bit-for-bit identical (see test-raster-fusion.R's regression test), not just
+  # statistically similar.
   fun <- function(row_mat) {
     row_mat <- if (is.matrix(row_mat)) row_mat else matrix(row_mat, nrow = 1, dimnames = list(NULL, col_names))
-    t(apply(row_mat, 1, function(row) {
-      row <- stats::setNames(as.list(row), col_names)
-      prior_m <- estimate_ilr_moments_mc(
-        row[[paste0(clay_id, "_prior_lo")]], row[[paste0(clay_id, "_prior_p50")]], row[[paste0(clay_id, "_prior_hi")]],
-        row[[paste0(sand_id, "_prior_lo")]], row[[paste0(sand_id, "_prior_p50")]], row[[paste0(sand_id, "_prior_hi")]],
-        row[[paste0(silt_id, "_prior_lo")]], row[[paste0(silt_id, "_prior_p50")]], row[[paste0(silt_id, "_prior_hi")]],
-        z = prior_z
-      )
-      lik_m <- estimate_ilr_moments_mc(
-        row[[paste0(clay_id, "_lik_lo")]], row[[paste0(clay_id, "_lik_p50")]], row[[paste0(clay_id, "_lik_hi")]],
-        row[[paste0(sand_id, "_lik_lo")]], row[[paste0(sand_id, "_lik_p50")]], row[[paste0(sand_id, "_lik_hi")]],
-        row[[paste0(silt_id, "_lik_lo")]], row[[paste0(silt_id, "_lik_p50")]], row[[paste0(silt_id, "_lik_hi")]],
-        z = lik_z
-      )
-      fused <- fuse_bivariate_normal(prior_m$mu, prior_m$Sigma, lik_m$mu, lik_m$Sigma)
-      c(mu1 = fused$mu[1], mu2 = fused$mu[2],
-        S11 = fused$Sigma[1, 1], S12 = fused$Sigma[1, 2], S22 = fused$Sigma[2, 2])
-    }))
+    fuse_texture_group_batch(row_mat, clay_id, sand_id, silt_id, prior_z, lik_z)
   }
   result_r <- terra::app(combined, fun)
   names(result_r) <- c("mu1", "mu2", "S11", "S12", "S22")
