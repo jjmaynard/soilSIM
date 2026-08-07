@@ -658,16 +658,22 @@ fuse_texture_group <- function(fetched) {
 #' @param top_depth,bottom_depth Numeric depth bounds in cm.
 #' @param composition_groups,property_configs Only needed when `property_config$composition_group`
 #'   is set - passed through to `run_stage1_fusion_group()` (see its docs).
+#' @param parallel,n_cores Passed through to `simulate_ssurgo_mapunit_draws()`'s
+#'   `parallel`/`n_cores` (via `fetch_ssurgo_percentiles()` or `run_stage1_fusion_group()`,
+#'   whichever path this call takes) - the SSURGO adapter's per-cokey depth-trend GP fitting is
+#'   this pipeline's dominant cost for AOIs with many cokeys. Default `parallel = FALSE` matches
+#'   prior behavior exactly.
 #' @return `list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=,
 #'   route_detail=, n_fallback_cells=)`, or `NULL` if the SSURGO or SOLUS side failed.
 #'   `posterior`'s shape depends on `dist` - see `fuse_property_adaptive()`'s docs.
 #' @export
 run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth,
-                               composition_groups = NULL, property_configs = NULL) {
+                               composition_groups = NULL, property_configs = NULL,
+                               parallel = FALSE, n_cores = NULL) {
   if (!is.null(property_config$composition_group)) {
     group_result <- run_stage1_fusion_group(
       aoi_vect, property_config$composition_group, composition_groups, property_configs,
-      top_depth, bottom_depth
+      top_depth, bottom_depth, parallel = parallel, n_cores = n_cores
     )
     return(if (is.null(group_result)) NULL else group_result[[property_config$id]])
   }
@@ -676,7 +682,8 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
   prior <- cache_get(ssurgo_key)
   if (!is.null(prior)) prior <- unwrap_percentile_list(prior)
   if (is.null(prior)) {
-    prior <- fetch_ssurgo_percentiles(aoi_vect, property_config$id, top_depth, bottom_depth)
+    prior <- fetch_ssurgo_percentiles(aoi_vect, property_config$id, top_depth, bottom_depth,
+                                       parallel = parallel, n_cores = n_cores)
     if (is.null(prior)) return(NULL)
     cache_set(ssurgo_key, "ssurgo", wrap_percentile_list(prior))
   }
@@ -730,6 +737,9 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
 #'   of per-member config lists (each needs at least `id`/`solus_variable`) - the per-call
 #'   replacement for the original bundle's global `PROPERTIES` registry.
 #' @param top_depth,bottom_depth Numeric depth bounds in cm.
+#' @param parallel,n_cores Passed through to `simulate_ssurgo_mapunit_draws()`'s
+#'   `parallel`/`n_cores` for the shared draws computation below (only relevant when at least one
+#'   member isn't already disk-cached). Default `parallel = FALSE` matches prior behavior exactly.
 #' @return The full group result: a named list keyed by member id, each element
 #'   `list(posterior = list(value=, ilr_mu=, ilr_Sigma=), dist = "texture_ilr", route =
 #'   "closed_form_ilr_group", route_detail = NULL, n_fallback_cells = 0)` (see
@@ -740,7 +750,7 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
 #'   consistent regardless of `dist`.
 #' @export
 run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, property_configs,
-                                     top_depth, bottom_depth) {
+                                     top_depth, bottom_depth, parallel = FALSE, n_cores = NULL) {
   member_ids <- group_members(group, composition_groups)
   members <- property_configs[member_ids]
 
@@ -774,7 +784,8 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
     if (any(vapply(ssurgo_cached, is.null, logical(1)))) {
       shared_mukey_raster <- fetch_ssurgo_mukey_raster(aoi_vect)
       if (!is.null(shared_mukey_raster)) {
-        shared_draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth)
+        shared_draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth,
+                                                        parallel = parallel, n_cores = n_cores)
       }
     }
 

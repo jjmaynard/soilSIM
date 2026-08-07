@@ -10,7 +10,9 @@ run_stage1_fusion_group(
   composition_groups,
   property_configs,
   top_depth,
-  bottom_depth
+  bottom_depth,
+  parallel = FALSE,
+  n_cores = NULL
 )
 }
 \arguments{
@@ -26,6 +28,10 @@ of per-member config lists (each needs at least \code{id}/\code{solus_variable})
 replacement for the original bundle's global \code{PROPERTIES} registry.}
 
 \item{top_depth, bottom_depth}{Numeric depth bounds in cm.}
+
+\item{parallel, n_cores}{Passed through to \code{simulate_ssurgo_mapunit_draws()}'s
+\code{parallel}/\code{n_cores} for the shared draws computation below (only relevant when at least one
+member isn't already disk-cached). Default \code{parallel = FALSE} matches prior behavior exactly.}
 }
 \value{
 The full group result: a named list keyed by member id, each element

@@ -10,7 +10,9 @@ fetch_ssurgo_percentiles(
   top_depth,
   bottom_depth,
   probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
-  n_mc = 1000
+  n_mc = 1000,
+  parallel = FALSE,
+  n_cores = NULL
 )
 }
 \arguments{
@@ -23,6 +25,11 @@ fetch_ssurgo_percentiles(
 \item{probs}{Percentile probabilities to compute (default \code{c(0.05, 0.25, 0.5, 0.75, 0.95)}).}
 
 \item{n_mc}{Number of triangular draws per component (default 1000).}
+
+\item{parallel, n_cores}{Passed through to \code{simulate_ssurgo_mapunit_draws()}'s
+\code{parallel}/\code{n_cores} - the per-cokey depth-trend GP fitting step is this function's
+dominant cost for AOIs with many cokeys. Default \code{parallel = FALSE} matches prior behavior
+exactly.}
 }
 \value{
 \verb{list(values = <named list of percentile-value SpatRasters>, probs = probs)}, or \code{NULL}

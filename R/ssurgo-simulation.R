@@ -400,15 +400,21 @@ percentiles_from_draws <- function(mukey_raster, draws, property_id,
 #' @param top_depth,bottom_depth Numeric depth window bounds in cm.
 #' @param probs Percentile probabilities to compute (default `c(0.05, 0.25, 0.5, 0.75, 0.95)`).
 #' @param n_mc Number of triangular draws per component (default 1000).
+#' @param parallel,n_cores Passed through to `simulate_ssurgo_mapunit_draws()`'s
+#'   `parallel`/`n_cores` - the per-cokey depth-trend GP fitting step is this function's
+#'   dominant cost for AOIs with many cokeys. Default `parallel = FALSE` matches prior behavior
+#'   exactly.
 #' @return `list(values = <named list of percentile-value SpatRasters>, probs = probs)`, or `NULL`
 #'   if the mukey raster or the Monte Carlo draws are unavailable for this AOI.
 #' @export
 fetch_ssurgo_percentiles <- function(aoi_vect, property_id, top_depth, bottom_depth,
-                                      probs = c(0.05, 0.25, 0.5, 0.75, 0.95), n_mc = 1000) {
+                                      probs = c(0.05, 0.25, 0.5, 0.75, 0.95), n_mc = 1000,
+                                      parallel = FALSE, n_cores = NULL) {
   mukey_raster <- fetch_ssurgo_mukey_raster(aoi_vect)
   if (is.null(mukey_raster)) return(NULL)
 
-  draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc)
+  draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc,
+                                          parallel = parallel, n_cores = n_cores)
   if (is.null(draws) || nrow(draws) == 0) return(NULL)
 
   percentiles_from_draws(mukey_raster, draws, property_id, probs)

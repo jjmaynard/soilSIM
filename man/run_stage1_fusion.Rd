@@ -10,7 +10,9 @@ run_stage1_fusion(
   top_depth,
   bottom_depth,
   composition_groups = NULL,
-  property_configs = NULL
+  property_configs = NULL,
+  parallel = FALSE,
+  n_cores = NULL
 )
 }
 \arguments{
@@ -25,6 +27,12 @@ as the cache key), \code{solus_variable} (a \code{soilDB::fetchSOLUS()}-recogniz
 
 \item{composition_groups, property_configs}{Only needed when \code{property_config$composition_group}
 is set - passed through to \code{run_stage1_fusion_group()} (see its docs).}
+
+\item{parallel, n_cores}{Passed through to \code{simulate_ssurgo_mapunit_draws()}'s
+\code{parallel}/\code{n_cores} (via \code{fetch_ssurgo_percentiles()} or \code{run_stage1_fusion_group()},
+whichever path this call takes) - the SSURGO adapter's per-cokey depth-trend GP fitting is
+this pipeline's dominant cost for AOIs with many cokeys. Default \code{parallel = FALSE} matches
+prior behavior exactly.}
 }
 \value{
 \code{list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=, route_detail=, n_fallback_cells=)}, or \code{NULL} if the SSURGO or SOLUS side failed.
