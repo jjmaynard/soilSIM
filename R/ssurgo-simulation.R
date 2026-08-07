@@ -116,11 +116,10 @@ adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths) {
 #' @param properties Character vector of property column names to adjust.
 #' @param min_depths Minimum distinct depths required to attempt GP fitting (default 2, matching
 #'   the source's `length(unique_depths) >= 2` guard).
-#' @param parallel Logical; if `TRUE`, process cokeys across multiple worker processes via the
-#'   `parallel` package (default `FALSE` - sequential, matching prior behavior exactly). Mirrors
-#'   the Windows-cluster/`mclapply` pattern already used by `multivariate-adjustment.R`'s
-#'   `process_cokeys_parallel()` - falls back to sequential processing if the parallel setup
-#'   itself errors.
+#' @param parallel Logical; if `TRUE`, process cokeys across multiple `future::multisession`
+#'   worker processes (default `FALSE` - sequential, matching prior behavior exactly). Falls back
+#'   to sequential processing if the parallel setup itself errors. See `run_parallel_lapply()`
+#'   (`R/parallel-utils.R`).
 #' @param n_cores Number of worker processes to use when `parallel = TRUE` (default
 #'   `max(1, parallel::detectCores() - 1)`).
 #' @return `sim_long`, depth-trend-adjusted where possible.
@@ -149,33 +148,22 @@ maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths 
   }
 
   cokey_groups <- split(sim_long, sim_long$cokey)
-  if (is.null(n_cores)) {
-    n_cores <- max(1, parallel::detectCores() - 1)
-  }
 
-  adjusted <- tryCatch({
-    if (.Platform$OS.type == "windows") {
-      cl <- parallel::makeCluster(n_cores)
-      on.exit(parallel::stopCluster(cl))
-
-      # Load the package (and therefore all its Imports, including dplyr and GPfit) on each
-      # worker, and propagate the current logging option - mirrors the same fix already applied
-      # to monte-carlo.R's run_parallel_simulation() and multivariate-adjustment.R's
-      # process_cokeys_parallel().
-      parallel::clusterEvalQ(cl, library(soilSIM))
-      current_log_cfg <- getOption("soil_workflow_log_config")
-      parallel::clusterCall(cl, function(cfg) options(soil_workflow_log_config = cfg), current_log_cfg)
-
-      parallel::parLapply(cl, cokey_groups, adjust_one_cokey_depth_trend,
-                           properties = properties, min_depths = min_depths)
-    } else {
-      parallel::mclapply(cokey_groups, adjust_one_cokey_depth_trend,
-                          properties = properties, min_depths = min_depths, mc.cores = n_cores)
+  adjusted <- run_parallel_lapply(
+    cokey_groups, adjust_one_cokey_depth_trend,
+    properties = properties, min_depths = min_depths,
+    n_cores = n_cores,
+    # GPfit::GP_fit()'s internal hyperparameter search is a genetic algorithm and genuinely uses
+    # R's RNG internally (confirmed empirically - future_lapply(future.seed = FALSE) raises an
+    # "UNRELIABLE VALUE" warning here), despite the fitted result itself being highly stable
+    # across runs/searches (see fit_local_gp_model_single()'s gp_control docs). future_seed =
+    # TRUE for parallel-safe RNG streams, not FALSE.
+    future_seed = TRUE,
+    op_name = "depth-trend adjustment",
+    sequential_fallback = function() {
+      lapply(cokey_groups, adjust_one_cokey_depth_trend, properties = properties, min_depths = min_depths)
     }
-  }, error = function(e) {
-    handle_workflow_error(e, "Parallel depth-trend adjustment", "warn")
-    lapply(cokey_groups, adjust_one_cokey_depth_trend, properties = properties, min_depths = min_depths)
-  })
+  )
 
   dplyr::bind_rows(adjusted)
 }

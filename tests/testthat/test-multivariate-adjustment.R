@@ -175,25 +175,24 @@ test_that("process_single_cokey()/process_cokeys_sequential() integrate local GP
   expect_true(all(vapply(results, function(r) !is.null(r) && nrow(r) > 0, logical(1))))
 })
 
-test_that("clusterEvalQ(cl, library(soilSIM)) makes package functions available on a fresh parallel worker", {
+test_that("future::multisession workers can see soilSIM package functions via automatic globals detection", {
   skip_on_cran()
-  # This directly isolates the fix in process_cokeys_parallel(): the old
-  # pattern (clusterEvalQ(cl, { library(dplyr); library(GPfit);
-  # source("mod00_soil_utils.R") })) relied on a relative path that does not
-  # resolve inside a fresh worker process. clusterEvalQ(cl, library(soilSIM))
-  # instead makes every package function available via a normal library()
-  # call - which requires the package to actually be installed (not just
-  # devtools::load_all()'d in this session), since a worker is a brand-new R
-  # process. Skip in a load_all()-only dev session; this runs for real under
-  # R CMD check / devtools::check(), which installs the package first.
+  # This isolates the same load-bearing assumption the old clusterEvalQ(cl, library(soilSIM))
+  # smoke test used to check, for the new mechanism: future/globals auto-detects that a
+  # dispatched closure calls a soilSIM-namespaced function and attaches the package on the
+  # worker automatically - this requires soilSIM to actually be installed and attached (not
+  # merely devtools::load_all()'d), since a future::multisession worker is a brand-new R
+  # process. Skip in a load_all()-only dev session; this runs for real under R CMD check /
+  # devtools::check(), which installs the package first.
   skip_if_not(nzchar(system.file(package = "soilSIM")) &&
                 file.exists(file.path(system.file(package = "soilSIM"), "Meta", "package.rds")),
               "soilSIM is not installed (only load_all()'d) in this session")
 
-  cl <- parallel::makeCluster(1)
-  on.exit(parallel::stopCluster(cl))
-  parallel::clusterEvalQ(cl, library(soilSIM))
-  worker_has_log_message <- parallel::clusterEvalQ(cl, exists("log_message"))[[1]]
+  old_plan <- future::plan()
+  on.exit(future::plan(old_plan), add = TRUE)
+  future::plan(future::multisession, workers = 1)
+
+  worker_has_log_message <- future.apply::future_lapply(1, function(i) exists("log_message"))[[1]]
   expect_true(worker_has_log_message)
 })
 
@@ -202,19 +201,21 @@ test_that("process_cokeys_parallel() produces the same results as process_cokeys
   sim_data <- make_sim_data(cokeys = c("1", "2"), depths = c(0, 20, 50, 100), n_sims = 8)
   config <- get_default_configuration("validation")
 
-  # Regardless of whether library(soilSIM) succeeds on workers in this dev
-  # session, process_cokeys_parallel() has its own tryCatch fallback to
-  # process_cokeys_sequential() on any worker-side error - so this call must
-  # succeed either way and produce valid per-cokey results. suppressWarnings():
-  # in a load_all()-only dev session (soilSIM not installed), the worker-side
-  # "there is no package called 'soilSIM'" error is expected and reported as
-  # a warning before falling back - not a code defect (see the skipped test
-  # above, which isolates and documents this environment limitation).
+  # n_cores = 2 (not 1) to actually exercise the future::multisession dispatch path -
+  # run_parallel_lapply() short-circuits n_cores <= 1 straight to plain lapply() without ever
+  # touching future, which would make this test pass trivially without exercising anything.
+  # Regardless of whether soilSIM is installed (vs. only load_all()'d) in this dev session,
+  # process_cokeys_parallel() has its own sequential_fallback to process_cokeys_sequential() on
+  # any worker-side error - so this call must succeed either way and produce valid per-cokey
+  # results. suppressWarnings(): in a load_all()-only dev session, the worker-side "package
+  # not attached" failure is expected and reported as a warning before falling back - not a
+  # code defect (see the skipped test above, which isolates and documents this environment
+  # limitation).
   results <- suppressWarnings(process_cokeys_parallel(
     sim_data, unique(sim_data$cokey), c("clay_pct", "sand_pct"),
     gp_models = NULL, cokey_mapping = NULL,
     use_nrcs_gp = FALSE, use_local_gp = TRUE,
-    preserve_correlations = TRUE, n_cores = 1, config = config
+    preserve_correlations = TRUE, n_cores = 2, config = config
   ))
   expect_length(results, 2)
   expect_true(all(vapply(results, function(r) !is.null(r) && nrow(r) > 0, logical(1))))

@@ -188,3 +188,26 @@ test_that("simulate_profile_depths_by_collection_parallel() runs without errorin
   result <- simulate_profile_depths_by_collection_parallel(soil_collection, seed = 1, n_cores = 2)
   expect_true(is.null(result) || inherits(result, "SoilProfileCollection"))
 })
+
+test_that("simulate_profile_depths_by_collection_parallel() restores the caller's future::plan() afterward", {
+  skip_if_not(
+    nzchar(system.file(package = "soilSIM")) &&
+      file.exists(file.path(system.file(package = "soilSIM"), "Meta", "package.rds")),
+    "soilSIM not installed in this session - future::multisession workers can't see a load_all()'d namespace"
+  )
+  # Regression test for a real bug fixed this session: the pre-migration implementation reverted
+  # future::plan() to sequential() only on its own success path (not via on.exit()), so it either
+  # clobbered a caller's pre-existing plan or left multisession active indefinitely on error.
+  # run_parallel_lapply() (R/parallel-utils.R) now snapshots and restores the caller's plan
+  # unconditionally.
+  tmp_before <- list.files(tempdir())
+  on.exit({
+    new_files <- setdiff(list.files(tempdir()), tmp_before)
+    unlink(file.path(tempdir(), grep("^Rscript", new_files, value = TRUE)))
+  }, add = TRUE)
+
+  plan_before <- future::plan()
+  soil_collection <- make_soil_profile_collection(sim_comppct = 2)
+  invisible(simulate_profile_depths_by_collection_parallel(soil_collection, seed = 1, n_cores = 2))
+  expect_true(identical(class(future::plan()), class(plan_before)))
+})

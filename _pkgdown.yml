@@ -469,6 +469,7 @@ reference:
   - raster_fusion
   - related_property_estimation
   - remove_invalid_components_working
+  - run_parallel_lapply
   - remove_invalid_horizons_working_compatible
   - render_report_as_markdown_lines
   - render_value_as_lines

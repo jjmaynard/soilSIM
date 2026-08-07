@@ -847,11 +847,12 @@ simulate_profile_depths_by_collection <- function(soil_collection, seed = 123) {
 #' results into a single `SoilProfileCollection`.
 #'
 #' @section Note on parallel workers:
-#' `future::multisession` workers are fresh R processes. `future`/`globals`
-#' auto-detect that `simulate_single_profile()` calls a `soilSIM`-namespaced
-#' function and attach the package in each worker automatically - this only
-#' works when `soilSIM` is actually installed and attached in the calling
-#' session, not merely `devtools::load_all()`'d.
+#' Dispatched via `run_parallel_lapply()` (`R/parallel-utils.R`), this package's shared
+#' `future`/`future.apply` helper. `future::multisession` workers are fresh R processes;
+#' `future`/`globals` auto-detect that `simulate_single_profile()` calls a `soilSIM`-namespaced
+#' function and attach the package in each worker automatically - this only works when `soilSIM`
+#' is actually installed and attached in the calling session, not merely `devtools::load_all()`'d.
+#' The caller's own `future::plan()` (if any) is restored afterward regardless of success/failure.
 #'
 #' @param soil_collection A SoilProfileCollection object containing soil profile data.
 #' @param seed An integer value to set the random seed for reproducibility (default is 123).
@@ -870,9 +871,6 @@ simulate_profile_depths_by_collection <- function(soil_collection, seed = 123) {
 #' @export
 simulate_profile_depths_by_collection_parallel <- function(soil_collection, seed = 123, n_cores = 6) {
 
-  # Set up the parallel backend using the future package
-  future::plan(future::multisession, workers = n_cores)
-
   # Check if input is a valid SoilProfileCollection
   if (!inherits(soil_collection, "SoilProfileCollection")) {
     stop("Input must be a SoilProfileCollection.")
@@ -884,24 +882,26 @@ simulate_profile_depths_by_collection_parallel <- function(soil_collection, seed
   # Define a function to simulate a single soil profile
   simulate_single_profile <- function(i) {
     soil_profile <- soil_collection[i, ]  # Select the ith profile
-    cat("Processing profile ID:", soil_profile$id, "\n")
     simulate_and_perturb_soil_profiles(soil_profile)
   }
 
-  # Run the simulation in parallel using future_lapply
+  # Run the simulation in parallel via run_parallel_lapply() (R/parallel-utils.R) - future_seed =
+  # TRUE gives future's parallel-safe RNG streams, needed for this function's own seed = ...
+  # reproducibility contract (simulate_and_perturb_soil_profiles() perturbs randomly).
+  # catch_errors = FALSE: this function's own contract is "graceful NULL on error, no sequential
+  # fallback" (unlike the other run_parallel_lapply() call sites), so error handling stays in this
+  # function's own tryCatch below rather than the helper's fallback-to-lapply default.
   result <- tryCatch({
-    all_simulated_profiles <- future.apply::future_lapply(seq_along(soil_collection), simulate_single_profile)
+    all_simulated_profiles <- run_parallel_lapply(
+      seq_along(soil_collection), simulate_single_profile,
+      n_cores = n_cores, future_seed = TRUE,
+      op_name = "soil profile depth simulation",
+      catch_errors = FALSE
+    )
 
-    # Revert to sequential processing
-    future::plan(future::sequential)
-
-    # Combine all simulated profiles into a single SoilProfileCollection
-    combined_simulated_profiles <- aqp::combine(all_simulated_profiles)
-
-    return(combined_simulated_profiles)
+    aqp::combine(all_simulated_profiles)
   }, error = function(e) {
-    cat("Error in processing profiles:\n")
-    cat("Error message:", e$message, "\n")
+    handle_workflow_error(e, "soil profile depth simulation", "warn")
     # Optionally return NULL to indicate failure
     return(NULL)
   })

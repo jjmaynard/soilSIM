@@ -20,11 +20,10 @@ maybe_adjust_soil_data_depth_trend(
 \item{min_depths}{Minimum distinct depths required to attempt GP fitting (default 2, matching
 the source's \code{length(unique_depths) >= 2} guard).}
 
-\item{parallel}{Logical; if \code{TRUE}, process cokeys across multiple worker processes via the
-\code{parallel} package (default \code{FALSE} - sequential, matching prior behavior exactly). Mirrors
-the Windows-cluster/\code{mclapply} pattern already used by \code{multivariate-adjustment.R}'s
-\code{process_cokeys_parallel()} - falls back to sequential processing if the parallel setup
-itself errors.}
+\item{parallel}{Logical; if \code{TRUE}, process cokeys across multiple \code{future::multisession}
+worker processes (default \code{FALSE} - sequential, matching prior behavior exactly). Falls back
+to sequential processing if the parallel setup itself errors. See \code{run_parallel_lapply()}
+(\code{R/parallel-utils.R}).}
 
 \item{n_cores}{Number of worker processes to use when \code{parallel = TRUE} (default
 \code{max(1, parallel::detectCores() - 1)}).}

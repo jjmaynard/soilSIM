@@ -27,11 +27,12 @@ results into a single \code{SoilProfileCollection}.
 }
 \section{Note on parallel workers}{
 
-\code{future::multisession} workers are fresh R processes. \code{future}/\code{globals}
-auto-detect that \code{simulate_single_profile()} calls a \code{soilSIM}-namespaced
-function and attach the package in each worker automatically - this only
-works when \code{soilSIM} is actually installed and attached in the calling
-session, not merely \code{devtools::load_all()}'d.
+Dispatched via \code{run_parallel_lapply()} (\code{R/parallel-utils.R}), this package's shared
+\code{future}/\code{future.apply} helper. \code{future::multisession} workers are fresh R processes;
+\code{future}/\code{globals} auto-detect that \code{simulate_single_profile()} calls a \code{soilSIM}-namespaced
+function and attach the package in each worker automatically - this only works when \code{soilSIM}
+is actually installed and attached in the calling session, not merely \code{devtools::load_all()}'d.
+The caller's own \code{future::plan()} (if any) is restored afterward regardless of success/failure.
 }
 
 \examples{

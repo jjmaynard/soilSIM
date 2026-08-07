@@ -1025,52 +1025,27 @@ process_cokeys_parallel <- function(simulation_data, unique_cokeys, properties,
                                     gp_models, cokey_mapping, use_nrcs_gp, use_local_gp,
                                     preserve_correlations, n_cores, config) {
 
-  if (is.null(n_cores)) {
-    n_cores <- max(1, parallel::detectCores() - 1)
-  }
-
-  log_message("INFO", paste("Running integration in parallel with", n_cores, "cores"), category = "MultivarAdjust")
-
-  tryCatch({
-    if (.Platform$OS.type == "windows") {
-      cl <- parallel::makeCluster(n_cores)
-      on.exit(parallel::stopCluster(cl))
-
-      # Export necessary objects with Module 8 setup
-      parallel::clusterExport(cl, c("gp_models", "cokey_mapping", "use_nrcs_gp",
-                                    "use_local_gp", "preserve_correlations", "properties", "config"),
-                              envir = environment())
-
-      # Load the package (and therefore all its Imports, including dplyr and
-      # GPfit) on each worker - mirrors the same fix already applied to
-      # monte-carlo.R's run_parallel_simulation().
-      parallel::clusterEvalQ(cl, library(soilSIM))
-
-      current_log_cfg <- getOption("soil_workflow_log_config")
-      parallel::clusterCall(cl, function(cfg) options(soil_workflow_log_config = cfg), current_log_cfg)
-
-      results <- parallel::parLapply(cl, unique_cokeys, function(cokey) {
-        process_single_cokey(simulation_data, cokey, properties, gp_models,
-                                      cokey_mapping, use_nrcs_gp, use_local_gp,
-                                      preserve_correlations, config)
-      })
-    } else {
-      results <- parallel::mclapply(unique_cokeys, function(cokey) {
-        process_single_cokey(simulation_data, cokey, properties, gp_models,
-                                      cokey_mapping, use_nrcs_gp, use_local_gp,
-                                      preserve_correlations, config)
-      }, mc.cores = n_cores)
+  run_parallel_lapply(
+    unique_cokeys,
+    function(cokey) {
+      process_single_cokey(simulation_data, cokey, properties, gp_models,
+                            cokey_mapping, use_nrcs_gp, use_local_gp,
+                            preserve_correlations, config)
+    },
+    n_cores = n_cores,
+    # process_single_cokey() can call apply_local_gp_adjustments()/apply_nrcs_trend_adjustments(),
+    # which fit GPfit models - GPfit::GP_fit()'s internal hyperparameter search is a genetic
+    # algorithm that genuinely uses R's RNG (confirmed empirically via future_lapply's
+    # "UNRELIABLE VALUE" warning when this was FALSE), despite the fitted result itself being
+    # highly stable across runs (see fit_local_gp_model_single()'s gp_control docs).
+    future_seed = TRUE,
+    op_name = "cokey integration",
+    sequential_fallback = function() {
+      process_cokeys_sequential(simulation_data, unique_cokeys, properties,
+                                 gp_models, cokey_mapping, use_nrcs_gp, use_local_gp,
+                                 preserve_correlations, config)
     }
-
-    return(results)
-
-  }, error = function(e) {
-    handle_workflow_error(e, "Parallel processing", "warn")
-    # Fallback to sequential processing
-    return(process_cokeys_sequential(simulation_data, unique_cokeys, properties,
-                                     gp_models, cokey_mapping, use_nrcs_gp, use_local_gp,
-                                     preserve_correlations, config))
-  })
+  )
 }
 
 # Enhanced sequential processing with Module 8 progress tracking

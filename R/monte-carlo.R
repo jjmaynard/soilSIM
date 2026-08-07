@@ -1921,48 +1921,27 @@ run_parallel_simulation <- function(simulation_params, distribution_setup, corre
   chunk_sizes <- rep(base_size, n_cores) + c(rep(1, remainder), rep(0, n_cores - remainder))
   chunk_sizes <- chunk_sizes[chunk_sizes > 0]
 
-  log_message("INFO", paste("Running Monte Carlo simulation in parallel with", length(chunk_sizes),
-                             "workers across", n_realizations, "realizations"), category = "MonteCarlo")
-
   correlation_matrix <- correlation_config$matrix
 
-  chunk_results <- tryCatch({
-    if (.Platform$OS.type == "windows") {
-      cl <- parallel::makeCluster(length(chunk_sizes))
-      on.exit(parallel::stopCluster(cl))
-
-      parallel::clusterExport(cl, c("simulation_params", "correlation_matrix", "properties", "config"),
-                               envir = environment())
-
-      # Worker processes start with an empty search path - load the package
-      # itself (not source() the old standalone module files, which no
-      # longer exist in this package layout) so simulate_correlated_properties()
-      # and everything it calls are available in each worker.
-      parallel::clusterEvalQ(cl, library(soilSIM))
-
-      # Worker processes are separate OS processes and do NOT inherit this
-      # process's options() - propagate the (possibly verbose-raised)
-      # log config explicitly so log_message() calls inside worker closures
-      # respect the caller's verbose setting.
-      current_log_cfg <- getOption("soil_workflow_log_config")
-      parallel::clusterCall(cl, function(cfg) options(soil_workflow_log_config = cfg), current_log_cfg)
-
-      parallel::parLapply(cl, chunk_sizes, function(chunk_n) {
-        simulate_correlated_properties(simulation_params, correlation_matrix, chunk_n, properties, config)
-      })
-    } else {
-      parallel::mclapply(chunk_sizes, function(chunk_n) {
-        simulate_correlated_properties(simulation_params, correlation_matrix, chunk_n, properties, config)
-      }, mc.cores = length(chunk_sizes))
+  # future_seed = TRUE: simulate_correlated_properties() draws random values (rnorm() etc.), so
+  # each chunk needs future's parallel-safe RNG streams - a genuine improvement over the prior
+  # mclapply()/parLapply() path, which had no controlled cross-worker RNG stream at all.
+  chunk_results <- run_parallel_lapply(
+    chunk_sizes,
+    function(chunk_n) simulate_correlated_properties(simulation_params, correlation_matrix, chunk_n, properties, config),
+    n_cores = length(chunk_sizes),
+    future_seed = TRUE,
+    op_name = "Monte Carlo simulation",
+    sequential_fallback = function() {
+      run_sequential_simulation(simulation_params, distribution_setup, correlation_config, n_realizations, properties, config)
     }
-  }, error = function(e) {
-    handle_workflow_error(e, "Parallel Monte Carlo simulation", "warn")
-    NULL
-  })
+  )
 
-  if (is.null(chunk_results) || any(vapply(chunk_results, is.null, logical(1)))) {
-    log_message("WARN", "Parallel simulation failed, falling back to sequential", category = "MonteCarlo")
-    return(run_sequential_simulation(simulation_params, distribution_setup, correlation_config, n_realizations, properties, config))
+  # run_parallel_lapply()'s sequential_fallback already returns a full-shaped
+  # [horizon, property, n_realizations] array (not a list of per-chunk arrays) when the parallel
+  # path fails - detect and pass that straight through rather than trying to re-chunk-combine it.
+  if (!is.list(chunk_results)) {
+    return(chunk_results)
   }
 
   # Combine per-worker [horizon, property, chunk_n] arrays into one
