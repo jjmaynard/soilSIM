@@ -2769,7 +2769,15 @@ related_property_estimation <- function(group, property_name, property_config) {
     group$infill_method <- ""
   }
 
-  mark_estimated <- function(group, idx, tag) {
+  # PERF: each branch below previously looped over which(missing_mask) doing per-row scalar
+  # arithmetic (see PERFORMANCE_IMPROVEMENT_PLAN.md Tier 2) - replaced with vectorized array ops
+  # over the whole missing-row set at once. `mark_estimated_vec()` writes infill_method for a
+  # subset of indices in one call instead of one `group$infill_method[idx] <- ...; group` cycle
+  # per row.
+  idx_all <- which(missing_mask)
+
+  mark_estimated_vec <- function(group, idx, tag) {
+    if (length(idx) == 0) return(group)
     group$infill_method[idx] <- paste0(group$infill_method[idx], property_col, ":", tag, "; ")
     group
   }
@@ -2780,138 +2788,114 @@ related_property_estimation <- function(group, property_name, property_config) {
     available_cols <- intersect(texture_cols, names(group))
 
     if (length(available_cols) >= 2) {
-      for (idx in which(missing_mask)) {
-        other_values <- unlist(group[idx, available_cols])
-        if (sum(!is.na(other_values)) >= 2) {
-          sum_others <- sum(other_values, na.rm = TRUE)
-          estimated_value <- max(0, min(100, 100 - sum_others))
-          group[[property_col]][idx] <- estimated_value
-          group <- mark_estimated(group, idx, "related_texture_sum")
-        }
-      }
+      other_mat <- as.matrix(group[idx_all, available_cols, drop = FALSE])
+      can_estimate <- rowSums(!is.na(other_mat)) >= 2
+      sum_others <- rowSums(other_mat, na.rm = TRUE)
+      estimated_value <- pmax(0, pmin(100, 100 - sum_others))
+
+      update_idx <- idx_all[can_estimate]
+      group[[property_col]][update_idx] <- estimated_value[can_estimate]
+      group <- mark_estimated_vec(group, update_idx, "related_texture_sum")
     }
   }
 
   # Water retention - use clay relationship if available
   else if (property_config$type == 'water_retention' && 'claytotal_r' %in% names(group)) {
-    for (idx in which(missing_mask)) {
-      clay_content <- group[['claytotal_r']][idx]
-      if (!is.na(clay_content)) {
-        estimated_value <- if (property_name == 'wthirdbar') {
-          max(0, min(60, 0.3 * clay_content + 10))
-        } else if (property_name == 'wfifteenbar') {
-          max(0, min(40, 0.4 * clay_content + 2))
-        } else {
-          NA_real_
-        }
-        if (!is.na(estimated_value)) {
-          group[[property_col]][idx] <- estimated_value
-          group <- mark_estimated(group, idx, "related_clay")
-        }
-      }
+    clay_content <- group[['claytotal_r']][idx_all]
+    estimated_value <- if (property_name == 'wthirdbar') {
+      pmax(0, pmin(60, 0.3 * clay_content + 10))
+    } else if (property_name == 'wfifteenbar') {
+      pmax(0, pmin(40, 0.4 * clay_content + 2))
+    } else {
+      rep(NA_real_, length(idx_all))
     }
+    can_estimate <- !is.na(estimated_value)
+
+    update_idx <- idx_all[can_estimate]
+    group[[property_col]][update_idx] <- estimated_value[can_estimate]
+    group <- mark_estimated_vec(group, update_idx, "related_clay")
   }
 
   # CEC - use clay and organic matter relationships
   else if (property_config$type == 'cec') {
-    for (idx in which(missing_mask)) {
-      clay <- if ('claytotal_r' %in% names(group)) group$claytotal_r[idx] else NA_real_
-      om <- if ('om_r' %in% names(group)) group$om_r[idx] else NA_real_
+    clay <- if ('claytotal_r' %in% names(group)) group$claytotal_r[idx_all] else rep(NA_real_, length(idx_all))
+    om <- if ('om_r' %in% names(group)) group$om_r[idx_all] else rep(NA_real_, length(idx_all))
 
-      if (!is.na(clay) || !is.na(om)) {
-        estimated_cec <- 0
-        if (!is.na(clay)) estimated_cec <- estimated_cec + (clay * 0.5)
-        if (!is.na(om)) estimated_cec <- estimated_cec + (om * 20)
-        estimated_cec <- max(2, estimated_cec)
+    can_estimate <- !is.na(clay) | !is.na(om)
+    estimated_cec <- ifelse(is.na(clay), 0, clay * 0.5) + ifelse(is.na(om), 0, om * 20)
+    estimated_cec <- pmax(0, pmin(100, pmax(2, estimated_cec)))
 
-        group[[property_col]][idx] <- max(0, min(100, estimated_cec))
-        group <- mark_estimated(group, idx, "related_clay_om")
-      }
-    }
+    update_idx <- idx_all[can_estimate]
+    group[[property_col]][update_idx] <- estimated_cec[can_estimate]
+    group <- mark_estimated_vec(group, update_idx, "related_clay_om")
   }
 
   # pH - use horizon and organic matter context
   else if (property_config$type == 'ph') {
-    for (idx in which(missing_mask)) {
-      estimated_ph <- 6.2
+    estimated_ph <- rep(6.2, length(idx_all))
 
-      if ('hzname' %in% names(group) && !is.na(group$hzname[idx])) {
-        hzname <- toupper(as.character(group$hzname[idx]))
-        if (substr(hzname, 1, 1) == 'A') {
-          estimated_ph <- estimated_ph - 0.3
-        } else if (substr(hzname, 1, 1) == 'C') {
-          estimated_ph <- estimated_ph + 0.2
-        }
-      }
-
-      if ('om_r' %in% names(group) && !is.na(group$om_r[idx])) {
-        if (group$om_r[idx] > 5) {
-          estimated_ph <- estimated_ph - 0.4
-        }
-      }
-
-      group[[property_col]][idx] <- max(3.0, min(10.0, estimated_ph))
-      group <- mark_estimated(group, idx, "related_horizon_om")
+    if ('hzname' %in% names(group)) {
+      hz <- group$hzname[idx_all]
+      has_hz <- !is.na(hz)
+      first_letter <- substr(toupper(as.character(hz)), 1, 1)
+      estimated_ph <- estimated_ph + ifelse(has_hz & first_letter == 'A', -0.3, 0) +
+        ifelse(has_hz & first_letter == 'C', 0.2, 0)
     }
+
+    if ('om_r' %in% names(group)) {
+      om_vals <- group$om_r[idx_all]
+      estimated_ph <- estimated_ph + ifelse(!is.na(om_vals) & om_vals > 5, -0.4, 0)
+    }
+
+    group[[property_col]][idx_all] <- pmax(3.0, pmin(10.0, estimated_ph))
+    group <- mark_estimated_vec(group, idx_all, "related_horizon_om")
   }
 
   # Organic matter - use depth and horizon relationships
   else if (property_config$type == 'organic_matter') {
-    for (idx in which(missing_mask)) {
-      estimated_om <- 2.0
+    estimated_om <- rep(2.0, length(idx_all))
 
-      if ('hzdept_r' %in% names(group) && !is.na(group$hzdept_r[idx])) {
-        depth <- group$hzdept_r[idx]
-        estimated_om <- if (depth <= 15) {
-          3.5
-        } else if (depth <= 30) {
-          1.8
-        } else if (depth <= 50) {
-          0.8
-        } else {
-          0.3
-        }
-      }
-
-      if ('hzname' %in% names(group) && !is.na(group$hzname[idx])) {
-        hzname <- toupper(as.character(group$hzname[idx]))
-        if (substr(hzname, 1, 1) == 'A') {
-          estimated_om <- estimated_om * 1.5
-        } else if (substr(hzname, 1, 1) == 'C') {
-          estimated_om <- 0.2
-        }
-      }
-
-      if ('claytotal_r' %in% names(group) && !is.na(group$claytotal_r[idx])) {
-        clay_content <- group$claytotal_r[idx]
-        if (clay_content > 35) {
-          estimated_om <- estimated_om * 1.3
-        } else if (clay_content < 15) {
-          estimated_om <- estimated_om * 0.7
-        }
-      }
-
-      group[[property_col]][idx] <- max(0, min(50, estimated_om))
-      group <- mark_estimated(group, idx, "related_depth_horizon")
+    if ('hzdept_r' %in% names(group)) {
+      depth <- group$hzdept_r[idx_all]
+      has_depth <- !is.na(depth)
+      depth_om <- ifelse(depth <= 15, 3.5, ifelse(depth <= 30, 1.8, ifelse(depth <= 50, 0.8, 0.3)))
+      estimated_om <- ifelse(has_depth, depth_om, estimated_om)
     }
+
+    if ('hzname' %in% names(group)) {
+      hz <- group$hzname[idx_all]
+      has_hz <- !is.na(hz)
+      first_letter <- substr(toupper(as.character(hz)), 1, 1)
+      estimated_om <- ifelse(has_hz & first_letter == 'A', estimated_om * 1.5,
+                       ifelse(has_hz & first_letter == 'C', 0.2, estimated_om))
+    }
+
+    if ('claytotal_r' %in% names(group)) {
+      clay_content <- group$claytotal_r[idx_all]
+      has_clay <- !is.na(clay_content)
+      estimated_om <- ifelse(has_clay & clay_content > 35, estimated_om * 1.3,
+                       ifelse(has_clay & clay_content < 15, estimated_om * 0.7, estimated_om))
+    }
+
+    group[[property_col]][idx_all] <- pmax(0, pmin(50, estimated_om))
+    group <- mark_estimated_vec(group, idx_all, "related_depth_horizon")
   }
 
   # Bulk density - use texture relationship if available
   else if (property_config$type == 'bulk_density' &&
            any(c('sandtotal_r', 'claytotal_r') %in% names(group))) {
-    for (idx in which(missing_mask)) {
-      clay <- if ('claytotal_r' %in% names(group)) group$claytotal_r[idx] else NA_real_
-      sand <- if ('sandtotal_r' %in% names(group)) group$sandtotal_r[idx] else NA_real_
+    clay <- if ('claytotal_r' %in% names(group)) group$claytotal_r[idx_all] else rep(NA_real_, length(idx_all))
+    sand <- if ('sandtotal_r' %in% names(group)) group$sandtotal_r[idx_all] else rep(NA_real_, length(idx_all))
 
-      if (!is.na(clay) || !is.na(sand)) {
-        base_bd <- 1.4
-        if (!is.na(clay)) base_bd <- base_bd - (clay - 20) * 0.01
-        if (!is.na(sand)) base_bd <- base_bd + (sand - 50) * 0.005
+    can_estimate <- !is.na(clay) | !is.na(sand)
+    base_bd <- rep(1.4, length(idx_all))
+    base_bd <- base_bd - ifelse(is.na(clay), 0, (clay - 20) * 0.01)
+    base_bd <- base_bd + ifelse(is.na(sand), 0, (sand - 50) * 0.005)
+    estimated_bd <- pmax(0.8, pmin(2.2, base_bd))
 
-        group[[property_col]][idx] <- max(0.8, min(2.2, base_bd))
-        group <- mark_estimated(group, idx, "related_texture")
-      }
-    }
+    update_idx <- idx_all[can_estimate]
+    group[[property_col]][update_idx] <- estimated_bd[can_estimate]
+    group <- mark_estimated_vec(group, update_idx, "related_texture")
   }
 
   return(group)

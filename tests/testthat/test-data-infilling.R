@@ -168,6 +168,162 @@ test_that("related_property_estimation() is a no-op for dbovendry's actual defau
   expect_true(is.na(res$dbovendry_r))
 })
 
+test_that("related_property_estimation()'s vectorized branches match the original per-row scalar loop across many rows", {
+  # Regression test for the PERFORMANCE_IMPROVEMENT_PLAN.md Tier 2 related_property_estimation()
+  # fix: reimplements the ORIGINAL per-row for-loop version of each branch here and checks the
+  # vectorized version matches it exactly across a synthetic multi-row dataset with randomized
+  # missingness patterns (not just the single-row cases the tests above already cover).
+  old_related_property_estimation <- function(group, property_name, property_config) {
+    property_col <- paste0(property_name, "_r")
+    if (!property_col %in% names(group)) return(group)
+    suitable_mask <- if ("unsuitable_horizon" %in% names(group)) !group$unsuitable_horizon else rep(TRUE, nrow(group))
+    if (is.null(property_config$related_properties)) return(group)
+    missing_mask <- is.na(group[[property_col]]) & suitable_mask
+    if (!any(missing_mask)) return(group)
+    if (!"infill_method" %in% names(group)) group$infill_method <- ""
+
+    mark_estimated <- function(group, idx, tag) {
+      group$infill_method[idx] <- paste0(group$infill_method[idx], property_col, ":", tag, "; ")
+      group
+    }
+
+    if (property_config$type == 'texture') {
+      texture_cols <- paste0(property_config$related_properties, "_r")
+      available_cols <- intersect(texture_cols, names(group))
+      if (length(available_cols) >= 2) {
+        for (idx in which(missing_mask)) {
+          other_values <- unlist(group[idx, available_cols])
+          if (sum(!is.na(other_values)) >= 2) {
+            sum_others <- sum(other_values, na.rm = TRUE)
+            group[[property_col]][idx] <- max(0, min(100, 100 - sum_others))
+            group <- mark_estimated(group, idx, "related_texture_sum")
+          }
+        }
+      }
+    } else if (property_config$type == 'water_retention' && 'claytotal_r' %in% names(group)) {
+      for (idx in which(missing_mask)) {
+        clay_content <- group[['claytotal_r']][idx]
+        if (!is.na(clay_content)) {
+          estimated_value <- if (property_name == 'wthirdbar') {
+            max(0, min(60, 0.3 * clay_content + 10))
+          } else if (property_name == 'wfifteenbar') {
+            max(0, min(40, 0.4 * clay_content + 2))
+          } else NA_real_
+          if (!is.na(estimated_value)) {
+            group[[property_col]][idx] <- estimated_value
+            group <- mark_estimated(group, idx, "related_clay")
+          }
+        }
+      }
+    } else if (property_config$type == 'cec') {
+      for (idx in which(missing_mask)) {
+        clay <- if ('claytotal_r' %in% names(group)) group$claytotal_r[idx] else NA_real_
+        om <- if ('om_r' %in% names(group)) group$om_r[idx] else NA_real_
+        if (!is.na(clay) || !is.na(om)) {
+          estimated_cec <- 0
+          if (!is.na(clay)) estimated_cec <- estimated_cec + (clay * 0.5)
+          if (!is.na(om)) estimated_cec <- estimated_cec + (om * 20)
+          estimated_cec <- max(2, estimated_cec)
+          group[[property_col]][idx] <- max(0, min(100, estimated_cec))
+          group <- mark_estimated(group, idx, "related_clay_om")
+        }
+      }
+    } else if (property_config$type == 'ph') {
+      for (idx in which(missing_mask)) {
+        estimated_ph <- 6.2
+        if ('hzname' %in% names(group) && !is.na(group$hzname[idx])) {
+          hzname <- toupper(as.character(group$hzname[idx]))
+          if (substr(hzname, 1, 1) == 'A') estimated_ph <- estimated_ph - 0.3
+          else if (substr(hzname, 1, 1) == 'C') estimated_ph <- estimated_ph + 0.2
+        }
+        if ('om_r' %in% names(group) && !is.na(group$om_r[idx])) {
+          if (group$om_r[idx] > 5) estimated_ph <- estimated_ph - 0.4
+        }
+        group[[property_col]][idx] <- max(3.0, min(10.0, estimated_ph))
+        group <- mark_estimated(group, idx, "related_horizon_om")
+      }
+    } else if (property_config$type == 'organic_matter') {
+      for (idx in which(missing_mask)) {
+        estimated_om <- 2.0
+        if ('hzdept_r' %in% names(group) && !is.na(group$hzdept_r[idx])) {
+          depth <- group$hzdept_r[idx]
+          estimated_om <- if (depth <= 15) 3.5 else if (depth <= 30) 1.8 else if (depth <= 50) 0.8 else 0.3
+        }
+        if ('hzname' %in% names(group) && !is.na(group$hzname[idx])) {
+          hzname <- toupper(as.character(group$hzname[idx]))
+          if (substr(hzname, 1, 1) == 'A') estimated_om <- estimated_om * 1.5
+          else if (substr(hzname, 1, 1) == 'C') estimated_om <- 0.2
+        }
+        if ('claytotal_r' %in% names(group) && !is.na(group$claytotal_r[idx])) {
+          clay_content <- group$claytotal_r[idx]
+          if (clay_content > 35) estimated_om <- estimated_om * 1.3
+          else if (clay_content < 15) estimated_om <- estimated_om * 0.7
+        }
+        group[[property_col]][idx] <- max(0, min(50, estimated_om))
+        group <- mark_estimated(group, idx, "related_depth_horizon")
+      }
+    } else if (property_config$type == 'bulk_density' && any(c('sandtotal_r', 'claytotal_r') %in% names(group))) {
+      for (idx in which(missing_mask)) {
+        clay <- if ('claytotal_r' %in% names(group)) group$claytotal_r[idx] else NA_real_
+        sand <- if ('sandtotal_r' %in% names(group)) group$sandtotal_r[idx] else NA_real_
+        if (!is.na(clay) || !is.na(sand)) {
+          base_bd <- 1.4
+          if (!is.na(clay)) base_bd <- base_bd - (clay - 20) * 0.01
+          if (!is.na(sand)) base_bd <- base_bd + (sand - 50) * 0.005
+          group[[property_col]][idx] <- max(0.8, min(2.2, base_bd))
+          group <- mark_estimated(group, idx, "related_texture")
+        }
+      }
+    }
+    group
+  }
+
+  set.seed(11)
+  n <- 40
+  make_group <- function(property_name, extra_cols) {
+    group <- data.frame(
+      hzname = sample(c("A", "Bw", "Cr", NA), n, replace = TRUE),
+      hzdept_r = sample(c(5, 20, 40, 80, NA), n, replace = TRUE),
+      claytotal_r = ifelse(runif(n) < 0.2, NA, runif(n, 5, 45)),
+      sandtotal_r = ifelse(runif(n) < 0.2, NA, runif(n, 10, 60)),
+      silttotal_r = ifelse(runif(n) < 0.2, NA, runif(n, 10, 60)),
+      om_r = ifelse(runif(n) < 0.2, NA, runif(n, 0, 8)),
+      unsuitable_horizon = FALSE,
+      stringsAsFactors = FALSE
+    )
+    for (nm in names(extra_cols)) group[[nm]] <- extra_cols[[nm]]
+    group[[paste0(property_name, "_r")]] <- NA_real_
+    group
+  }
+
+  configs <- list(
+    claytotal = get_default_property_config("claytotal"),
+    wthirdbar = get_default_property_config("wthirdbar"),
+    cec7 = { c <- get_default_property_config("cec7"); c },
+    om = get_default_property_config("om")
+  )
+  # ph1to1h2o/dbovendry need related_properties supplied explicitly (their real default configs
+  # leave it unset - see the dedicated no-op tests above).
+  ph_config <- get_default_property_config("ph1to1h2o"); ph_config$related_properties <- c("om")
+  bd_config <- get_default_property_config("dbovendry"); bd_config$related_properties <- c("claytotal", "sandtotal")
+
+  cases <- list(
+    list(property = "claytotal", config = configs$claytotal),
+    list(property = "wthirdbar", config = configs$wthirdbar),
+    list(property = "cec7", config = configs$cec7),
+    list(property = "ph1to1h2o", config = ph_config),
+    list(property = "om", config = configs$om),
+    list(property = "dbovendry", config = bd_config)
+  )
+
+  for (case in cases) {
+    group <- make_group(case$property, list())
+    expected <- old_related_property_estimation(group, case$property, case$config)
+    actual <- related_property_estimation(group, case$property, case$config)
+    expect_equal(actual, expected, tolerance = 1e-12, label = paste("property:", case$property))
+  }
+})
+
 test_that("infill_soil_property() fills missing _l/_h from a complete horizon, and recovers a value via cross-component interpolation", {
   df <- data.frame(
     cokey = c("1", "1", "2"),

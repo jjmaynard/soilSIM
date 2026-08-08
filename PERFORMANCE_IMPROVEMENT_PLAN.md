@@ -45,7 +45,8 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 | `optimize_gp_hyperparameters()` gp_control (20 reps, 12-pt series) | 82.70s | 16.97s | 4.9x | `29896d1` |
 | `simulate_vg_aws()` drop rowwise() (200 rows x 500 sims, synthetic) | 2.90s | 0.47s | 6.2x | `490dc21` |
 | `is_unsuitable()` vectorized toupper/trimws (200k rows, synthetic) | 70.12s | 9.47s | 7.4x | `a98b7c3` |
-| `infill_property_range_values()` (20k rows, synthetic) | 3.10s | 2.50s | 1.24x | TBD |
+| `infill_property_range_values()` (20k rows, synthetic) | 3.10s | 2.50s | 1.24x | `84b22b8` |
+| `related_property_estimation()` (30k rows, organic-matter branch) | 7.82s | 0.04s | 195x | TBD |
 
 ## Benchmark infrastructure
 
@@ -149,10 +150,22 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 
 ## Tier 2 - moderate confidence/impact
 
-- [ ] `R/data-infilling.R::related_property_estimation()` - six per-row loops (texture,
+- [x] `R/data-infilling.R::related_property_estimation()` - six per-row loops (texture,
   water-retention, CEC, pH, organic-matter, bulk-density), whole-dataset scope, each
   mechanically vectorizable (e.g. texture branch -> `rowSums()`).
-  - [ ] Benchmarked before / Fixed / Regression test / Benchmarked after / Committed
+  - [x] Benchmarked before: 7.82s (synthetic 30,000 rows, organic-matter branch).
+  - [x] Fixed: all six branches rewritten as vectorized array operations (`rowSums()` for the
+    texture sum-constraint, `ifelse()`-chains replacing the per-row `if`/`else if` cascades for
+    the other five) operating on the whole missing-row set at once; `mark_estimated_vec()`
+    writes `infill_method` for a subset of indices in one call instead of once per row.
+  - [x] Regression test added: extends `test-data-infilling.R` with a 40-row synthetic dataset
+    (randomized missingness across `hzname`/`hzdept_r`/`claytotal_r`/`sandtotal_r`/`om_r`) run
+    through all 6 branches, reimplementing the original per-row loop inline for comparison -
+    exact match (tolerance 1e-12) for every branch. The existing single-row tests for each
+    branch also still pass unchanged.
+  - [x] Benchmarked after: 0.04s - **~195x** (the organic-matter branch's 3 conditional
+    adjustments compounded the per-row overhead the most of the six).
+  - [x] Committed + pushed
 
 - [x] `R/data-infilling.R::infill_property_range_values()` - `apply(df, 1, ...)` forces
   whole-frame character-matrix coercion per row on every horizon needing range infilling.
