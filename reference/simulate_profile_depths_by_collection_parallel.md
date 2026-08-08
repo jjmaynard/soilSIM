@@ -38,12 +38,18 @@ soil profiles.
 
 ## Note on parallel workers
 
+Dispatched via
+[`run_parallel_lapply()`](https://jjmaynard.github.io/soilSIM/reference/run_parallel_lapply.md)
+(`R/parallel-utils.R`), this package's shared `future`/`future.apply`
+helper.
 [`future::multisession`](https://future.futureverse.org/reference/multisession.html)
-workers are fresh R processes. `future`/`globals` auto-detect that
+workers are fresh R processes; `future`/`globals` auto-detect that
 `simulate_single_profile()` calls a `soilSIM`-namespaced function and
 attach the package in each worker automatically - this only works when
 `soilSIM` is actually installed and attached in the calling session, not
-merely `devtools::load_all()`'d.
+merely `devtools::load_all()`'d. The caller's own
+[`future::plan()`](https://future.futureverse.org/reference/plan.html)
+(if any) is restored afterward regardless of success/failure.
 
 ## Examples
 

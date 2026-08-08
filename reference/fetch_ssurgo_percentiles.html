@@ -72,7 +72,9 @@ percentile-value rasters in the <code>list(values=, probs=)</code> shape <code><
 <span>  <span class="va">top_depth</span>,</span>
 <span>  <span class="va">bottom_depth</span>,</span>
 <span>  probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.25</span>, <span class="fl">0.5</span>, <span class="fl">0.75</span>, <span class="fl">0.95</span><span class="op">)</span>,</span>
-<span>  n_mc <span class="op">=</span> <span class="fl">1000</span></span>
+<span>  n_mc <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  parallel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  n_cores <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -98,6 +100,13 @@ percentile-value rasters in the <code>list(values=, probs=)</code> shape <code><
 
 <dt id="arg-n-mc">n_mc<a class="anchor" aria-label="anchor" href="#arg-n-mc"></a></dt>
 <dd><p>Number of triangular draws per component (default 1000).</p></dd>
+
+
+<dt id="arg-parallel-n-cores">parallel, n_cores<a class="anchor" aria-label="anchor" href="#arg-parallel-n-cores"></a></dt>
+<dd><p>Passed through to <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>'s
+<code>parallel</code>/<code>n_cores</code> - the per-cokey depth-trend GP fitting step is this function's
+dominant cost for AOIs with many cokeys. Default <code>parallel = FALSE</code> matches prior behavior
+exactly.</p></dd>
 
 </dl></div>
     <div class="section level2">

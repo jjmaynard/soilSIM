@@ -1151,6 +1151,11 @@ if you’re reading soilSIM’s source.
 - [`optimize_gp_hyperparameters()`](https://jjmaynard.github.io/soilSIM/reference/optimize_gp_hyperparameters.md)
   : Optimize GP Hyperparameters
 
+- [`parallel_utils`](https://jjmaynard.github.io/soilSIM/reference/parallel_utils.md)
+  :
+
+  Shared `future`/`future.apply` Parallel Dispatch Helper
+
 - [`parse_single_string_advanced()`](https://jjmaynard.github.io/soilSIM/reference/parse_single_string_advanced.md)
   : Parse Single String Advanced
 
@@ -1216,6 +1221,12 @@ if you’re reading soilSIM’s source.
 
 - [`remove_invalid_components_working()`](https://jjmaynard.github.io/soilSIM/reference/remove_invalid_components_working.md)
   : Remove Invalid Component Records
+
+- [`run_parallel_lapply()`](https://jjmaynard.github.io/soilSIM/reference/run_parallel_lapply.md)
+  :
+
+  Run a Function Over a List/Vector, in Parallel via `future.apply`,
+  with Sequential Fallback
 
 - [`remove_invalid_horizons_working_compatible()`](https://jjmaynard.github.io/soilSIM/reference/remove_invalid_horizons_working_compatible.md)
   : Remove Invalid Horizon Records

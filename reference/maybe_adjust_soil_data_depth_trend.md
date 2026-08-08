@@ -39,12 +39,13 @@ maybe_adjust_soil_data_depth_trend(
 
 - parallel:
 
-  Logical; if `TRUE`, process cokeys across multiple worker processes
-  via the `parallel` package (default `FALSE` - sequential, matching
-  prior behavior exactly). Mirrors the Windows-cluster/`mclapply`
-  pattern already used by `multivariate-adjustment.R`'s
-  `process_cokeys_parallel()` - falls back to sequential processing if
-  the parallel setup itself errors.
+  Logical; if `TRUE`, process cokeys across multiple
+  [`future::multisession`](https://future.futureverse.org/reference/multisession.html)
+  worker processes (default `FALSE` - sequential, matching prior
+  behavior exactly). Falls back to sequential processing if the parallel
+  setup itself errors. See
+  [`run_parallel_lapply()`](https://jjmaynard.github.io/soilSIM/reference/run_parallel_lapply.md)
+  (`R/parallel-utils.R`).
 
 - n_cores:
 

@@ -75,7 +75,9 @@ SSURGO grid onto the SOLUS grid via <code><a href="https://rspatial.github.io/te
 <span>  <span class="va">top_depth</span>,</span>
 <span>  <span class="va">bottom_depth</span>,</span>
 <span>  composition_groups <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  property_configs <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  property_configs <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  parallel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  n_cores <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -101,6 +103,14 @@ as the cache key), <code>solus_variable</code> (a <code><a href="http://ncss-tec
 <dt id="arg-composition-groups-property-configs">composition_groups, property_configs<a class="anchor" aria-label="anchor" href="#arg-composition-groups-property-configs"></a></dt>
 <dd><p>Only needed when <code>property_config$composition_group</code>
 is set - passed through to <code><a href="run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code> (see its docs).</p></dd>
+
+
+<dt id="arg-parallel-n-cores">parallel, n_cores<a class="anchor" aria-label="anchor" href="#arg-parallel-n-cores"></a></dt>
+<dd><p>Passed through to <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>'s
+<code>parallel</code>/<code>n_cores</code> (via <code><a href="fetch_ssurgo_percentiles.html">fetch_ssurgo_percentiles()</a></code> or <code><a href="run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code>,
+whichever path this call takes) - the SSURGO adapter's per-cokey depth-trend GP fitting is
+this pipeline's dominant cost for AOIs with many cokeys. Default <code>parallel = FALSE</code> matches
+prior behavior exactly.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -87,7 +87,9 @@ trigger the joint fetch+fusion exactly once, not three times.</p>
 <span>  <span class="va">composition_groups</span>,</span>
 <span>  <span class="va">property_configs</span>,</span>
 <span>  <span class="va">top_depth</span>,</span>
-<span>  <span class="va">bottom_depth</span></span>
+<span>  <span class="va">bottom_depth</span>,</span>
+<span>  parallel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  n_cores <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -116,6 +118,12 @@ replacement for the original bundle's global <code>PROPERTIES</code> registry.</
 
 <dt id="arg-top-depth-bottom-depth">top_depth, bottom_depth<a class="anchor" aria-label="anchor" href="#arg-top-depth-bottom-depth"></a></dt>
 <dd><p>Numeric depth bounds in cm.</p></dd>
+
+
+<dt id="arg-parallel-n-cores">parallel, n_cores<a class="anchor" aria-label="anchor" href="#arg-parallel-n-cores"></a></dt>
+<dd><p>Passed through to <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>'s
+<code>parallel</code>/<code>n_cores</code> for the shared draws computation below (only relevant when at least one
+member isn't already disk-cached). Default <code>parallel = FALSE</code> matches prior behavior exactly.</p></dd>
 
 </dl></div>
     <div class="section level2">

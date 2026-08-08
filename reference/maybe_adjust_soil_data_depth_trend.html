@@ -99,11 +99,10 @@ the source's <code>length(unique_depths) &gt;= 2</code> guard).</p></dd>
 
 
 <dt id="arg-parallel">parallel<a class="anchor" aria-label="anchor" href="#arg-parallel"></a></dt>
-<dd><p>Logical; if <code>TRUE</code>, process cokeys across multiple worker processes via the
-<code>parallel</code> package (default <code>FALSE</code> - sequential, matching prior behavior exactly). Mirrors
-the Windows-cluster/<code>mclapply</code> pattern already used by <code>multivariate-adjustment.R</code>'s
-<code>process_cokeys_parallel()</code> - falls back to sequential processing if the parallel setup
-itself errors.</p></dd>
+<dd><p>Logical; if <code>TRUE</code>, process cokeys across multiple <code><a href="https://future.futureverse.org/reference/multisession.html" class="external-link">future::multisession</a></code>
+worker processes (default <code>FALSE</code> - sequential, matching prior behavior exactly). Falls back
+to sequential processing if the parallel setup itself errors. See <code><a href="run_parallel_lapply.html">run_parallel_lapply()</a></code>
+(<code>R/parallel-utils.R</code>).</p></dd>
 
 
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>

@@ -18,7 +18,9 @@ run_stage1_fusion(
   top_depth,
   bottom_depth,
   composition_groups = NULL,
-  property_configs = NULL
+  property_configs = NULL,
+  parallel = FALSE,
+  n_cores = NULL
 )
 ```
 
@@ -51,6 +53,19 @@ run_stage1_fusion(
   through to
   [`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
   (see its docs).
+
+- parallel, n_cores:
+
+  Passed through to
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)'s
+  `parallel`/`n_cores` (via
+  [`fetch_ssurgo_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_percentiles.md)
+  or
+  [`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md),
+  whichever path this call takes) - the SSURGO adapter's per-cokey
+  depth-trend GP fitting is this pipeline's dominant cost for AOIs with
+  many cokeys. Default `parallel = FALSE` matches prior behavior
+  exactly.
 
 ## Value
 

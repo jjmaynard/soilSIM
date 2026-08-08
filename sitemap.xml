@@ -2,6 +2,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/404.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/LICENSE-text.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/LICENSE.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/PERFORMANCE_IMPROVEMENT_PLAN.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/STUB_COMPLETION_TRACKER.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/articles/architecture-aws-van-genuchten-modeling.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/articles/architecture-bayesian-updating.html</loc></url>
@@ -269,6 +270,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/normalize_monte_carlo_config.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/normalize_values.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/optimize_gp_hyperparameters.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/parallel_utils.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/parse_single_string_advanced.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/parse_wkt_geometry.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/percentile_index.html</loc></url>
@@ -320,6 +322,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/restore_composition_properties.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/run_comprehensive_correlation_analysis.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/run_comprehensive_correlation_analysis_safe.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/run_parallel_lapply.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/run_parallel_simulation.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.html</loc></url>

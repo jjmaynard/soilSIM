@@ -25,7 +25,9 @@ run_stage1_fusion_group(
   composition_groups,
   property_configs,
   top_depth,
-  bottom_depth
+  bottom_depth,
+  parallel = FALSE,
+  n_cores = NULL
 )
 ```
 
@@ -57,6 +59,14 @@ run_stage1_fusion_group(
 - top_depth, bottom_depth:
 
   Numeric depth bounds in cm.
+
+- parallel, n_cores:
+
+  Passed through to
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)'s
+  `parallel`/`n_cores` for the shared draws computation below (only
+  relevant when at least one member isn't already disk-cached). Default
+  `parallel = FALSE` matches prior behavior exactly.
 
 ## Value
 

@@ -97,11 +97,12 @@ results into a single <code>SoilProfileCollection</code>.</p>
     <h2 id="note-on-parallel-workers">Note on parallel workers<a class="anchor" aria-label="anchor" href="#note-on-parallel-workers"></a></h2>
 
 
-<p><code><a href="https://future.futureverse.org/reference/multisession.html" class="external-link">future::multisession</a></code> workers are fresh R processes. <code>future</code>/<code>globals</code>
-auto-detect that <code>simulate_single_profile()</code> calls a <code>soilSIM</code>-namespaced
-function and attach the package in each worker automatically - this only
-works when <code>soilSIM</code> is actually installed and attached in the calling
-session, not merely <code>devtools::load_all()</code>'d.</p>
+<p>Dispatched via <code><a href="run_parallel_lapply.html">run_parallel_lapply()</a></code> (<code>R/parallel-utils.R</code>), this package's shared
+<code>future</code>/<code>future.apply</code> helper. <code><a href="https://future.futureverse.org/reference/multisession.html" class="external-link">future::multisession</a></code> workers are fresh R processes;
+<code>future</code>/<code>globals</code> auto-detect that <code>simulate_single_profile()</code> calls a <code>soilSIM</code>-namespaced
+function and attach the package in each worker automatically - this only works when <code>soilSIM</code>
+is actually installed and attached in the calling session, not merely <code>devtools::load_all()</code>'d.
+The caller's own <code><a href="https://future.futureverse.org/reference/plan.html" class="external-link">future::plan()</a></code> (if any) is restored afterward regardless of success/failure.</p>
     </div>
 
     <div class="section level2">
