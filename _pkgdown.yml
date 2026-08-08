@@ -452,6 +452,7 @@ reference:
   - monte_carlo_simulation
   - multivariate_adjustment
   - optimize_gp_hyperparameters
+  - parallel_utils
   - parse_single_string_advanced
   - percentile_index
   - percentile_interior
