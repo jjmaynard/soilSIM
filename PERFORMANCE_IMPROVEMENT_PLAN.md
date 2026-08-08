@@ -49,7 +49,7 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 | `related_property_estimation()` (30k rows, organic-matter branch) | 7.82s | 0.04s | 195x | `b3a82bb` |
 | `hz_quant_prob_mukey()` single-pass (10k rows, 500 mukeys) | ~2.9s | ~2.9s | ~1x (no meaningful change - see Tier 3 notes) | `725d8a8` |
 | `adjust_multivariate_depthwise_GP()` (8 depths x 2000 replicates, synthetic) | 7.47s | 0.15s | 50x | `0b5f81c` |
-| `slice_and_aggregate_soil_data()` (50 horizons, 1500cm total, synthetic) | 0.58s | 0.03s | 19x | TBD |
+| `slice_and_aggregate_soil_data()` (50 horizons, 1500cm total, synthetic) | 0.58s | 0.03s | 19x | `4a1ab9c` |
 
 ## Benchmark infrastructure
 
