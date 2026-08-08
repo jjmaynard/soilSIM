@@ -218,14 +218,27 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 
 ## Tier 3 - low priority (confirmed zero internal callers via `grep` - exported API only)
 
-- [ ] `R/ssurgo-processing.R::hz_quant_prob_mukey()` - three independent
+- [x] `R/ssurgo-processing.R::hz_quant_prob_mukey()` - three independent
   `group_by()`/`summarize()` passes (one per quantile level) + three `left_join()`s, instead of
   one pass computing all quantiles per group. **Correction (verified during implementation)**:
   originally listed as Tier 1 "confirmed hot path" per an Explore agent's report, but a direct
   `grep -rn "hz_quant_prob_mukey" R/` found zero internal callers anywhere in the package - it's
   only referenced in its own file, a package-doc comment, and docs/vignettes prose. Not wired
   into `simulate_ssurgo_mapunit_draws()` or any other pipeline. Demoted to Tier 3 accordingly.
-  - [ ] Fixed / Regression test / Committed
+  - [x] Fixed: replaced the three `group_by()`/`summarize()` passes + three `left_join()`s with
+    one grouped pass (`across()`'s multi-function form computing all 3 quantiles per group at
+    once) + a vectorized PIW90 computation, matching the plan's suggested direction.
+  - [x] Regression test added: `test-ssurgo-processing.R` - reimplements the original three-pass
+    version inline and asserts identical output (tolerance 1e-12) across multiple mukeys/depths/
+    properties. Existing single-row and error-path tests for this function all still pass
+    unchanged.
+  - [x] Benchmarked: **inconclusive/no meaningful change** (2 repeated before/after run pairs on
+    a synthetic 10,000-row/500-mukey dataset landed within ~10% of each other with no consistent
+    direction - `dplyr`'s per-call grouping/hashing overhead dominates at this scale regardless
+    of 1 vs. 3 summarize() passes). Kept anyway - the code is genuinely simpler (one join instead
+    of three, less intermediate object churn) and correctness is verified; not a wasted change,
+    just not a measurable wall-clock win in this synthetic benchmark.
+  - [x] Committed + pushed
 
 - [ ] `R/gp-modeling.R::adjust_multivariate_depthwise_GP()` - identical
   quantile()-per-replicate bug as the already-fixed `apply_quantile_adjustment()`.

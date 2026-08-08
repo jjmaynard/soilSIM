@@ -969,41 +969,31 @@ hz_quant_prob_mukey <- function(hz_data) {
     stop("No valid soil properties found in the data")
   }
 
-  # Calculate quantiles
-  data_stats05 <- data_out |>
+  # PERF: previously three independent group_by(mukey, top)/summarize() passes over the same
+  # data (one per quantile level) + three left_join()s to stitch them back together - replaced
+  # with one grouped pass computing all three quantiles per group via across()'s multi-function
+  # form, then a vectorized PIW90 (see PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3). Column names
+  # (`.names = "{.col}_{.fn}"`) match the "_05"/"_50"/"_95" suffixes the old code applied
+  # afterward, so the final alphabetical column reorder below is unaffected.
+  data_stats <- data_out |>
     dplyr::group_by(mukey, top) |>
-    dplyr::summarize(dplyr::across(dplyr::all_of(prop_names), ~stats::quantile(.x, probs = q[1], na.rm = TRUE)), .groups = "drop") |>
+    dplyr::summarize(
+      dplyr::across(
+        dplyr::all_of(prop_names),
+        list(`05` = ~stats::quantile(.x, probs = q[1], na.rm = TRUE),
+             `50` = ~stats::quantile(.x, probs = q[2], na.rm = TRUE),
+             `95` = ~stats::quantile(.x, probs = q[3], na.rm = TRUE)),
+        .names = "{.col}_{.fn}"
+      ),
+      .groups = "drop"
+    ) |>
     as.data.frame()
 
-  data_stats50 <- data_out |>
-    dplyr::group_by(mukey, top) |>
-    dplyr::summarize(dplyr::across(dplyr::all_of(prop_names), ~stats::quantile(.x, probs = q[2], na.rm = TRUE)), .groups = "drop") |>
-    as.data.frame()
-
-  data_stats95 <- data_out |>
-    dplyr::group_by(mukey, top) |>
-    dplyr::summarize(dplyr::across(dplyr::all_of(prop_names), ~stats::quantile(.x, probs = q[3], na.rm = TRUE)), .groups = "drop") |>
-    as.data.frame()
-
-  # Calculate prediction interval width (PIW90)
-  data_statsPIW90 <- data_stats95 |>
-    dplyr::select(-mukey, -top) - data_stats05 |>
-    dplyr::select(-mukey, -top)
-  data_statsPIW90 <- data_statsPIW90 |>
-    dplyr::mutate(mukey = data_stats05$mukey, .before = 1) |>
-    dplyr::mutate(top = data_stats05$top, .after = mukey)
-
-  # Rename columns with suffixes
-  names(data_stats05)[-(1:2)] <- paste0(names(data_stats05)[-(1:2)], "_05")
-  names(data_stats50)[-(1:2)] <- paste0(names(data_stats50)[-(1:2)], "_50")
-  names(data_stats95)[-(1:2)] <- paste0(names(data_stats95)[-(1:2)], "_95")
-  names(data_statsPIW90)[-(1:2)] <- paste0(names(data_statsPIW90)[-(1:2)], "_PIW90")
-
-  # Join all statistics
-  data_stats <- data_stats05 |>
-    dplyr::left_join(data_stats50, by = c("mukey", "top")) |>
-    dplyr::left_join(data_stats95, by = c("mukey", "top")) |>
-    dplyr::left_join(data_statsPIW90, by = c("mukey", "top"))
+  # Calculate prediction interval width (PIW90) for each property, from the columns just computed.
+  for (prop in prop_names) {
+    data_stats[[paste0(prop, "_PIW90")]] <-
+      data_stats[[paste0(prop, "_95")]] - data_stats[[paste0(prop, "_05")]]
+  }
 
   # Reorder columns alphabetically (excluding mukey and top)
   other_cols <- names(data_stats)[!(names(data_stats) %in% c("mukey", "top"))]

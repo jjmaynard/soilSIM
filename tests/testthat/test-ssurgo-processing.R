@@ -174,3 +174,59 @@ test_that("hz_quant_prob_mukey() warns (not errors) on texture data without soil
   expect_warning(result <- hz_quant_prob_mukey(hz_data), "soiltexture package not available")
   expect_true("mukey" %in% names(result))
 })
+
+test_that("hz_quant_prob_mukey()'s single-pass quantile computation matches the original three-pass version", {
+  # Regression test for the PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3 hz_quant_prob_mukey() fix:
+  # reimplements the ORIGINAL three-pass group_by()/summarize() + left_join() version's core
+  # quantile/PIW90 computation here and checks the new single-pass version produces identical
+  # numeric results, across multiple mukeys/depths/properties.
+  set.seed(3)
+  hz_data <- data.frame(
+    mukey = rep(c("1", "2"), each = 20),
+    hzdept_r = rep(c(0, 20), 20),
+    hzdepb_r = rep(c(20, 40), 20),
+    db = c(stats::rnorm(20, 1.3, 0.1), stats::rnorm(20, 1.5, 0.15)),
+    ph = c(stats::rnorm(20, 6.0, 0.3), stats::rnorm(20, 6.5, 0.2))
+  )
+
+  old_three_pass <- function(hz_data) {
+    q <- c(0.05, 0.5, 0.95)
+    data_out <- hz_data |>
+      dplyr::select(mukey, top = hzdept_r, bottom = hzdepb_r, Db = db, ph = ph)
+    prop_names <- c("Db", "ph")
+
+    data_stats05 <- data_out |> dplyr::group_by(mukey, top) |>
+      dplyr::summarize(dplyr::across(dplyr::all_of(prop_names), ~stats::quantile(.x, probs = q[1], na.rm = TRUE)), .groups = "drop") |>
+      as.data.frame()
+    data_stats50 <- data_out |> dplyr::group_by(mukey, top) |>
+      dplyr::summarize(dplyr::across(dplyr::all_of(prop_names), ~stats::quantile(.x, probs = q[2], na.rm = TRUE)), .groups = "drop") |>
+      as.data.frame()
+    data_stats95 <- data_out |> dplyr::group_by(mukey, top) |>
+      dplyr::summarize(dplyr::across(dplyr::all_of(prop_names), ~stats::quantile(.x, probs = q[3], na.rm = TRUE)), .groups = "drop") |>
+      as.data.frame()
+
+    data_statsPIW90 <- data_stats95 |> dplyr::select(-mukey, -top) - data_stats05 |> dplyr::select(-mukey, -top)
+    data_statsPIW90 <- data_statsPIW90 |>
+      dplyr::mutate(mukey = data_stats05$mukey, .before = 1) |>
+      dplyr::mutate(top = data_stats05$top, .after = mukey)
+
+    names(data_stats05)[-(1:2)] <- paste0(names(data_stats05)[-(1:2)], "_05")
+    names(data_stats50)[-(1:2)] <- paste0(names(data_stats50)[-(1:2)], "_50")
+    names(data_stats95)[-(1:2)] <- paste0(names(data_stats95)[-(1:2)], "_95")
+    names(data_statsPIW90)[-(1:2)] <- paste0(names(data_statsPIW90)[-(1:2)], "_PIW90")
+
+    data_stats05 |>
+      dplyr::left_join(data_stats50, by = c("mukey", "top")) |>
+      dplyr::left_join(data_stats95, by = c("mukey", "top")) |>
+      dplyr::left_join(data_statsPIW90, by = c("mukey", "top"))
+  }
+
+  expected <- old_three_pass(hz_data)
+  actual <- hz_quant_prob_mukey(hz_data)
+  common_cols <- c("mukey", "top", "Db_05", "Db_50", "Db_95", "Db_PIW90", "ph_05", "ph_50", "ph_95", "ph_PIW90")
+  expect_equal(
+    actual[order(actual$mukey, actual$top), common_cols],
+    expected[order(expected$mukey, expected$top), common_cols],
+    tolerance = 1e-12
+  )
+})
