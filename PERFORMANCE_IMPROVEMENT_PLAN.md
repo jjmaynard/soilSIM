@@ -44,7 +44,8 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 | `apply_sum_constraints()` (150 horizons x 2000 realizations, synthetic) | 3.71s | 1.16s | 3.2x | `78e5502` |
 | `optimize_gp_hyperparameters()` gp_control (20 reps, 12-pt series) | 82.70s | 16.97s | 4.9x | `29896d1` |
 | `simulate_vg_aws()` drop rowwise() (200 rows x 500 sims, synthetic) | 2.90s | 0.47s | 6.2x | `490dc21` |
-| `is_unsuitable()` vectorized toupper/trimws (200k rows, synthetic) | 70.12s | 9.47s | 7.4x | TBD |
+| `is_unsuitable()` vectorized toupper/trimws (200k rows, synthetic) | 70.12s | 9.47s | 7.4x | `a98b7c3` |
+| `infill_property_range_values()` (20k rows, synthetic) | 3.10s | 2.50s | 1.24x | TBD |
 
 ## Benchmark infrastructure
 
@@ -153,9 +154,29 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
   mechanically vectorizable (e.g. texture branch -> `rowSums()`).
   - [ ] Benchmarked before / Fixed / Regression test / Benchmarked after / Committed
 
-- [ ] `R/data-infilling.R::infill_property_range_values()` - `apply(df, 1, ...)` forces
+- [x] `R/data-infilling.R::infill_property_range_values()` - `apply(df, 1, ...)` forces
   whole-frame character-matrix coercion per row on every horizon needing range infilling.
-  - [ ] Benchmarked before / Fixed / Regression test / Benchmarked after / Committed
+  - [x] Benchmarked before: 3.10s (synthetic 20,000 rows, ~90% needing infill).
+  - [x] Fixed: `calculate_property_lower_bound()`/`calculate_property_upper_bound()`/
+    `get_contextual_spread()` only ever read 3 columns off `row` (`<property>_r`, `hzname`,
+    `hzdepb_r`) - pre-extract those 3 as plain vectors once, then build a small named-list "row"
+    per element (list `[[`/`names()` work identically to a data.frame row for these helpers).
+    **First attempt regression (caught by benchmarking)**: slicing single-row data.frame subsets
+    per element (`subset_df[i, ]`) was actually *slower* than the original `apply()` (8.16s vs.
+    3.10s) - `[.data.frame`'s per-call overhead outweighs the savings from dropping unused
+    columns. Switched to plain-list construction instead, which is cheap per element. **Also
+    fixes a real latent bug**: the old `apply()` coercion turned `row` all-character, so
+    `calculate_property_lower_bound()`/`upper_bound()`'s `if (depth <= 30)` depth-zone check
+    (`depth = row[['hzdepb_r']]`, never wrapped in `as.numeric()`) was comparing STRINGS (e.g.
+    `"5" <= "30"` is FALSE lexicographically) - silently misclassifying depth zones for horizons
+    whose numeric `hzdepb_r` string didn't happen to sort the same as its numeric value.
+  - [x] Regression test added: `test-data-infilling.R` - constructs surface/deep learned-range
+    training rows with very different spreads and asserts a shallow (5cm) target horizon
+    correctly resolves to the `depth_surface` spread, not `depth_deep` (which the old bug would
+    have produced).
+  - [x] Benchmarked after: 2.50s - **~1.24x** (modest; this function's cost is dominated by
+    `learn_property_ranges()`/`get_property_contextual_ranges()`, not the per-row loop itself).
+  - [x] Committed + pushed
 
 - [x] `R/utils.R::is_unsuitable()` - per-row scalar `toupper()`/`trimws()` instead of vectorized
   once before the loop; called repeatedly across pipeline stages on overlapping data.

@@ -278,3 +278,36 @@ test_that("summarize_unsuitable_horizons() summarizes excluded horizon types", {
 
   expect_error(summarize_unsuitable_horizons(data.frame(x = 1)), "unsuitable_horizon")
 })
+
+test_that("infill_property_range_values() classifies depth zones correctly (regression for an apply()-coercion bug)", {
+  # Regression test for the PERFORMANCE_IMPROVEMENT_PLAN.md Tier 2 infill_property_range_values()
+  # fix. The OLD apply(df, 1, ...) implementation coerced the entire row (all of df's columns) to
+  # character via as.matrix() before calling calculate_property_lower_bound()/upper_bound(), which
+  # read hzdepb_r WITHOUT as.numeric() for its depth-zone classification (if (depth <= 30) ...) -
+  # so with hzdepb_r coerced to character, "5" <= "30" was a STRING comparison (FALSE, since "5" >
+  # "30" lexicographically), silently misclassifying a 5cm-deep horizon as "depth_deep" instead of
+  # "depth_surface". The new column-subsetted, type-preserving implementation fixes this. Distinct
+  # hznames per row (never repeating 3x) keep the horizon-specific learned range from ever
+  # qualifying, isolating the depth-zone branch as the one that determines the spread used.
+  surface_rows <- data.frame(
+    hzname = c("Ax1", "Ax2", "Ax3"), hzdepb_r = c(10, 20, 25),
+    testprop_r = 10, testprop_l = 8, testprop_h = 12  # spread = 2 both sides
+  )
+  deep_rows <- data.frame(
+    hzname = c("Cx1", "Cx2", "Cx3"), hzdepb_r = c(120, 150, 180),
+    testprop_r = 10, testprop_l = 0, testprop_h = 20  # spread = 10 both sides
+  )
+  target_row <- data.frame(
+    hzname = "Ax_target", hzdepb_r = 5,  # shallow - must classify as depth_surface, not depth_deep
+    testprop_r = 10, testprop_l = NA_real_, testprop_h = NA_real_
+  )
+  df <- rbind(surface_rows, deep_rows, target_row)
+
+  property_config <- list(type = "other", fallback_range = 99, typical_range = NULL)
+  result <- infill_property_range_values(df, "testprop", property_config)
+
+  target_idx <- nrow(result)
+  # Correct (depth_surface) classification -> spread 2, not the depth_deep spread of 10.
+  expect_equal(result$testprop_l[target_idx], 8)
+  expect_equal(result$testprop_h[target_idx], 12)
+})

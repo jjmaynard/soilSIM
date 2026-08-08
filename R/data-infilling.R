@@ -863,24 +863,51 @@ infill_property_range_values <- function(df, property_name, property_config) {
     rep(TRUE, nrow(df))
   }
 
+  # PERF: calculate_property_lower_bound()/calculate_property_upper_bound() (and the
+  # get_contextual_spread() they call) only ever read 3 columns off `row` - r_col, "hzname", and
+  # "hzdepb_r" - but apply(df[mask, ], 1, ...) forced as.matrix() to coerce EVERY column of df
+  # (typically dozens) to a single character matrix first, one row per horizon needing infilling
+  # (see PERFORMANCE_IMPROVEMENT_PLAN.md Tier 2). Pre-extracting just those 3 columns as plain
+  # vectors, then building a small named-list "row" per element (list `[[`/`names()` behave
+  # identically to a data.frame row for these helpers' purposes) avoids both the wasted columns
+  # and the coercion - and is faster than slicing single-row data.frame subsets per element too
+  # (data.frame `[.data.frame` has enough per-call overhead of its own to erode the savings from
+  # dropping unused columns; confirmed empirically - see PERFORMANCE_IMPROVEMENT_PLAN.md's
+  # benchmark note for this item). This also fixes a real latent bug the old coercion caused: with
+  # `row` coerced to all-character, calculate_property_lower_bound()/upper_bound()'s
+  # `if (depth <= 30)` depth-zone check (depth = row[['hzdepb_r']], never wrapped in
+  # as.numeric()) was comparing STRINGS (e.g. "5" <= "30" is FALSE lexicographically, even though
+  # 5 <= 30 numerically) - silently misclassifying depth zones for any horizon whose numeric
+  # hzdepb_r string didn't happen to sort the same as its numeric value.
+  r_vec <- df[[r_col]]
+  hzname_vec <- if ("hzname" %in% names(df)) df$hzname else NULL
+  depth_vec <- if ("hzdepb_r" %in% names(df)) df$hzdepb_r else NULL
+
+  make_row <- function(i) {
+    row <- stats::setNames(list(r_vec[i]), r_col)
+    if (!is.null(hzname_vec)) row[["hzname"]] <- hzname_vec[i]
+    if (!is.null(depth_vec)) row[["hzdepb_r"]] <- depth_vec[i]
+    row
+  }
+
   # Infill missing _l values
   missing_l_mask <- is.na(df[[l_col]]) & !is.na(df[[r_col]]) & suitable_mask
 
   if (any(missing_l_mask)) {
-    df[missing_l_mask, l_col] <- apply(df[missing_l_mask, ], 1, function(row) {
-      calculate_property_lower_bound(row, property_name, learned_ranges,
+    df[missing_l_mask, l_col] <- vapply(which(missing_l_mask), function(i) {
+      calculate_property_lower_bound(make_row(i), property_name, learned_ranges,
                                      context_ranges, property_config)
-    })
+    }, numeric(1))
   }
 
   # Infill missing _h values
   missing_h_mask <- is.na(df[[h_col]]) & !is.na(df[[r_col]]) & suitable_mask
 
   if (any(missing_h_mask)) {
-    df[missing_h_mask, h_col] <- apply(df[missing_h_mask, ], 1, function(row) {
-      calculate_property_upper_bound(row, property_name, learned_ranges,
+    df[missing_h_mask, h_col] <- vapply(which(missing_h_mask), function(i) {
+      calculate_property_upper_bound(make_row(i), property_name, learned_ranges,
                                      context_ranges, property_config)
-    })
+    }, numeric(1))
   }
 
   # Apply bounds checking
