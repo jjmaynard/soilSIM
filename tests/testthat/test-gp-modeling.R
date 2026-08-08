@@ -277,6 +277,71 @@ test_that("adjust_multivariate_depthwise_GP() preserves matrix dimensions and va
   expect_error(adjust_multivariate_depthwise_GP(simulated_list, gp_models, c(0, 50)), "Length of depths")
 })
 
+test_that("adjust_multivariate_depthwise_GP()'s vectorized quantile() call matches the original per-replicate loop", {
+  # Regression test for the PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3 adjust_multivariate_depthwise_GP()
+  # fix: quantile(curr_values, probs = q) was previously called once per replicate (recomputing
+  # the full quantile of the same vector at a different single probability each time) - now one
+  # call with a probs vector. Reimplements the ORIGINAL per-replicate loop here and checks the
+  # vectorized version's output is identical.
+  set.seed(99)
+  n_depths <- 4
+  n_sims <- 30
+  depths <- c(0, 20, 50, 100)
+
+  simulated_list <- list(
+    clay_pct = matrix(stats::rnorm(n_depths * n_sims, mean = 20, sd = 3), nrow = n_depths),
+    sand_pct = matrix(stats::rnorm(n_depths * n_sims, mean = 40, sd = 4), nrow = n_depths)
+  )
+  gp_models <- list(
+    clay_pct = list(gp_model = list(mean = "flat"), predictions_override = c(20, 21, 23, 26)),
+    sand_pct = list(gp_model = list(mean = "flat"), predictions_override = c(40, 39, 36, 33))
+  )
+  testthat::local_mocked_bindings(
+    predict_gp_depth_trends = function(gp_model_info, new_depths) gp_model_info$predictions_override,
+    .package = "soilSIM"
+  )
+
+  old_adjust <- function(simulated_list, gp_predictions, primary_property, depths) {
+    n_depths <- nrow(simulated_list[[1]]); n_sims <- ncol(simulated_list[[1]])
+    primary_matrix <- simulated_list[[primary_property]]
+    surface_values <- primary_matrix[1, ]
+    reference_quantiles <- ecdf(surface_values)(surface_values)
+
+    adjusted_list <- list()
+    for (prop in names(simulated_list)) {
+      current_matrix <- simulated_list[[prop]]
+      gp_means <- gp_predictions[[prop]]
+      adjusted_matrix <- current_matrix
+      for (i in 2:n_depths) {
+        gp_ratio <- if (is.na(gp_means[i - 1]) || is.na(gp_means[i]) || gp_means[i - 1] == 0) 1 else gp_means[i] / gp_means[i - 1]
+        prev_values <- adjusted_matrix[i - 1, ]
+        curr_values <- current_matrix[i, ]
+        adjusted_curr <- numeric(n_sims)
+        for (j in 1:n_sims) {
+          q <- reference_quantiles[j]
+          quantile_value <- quantile(curr_values, probs = q, na.rm = TRUE)
+          adjusted_curr[j] <- quantile_value + (prev_values[j] * gp_ratio - quantile_value)
+        }
+        if (var(curr_values, na.rm = TRUE) > 0) {
+          ecdf_adjusted <- ecdf(adjusted_curr)
+          adjusted_matrix[i, ] <- quantile(curr_values, probs = ecdf_adjusted(adjusted_curr), na.rm = TRUE)
+        } else {
+          adjusted_matrix[i, ] <- curr_values
+        }
+      }
+      adjusted_list[[prop]] <- adjusted_matrix
+    }
+    adjusted_list
+  }
+
+  gp_predictions <- list(clay_pct = c(20, 21, 23, 26), sand_pct = c(40, 39, 36, 33))
+  expected <- old_adjust(simulated_list, gp_predictions, "clay_pct", depths)
+  actual <- adjust_multivariate_depthwise_GP(simulated_list, gp_models, depths, primary_property = "clay_pct")
+
+  expect_equal(unname(actual$clay_pct), unname(expected$clay_pct), tolerance = 1e-10)
+  expect_equal(unname(actual$sand_pct), unname(expected$sand_pct), tolerance = 1e-10)
+})
+
 test_that("REGRESSION: prepare_nrcs_training_data() runs without error and filters out unsuitable (R) horizons", {
   # Prior to a fix during this migration, converting this function's %>%
   # pipe to base R |> left a bare `.` inside is_unsuitable(., ...) - valid

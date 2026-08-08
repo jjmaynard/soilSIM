@@ -240,9 +240,17 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
     just not a measurable wall-clock win in this synthetic benchmark.
   - [x] Committed + pushed
 
-- [ ] `R/gp-modeling.R::adjust_multivariate_depthwise_GP()` - identical
+- [x] `R/gp-modeling.R::adjust_multivariate_depthwise_GP()` - identical
   quantile()-per-replicate bug as the already-fixed `apply_quantile_adjustment()`.
-  - [ ] Fixed / Regression test / Committed
+  - [x] Fixed: `quantile(curr_values, probs = reference_quantiles, na.rm = TRUE)` computes all
+    `n_sims` replicates' quantiles in one call, replacing the `for (j in 1:n_sims)` loop that
+    called `quantile()` once per replicate with a single-probability `q`.
+  - [x] Regression test added: `test-gp-modeling.R` - reimplements the original per-replicate
+    loop inline and asserts identical output (tolerance 1e-10) across a synthetic 2-property,
+    4-depth, 30-replicate dataset. The existing dimension/validation test for this function also
+    still passes unchanged.
+  - [x] Benchmarked: 7.47s -> 0.15s (synthetic 8 depths x 2,000 replicates) - **~50x**.
+  - [x] Committed + pushed
 
 - [ ] `R/property-simulation.R::slice_and_aggregate_soil_data()` - allocates one single-row
   `data.frame` per centimeter of profile depth before a final `rbind()`.

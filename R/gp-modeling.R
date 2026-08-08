@@ -723,19 +723,15 @@ adjust_multivariate_depthwise_GP <- function(simulated_list, gp_models, depths,
       prev_values <- adjusted_matrix[i - 1, ]
       curr_values <- current_matrix[i, ]  # Use original current values
 
-      # Apply adjustment using REFERENCE quantiles (not property-specific)
-      adjusted_curr <- numeric(n_sims)
-
-      for (j in 1:n_sims) {
-        # Use the SAME quantile from reference property
-        q <- reference_quantiles[j]
-
-        # Find corresponding quantile value in current property's distribution
-        quantile_value <- quantile(curr_values, probs = q, na.rm = TRUE)
-
-        # Apply GP-based adjustment
-        adjusted_curr[j] <- quantile_value + (prev_values[j] * gp_ratio - quantile_value)
-      }
+      # PERF: previously called quantile(curr_values, probs = q) once per replicate (n_sims
+      # calls, each recomputing the full quantile of the SAME curr_values vector at a different
+      # single probability) - quantile() accepts a probs VECTOR, so this is one call for all
+      # replicates at once (identical anti-pattern to the already-fixed
+      # apply_quantile_adjustment() in multivariate-adjustment.R - see
+      # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3). unname() matches the original's plain
+      # numeric(n_sims) accumulator (quantile() returns a "37%"-style named vector otherwise).
+      quantile_values <- unname(stats::quantile(curr_values, probs = reference_quantiles, na.rm = TRUE))
+      adjusted_curr <- quantile_values + (prev_values * gp_ratio - quantile_values)
 
       # Correct to maintain original distribution shape
       if (var(curr_values, na.rm = TRUE) > 0) {
