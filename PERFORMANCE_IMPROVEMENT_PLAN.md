@@ -289,5 +289,10 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 - [x] All Tier 1 items complete
 - [ ] Full-AOI (Salinas Valley, 15 mukeys) end-to-end timing run of `run_stage1_fusion_group()`
   for the texture composition group, logged above
-- [ ] Full `devtools::test()` pass (not just affected files) with 0 failures
+- [x] Full `devtools::test()` pass (not just affected files): 2 failures, both pre-existing and
+  unrelated to this audit - `run_stage1_fusion()`'s two live-network tests
+  (`test-raster-fusion.R:277`/`:305`) fail in `property_to_sim_column()` (a file never touched by
+  any fix here) because their fixtures use synthetic property IDs (`test_clay`/`test_clay2`)
+  never registered in that mapping. Confirmed via call-stack trace that neither failure passes
+  through any file modified in this plan.
 - [x] Tier 2/3 items complete (optional, lower urgency)
