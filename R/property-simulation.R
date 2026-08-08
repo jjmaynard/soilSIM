@@ -115,19 +115,19 @@ slice_and_aggregate_soil_data <- function(df, depth_ranges = list(c(0, 30), c(30
     dplyr::select(-hzdept_r, -hzdepb_r) |>
     colnames()
 
-  rows_list <- list()
-  for (i in 1:nrow(df)) {
-    row <- df[i, ]
-    row_data <- as.list(row[data_columns])
+  # PERF: previously allocated one single-row data.frame per centimeter of profile depth (a 150cm
+  # profile meant 150+ individual as.data.frame() calls per row) before a final rbind() - see
+  # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3. Vectorized: row_idx repeats each source row's index
+  # once per depth it covers, and depths_vec computes each row's 1cm depth sequence via
+  # sequence()'s standard "concatenated per-group seq_len()" trick, instead of building and
+  # rbind()-ing one tiny data.frame per depth.
+  n_expand <- pmax(0, df$hzdepb_r - df$hzdept_r)
+  row_idx <- rep(seq_len(nrow(df)), times = n_expand)
+  depths_vec <- df$hzdept_r[row_idx] + sequence(n_expand) - 1
 
-    for (depth in seq(row$hzdept_r, row$hzdepb_r - 1)) {
-      row_data$Depth <- depth
-      rows_list <- append(rows_list, list(as.data.frame(row_data, stringsAsFactors = FALSE)))
-    }
-  }
-
-  aggregated_data <- do.call(rbind, rows_list)
-  aggregated_data$Depth <- as.numeric(aggregated_data$Depth)
+  aggregated_data <- df[row_idx, data_columns, drop = FALSE]
+  aggregated_data$Depth <- as.numeric(depths_vec)
+  rownames(aggregated_data) <- NULL
 
   results <- list()
   for (i in seq_along(depth_ranges)) {

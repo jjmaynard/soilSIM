@@ -46,7 +46,10 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 | `simulate_vg_aws()` drop rowwise() (200 rows x 500 sims, synthetic) | 2.90s | 0.47s | 6.2x | `490dc21` |
 | `is_unsuitable()` vectorized toupper/trimws (200k rows, synthetic) | 70.12s | 9.47s | 7.4x | `a98b7c3` |
 | `infill_property_range_values()` (20k rows, synthetic) | 3.10s | 2.50s | 1.24x | `84b22b8` |
-| `related_property_estimation()` (30k rows, organic-matter branch) | 7.82s | 0.04s | 195x | TBD |
+| `related_property_estimation()` (30k rows, organic-matter branch) | 7.82s | 0.04s | 195x | `b3a82bb` |
+| `hz_quant_prob_mukey()` single-pass (10k rows, 500 mukeys) | ~2.9s | ~2.9s | ~1x (no meaningful change - see Tier 3 notes) | `725d8a8` |
+| `adjust_multivariate_depthwise_GP()` (8 depths x 2000 replicates, synthetic) | 7.47s | 0.15s | 50x | `0b5f81c` |
+| `slice_and_aggregate_soil_data()` (50 horizons, 1500cm total, synthetic) | 0.58s | 0.03s | 19x | TBD |
 
 ## Benchmark infrastructure
 
@@ -252,9 +255,19 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
   - [x] Benchmarked: 7.47s -> 0.15s (synthetic 8 depths x 2,000 replicates) - **~50x**.
   - [x] Committed + pushed
 
-- [ ] `R/property-simulation.R::slice_and_aggregate_soil_data()` - allocates one single-row
+- [x] `R/property-simulation.R::slice_and_aggregate_soil_data()` - allocates one single-row
   `data.frame` per centimeter of profile depth before a final `rbind()`.
-  - [ ] Fixed / Regression test / Committed
+  - [x] Fixed: replaced the per-centimeter `as.data.frame()` + `rbind()` loop with a vectorized
+    row-index expansion (`row_idx <- rep(seq_len(nrow(df)), times = n_expand)`) and a vectorized
+    per-row depth sequence via `sequence()`'s "concatenated per-group `seq_len()`" trick, then a
+    single `df[row_idx, data_columns]` subset instead of one tiny data.frame per depth.
+  - [x] Regression test added: `test-property-simulation.R` - reimplements the original
+    per-centimeter loop inline and cross-checks the new vectorized version's per-depth-range
+    aggregates match it, across multiple horizons/properties with uneven depth ranges. The
+    existing single-property aggregation test also still passes unchanged.
+  - [x] Benchmarked: 0.58s -> 0.03s (synthetic 50 horizons, 1500cm total profile depth) -
+    **~19x**.
+  - [x] Committed + pushed
 
 ## Confirmed NOT bugs (no action needed)
 
@@ -277,4 +290,4 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
 - [ ] Full-AOI (Salinas Valley, 15 mukeys) end-to-end timing run of `run_stage1_fusion_group()`
   for the texture composition group, logged above
 - [ ] Full `devtools::test()` pass (not just affected files) with 0 failures
-- [ ] Tier 2/3 items complete (optional, lower urgency)
+- [x] Tier 2/3 items complete (optional, lower urgency)

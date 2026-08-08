@@ -33,6 +33,49 @@ test_that("slice_and_aggregate_soil_data() averages a numeric property within ea
   expect_equal(result$dbovendry_r[2], 1.5, tolerance = 1e-6)
 })
 
+test_that("slice_and_aggregate_soil_data()'s vectorized depth expansion matches the original per-centimeter loop", {
+  # Regression test for the PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3 slice_and_aggregate_soil_data()
+  # fix: reimplements the ORIGINAL per-centimeter for-loop (one as.data.frame() call per depth)
+  # here and checks the vectorized version produces identical aggregated output, across multiple
+  # horizons/properties with uneven depth ranges.
+  old_expand <- function(df, data_columns) {
+    rows_list <- list()
+    for (i in seq_len(nrow(df))) {
+      row <- df[i, ]
+      row_data <- as.list(row[data_columns])
+      for (depth in seq(row$hzdept_r, row$hzdepb_r - 1)) {
+        row_data$Depth <- depth
+        rows_list <- append(rows_list, list(as.data.frame(row_data, stringsAsFactors = FALSE)))
+      }
+    }
+    aggregated <- do.call(rbind, rows_list)
+    aggregated$Depth <- as.numeric(aggregated$Depth)
+    rownames(aggregated) <- NULL
+    aggregated
+  }
+
+  df <- data.frame(
+    compname = "testseries",
+    hzdept_r = c(0, 17, 42),
+    hzdepb_r = c(17, 42, 88),
+    dbovendry_r = c(1.2, 1.4, 1.6),
+    claytotal_r = c(15, 22, 30)
+  )
+  data_columns <- c("dbovendry_r", "claytotal_r")
+
+  expected <- old_expand(df, data_columns)
+  depth_ranges <- list(c(0, 30), c(30, 90))
+  result <- slice_and_aggregate_soil_data(df, depth_ranges = depth_ranges)
+
+  # Cross-check against the manually-computed expected per-cm expansion's own aggregates.
+  for (i in seq_along(depth_ranges)) {
+    top <- depth_ranges[[i]][1]; bottom <- depth_ranges[[i]][2]
+    subset_expected <- expected[expected$Depth >= top & expected$Depth < bottom, ]
+    expect_equal(result$dbovendry_r[i], mean(subset_expected$dbovendry_r), tolerance = 1e-10)
+    expect_equal(result$claytotal_r[i], mean(subset_expected$claytotal_r), tolerance = 1e-10)
+  }
+})
+
 test_that("sim_component_comp() adds a sim_comppct column, one row per distinct component", {
   data <- make_component_data()
   result <- sim_component_comp(data, n_simulations = 500)
