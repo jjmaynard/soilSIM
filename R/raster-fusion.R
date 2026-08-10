@@ -798,7 +798,8 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
   prior <- cache_get(ssurgo_key)
   if (!is.null(prior)) prior <- unwrap_percentile_list(prior)
   if (is.null(prior)) {
-    prior <- fetch_ssurgo_percentiles(aoi_vect, property_config$id, top_depth, bottom_depth,
+    ssurgo_property_id <- if (!is.null(property_config$solus_variable)) property_config$solus_variable else property_config$id
+    prior <- fetch_ssurgo_percentiles(aoi_vect, ssurgo_property_id, top_depth, bottom_depth,
                                        parallel = parallel, n_cores = n_cores)
     if (is.null(prior)) return(NULL)
     cache_set(ssurgo_key, "ssurgo", wrap_percentile_list(prior))
@@ -913,7 +914,8 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
         prior <- if (is.null(shared_mukey_raster) || is.null(shared_draws)) {
           NULL
         } else {
-          percentiles_from_draws(shared_mukey_raster, shared_draws, m$id)
+          ssurgo_property_id <- if (!is.null(m$solus_variable)) m$solus_variable else m$id
+          percentiles_from_draws(shared_mukey_raster, shared_draws, ssurgo_property_id)
         }
         if (!is.null(prior)) cache_set(ssurgo_keys[[idx]], "ssurgo", wrap_percentile_list(prior))
       }

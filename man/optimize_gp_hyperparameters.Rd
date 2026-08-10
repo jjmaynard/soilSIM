@@ -4,7 +4,7 @@
 \alias{optimize_gp_hyperparameters}
 \title{Optimize GP Hyperparameters}
 \usage{
-optimize_gp_hyperparameters(X, Y, n_folds = 5)
+optimize_gp_hyperparameters(X, Y, n_folds = 5, gp_control = c(20, 10, 2))
 }
 \arguments{
 \item{X}{Scaled predictor matrix (depths).}
@@ -12,6 +12,13 @@ optimize_gp_hyperparameters(X, Y, n_folds = 5)
 \item{Y}{Response vector.}
 
 \item{n_folds}{Number of cross-validation folds.}
+
+\item{gp_control}{Passed through to every \code{GPfit::GP_fit()} call this function makes
+(\code{k_fold_gp_cv()}'s per-fold fits, the winning-candidate refit, and the fallback/baseline
+fits) - see \code{fit_individual_gp_model()}'s docs for why the default is much smaller than
+\code{GP_fit()}'s own default. With the default 5 folds x 3 correlation candidates + a refit,
+this is ~16 \code{GP_fit()} calls per invocation - the single highest-multiplier fix in the
+package's performance audit (see PERFORMANCE_IMPROVEMENT_PLAN.md).}
 }
 \value{
 A \code{"GP"}-classed \code{\link[GPfit:GP_fit]{GPfit::GP_fit()}} model, with a \code{cv_results}

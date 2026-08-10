@@ -1,0 +1,425 @@
+---
+title: "Raster-Native Fitting & Fusion Internals"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Raster-Native Fitting & Fusion Internals}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4)
+```
+
+## Overview
+
+`raster-fusion-ssurgo-solus.Rmd` shows the *pipeline* view of soilSIM's multi-source raster fusion:
+call `run_stage1_fusion()`/`run_stage1_fusion_group()` and get back a fused posterior. This
+vignette opens the hood. `run_stage1_fusion()` is a thin fetch-and-cache wrapper around a handful
+of small, composable, raster-native building blocks - distribution fitting functions
+(`R/distribution-fitting-raster.R`), a fusion core (`R/raster-fusion.R`), and a disk cache
+(`R/raster-cache.R`) - each of which does exactly one thing to a `terra::SpatRaster` (or list of
+them) and can be called directly. Understanding these individually is what makes the pipeline's
+behavior (which route it took, why a family was resolved a certain way, why two sources' percentiles
+had to be realigned before fusing) legible rather than a black box. See
+`soilSIM/docs/09_multi_source_raster_fusion_pipeline.md` for the full function-level reference this
+vignette is built from.
+
+```{r setup}
+library(soilSIM)
+library(terra)
+library(ggplot2)
+```
+
+## Reusing real data instead of fetching
+
+Fetching SSURGO/SOLUS100 live requires network access and takes minutes; this vignette reuses the
+same cached Salinas Valley clay-content fusion result `raster-fusion-ssurgo-solus.Rmd` uses, so every
+function below runs on real percentile rasters rather than synthetic ones. The real (network) calls
+that originally produced this cached object are shown for reference only and not evaluated here:
+
+```{r, eval = FALSE}
+# Reference only - not run in this vignette.
+salinas_wkt <- "POLYGON((-121.66 36.60, -121.64 36.60, -121.64 36.62, -121.66 36.62, -121.66 36.60))"
+aoi <- terra::project(terra::vect(salinas_wkt, crs = "epsg:4326"), "epsg:5070")
+property_config <- list(id = "clay", solus_variable = "claytotal", dist = "normal")
+fusion_clay <- run_stage1_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5)
+```
+
+```{r}
+fusion_clay <- unwrap_nested_rasters(
+  readRDS(system.file("extdata", "fusion_clay_salinas.rds", package = "soilSIM"))
+)
+
+# The two inputs every function below operates on: named lists of percentile-value
+# SpatRasters, one list per source, plus the probabilities each percentile represents.
+prior_values <- fusion_clay$prior$values        # SSURGO, already resampled onto the SOLUS grid
+prior_probs <- fusion_clay$prior$probs
+lik_values <- fusion_clay$likelihood$values     # SOLUS100
+lik_probs <- fusion_clay$likelihood$probs
+
+names(prior_values); prior_probs
+names(lik_values); lik_probs
+bounds <- c(0, 100)  # clay content is a percentage
+```
+
+This is the "common currency" every function in this vignette speaks: a **named list of
+single-layer percentile-value rasters** (e.g. `P05`, `P25`, `P50`, ...) plus a **numeric vector of
+the probabilities they represent**, all sharing one grid. Everything downstream - fitting,
+quantile evaluation, fusion, caching - operates on this shape (or a pair of them, prior and
+likelihood).
+
+## 1. Fitting a Normal distribution
+
+`fit_normal_raster()` is the simplest fit in the file: closed-form, exact, and just three raster
+arithmetic operations. It takes a low/median/high percentile-value raster triplet and the
+probabilities the low/high rasters represent, and returns `mu` (the median raster, used directly
+as the mean) and `sigma` (back-solved from the tail spacing):
+
+```{r}
+fit_n <- fit_normal_raster(
+  p_lo_r = prior_values$P25, p50_r = prior_values$P50, p_hi_r = prior_values$P75,
+  p_lo = 0.25, p_hi = 0.75
+)
+fit_n$mu
+```
+
+`sigma` is `(p_hi_r - p_lo_r) / (qnorm(p_hi) - qnorm(p_lo))` - the raw value spread between the two
+tail percentiles, divided by how many standard-normal units apart those two probabilities are. This
+is a single elementwise expression, so its cost doesn't depend on how many cells the raster has.
+`quantile_normal_raster()` then evaluates the fitted distribution at any target probability `q` via
+`mu + sigma * qnorm(q)`:
+
+```{r, fig.width = 9, fig.height = 3.5}
+q10 <- quantile_normal_raster(fit_n, 0.1)
+q90 <- quantile_normal_raster(fit_n, 0.9)
+
+normal_stack <- c(q10, fit_n$mu, q90)
+names(normal_stack) <- c("Q10", "mu (=P50)", "Q90")
+terra::plot(normal_stack, main = c("Normal Q10", "Normal mean", "Normal Q90"),
+            col = grDevices::hcl.colors(50, "viridis"), nc = 3)
+```
+
+## 2. Fitting a Beta distribution: method-of-moments vs. Newton-Raphson MLE
+
+Clay content is bounded on `[0, 100]`, which the Normal fit above ignores (its Q10/Q90 rasters can
+dip below 0 in low-clay cells). A Beta fit respects those bounds. soilSIM ships two Beta fitters:
+
+- `fit_beta_mom_raster(mean_r, var_r)` - closed-form method-of-moments, APPROXIMATE, and used only
+  to seed the Newton-Raphson solver below (not intended as a standalone fit). It takes a
+  **rescaled-to-`[0,1]`** mean/variance pair directly, not raw percentile rasters.
+- `fit_beta_mle_newton_raster(value_rasters, bounds, n_iter = 15, eps = 1e-6)` - a vectorized
+  Newton-Raphson MLE solver that exploits the Beta log-likelihood's closed-form score/Hessian (in
+  `digamma()`/`trigamma()`, both vectorized base-R functions) to update every cell's `(alpha,
+  beta)` simultaneously per iteration, `n_iter` times. It takes the raw percentile-value rasters and
+  the physical `bounds` directly, and internally seeds itself from `fit_beta_mom_raster()`.
+
+```{r}
+# Method-of-moments needs mean/var already rescaled to [0,1]; reuse the Normal fit above as a
+# cheap mean/variance proxy, rescaled by `bounds`.
+mean_r <- fit_n$mu / bounds[2]
+var_r <- (fit_n$sigma / bounds[2])^2
+fit_beta_mom <- fit_beta_mom_raster(mean_r, var_r)
+
+# The Newton-Raphson MLE fit takes the raw percentile rasters and bounds directly - it does its
+# own internal method-of-moments seeding.
+fit_beta_mle <- fit_beta_mle_newton_raster(prior_values, bounds)
+```
+
+```{r, fig.width = 9, fig.height = 6.5}
+beta_params <- c(fit_beta_mom$alpha, fit_beta_mom$beta, fit_beta_mle$alpha, fit_beta_mle$beta)
+names(beta_params) <- c("alpha (MoM)", "beta (MoM)", "alpha (Newton MLE)", "beta (Newton MLE)")
+terra::plot(beta_params, col = grDevices::hcl.colors(50, "plasma"), nc = 2)
+```
+
+The two fits' shape-parameter rasters differ cell-by-cell (MoM only matches the first two moments;
+Newton MLE fits all of the percentiles supplied to it), but both feed the same quantile function
+shape - `quantile_beta_mom_raster(fit, q)` / `quantile_beta_mle_newton_raster(fit, q)`, each
+implemented via `terra::lapp()` calling `stats::qbeta()` per cell, since `qbeta()` has no
+raster-native vectorized form of its own:
+
+```{r, fig.width = 9, fig.height = 3.5}
+q_mom <- quantile_beta_mom_raster(fit_beta_mom, 0.5)
+q_mle <- quantile_beta_mle_newton_raster(fit_beta_mle, 0.5)
+
+median_compare <- c(prior_values$P50, q_mom, q_mle)
+names(median_compare) <- c("Raw P50 input", "Beta MoM Q50", "Beta Newton-MLE Q50")
+terra::plot(median_compare, col = grDevices::hcl.colors(50, "viridis"), nc = 3)
+```
+
+The Newton-MLE fit's own Q50 tracks the raw input P50 raster much more closely than the MoM fit's
+does, since MLE was fit against all five of `prior_values`' percentiles rather than just a
+mean/variance proxy derived from two of them.
+
+## 3. Fitting a metalog distribution, and its feasibility fallback
+
+The metalog family can match an arbitrary number of percentiles exactly via a linear solve rather
+than an optimization - `fit_metalog_linear_raster(value_rasters, probs, bounds, boundedness)`
+requires the number of *interior* percentiles (excluding `p = 0`/`p = 1`, where the metalog's logit
+transform is undefined) to equal the number of metalog terms, making the fit exactly determined.
+
+Symmetric percentile sets are a real, sharp edge here: fitting all five of `prior_values`'s
+percentiles (`0.05/0.25/0.5/0.75/0.95` - symmetric about the median) makes the underlying basis
+matrix numerically singular, since two of its basis columns become linearly dependent for a
+symmetric probability grid. An asymmetric 4-term subset avoids it:
+
+```{r}
+ml_probs <- c(0.05, 0.25, 0.5, 0.75)
+ml_values <- prior_values[c("P05", "P25", "P50", "P75")]
+fit_ml <- fit_metalog_linear_raster(ml_values, ml_probs, bounds, boundedness = "b")
+length(fit_ml$a)   # one coefficient raster per term
+fit_ml$term
+```
+
+Not every fitted metalog is a *valid* one - a metalog quantile function must be monotonically
+increasing (equivalent to non-negative density everywhere), and the exact linear solve above gives
+no such guarantee. `check_metalog_feasibility_raster()` probes the fit at a grid of probabilities
+and flags cells where consecutive probes decrease:
+
+```{r}
+infeasible <- check_metalog_feasibility_raster(fit_ml, bounds, boundedness = "b")
+n_infeasible <- sum(terra::values(infeasible), na.rm = TRUE)
+n_total <- terra::ncell(infeasible)
+cat(sprintf("%d / %d cells (%.0f%%) have an infeasible metalog fit\n",
+            n_infeasible, n_total, 100 * n_infeasible / n_total))
+terra::plot(infeasible, main = "Infeasible metalog fit (TRUE = non-monotonic)",
+            col = c("grey85", "firebrick"))
+```
+
+A substantial fraction of cells are infeasible here - not a bug, just a real consequence of fitting
+only 4 of the 5 available percentiles to a family with no correction step of its own.
+`quantile_metalog_linear_with_fallback()` is the function every real caller should use instead of
+`quantile_metalog_linear_raster()` directly: it evaluates the raw metalog quantile function, and for
+whichever cells `check_metalog_feasibility_raster()` flagged, blends in
+`quantile_linear_cdf_raster()`'s nonparametric interpolation (evaluated against the *full*
+percentile set, not just the interior ones used to fit the metalog) instead:
+
+```{r, fig.width = 9, fig.height = 3.5}
+fallback_result <- quantile_metalog_linear_with_fallback(
+  fit_ml, infeasible, full_value_rasters = prior_values, full_probs = prior_probs,
+  q = 0.5, bounds = bounds, boundedness = "b"
+)
+
+raw_metalog_q50 <- quantile_metalog_linear_raster(fit_ml, 0.5, bounds, boundedness = "b")
+blend_stack <- c(raw_metalog_q50, fallback_result$value, prior_values$P50)
+names(blend_stack) <- c("Raw metalog Q50 (no fallback)", "With fallback", "Raw input P50")
+terra::plot(blend_stack, col = grDevices::hcl.colors(50, "viridis"), nc = 3)
+```
+
+## 4. Fitting a Gamma distribution
+
+`fit_gamma_mom_raster()` is a thin raster wrapper: it computes mean/variance rasters across a list
+of percentile-value rasters (the only genuinely raster-specific step, via `Reduce(+, ...)`), then
+delegates to `R/bayesian-updating.R`'s existing scalar `moments_to_gamma()`, which is pure
+elementwise arithmetic and therefore already works unchanged on `SpatRaster` inputs:
+
+```{r, fig.width = 9, fig.height = 3.5}
+fit_gamma <- fit_gamma_mom_raster(prior_values)
+gamma_stack <- c(fit_gamma$shape, fit_gamma$rate)
+names(gamma_stack) <- c("shape", "rate")
+terra::plot(gamma_stack, col = grDevices::hcl.colors(50, "inferno"), nc = 2)
+```
+
+## 5. Aligning mismatched percentile grids: `align_percentile_probs()`
+
+SSURGO's prior percentiles (`r paste(prior_probs, collapse = ", ")`) and SOLUS100's likelihood
+percentiles (`r paste(lik_probs, collapse = ", ")`) aren't the same probabilities - every fusion
+route needs both sides to share one `probs` vector, so passing them through mismatched would
+silently mis-fit whichever side's percentiles don't match the assumed labels.
+
+```{r}
+aligned <- align_percentile_probs(prior_values, prior_probs, lik_values, lik_probs)
+aligned$probs
+names(aligned$prior_value_rasters)   # unchanged (SSURGO's probs won - see below)
+length(aligned$lik_value_rasters)    # SOLUS reinterpolated onto aligned$probs - unnamed list
+```
+
+`align_percentile_probs()` picks whichever side's probabilities span the *narrower* range as the
+shared target (`diff(range(prior_probs))` = `r round(diff(range(prior_probs)), 3)` vs.
+`diff(range(lik_probs))` = `r round(diff(range(lik_probs)), 3)`, so the SSURGO side's probabilities
+win here) and reinterpolates the other side onto it via `quantile_linear_cdf_raster()` - never the
+reverse, since interpolating requires the target probability to fall within the source's own range,
+and the narrower side is always safely interpolatable from the wider one. The reinterpolated side
+comes back as a plain (unnamed) list in `aligned$probs`' order, so pick the layer to compare by
+matching its position in `aligned$probs` rather than by name:
+
+```{r, fig.width = 9, fig.height = 3.5}
+idx50 <- which(aligned$probs == 0.5)
+lik_compare <- c(lik_values$P50, aligned$lik_value_rasters[[idx50]])
+names(lik_compare) <- c("SOLUS raw P50", "SOLUS P50 re-expressed at aligned probs")
+terra::plot(lik_compare, col = grDevices::hcl.colors(50, "viridis"), nc = 2)
+```
+
+Here the shared target happens to already include `0.5` on both sides, so the `P50` layer above is
+unchanged by realignment - it's the tail percentiles (`P05`/`P95` vs. `P025`/`P975`) that actually
+get reinterpolated.
+
+## 6. Family resolution: `resolve_property_dist()`
+
+When `property_config$dist == "auto"`, `resolve_property_dist()` picks a distribution family from
+the AOI's own percentile skew rather than a fixed per-property label - and never overrides an
+explicit (non-`"auto"`) `dist`. It's deliberately narrow: it only ever resolves to `"beta"` (if
+`bounds` is configured), `"normal"`, or `"lognormal"` - never `"metalog"` or `"gamma"`, since
+distinguishing those from a 3-point proxy isn't considered reliable.
+
+```{r}
+# With bounds configured, "auto" always resolves to "beta" regardless of skew.
+resolve_property_dist(list(dist = "auto", bounds = c(0, 100)), prior_values, prior_probs)
+
+# Without bounds, it falls back to a skew-proxy test: normal if |skew| is small, lognormal if not.
+resolve_property_dist(list(dist = "auto"), prior_values, prior_probs)
+```
+
+The skew proxy itself is `((high - median) - (median - low)) / (high - low)`, aggregated once
+across the whole AOI (default `stats::median()`) rather than per cell - computing it per cell would
+create map discontinuities right at the family boundary. An explicit `dist` is always honored
+untouched:
+
+```{r}
+resolve_property_dist(list(dist = "normal"), prior_values, prior_probs)$dist_source
+```
+
+## 7. Adaptive fusion dispatch: `fuse_adaptive()`
+
+`fuse_adaptive()` is the size-adaptive engine `fuse_property_adaptive()` (and therefore
+`run_stage1_fusion()`) delegates to for `"normal"`/`"beta"`/`"gamma"` families. It picks the fusion
+*route* from the AOI's own cell count rather than requiring the caller to choose: at or below
+`threshold_cells` (default 80,000), it uses a fully general per-cell KDE route
+(`bayesian_update()` on samples drawn from each side's percentiles); above it, a much faster
+closed-form route built directly on the fitting functions from Sections 1-4 above (e.g.
+`fit_normal_raster()` + `bayes_update_normal_normal()` for `family = "normal"`).
+
+This AOI is small (`r terra::ncell(aligned$prior_value_rasters[[1]])` cells), so it naturally takes
+the general route. Forcing `threshold_cells = 0` shows the alternate closed-form route on the exact
+same inputs, with `verbose = TRUE` (the pipeline default is quiet - this is a deliberate log demo):
+
+```{r}
+fused_general <- fuse_adaptive(
+  aligned$prior_value_rasters, aligned$lik_value_rasters, aligned$probs,
+  family = "normal", verbose = TRUE
+)
+fused_closed_form <- fuse_adaptive(
+  aligned$prior_value_rasters, aligned$lik_value_rasters, aligned$probs,
+  family = "normal", threshold_cells = 0, verbose = TRUE
+)
+```
+
+```{r, fig.width = 9, fig.height = 3.5}
+route_compare <- c(fused_general$posterior$mu, fused_closed_form$posterior$mu)
+names(route_compare) <- c(paste0("General route (", fused_general$route, ")"),
+                           paste0("Closed-form route (", fused_closed_form$route, ")"))
+terra::plot(route_compare, col = grDevices::hcl.colors(50, "viridis"), nc = 2)
+```
+
+Both routes fuse the same prior/likelihood into a `mu`/`sigma` posterior with the same output
+contract, but they reach it differently: the general route makes no distributional assumption about
+the *fusion* step itself (only about the requested output family), while the closed-form route fits
+both sides Normal first (Section 1) and fuses via the closed-form `bayes_update_normal_normal()`
+update - much cheaper per cell, at the cost of that Normal assumption.
+
+```{r, fig.width = 7, fig.height = 4.5}
+route_df <- data.frame(
+  value = c(terra::values(fused_general$posterior$mu, na.rm = TRUE),
+            terra::values(fused_closed_form$posterior$mu, na.rm = TRUE)),
+  route = rep(c("General (KDE)", "Closed-form (Normal-Normal)"),
+              c(sum(!is.na(terra::values(fused_general$posterior$mu))),
+                sum(!is.na(terra::values(fused_closed_form$posterior$mu)))))
+)
+ggplot(route_df, aes(x = value, fill = route)) +
+  geom_density(alpha = 0.5, color = NA) +
+  scale_fill_viridis_d(name = NULL) +
+  labs(title = "Fused posterior mean clay content: general vs. closed-form route",
+       x = "Clay content (%)", y = "Density") +
+  theme_minimal()
+```
+
+## 8. Caching internals
+
+`run_stage1_fusion()`/`run_stage1_fusion_group()` disk-cache every fetch step under
+`tools::R_user_dir("soilSIM", "cache")`, keyed by AOI + property/group id + depth window + kind.
+
+`build_cache_key()` builds a deterministic, filename-safe key from an AOI's WKT geometry (hashed via
+`digest::digest()`), a property/group id, a depth window, and a `kind` string:
+
+```{r}
+salinas_wkt <- "POLYGON((-121.66 36.60, -121.64 36.60, -121.64 36.62, -121.66 36.62, -121.66 36.60))"
+aoi <- terra::project(terra::vect(salinas_wkt, crs = "epsg:4326"), "epsg:5070")
+
+key <- build_cache_key(aoi, id = "clay", top_depth = 0, bottom_depth = 5, kind = "ssurgo")
+key
+CACHE_TTL_SECONDS / 86400  # cache max-age, in days
+```
+
+`cache_get(key, ttl_seconds)`/`cache_set(key, kind, value)` are the generic get/set pair every
+fetch step above uses - a miss (absent, or older than `ttl_seconds`) returns `NULL` rather than
+erroring:
+
+```{r}
+cache_get(key)  # NULL: nothing has been cached under this exact key in this session
+cache_set(key, "ssurgo", value = list(hello = "world"))
+cache_get(key)
+```
+
+### Why `SpatRaster`s need `terra::wrap()` before caching
+
+`cache_set()`'s docs flag a real, sharp limitation: a `terra::SpatRaster` holds an **external
+pointer** to in-memory/on-disk GDAL state, not the raster's actual values. A plain
+`saveRDS()`/`readRDS()` round-trip serializes that pointer, which is meaningless in a new R
+session - the read-back object *looks* like a `SpatRaster` but errors the moment anything tries to
+touch its actual data:
+
+```{r, error = TRUE}
+r <- fusion_clay$posterior$mu
+naive_file <- tempfile(fileext = ".rds")
+saveRDS(r, naive_file)               # serializes the pointer, not the raster's values
+r_naive <- readRDS(naive_file)
+class(r_naive)                       # still LOOKS like a SpatRaster...
+terra::values(r_naive)               # ...but touching it throws
+```
+
+`terra::wrap()` converts a `SpatRaster` into a `PackedSpatRaster` - a plain, fully self-contained R
+object holding the actual cell values - which *does* survive `saveRDS()`/`readRDS()`;
+`terra::unwrap()` converts it back:
+
+```{r}
+wrap_file <- tempfile(fileext = ".rds")
+saveRDS(terra::wrap(r), wrap_file)
+r_wrapped_read <- readRDS(wrap_file)
+class(r_wrapped_read)                # PackedSpatRaster - plain data, not a live pointer
+
+r_restored <- terra::unwrap(r_wrapped_read)
+class(r_restored)                    # SpatRaster again
+identical(terra::values(r), terra::values(r_restored))  # values round-tripped exactly
+```
+
+Since `cache_get()`/`cache_set()` themselves don't wrap/unwrap automatically (not every cached value
+is a raster - e.g. cached SSURGO Monte Carlo draws are a plain data frame), every caller that caches
+raster values has to do this manually. Two helpers cover the two result shapes this pipeline
+actually caches:
+
+- `wrap_percentile_list()`/`unwrap_percentile_list()` - for the fixed `list(values = <SpatRasters>,
+  probs = )` percentile shape `fetch_ssurgo_percentiles()`/`fetch_solus_percentiles()` return.
+- `wrap_nested_rasters()`/`unwrap_nested_rasters()` - a fully generic version for result structures
+  whose shape isn't that fixed form, e.g. `run_stage1_fusion()`'s own return value, which nests
+  `SpatRaster`s at `prior$values`, `likelihood$values`, and inside `posterior` (whose shape varies
+  by `dist`). It recurses into every list element, replacing each `SpatRaster` it finds with its
+  wrapped/unwrapped equivalent and leaving everything else untouched - which is exactly how this
+  vignette's own `fusion_clay` object was loaded, back in Section "Reusing real data instead of
+  fetching":
+
+```{r}
+# This is the call this whole vignette started with:
+raw <- readRDS(system.file("extdata", "fusion_clay_salinas.rds", package = "soilSIM"))
+class(raw$posterior$mu)                              # still PackedSpatRaster on disk
+fusion_clay_reloaded <- unwrap_nested_rasters(raw)
+class(fusion_clay_reloaded$posterior$mu)              # SpatRaster after unwrap_nested_rasters()
+```
+
+## Where this data came from
+
+The cached data this vignette loads (`inst/extdata/fusion_clay_salinas.rds`) is the same object
+`raster-fusion-ssurgo-solus.Rmd` loads, produced once by `data-raw/build_vignette_data.R` against
+live NRCS Soil Data Access (SSURGO) and `soilDB::fetchSOLUS()` (SOLUS100) for the Salinas Valley
+AOI. See that vignette for the full fetch-through-fuse pipeline view, and
+`soilSIM/docs/09_multi_source_raster_fusion_pipeline.md` for the complete function-level reference
+this vignette exposed piece by piece.

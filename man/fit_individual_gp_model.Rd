@@ -8,6 +8,7 @@ fit_individual_gp_model(
   data,
   property,
   optimize_hyperparameters = TRUE,
+  gp_control = c(20, 10, 2),
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 }
@@ -17,6 +18,15 @@ fit_individual_gp_model(
 \item{property}{Property name to model}
 
 \item{optimize_hyperparameters}{Whether to optimize hyperparameters}
+
+\item{gp_control}{Passed through to \code{GPfit::GP_fit()}'s \code{control} argument (population size /
+iteration counts for its internal hyperparameter search). Defaults to \code{c(20, 10, 2)}, far
+below \code{GP_fit()}'s own default \code{c(200*d, 80*d, 2*d)} - see
+\code{fit_local_gp_model_single()}'s docs (\code{multivariate-adjustment.R}) for the empirical
+justification (identical fitted results, ~5x faster per call). Only used when
+\code{optimize_hyperparameters = TRUE} calls through to \code{optimize_gp_hyperparameters()}/
+\code{k_fold_gp_cv()} (many \code{GP_fit()} calls per fit - 5-fold CV x 3 correlation candidates + a
+refit), or by the direct \code{GP_fit()} call when \code{optimize_hyperparameters = FALSE}.}
 
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 }

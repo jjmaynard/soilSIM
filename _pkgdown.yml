@@ -10,7 +10,7 @@ template:
 
 navbar:
   structure:
-    left: [intro, reference, articles, news]
+    left: [intro, functions, reference, articles, news]
     right: [search, github]
   components:
     intro:
@@ -24,6 +24,21 @@ navbar:
         href: articles/aws-van-genuchten.html
       - text: "Multi-source raster fusion: SSURGO x SOLUS100"
         href: articles/raster-fusion-ssurgo-solus.html
+    functions:
+      text: Function-Level Guides
+      menu:
+      - text: "Data acquisition, cleaning & infilling"
+        href: articles/data-acquisition-processing.html
+      - text: "Statistics & diagnostics"
+        href: articles/statistics-diagnostics.html
+      - text: "Distribution fitting & correlations"
+        href: articles/distribution-fitting-correlations.html
+      - text: "GP depth modeling & multivariate adjustment"
+        href: articles/gp-modeling-multivariate-adjustment.html
+      - text: "Bayesian updating (scalar)"
+        href: articles/bayesian-updating.html
+      - text: "Raster-native fitting & fusion internals"
+        href: articles/raster-native-fitting-fusion.html
     articles:
       text: Architecture
       menu:

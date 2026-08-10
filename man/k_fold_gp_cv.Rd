@@ -4,7 +4,7 @@
 \alias{k_fold_gp_cv}
 \title{K-Fold Cross-Validation for GP Correlation Structure Selection}
 \usage{
-k_fold_gp_cv(X, Y, n_folds, corr_candidates)
+k_fold_gp_cv(X, Y, n_folds, corr_candidates, gp_control = c(20, 10, 2))
 }
 \arguments{
 \item{X}{Predictor matrix (one row per observation).}
@@ -15,6 +15,10 @@ k_fold_gp_cv(X, Y, n_folds, corr_candidates)
 
 \item{corr_candidates}{Named list of \code{corr} specs to pass to
 \code{\link[GPfit:GP_fit]{GPfit::GP_fit()}} (e.g. \code{list(type = "exponential", power = 1.95)}).}
+
+\item{gp_control}{Passed through to each fold's \code{GPfit::GP_fit()} \code{control} argument - see
+\code{fit_individual_gp_model()}'s docs for why the default is much smaller than \code{GP_fit()}'s own
+default. This is the highest-multiplier call site in the package: \verb{n_folds x length(corr_candidates)} \code{GP_fit()} calls per invocation.}
 }
 \value{
 List with \code{mean_rmse_by_candidate}, a named list of mean held-out

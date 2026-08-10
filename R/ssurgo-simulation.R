@@ -206,15 +206,21 @@ aggregate_depth_window_by_replicate <- function(sim_long, top_depth, bottom_dept
 
 #' Map a Property Id to its Simulated-Data Column Name
 #'
-#' @param property_id One of `"ph"`, `"bulk_density"`, `"soc"`, `"cec"`, `"clay"`, `"sand"`,
-#'   `"silt"`, `"rock_fragments"`.
+#' @param property_id One of `"ph"`, `"ph1to1h2o"`, `"bulk_density"`, `"dbovendry"`,
+#'   `"soc"`, `"om"`, `"cec"`, `"cec7"`, `"clay"`, `"claytotal"`, `"sand"`,
+#'   `"sandtotal"`, `"silt"`, `"silttotal"`, `"rock_fragments"`, or `"rfv"`.
 #' @return The corresponding column name in `simulate_cokey_generalized()`'s output.
 #' @export
 property_to_sim_column <- function(property_id) {
   mapping <- c(
-    ph = "ph", bulk_density = "db", soc = "soc", cec = "cec",
-    clay = "clay_total", sand = "sand_total", silt = "silt_total",
-    rock_fragments = "rfv"
+    ph = "ph", ph1to1h2o = "ph",
+    bulk_density = "db", dbovendry = "db",
+    soc = "soc", om = "soc",
+    cec = "cec", cec7 = "cec",
+    clay = "clay_total", claytotal = "clay_total", clay_total = "clay_total",
+    sand = "sand_total", sandtotal = "sand_total", sand_total = "sand_total",
+    silt = "silt_total", silttotal = "silt_total", silt_total = "silt_total",
+    rock_fragments = "rfv", rfv = "rfv"
   )
   if (!property_id %in% names(mapping)) {
     stop(sprintf("property_to_sim_column(): no simulated column mapping for property '%s'.", property_id))

@@ -1,0 +1,7 @@
+setwd("c:/R_Drive/Data_Files/LPKS_Data/R_Projects/soil_map_viewer-app/soilSIM")
+res <- devtools::check(vignettes = TRUE, cran = FALSE, error_on = "never", quiet = FALSE)
+cat("\n\n=== FINAL SUMMARY ===\n")
+print(res)
+cat("ERRORS:", length(res$errors), "\n")
+cat("WARNINGS:", length(res$warnings), "\n")
+cat("NOTES:", length(res$notes), "\n")
