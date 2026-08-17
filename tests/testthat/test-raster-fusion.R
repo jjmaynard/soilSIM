@@ -92,6 +92,55 @@ test_that("fuse_general_kde() degrades a cell with too many NA percentile values
   expect_true(is.na(mu_vals[2]))
 })
 
+test_that("fuse_general_kde()'s default grid_resolution stays within tolerance of the finer 0.01 reference", {
+  # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4: FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION (0.1) trades
+  # a coarser bayesian_update() evaluation grid for ~2.4x wall-clock speed (measured on a real
+  # fuse_adaptive() call, 23.86s -> 9.91s at 2,024 cells). This asserts the posterior moments
+  # stay close to the finer 0.01 grid across several representative percentile scenarios, mirroring
+  # the accuracy sweep that justified the constant's value (mean error < 0.02%, variance error <
+  # 0.12% analytically) - tolerance here is looser than that analytical bound to absorb the extra
+  # Monte Carlo noise from bayesian_update()'s own sample()-based posterior draw, which the
+  # analytical sweep bypassed.
+  scenarios <- list(
+    narrow_clay = c(P5 = 18, P50 = 22, P95 = 27),
+    wide_sand   = c(P5 = 20, P50 = 40, P95 = 65),
+    narrow_ph   = c(P5 = 5.8, P50 = 6.2, P95 = 6.6)
+  )
+  probs <- c(0.05, 0.5, 0.95)
+
+  # A single seeded draw carries real Monte Carlo noise from two compounded sampling stages
+  # (simulate_from_percentiles()'s n_samples=500 draw, then bayesian_update()'s own n=1000
+  # posterior draw) - averaging several independent seeds isolates the systematic effect of
+  # grid_resolution itself from that per-run sampling noise, avoiding a flaky single-draw test.
+  n_reps <- 8
+  for (scen in names(scenarios)) {
+    vals <- scenarios[[scen]]
+    rasters_prior <- make_percentile_rasters(vals)
+    rasters_lik <- make_percentile_rasters(vals + 1)
+    prior_list <- list(rasters_prior[[1]], rasters_prior[[2]], rasters_prior[[3]])
+    lik_list <- list(rasters_lik[[1]], rasters_lik[[2]], rasters_lik[[3]])
+
+    mu_default <- numeric(n_reps); mu_fine <- numeric(n_reps)
+    sigma_default <- numeric(n_reps); sigma_fine <- numeric(n_reps)
+    for (rep in seq_len(n_reps)) {
+      set.seed(rep)
+      result_default <- fuse_adaptive(prior_list, lik_list, probs, family = "normal",
+                                       threshold_cells = 1e6, n_samples = 500, verbose = FALSE)
+      set.seed(rep)
+      result_fine <- fuse_adaptive(prior_list, lik_list, probs, family = "normal",
+                                    threshold_cells = 1e6, n_samples = 500,
+                                    grid_resolution = 0.01, verbose = FALSE)
+      mu_default[rep] <- unique(terra::values(result_default$posterior$mu))[1]
+      mu_fine[rep] <- unique(terra::values(result_fine$posterior$mu))[1]
+      sigma_default[rep] <- unique(terra::values(result_default$posterior$sigma))[1]
+      sigma_fine[rep] <- unique(terra::values(result_fine$posterior$sigma))[1]
+    }
+
+    expect_equal(mean(mu_default), mean(mu_fine), tolerance = 0.02, label = paste0(scen, " mean(mu)"))
+    expect_equal(mean(sigma_default), mean(sigma_fine), tolerance = 0.1, label = paste0(scen, " mean(sigma)"))
+  }
+})
+
 test_that("fuse_property_adaptive() dispatches normal/beta/gamma/lognormal correctly", {
   rasters_prior <- make_percentile_rasters(c(P5 = 4, P50 = 5, P95 = 6))
   rasters_lik <- make_percentile_rasters(c(P5 = 7, P50 = 8, P95 = 9))

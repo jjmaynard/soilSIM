@@ -192,6 +192,32 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
   }
 }
 
+#' Default `bayesian_update()` grid resolution used by `fuse_general_kde()` (per-cell KDE fusion
+#' route), coarser than `bayesian_update()`'s own standalone default of `0.01`.
+#'
+#' @section Why 0.1, not 0.01:
+#' `bayesian_update()`'s `stats::density()` calls (kernel density estimation over
+#' `seq(grid_min, grid_max, by = grid_resolution)`) are the dominant cost of
+#' `fuse_general_kde()`'s per-cell loop - `Rprof()` profiling on a synthetic 10,000-cell raster
+#' (PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4) attributed 65% of total wall-clock time to `density()`
+#' (`dnorm`/`fft` internals) at the `0.01` default, vs. 12% for the per-cell percentile-sampling
+#' step. At `0.01`, a typical soil-property range (e.g. 20-50%) produces a ~3,000-point evaluation
+#' grid per cell, per side. Coarsening to `0.1` cuts that grid ~10x and measured **~2.4x** faster
+#' wall-clock on a real `fuse_adaptive()` call (23.86s -> 9.91s at 2,024 cells), while an accuracy
+#' sweep across four representative percentile scenarios (narrow/wide/skewed distributions) found
+#' the posterior mean/variance error at `0.1` stays under 0.02%/0.12% respectively vs. the `0.01`
+#' reference - far inside the ~5-10% variability typical of field-measured soil properties (the
+#' same bar the analogous cubic-spline-to-linear-interpolation tradeoff used elsewhere in this
+#' project's Python sibling report was validated against). Going coarser (`0.25`+) is where error
+#' starts compounding fast (variance error reaches double digits to 470% by `2.0`) - `0.1` is the
+#' sweet spot, not an arbitrary round number.
+#'
+#' `bayesian_update()`'s own standalone default is deliberately left at `0.01` - this constant
+#' only overrides the grid resolution `fuse_general_kde()` requests, so any other direct caller of
+#' `bayesian_update()` is unaffected.
+#' @keywords internal
+FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION <- 0.1
+
 #' Fully general fusion path for `fuse_adaptive()`: per cell, draw samples
 #' from both sides' percentiles (via `simulate_from_percentiles(method=
 #' "linear_cdf")`), fuse via `bayesian_update()`, and moment-match the
@@ -199,7 +225,9 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
 #' matches the closed-form route.
 #' @inheritParams fuse_closed_form
 #' @param n_samples Samples drawn per side, per cell.
-#' @param grid_resolution Passed to `bayesian_update()`.
+#' @param grid_resolution Passed to `bayesian_update()`. `NULL` (the caller-facing default from
+#'   `fuse_adaptive()`) resolves to [FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION], not
+#'   `bayesian_update()`'s own standalone default of `0.01` - see that constant's docs for why.
 #' @keywords internal
 fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_probs,
                               family, bounds, n_samples, grid_resolution) {
@@ -227,7 +255,8 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
         lik_row <- as.data.frame(stats::setNames(as.list(row[(k + 1):(2 * k)]), percentile_cols))
         prior_samples <- simulate_from_percentiles(prior_row, method = "linear_cdf", percentile_cols = percentile_cols, n = n_samples)
         lik_samples <- simulate_from_percentiles(lik_row, method = "linear_cdf", percentile_cols = percentile_cols, n = n_samples)
-        post <- if (is.null(grid_resolution)) bayesian_update(prior_samples, lik_samples) else bayesian_update(prior_samples, lik_samples, grid_resolution = grid_resolution)
+        effective_grid_resolution <- if (is.null(grid_resolution)) FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION else grid_resolution
+        post <- bayesian_update(prior_samples, lik_samples, grid_resolution = effective_grid_resolution)
         c(mean = mean(post), var = stats::var(post))
       }, error = function(e) c(mean = NA_real_, var = NA_real_))
     }))
@@ -259,7 +288,10 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
 #' @param threshold_cells AOI cell count at or below which the general
 #'   `bayesian_update()` route is used; above it, the closed-form route.
 #' @param n_samples Samples drawn per side for the general route's KDE fusion.
-#' @param grid_resolution Passed to `bayesian_update()` for the general route.
+#' @param grid_resolution Passed to `bayesian_update()` for the general route. `NULL` (default)
+#'   resolves to [FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION] (`0.1`) - see that constant's docs for
+#'   the profiling/accuracy justification for why this differs from `bayesian_update()`'s own
+#'   standalone default of `0.01`.
 #' @param verbose If TRUE (default), print the chosen route and why.
 #' @return A list:
 #'   - `posterior`: family-native parameter list (`mu`/`sigma` for "normal",

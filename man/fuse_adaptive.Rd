@@ -37,7 +37,10 @@ contract across routes.}
 
 \item{n_samples}{Samples drawn per side for the general route's KDE fusion.}
 
-\item{grid_resolution}{Passed to \code{bayesian_update()} for the general route.}
+\item{grid_resolution}{Passed to \code{bayesian_update()} for the general route. \code{NULL} (default)
+resolves to \link{FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION} (\code{0.1}) - see that constant's docs for
+the profiling/accuracy justification for why this differs from \code{bayesian_update()}'s own
+standalone default of \code{0.01}.}
 
 \item{verbose}{If TRUE (default), print the chosen route and why.}
 }

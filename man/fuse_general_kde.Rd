@@ -28,7 +28,9 @@ fuse_general_kde(
 
 \item{n_samples}{Samples drawn per side, per cell.}
 
-\item{grid_resolution}{Passed to \code{bayesian_update()}.}
+\item{grid_resolution}{Passed to \code{bayesian_update()}. \code{NULL} (the caller-facing default from
+\code{fuse_adaptive()}) resolves to \link{FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION}, not
+\code{bayesian_update()}'s own standalone default of \code{0.01} - see that constant's docs for why.}
 }
 \description{
 Fully general fusion path for \code{fuse_adaptive()}: per cell, draw samples

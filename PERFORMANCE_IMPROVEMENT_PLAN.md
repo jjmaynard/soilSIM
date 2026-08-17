@@ -277,12 +277,84 @@ files and run via `Rscript path.R` in the background; `unset PROJ_LIB` before an
   `estimate_correlation_matrix_robust()` - already vectorized.
 - `depth-simulation.R` (`simulate_profile_depths_by_collection()`, `evaluate_simulated_depths()`,
   `fetch_osd_horizons_cached()`) - genuinely per-profile work or already cached.
-- `distribution-fitting-raster.R` non-KDE routes, `fuse_general_kde()` (already gated behind
-  `threshold_cells`) - working as designed.
+- `distribution-fitting-raster.R` non-KDE routes - working as designed.
 - `bayesian-updating.R::bayesian_update()` - confirmed not wired into the main pipeline by the
   file's own header comment; dead code from the hot-path perspective by original design.
 - Small/capped loops in `validation-diagnostics.R` and
   `statistics.R::analyze_property_distributions_safe()` - negligible impact.
+
+## Tier 4 - KDE fusion + new row-loop candidates (found by comparing against a sibling Python
+project's own performance report, `soil-id-algorithm-api/docs/PERFORMANCE_PROFILING_REPORT.md`)
+
+**Correction to the "Confirmed NOT bugs" entry above**: `fuse_general_kde()` was previously waved
+off as "already gated behind `threshold_cells` - working as designed" with no benchmark behind
+that call. It was not fine - see below.
+
+- [x] `R/raster-fusion.R::fuse_general_kde()` - per-cell `bayesian_update()` call (itself calling
+  `stats::density()` twice) inside `terra::app()` + `apply(row_mat, 1, ...)`, for every cell at or
+  below `threshold_cells` (default 80,000).
+  - [x] Benchmarked before (synthetic percentile rasters, bypassing network fetch): 5.88s / 29.58s
+    / 109.94s / 209.13s at 506 / 2,024 / 10,000 / 20,022 actual cells respectively (~linear,
+    ~10.4ms/cell) - extrapolating to the default `threshold_cells = 80,000` implies ~14 minutes in
+    the worst case.
+  - [x] `Rprof()` profiling (10,000-cell case) found `bayesian_update()` = 77% of total time, of
+    which `stats::density()` alone = 65% (`dnorm` 26%, `fft` 16%) - `simulate_from_percentiles()`
+    (the piece originally assumed to be the main target) was only 12%, of which
+    `extract_percentile_pairs()` dispatch overhead alone was 9% (more than the actual
+    `approxfun()`-based sampling itself). This reprioritized the fix: `density()`'s evaluation
+    grid length (driven by `bayesian_update()`'s `grid_resolution` parameter, default `0.01`) was
+    the real lever, not per-cell R dispatch.
+  - [x] Accuracy-vs-speed sweep across 4 representative percentile scenarios (narrow/wide/skewed
+    distributions) comparing `grid_resolution` against a `0.01` reference: at `0.1`, max mean error
+    0.018%, max variance error 0.12% (analytical, sampling-noise-free comparison) - both far inside
+    the ~5-10% variability typical of field-measured soil properties (the same bar the sibling
+    Python report's cubic-spline-to-linear-interpolation swap was validated against). Coarser than
+    `0.1` degrades fast (variance error reaches double digits by `0.25`, 470% by `2.0`).
+  - [x] Fixed: added `FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION <- 0.1` (`R/raster-fusion.R`) and
+    changed `fuse_general_kde()`'s `NULL`-`grid_resolution` fallback to use it instead of silently
+    deferring to `bayesian_update()`'s own standalone default of `0.01`. `bayesian_update()`'s own
+    default is deliberately left unchanged - only `fuse_general_kde()`/`fuse_adaptive()`'s
+    caller-facing default shifted, so any other direct caller of `bayesian_update()` is unaffected.
+  - [x] Regression test added: `test-raster-fusion.R` - compares mean posterior mu/sigma (averaged
+    over 8 seeds, to isolate the systematic `grid_resolution` effect from `bayesian_update()`'s own
+    two-layer Monte Carlo sampling noise) between the new default and the `0.01` reference, across
+    the same 3 representative scenarios, within a tolerance looser than the analytical bound
+    (2%/10%) to stay robust while still catching a real regression.
+  - [x] Benchmarked after: 3.65s / 10.35s / 49.17s / 84.92s at the same 4 scales - **1.6x-2.9x**
+    (largest at the 2,024-cell scale).
+  - [x] Full `devtools::test()`: 0 failures (only pre-existing live-network skips/unrelated
+    warnings). Full `devtools::check()`: 0 errors, 0 warnings, 1 pre-existing unrelated NOTE
+    (untracked `pkgdown/` directory, predates this work).
+  - [ ] Committed + pushed
+
+- [ ] `simulate_from_percentiles()`/`extract_percentile_pairs()` batching across cells (originally
+  planned as the primary fix before profiling reprioritized it) - still worth doing as a secondary
+  ~10-12% win on top of the `grid_resolution` fix above. Not yet implemented.
+
+- [ ] `R/property-simulation.R::simulate_cokey_generalized()` - per-row Cholesky decomposition +
+  correlated multivariate draw. Benchmarked before: 4.74s (2,000 synthetic horizon rows -> 75,188
+  simulated rows). Not yet fixed - per-row correlation-matrix subsetting varies by row (which
+  properties are present), so full vectorization across heterogeneous rows needs care; plan is to
+  vectorize dispatch overhead while likely keeping the actual draw call per row.
+
+- [ ] `R/multivariate-adjustment.R::merge_adjusted_data()` - per-row `which()` full-table scan
+  "join," reached per-cokey via `apply_gp_depth_trends()`. Benchmarked before: 3.22s (10,000 rows,
+  10 depths x 1,000 realizations - one cokey's scale). Not yet fixed; planned fix is a proper
+  `merge()`/`dplyr::left_join()` keyed on `hzdept_r`+`simulation_number`, mirroring the earlier
+  `process_single_cokey()` fix.
+
+- [ ] `R/multivariate-adjustment.R::apply_cross_property_constraints()` - per-row texture
+  sum/rescale. Benchmarked before: **31.61s** (50,000 synthetic rows) - much more expensive than
+  its trivial per-row body suggests. **Note**: `correct_distribution_shapes()` (this function's
+  only caller) has zero internal call sites anywhere in `R/` (confirmed via
+  `grep -rn "correct_distribution_shapes(" R/`) - exported-API-only, same status as the earlier
+  Tier 3 `hz_quant_prob_mukey()` item. Worth fixing for correctness/consistency regardless (same
+  `rowSums()`-based pattern as the already-fixed `related_property_estimation()` texture branch,
+  195x there) even though it won't show up in a real AOI pipeline run today. Not yet fixed.
+
+- [ ] `R/monte-carlo.R::check_property_data_availability()` - nested per-row/per-property NA check
+  with repeated column re-indexing. Benchmarked before: 0.42s (20,000 rows x 5 properties) - real
+  caller (`monte-carlo.R:1840`) but already cheap; lowest priority of the 5. Not yet fixed.
 
 ## Final gate
 
