@@ -1,0 +1,8 @@
+/* Bootstrap 5's `img { max-width: 100%; height: auto; }` overrides the
+   width/height attributes on the homepage logo, so it renders at full
+   column width. Pin it down explicitly for the pkgdown site only. */
+.soilsim-logo {
+  width: 466px !important;
+  height: 466px !important;
+  max-width: 100% !important;
+}

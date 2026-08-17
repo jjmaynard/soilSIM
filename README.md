@@ -1,7 +1,7 @@
 
 # soilSIM
 
-<img src="man/figures/soilSIM.png" align="right" height="139" alt="" />
+<img src="man/figures/soilSIM.png" align="right" class="soilsim-logo" width="181" height="181" alt="" />
 
 <!-- badges: start -->
 
