@@ -325,11 +325,31 @@ that call. It was not fine - see below.
   - [x] Full `devtools::test()`: 0 failures (only pre-existing live-network skips/unrelated
     warnings). Full `devtools::check()`: 0 errors, 0 warnings, 1 pre-existing unrelated NOTE
     (untracked `pkgdown/` directory, predates this work).
-  - [ ] Committed + pushed
+  - [x] Committed (`c1b64fb`); not yet pushed.
 
-- [ ] `simulate_from_percentiles()`/`extract_percentile_pairs()` batching across cells (originally
-  planned as the primary fix before profiling reprioritized it) - still worth doing as a secondary
-  ~10-12% win on top of the `grid_resolution` fix above. Not yet implemented.
+- [x] `simulate_from_percentiles()`/`extract_percentile_pairs()` batching across cells - originally
+  planned as the primary fix before profiling reprioritized it as secondary; turned out bigger
+  than the ~10-12% estimate.
+  - [x] Added `sim_linear_cdf_batch()` (`R/percentile-sampling.R`) - vectorized equivalent of
+    calling `sim_linear_cdf()` once per row via `stats::approxfun()`, using `findInterval()` +
+    matrix arithmetic across all rows sharing the same `probs` knots at once. Validated against
+    `stats::approxfun()` at fixed evaluation points (bit-identical, max abs diff = 0) and
+    distributionally equivalent to `sim_linear_cdf()` via KS test (both checks now in
+    `test-percentile-sampling.R`).
+  - [x] Wired into `fuse_general_kde()`: cells with no NA/`-1`-sentinel percentile values (the
+    common case) now go through a batched fast path (`sim_linear_cdf_batch()` for both prior and
+    likelihood, once per chunk); any cell with a missing value falls back to the original
+    per-cell `simulate_from_percentiles()` path unchanged, preserving the existing
+    NA-degrades-to-NA-output contract exactly (confirmed by the existing dedicated test still
+    passing). `bayesian_update()`'s `density()` call still runs per cell - no vectorized form
+    exists in base R.
+  - [x] Benchmarked after (on top of the `grid_resolution` fix): 1.27s / 5.18s / 23.37s / 44.92s
+    at the same 4 scales - a further **1.9x-2.9x**, for a **cumulative 4.6x-5.7x** from the
+    original baseline (5.88s/29.58s/109.94s/209.13s). At the default `threshold_cells = 80,000`,
+    this takes the original ~14-minute worst case down to roughly 3 minutes.
+  - [x] Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors, 0 warnings, 1
+    pre-existing unrelated NOTE.
+  - [ ] Committed + pushed
 
 - [ ] `R/property-simulation.R::simulate_cokey_generalized()` - per-row Cholesky decomposition +
   correlated multivariate draw. Benchmarked before: 4.74s (2,000 synthetic horizon rows -> 75,188

@@ -237,6 +237,8 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
   lik_stack <- terra::rast(lik_value_rasters); names(lik_stack) <- paste0("lik_", percentile_cols)
   combined <- c(prior_stack, lik_stack)
 
+  effective_grid_resolution <- if (is.null(grid_resolution)) FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION else grid_resolution
+
   # terra::app() calls fun with a plain matrix (cells x layers) for a
   # chunk, and makes an initial probe call with a bare vector (not a
   # matrix) to infer the output layer count - fun must normalize both shapes.
@@ -247,19 +249,54 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
   # "Need at least 2 valid quantile columns." terra::app() is not per-cell-error-tolerant by
   # default, so one such cell would abort the entire raster operation - wrapped per-cell so a bad
   # cell degrades to NA output instead of crashing the whole fusion.
+  #
+  # Fast path (below) batches the percentile-sampling step (sim_linear_cdf_batch()) across every
+  # cell in the chunk at once for cells with no missing/-1-sentinel percentile values (the common
+  # case) - Rprof() profiling attributed ~9% of fuse_general_kde()'s total wall-clock to
+  # extract_percentile_pairs()'s per-cell dispatch overhead alone (PERFORMANCE_IMPROVEMENT_PLAN.md
+  # Tier 4). bayesian_update()'s density() call still runs per cell (no vectorized form exists in
+  # base R), and any cell with a missing value falls back to the original per-cell
+  # simulate_from_percentiles() path unchanged, preserving the exact NA-degradation contract above.
   fun <- function(row_mat) {
     row_mat <- if (is.matrix(row_mat)) row_mat else matrix(row_mat, nrow = 1)
-    t(apply(row_mat, 1, function(row) {
-      tryCatch({
-        prior_row <- as.data.frame(stats::setNames(as.list(row[1:k]), percentile_cols))
-        lik_row <- as.data.frame(stats::setNames(as.list(row[(k + 1):(2 * k)]), percentile_cols))
-        prior_samples <- simulate_from_percentiles(prior_row, method = "linear_cdf", percentile_cols = percentile_cols, n = n_samples)
-        lik_samples <- simulate_from_percentiles(lik_row, method = "linear_cdf", percentile_cols = percentile_cols, n = n_samples)
-        effective_grid_resolution <- if (is.null(grid_resolution)) FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION else grid_resolution
-        post <- bayesian_update(prior_samples, lik_samples, grid_resolution = effective_grid_resolution)
-        c(mean = mean(post), var = stats::var(post))
-      }, error = function(e) c(mean = NA_real_, var = NA_real_))
-    }))
+    n_cells <- nrow(row_mat)
+    prior_mat <- row_mat[, 1:k, drop = FALSE]
+    lik_mat <- row_mat[, (k + 1):(2 * k), drop = FALSE]
+
+    no_na <- stats::complete.cases(prior_mat) & stats::complete.cases(lik_mat)
+    no_sentinel <- rowSums(prior_mat == -1, na.rm = TRUE) == 0 & rowSums(lik_mat == -1, na.rm = TRUE) == 0
+    fast_path <- no_na & no_sentinel
+
+    result <- matrix(NA_real_, nrow = n_cells, ncol = 2)
+
+    if (any(fast_path)) {
+      fast_idx <- which(fast_path)
+      prior_samples_mat <- sim_linear_cdf_batch(percentile_probs, prior_mat[fast_idx, , drop = FALSE], n_samples)
+      lik_samples_mat <- sim_linear_cdf_batch(percentile_probs, lik_mat[fast_idx, , drop = FALSE], n_samples)
+      for (j in seq_along(fast_idx)) {
+        post <- tryCatch(
+          bayesian_update(prior_samples_mat[j, ], lik_samples_mat[j, ], grid_resolution = effective_grid_resolution),
+          error = function(e) NULL
+        )
+        if (!is.null(post)) result[fast_idx[j], ] <- c(mean(post), stats::var(post))
+      }
+    }
+
+    if (any(!fast_path)) {
+      for (i in which(!fast_path)) {
+        row <- row_mat[i, ]
+        res <- tryCatch({
+          prior_row <- as.data.frame(stats::setNames(as.list(row[1:k]), percentile_cols))
+          lik_row <- as.data.frame(stats::setNames(as.list(row[(k + 1):(2 * k)]), percentile_cols))
+          prior_samples <- simulate_from_percentiles(prior_row, method = "linear_cdf", percentile_cols = percentile_cols, n = n_samples)
+          lik_samples <- simulate_from_percentiles(lik_row, method = "linear_cdf", percentile_cols = percentile_cols, n = n_samples)
+          post <- bayesian_update(prior_samples, lik_samples, grid_resolution = effective_grid_resolution)
+          c(mean(post), stats::var(post))
+        }, error = function(e) c(NA_real_, NA_real_))
+        result[i, ] <- res
+      }
+    }
+    result
   }
   moments_r <- terra::app(combined, fun)
   mean_r <- moments_r[[1]]; var_r <- moments_r[[2]]

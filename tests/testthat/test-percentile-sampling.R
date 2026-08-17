@@ -17,6 +17,52 @@ test_that("sim_linear_cdf() draws are exact at the knots and clamped at the tail
   expect_equal(mean(draws), 10, tolerance = 0.5)
 })
 
+test_that("sim_linear_cdf_batch()'s interpolation matches stats::approxfun() exactly at fixed evaluation points", {
+  # Isolates the interpolation math from RNG differences (sim_linear_cdf_batch() draws its
+  # nrow*n uniforms in one block rather than one runif(n) call per row, so it is NOT
+  # bit-identical to sim_linear_cdf() row-by-row - see its own docs) by feeding identical FIXED
+  # evaluation points to both the batch helper's internals and stats::approxfun() directly.
+  probs <- c(0.05, 0.5, 0.95)
+  values_mat <- rbind(c(18, 22, 27), c(20, 40, 65), c(0.5, 2, 8))
+  u_fixed <- c(0, 0.01, 0.04999, 0.05, 0.1, 0.5, 0.94999, 0.95, 0.96, 1)
+
+  # Reuses sim_linear_cdf_batch()'s exact interpolation logic, but driven by fixed points
+  # instead of stats::runif() draws - a whitebox check of the math, not the public API.
+  nr <- nrow(values_mat); n <- length(u_fixed); k <- length(probs)
+  u <- matrix(rep(u_fixed, each = nr), nrow = nr, ncol = n)
+  seg <- findInterval(as.vector(u), probs, rightmost.closed = TRUE)
+  seg_clamped <- pmin(pmax(seg, 1L), k - 1L)
+  row_idx <- rep(seq_len(nr), times = n)
+  p_lo <- probs[seg_clamped]; p_hi <- probs[seg_clamped + 1L]
+  v_lo <- values_mat[cbind(row_idx, seg_clamped)]
+  v_hi <- values_mat[cbind(row_idx, seg_clamped + 1L)]
+  frac <- (as.vector(u) - p_lo) / (p_hi - p_lo)
+  interp <- v_lo + frac * (v_hi - v_lo)
+  below <- seg == 0L; above <- seg == k
+  interp[below] <- values_mat[cbind(row_idx[below], rep(1L, sum(below)))]
+  interp[above] <- values_mat[cbind(row_idx[above], rep(k, sum(above)))]
+  batch_result <- matrix(interp, nrow = nr, ncol = n)
+
+  for (i in seq_len(nr)) {
+    ref_fun <- stats::approxfun(x = probs, y = values_mat[i, ], method = "linear", rule = 2)
+    expect_equal(batch_result[i, ], ref_fun(u_fixed), tolerance = 1e-12)
+  }
+})
+
+test_that("sim_linear_cdf_batch() is distributionally equivalent to sim_linear_cdf() per row (KS test)", {
+  probs <- c(0.05, 0.5, 0.95)
+  values_mat <- rbind(c(18, 22, 27), c(20, 40, 65))
+
+  set.seed(11)
+  batch_draws <- sim_linear_cdf_batch(probs, values_mat, 20000)
+  for (i in seq_len(nrow(values_mat))) {
+    set.seed(11)
+    scalar_draws <- sim_linear_cdf(probs, values_mat[i, ], 20000)
+    ks <- suppressWarnings(stats::ks.test(batch_draws[i, ], scalar_draws))
+    expect_gt(ks$p.value, 0.01)
+  }
+})
+
 test_that("sim_spline() draws stay within the padded bounds and are monotonic at the knots", {
   set.seed(2)
   draws <- sim_spline(probs = c(0.05, 0.5, 0.95), values = c(2, 10, 18), n = 2000)

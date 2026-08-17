@@ -58,6 +58,57 @@ sim_linear_cdf <- function(probs, values, n) {
   inv_cdf(stats::runif(n, min = 0, max = 1))
 }
 
+#' Batched piecewise-linear inverse-CDF sampler across many rows sharing the same `probs` knots
+#'
+#' Vectorized equivalent of calling `sim_linear_cdf(probs, values_mat[i, ], n)` once per row of
+#' `values_mat` and rbind-ing the results - built for `fuse_general_kde()` (`R/raster-fusion.R`),
+#' where `stats::approxfun()` was previously rebuilt once per raster cell (`Rprof()` profiling
+#' attributed ~9% of `fuse_general_kde()`'s total wall-clock to `extract_percentile_pairs()`'s
+#' per-cell dispatch overhead alone, on top of the sampling itself - see
+#' PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4). All rows must share the same `probs` knots (true for a
+#' raster chunk, where every cell's percentile columns are the same fixed set, e.g. P5/P50/P95) -
+#' this is what makes batching valid; per-row-varying `probs` would need the per-row `approxfun()`
+#' approach this function replaces.
+#'
+#' Matches `sim_linear_cdf()`'s `rule = 2` constant-extrapolation behavior for draws outside
+#' `[min(probs), max(probs)]` (clamped to the first/last `values` column) exactly, but does NOT
+#' preserve `sim_linear_cdf()`'s per-row RNG stream position - the two are statistically
+#' equivalent (both draw `runif(n)` per row and linearly interpolate), not bit-identical, since
+#' this function draws the full `nrow(values_mat) * n` uniform block in one call rather than one
+#' `runif(n)` call per row.
+#'
+#' @param probs Numeric probabilities (0-1), sorted ascending, shared by every row.
+#' @param values_mat Numeric matrix, `nrow(values_mat)` rows x `length(probs)` columns (column
+#'   order matching `probs` order), no `NA`/missing values.
+#' @param n Number of draws per row.
+#' @return A `nrow(values_mat)` x `n` numeric matrix, one row of draws per input row.
+#' @keywords internal
+sim_linear_cdf_batch <- function(probs, values_mat, n) {
+  nr <- nrow(values_mat)
+  k <- length(probs)
+  u <- matrix(stats::runif(nr * n), nrow = nr, ncol = n)
+
+  # findInterval() over the flattened draws: 0 = below probs[1] (rule=2 clamp to column 1),
+  # k = at/above probs[k] (clamp to column k), 1..k-1 = normal interpolation segment i.
+  seg <- findInterval(as.vector(u), probs, rightmost.closed = TRUE)
+  seg_clamped <- pmin(pmax(seg, 1L), k - 1L)
+  # as.vector(u) flattens column-major (all nr rows of col 1, then col 2, ...) - this must match.
+  row_idx <- rep(seq_len(nr), times = n)
+
+  p_lo <- probs[seg_clamped]; p_hi <- probs[seg_clamped + 1L]
+  v_lo <- values_mat[cbind(row_idx, seg_clamped)]
+  v_hi <- values_mat[cbind(row_idx, seg_clamped + 1L)]
+  frac <- (as.vector(u) - p_lo) / (p_hi - p_lo)
+  interp <- v_lo + frac * (v_hi - v_lo)
+
+  below <- seg == 0L
+  above <- seg == k
+  if (any(below)) interp[below] <- values_mat[cbind(row_idx[below], rep(1L, sum(below)))]
+  if (any(above)) interp[above] <- values_mat[cbind(row_idx[above], rep(k, sum(above)))]
+
+  matrix(interp, nrow = nr, ncol = n)
+}
+
 #' Monotonic-spline inverse-CDF sampler (smoother than linear, still exact at knots)
 #'
 #' @param bounds Optional length-2 vector giving the value at prob 0 and prob 1.
