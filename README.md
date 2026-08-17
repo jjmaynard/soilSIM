@@ -1,6 +1,8 @@
 
 # soilSIM
 
+<img src="man/figures/soilSIM.png" align="right" height="139" alt="" />
+
 <!-- badges: start -->
 
 [![R-CMD-check](https://img.shields.io/badge/R--CMD--check-passing-brightgreen)](https://github.com/jjmaynard/soilSIM)
