@@ -126,7 +126,21 @@ Default <code>parallel = FALSE</code> matches prior behavior exactly.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A data frame, one row per <code>mukey</code>/<code>cokey</code>/<code>simulation_number</code> replicate, with simulated
-property columns aggregated over the depth window - or <code>NULL</code> if the tabular fetch fails.</p>
+property columns aggregated over the depth window - or <code>NULL</code> if the tabular fetch fails.
+Minor components that <code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code>'s underlying query would otherwise drop
+entirely (real <code>comppct</code>, zero <code>chorizon</code> rows in SDA) are included transparently here
+whenever an AOI sibling let them be recovered - see <code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code>'s "Component
+recovery" section.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="cache-invalidation">Cache invalidation<a class="anchor" aria-label="anchor" href="#cache-invalidation"></a></h2>
+
+
+<p>This function's own disk cache (<code><a href="build_cache_key.html">build_cache_key()</a></code>/<code><a href="cache_get.html">cache_get()</a></code>/<code><a href="cache_set.html">cache_set()</a></code>, keyed by
+<code>aoi_vect</code>/depth window) is separate from <code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code>'s own <code>cache_dir</code>
+parameter (always <code>NULL</code> here). A cache entry for a given AOI/depth-window combination written
+before component recovery shipped predates it entirely - clear that cache entry (or the whole
+cache directory) to pick up recovered components.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

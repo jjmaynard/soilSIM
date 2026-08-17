@@ -59,14 +59,14 @@ ssurgo_amador <- download_and_prepare_ssurgo(
 ssurgo_amador <- readRDS(system.file("extdata", "ssurgo_amador.rds", package = "soilSIM"))
 raw_data <- ssurgo_amador$ssurgo_data
 dim(raw_data)
-#> [1] 474  65
+#> [1] 575  67
 length(unique(raw_data$cokey))
-#> [1] 78
+#> [1] 116
 length(unique(raw_data$mukey))
 #> [1] 66
 ```
 
-This AOI resolves to 66 real map units and 78 soil components.
+This AOI resolves to 66 real map units and 116 soil components.
 [`process_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_data.md)
 cleans and standardizes the raw download - flagging unsuitable horizons
 (bedrock, cemented pans, organic layers) that shouldn’t feed property
@@ -77,7 +77,7 @@ simulation:
 processed <- process_ssurgo_data(raw_data, max_depth = 150, verbose = FALSE)
 horizon_data <- processed$processed_data
 sum(horizon_data$unsuitable_horizon)
-#> [1] 53
+#> [1] 84
 ```
 
 ## Step 2: Fill in missing property values
@@ -135,14 +135,14 @@ mc_result <- generate_monte_carlo_realizations(
 )
 
 dim(mc_result$simulation_data)  # [horizon, property, realization]
-#> [1] 421   4 200
+#> [1] 491   4 200
 mc_result$metadata$success_rate
 #> [1] 1
 mc_result$quality_assessment$overall_quality_score
 #> [1] 1
 ```
 
-421 suitable horizons x 4 properties x 200 realizations, at a 100%
+491 suitable horizons x 4 properties x 200 realizations, at a 100%
 success rate. Distribution of simulated clay content across all
 realizations, for the first horizon:
 
@@ -234,8 +234,8 @@ grouping by soil series:
 gp_train <- prepare_nrcs_training_data(horizon_data, max_depth = 150)
 table(gp_train$soil_group)
 #> 
-#>     Chaix  Cohasset   Holland Josephine  Mariposa  McCarthy 
-#>        24        98        21        81        30        60
+#>     Chaix  Cohasset   Holland Josephine  Mariposa  McCarthy     Sites 
+#>        24       118        21        81        50        60        31
 ```
 
 ``` r
@@ -248,10 +248,10 @@ gp_models <- build_stratified_gp_models(
   optimize_hyperparameters = FALSE
 )
 gp_models$model_summary$total_models
-#> [1] 22
+#> [1] 26
 ```
 
-22 GP models were fit across 6 real soil-series groups from this AOI.
+26 GP models were fit across 7 real soil-series groups from this AOI.
 Each fitted model predicts a property’s mean depth trend (with
 uncertainty) for its soil-series group via
 [`predict_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/predict_gp_depth_trends.md).

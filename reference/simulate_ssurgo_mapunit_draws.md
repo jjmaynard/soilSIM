@@ -60,4 +60,21 @@ An object of class `character` of length 10.
 
 A data frame, one row per `mukey`/`cokey`/`simulation_number` replicate,
 with simulated property columns aggregated over the depth window - or
-`NULL` if the tabular fetch fails.
+`NULL` if the tabular fetch fails. Minor components that
+[`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)'s
+underlying query would otherwise drop entirely (real `comppct`, zero
+`chorizon` rows in SDA) are included transparently here whenever an AOI
+sibling let them be recovered - see
+[`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)'s
+"Component recovery" section.
+
+## Cache invalidation
+
+This function's own disk cache
+([`build_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/build_cache_key.md)/[`cache_get()`](https://jjmaynard.github.io/soilSIM/reference/cache_get.md)/[`cache_set()`](https://jjmaynard.github.io/soilSIM/reference/cache_set.md),
+keyed by `aoi_vect`/depth window) is separate from
+[`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)'s
+own `cache_dir` parameter (always `NULL` here). A cache entry for a
+given AOI/depth-window combination written before component recovery
+shipped predates it entirely - clear that cache entry (or the whole
+cache directory) to pick up recovered components.

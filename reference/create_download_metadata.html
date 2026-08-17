@@ -79,7 +79,9 @@
 <span>  <span class="va">data_rows</span>,</span>
 <span>  <span class="va">unique_cokeys</span>,</span>
 <span>  <span class="va">spatial_result</span>,</span>
-<span>  <span class="va">validation_results</span></span>
+<span>  <span class="va">validation_results</span>,</span>
+<span>  components_missing_horizons <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  components_recovered <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -125,6 +127,16 @@
 
 <dt id="arg-validation-results">validation_results<a class="anchor" aria-label="anchor" href="#arg-validation-results"></a></dt>
 <dd><p>Data validation results</p></dd>
+
+
+<dt id="arg-components-missing-horizons">components_missing_horizons<a class="anchor" aria-label="anchor" href="#arg-components-missing-horizons"></a></dt>
+<dd><p>Data frame or <code>NULL</code> - components with a real <code>comppct</code> but
+no AOI sibling to recover a profile from (see <code><a href="recover_missing_horizon_components.html">recover_missing_horizon_components()</a></code>).</p></dd>
+
+
+<dt id="arg-components-recovered">components_recovered<a class="anchor" aria-label="anchor" href="#arg-components-recovered"></a></dt>
+<dd><p>Data frame or <code>NULL</code> - components successfully synthesized from an
+AOI sibling's averaged profile (see <code><a href="recover_missing_horizon_components.html">recover_missing_horizon_components()</a></code>).</p></dd>
 
 </dl></div>
     <div class="section level2">

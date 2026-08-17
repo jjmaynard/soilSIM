@@ -79,7 +79,7 @@ raw_data <- ssurgo_amador$ssurgo_data
 processed <- process_ssurgo_data(raw_data, max_depth = 150, verbose = FALSE)
 horizon_data <- processed$processed_data
 dim(horizon_data)
-#> [1] 474  65
+#> [1] 575  67
 ```
 
 ## Step 1: `prepare_nrcs_training_data()` - shaping raw data for GP fitting
@@ -116,11 +116,11 @@ the doc for the full algorithm.
 
 gp_train <- prepare_nrcs_training_data(horizon_data, max_depth = 150)
 dim(gp_train)
-#> [1] 314  75
+#> [1] 385  77
 table(gp_train$soil_group)
 #> 
-#>     Chaix  Cohasset   Holland Josephine  Mariposa  McCarthy 
-#>        24        98        21        81        30        60
+#>     Chaix  Cohasset   Holland Josephine  Mariposa  McCarthy     Sites 
+#>        24       118        21        81        50        60        31
 ```
 
 The output has the eight standardized property columns (`clay_pct`,
@@ -199,12 +199,12 @@ gp_models <- build_stratified_gp_models(
   optimize_hyperparameters = FALSE
 )
 gp_models$model_summary$total_models
-#> [1] 22
+#> [1] 26
 names(gp_models$clay_pct$models)
-#> [1] "Cohasset"  "Josephine" "Mariposa"  "Holland"
+#> [1] "Cohasset"  "Josephine" "Mariposa"  "Sites"     "Holland"
 ```
 
-22 GP models were fit in total, across 4 clay-content groups (and
+26 GP models were fit in total, across 5 clay-content groups (and
 similarly for the other three properties) from this AOI’s real data.
 
 ### `fit_individual_gp_model()` - the per-group fit, called directly
@@ -260,13 +260,13 @@ single_fit$model$depth_scaling
 #> $range
 #> [1] 93
 single_fit$model$n_training_points
-#> [1] 9
+#> [1] 11
 single_fit$diagnostics
 #> $property
 #> [1] "clay_pct"
 #> 
 #> $n_training_points
-#> [1] 9
+#> [1] 11
 #> 
 #> $depth_range
 #> [1]  0 93
@@ -275,7 +275,7 @@ single_fit$diagnostics
 #> [1] 18.84615 32.00000
 #> 
 #> $training_rmse
-#> [1] 4.586534e-15
+#> [1] 4.544647e-15
 #> 
 #> $log_likelihood
 #> [1] NA
@@ -360,10 +360,10 @@ fall inside a property-specific realistic range (e.g. clay/sand/silt in
 validation <- validate_gp_models(gp_models, nrcs_data = gp_train, validation_depths = seq(0, 150, by = 10))
 validation$overall_assessment
 #> $total_models
-#> [1] 22
+#> [1] 26
 #> 
 #> $valid_models
-#> [1] 22
+#> [1] 26
 #> 
 #> $success_rate
 #> [1] 1

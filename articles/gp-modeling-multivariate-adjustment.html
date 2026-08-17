@@ -175,7 +175,7 @@ produced the cached data (shown for reference only - not run here):</p>
 <span><span class="va">processed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/process_ssurgo_data.html">process_ssurgo_data</a></span><span class="op">(</span><span class="va">raw_data</span>, max_depth <span class="op">=</span> <span class="fl">150</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="va">horizon_data</span> <span class="op">&lt;-</span> <span class="va">processed</span><span class="op">$</span><span class="va">processed_data</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">horizon_data</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 474  65</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 575  67</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="step-1-prepare_nrcs_training_data---shaping-raw-data-for-gp-fitting">Step 1: <code>prepare_nrcs_training_data()</code> - shaping raw data
@@ -216,11 +216,11 @@ properties) - see the doc for the full algorithm.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">gp_train</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/prepare_nrcs_training_data.html">prepare_nrcs_training_data</a></span><span class="op">(</span><span class="va">horizon_data</span>, max_depth <span class="op">=</span> <span class="fl">150</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">gp_train</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 314  75</span></span>
+<span><span class="co">#&gt; [1] 385  77</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">gp_train</span><span class="op">$</span><span class="va">soil_group</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     Chaix  Cohasset   Holland Josephine  Mariposa  McCarthy </span></span>
-<span><span class="co">#&gt;        24        98        21        81        30        60</span></span></code></pre></div>
+<span><span class="co">#&gt;     Chaix  Cohasset   Holland Josephine  Mariposa  McCarthy     Sites </span></span>
+<span><span class="co">#&gt;        24       118        21        81        50        60        31</span></span></code></pre></div>
 <p>The output has the eight standardized property columns
 (<code>clay_pct</code>, <code>sand_pct</code>, <code>silt_pct</code>,
 <code>pH</code>, <code>organic_matter</code>, <code>bulk_density</code>,
@@ -304,10 +304,10 @@ cost of not searching over correlation families.</li>
 <span>  optimize_hyperparameters <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">gp_models</span><span class="op">$</span><span class="va">model_summary</span><span class="op">$</span><span class="va">total_models</span></span>
-<span><span class="co">#&gt; [1] 22</span></span>
+<span><span class="co">#&gt; [1] 26</span></span>
 <span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">gp_models</span><span class="op">$</span><span class="va">clay_pct</span><span class="op">$</span><span class="va">models</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "Cohasset"  "Josephine" "Mariposa"  "Holland"</span></span></code></pre></div>
-<p>22 GP models were fit in total, across 4 clay-content groups (and
+<span><span class="co">#&gt; [1] "Cohasset"  "Josephine" "Mariposa"  "Sites"     "Holland"</span></span></code></pre></div>
+<p>26 GP models were fit in total, across 5 clay-content groups (and
 similarly for the other three properties) from this AOI’s real data.</p>
 </div>
 <div class="section level3">
@@ -361,13 +361,13 @@ to skip ungroupable data gracefully.</p>
 <span><span class="co">#&gt; $range</span></span>
 <span><span class="co">#&gt; [1] 93</span></span>
 <span><span class="va">single_fit</span><span class="op">$</span><span class="va">model</span><span class="op">$</span><span class="va">n_training_points</span></span>
-<span><span class="co">#&gt; [1] 9</span></span>
+<span><span class="co">#&gt; [1] 11</span></span>
 <span><span class="va">single_fit</span><span class="op">$</span><span class="va">diagnostics</span></span>
 <span><span class="co">#&gt; $property</span></span>
 <span><span class="co">#&gt; [1] "clay_pct"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_training_points</span></span>
-<span><span class="co">#&gt; [1] 9</span></span>
+<span><span class="co">#&gt; [1] 11</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $depth_range</span></span>
 <span><span class="co">#&gt; [1]  0 93</span></span>
@@ -376,7 +376,7 @@ to skip ungroupable data gracefully.</p>
 <span><span class="co">#&gt; [1] 18.84615 32.00000</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $training_rmse</span></span>
-<span><span class="co">#&gt; [1] 4.586534e-15</span></span>
+<span><span class="co">#&gt; [1] 4.544647e-15</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $log_likelihood</span></span>
 <span><span class="co">#&gt; [1] NA</span></span></code></pre></div>
@@ -456,10 +456,10 @@ inside a property-specific realistic range (e.g. clay/sand/silt in
 <code class="sourceCode R"><span><span class="va">validation</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/validate_gp_models.html">validate_gp_models</a></span><span class="op">(</span><span class="va">gp_models</span>, nrcs_data <span class="op">=</span> <span class="va">gp_train</span>, validation_depths <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">150</span>, by <span class="op">=</span> <span class="fl">10</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">validation</span><span class="op">$</span><span class="va">overall_assessment</span></span>
 <span><span class="co">#&gt; $total_models</span></span>
-<span><span class="co">#&gt; [1] 22</span></span>
+<span><span class="co">#&gt; [1] 26</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $valid_models</span></span>
-<span><span class="co">#&gt; [1] 22</span></span>
+<span><span class="co">#&gt; [1] 26</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $success_rate</span></span>
 <span><span class="co">#&gt; [1] 1</span></span>

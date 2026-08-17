@@ -91,6 +91,8 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/cache_get.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/cache_get_valid_group_result.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/cache_get_valid_percentiles.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/cache_set.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/cache_ssurgo_data.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.html</loc></url>
@@ -171,6 +173,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_osd_horizons_cached.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_all_components_working.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_mukey_raster.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_percentiles.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/filter_valid_numeric_properties.html</loc></url>
@@ -256,6 +259,8 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/infill_water_retention_saxton_rawls_integrated.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/is_unsuitable.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/is_valid_group_result.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/is_valid_percentile_list.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/k_fold_gp_cv.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/kssl_reference_correlations.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/learn_property_ranges.html</loc></url>
@@ -316,6 +321,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/raster_fusion.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/rasterize_mukey_percentiles.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/read_soil_data.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/recover_missing_horizon_components.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/related_property_estimation.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/remove_invalid_components_working.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/remove_invalid_horizons_working_compatible.html</loc></url>
@@ -376,6 +382,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/summarize_constraint_violations.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/summarize_distributions.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/summarize_unsuitable_horizons.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/synthesize_component_horizons_from_siblings.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/test_distribution_fidelity.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/theme_soil_diagnostics.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/track_progress.html</loc></url>

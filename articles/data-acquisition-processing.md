@@ -124,9 +124,9 @@ without a live network dependency:
 ssurgo_amador <- readRDS(system.file("extdata", "ssurgo_amador.rds", package = "soilSIM"))
 raw_data <- ssurgo_amador$ssurgo_data
 dim(raw_data)
-#> [1] 474  65
+#> [1] 575  67
 length(unique(raw_data$cokey))
-#> [1] 78
+#> [1] 116
 ```
 
 `raw_data` already has the restriction-indicator columns
@@ -145,7 +145,7 @@ grep("restrict|unsuitable|cemented|organic_horizon", names(raw_data), value = TR
 #> [7] "texture_suggests_restriction" "is_potentially_restrictive"  
 #> [9] "unsuitable_horizon"
 sum(raw_data$unsuitable_horizon)
-#> [1] 53
+#> [1] 84
 ```
 
 ## Step 2: Processing - `process_ssurgo_data()`’s two sub-pipelines
@@ -172,7 +172,7 @@ names(processed)
 #> [1] "processed_data"      "horizon_data"        "component_data"     
 #> [4] "processing_metadata" "validation_results"  "quality_report"
 dim(processed$processed_data)
-#> [1] 474  65
+#> [1] 575  67
 ```
 
 ### `process_horizon_data_working_compatible()` on its own
@@ -203,9 +203,9 @@ na_counts <- data.frame(
 )
 na_counts
 #>                property advanced_cleaning_on advanced_cleaning_off
-#> sandtotal_r sandtotal_r                   49                    49
-#> claytotal_r claytotal_r                   49                    49
-#> dbovendry_r dbovendry_r                   57                    52
+#> sandtotal_r sandtotal_r                   59                    59
+#> claytotal_r claytotal_r                   59                    59
+#> dbovendry_r dbovendry_r                   88                    62
 ```
 
 `processing_stats$property_completeness` (from
@@ -217,9 +217,9 @@ processing:
 
 unlist(horizon_cleaned$processing_stats$property_completeness)
 #>   sandtotal   claytotal   silttotal   dbovendry   ph1to1h2o        cec7 
-#>   0.8966245   0.8966245   0.8966245   0.8797468   0.8902954   0.8080169 
+#>   0.8973913   0.8973913   0.8973913   0.8469565   0.8921739   0.7704348 
 #>          om   wthirdbar wfifteenbar         awc 
-#>   0.8860759   0.8860759   0.8902954   0.8860759
+#>   0.8521739   0.8921739   0.8921739   0.8921739
 ```
 
 ### `process_component_data_working_compatible()` on its own
@@ -235,14 +235,14 @@ and adds a couple of derived flags
 
 component_result <- process_component_data_working_compatible(raw_data, verbose = FALSE)
 dim(component_result$processed_data)
-#> [1] 78  5
+#> [1] 116   5
 names(component_result$processed_data)
 #> [1] "cokey"              "compname"           "comppct_r"         
 #> [4] "mukey"              "is_major_component"
 table(component_result$processed_data$is_major_component)
 #> 
-#> TRUE 
-#>   78
+#> FALSE  TRUE 
+#>    38    78
 ```
 
 `is_major_component` (`comppct_r >= 15`) is a convenience flag, not a
@@ -261,11 +261,11 @@ organic layers) are never targets *or* sources for infilling.
 
 horizon_data <- processed$processed_data
 sum(horizon_data$unsuitable_horizon)
-#> [1] 53
+#> [1] 84
 table(horizon_data$hzname[horizon_data$unsuitable_horizon])
 #> 
 #> Cr H1 H2 H3 H4 Oi 
-#>  2  2  3 30 11  5
+#> 12  2  3 30 11 26
 ```
 
 [`summarize_unsuitable_horizons()`](https://jjmaynard.github.io/soilSIM/reference/summarize_unsuitable_horizons.md)
@@ -275,10 +275,10 @@ table(horizon_data$hzname[horizon_data$unsuitable_horizon])
 
 summarize_unsuitable_horizons(horizon_data)
 #> $n_unsuitable
-#> [1] 53
+#> [1] 84
 #> 
 #> $horizon_types
-#> [1] "H1" "H3" "H4" "H2" "Oi" "Cr"
+#> [1] "H1" "H3" "Oi" "Cr" "H4" "H2"
 ```
 
 ## Step 3: Per-property cleaning
@@ -318,9 +318,9 @@ clean_result <- clean_property_data_ssurgo_compatible(
   raw_data, "dbovendry", generate_report = TRUE, verbose = FALSE
 )
 clean_result$report$outliers_detected$dbovendry_r$n_outliers
-#> [1] 5
+#> [1] 26
 clean_result$report$type_conversions$dbovendry_r$success_rate
-#> [1] 0.8902954
+#> [1] 0.8921739
 ```
 
 Before/after distribution of bulk density (`dbovendry_r`) - cleaning
@@ -450,20 +450,14 @@ candidate_cokeys <- cleaned_for_infill |>
   dplyr::pull(cokey) |>
   unique()
 length(candidate_cokeys)
-#> [1] 11
+#> [1] 21
 
 example_cokey <- candidate_cokeys[1]
 example_group <- cleaned_for_infill[cleaned_for_infill$cokey == example_cokey, ]
 example_group[, c("hzname", "hzdept_r", "hzdepb_r", "cec7_r", "unsuitable_horizon")]
 #>    hzname hzdept_r hzdepb_r cec7_r unsuitable_horizon
-#> 80     H1        0       36     20              FALSE
-#> 81     H1        0       36     20              FALSE
-#> 82     H2       36       84     NA              FALSE
-#> 83     H2       36       84     NA              FALSE
-#> 84     H3       84      127     NA              FALSE
-#> 85     H3       84      127     NA              FALSE
-#> 86     H3       84      127     NA              FALSE
-#> 87     H4      127      137     NA               TRUE
+#> 9       A        0       13    5.5              FALSE
+#> 10     Bt       13       76     NA              FALSE
 ```
 
 ``` r
@@ -474,15 +468,9 @@ infilled_group <- infill_missing_property_data(
   property_config = get_default_property_config("cec7")
 )
 infilled_group[, c("hzname", "hzdept_r", "hzdepb_r", "cec7_r", "infill_method")]
-#>    hzname hzdept_r hzdepb_r cec7_r          infill_method
-#> 80     H1        0       36     20                       
-#> 81     H1        0       36     20                       
-#> 82     H2       36       84     20 cec7_r:hzname(H,n=2); 
-#> 83     H2       36       84     20 cec7_r:hzname(H,n=2); 
-#> 84     H3       84      127     20 cec7_r:hzname(H,n=2); 
-#> 85     H3       84      127     20 cec7_r:hzname(H,n=2); 
-#> 86     H3       84      127     20 cec7_r:hzname(H,n=2); 
-#> 87     H4      127      137     NA
+#>    hzname hzdept_r hzdepb_r cec7_r         infill_method
+#> 9       A        0       13    5.5 component_aoi_average
+#> 10     Bt       13       76     NA component_aoi_average
 ```
 
 The `infill_method` column shows exactly which strategy filled each
@@ -574,7 +562,7 @@ learned$overall
 #> [1] 5
 #> 
 #> $sample_size
-#> [1] 420
+#> [1] 490
 ```
 
 ``` r
@@ -592,7 +580,7 @@ context_ranges
 #> [1] 20
 ```
 
-With only 420 complete suitable-horizon rows to learn from, notice how
+With only 490 complete suitable-horizon rows to learn from, notice how
 close the learned overall spread is to the hardcoded contextual
 `typical_spread` above - in a small AOI like this one, the two sources
 of information reinforce rather than override each other.
@@ -627,7 +615,7 @@ wr_result <- infill_water_retention_saxton_rawls_integrated(
 after_wr <- sum(is.na(wr_result$wthirdbar_r))
 c(before = before_wr, after = after_wr)
 #> before  after 
-#>     54     50
+#>     62     58
 ```
 
 `overwrite = FALSE` (the default) means SSURGO’s own reported values
@@ -735,10 +723,10 @@ from all of the above rather than what was flagged within what remained:
 
 summarize_unsuitable_horizons(infilled)
 #> $n_unsuitable
-#> [1] 53
+#> [1] 84
 #> 
 #> $horizon_types
-#> [1] "H1" "H3" "H4" "H2" "Oi" "Cr"
+#> [1] "H1" "H3" "Oi" "Cr" "H4" "H2"
 ```
 
 ## Where this leaves you

@@ -12,8 +12,10 @@ property_to_sim_column(property_id)
 
 - property_id:
 
-  One of `"ph"`, `"bulk_density"`, `"soc"`, `"cec"`, `"clay"`, `"sand"`,
-  `"silt"`, `"rock_fragments"`.
+  One of `"ph"`, `"ph1to1h2o"`, `"bulk_density"`, `"dbovendry"`,
+  `"soc"`, `"om"`, `"cec"`, `"cec7"`, `"clay"`, `"claytotal"`, `"sand"`,
+  `"sandtotal"`, `"silt"`, `"silttotal"`, `"rock_fragments"`, or
+  `"rfv"`.
 
 ## Value
 

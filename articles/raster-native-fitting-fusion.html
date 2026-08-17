@@ -188,8 +188,8 @@ probabilities the low/high rasters represent, and returns
 <span><span class="co">#&gt; source(s)   : memory</span></span>
 <span><span class="co">#&gt; varname     : claytotal_0_cm_l</span></span>
 <span><span class="co">#&gt; name        :       P50</span></span>
-<span><span class="co">#&gt; min value   :  1.291976</span></span>
-<span><span class="co">#&gt; max value   : 27.771105</span></span></code></pre></div>
+<span><span class="co">#&gt; min value   :  1.721668</span></span>
+<span><span class="co">#&gt; max value   : 28.000607</span></span></code></pre></div>
 <p><code>sigma</code> is
 <code>(p_hi_r - p_lo_r) / (qnorm(p_hi) - qnorm(p_lo))</code> - the raw
 value spread between the two tail percentiles, divided by how many
@@ -306,7 +306,7 @@ decrease:</p>
 <span><span class="va">n_total</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/dimensions.html" class="external-link">ncell</a></span><span class="op">(</span><span class="va">infeasible</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%d / %d cells (%.0f%%) have an infeasible metalog fit\n"</span>,</span>
 <span>            <span class="va">n_infeasible</span>, <span class="va">n_total</span>, <span class="fl">100</span> <span class="op">*</span> <span class="va">n_infeasible</span> <span class="op">/</span> <span class="va">n_total</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; 150 / 598 cells (25%) have an infeasible metalog fit</span></span>
+<span><span class="co">#&gt; 152 / 598 cells (25%) have an infeasible metalog fit</span></span>
 <span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">infeasible</span>, main <span class="op">=</span> <span class="st">"Infeasible metalog fit (TRUE = non-monotonic)"</span>,</span>
 <span>            col <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"grey85"</span>, <span class="st">"firebrick"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><img src="raster-native-fitting-fusion_files/figure-html/unnamed-chunk-10-1.png" class="r-plt" alt="" width="576"></p>
@@ -416,7 +416,7 @@ those from a 3-point proxy isn’t considered reliable.</p>
 <span><span class="co">#&gt; [1] "auto"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $skew_proxy</span></span>
-<span><span class="co">#&gt; [1] 0.1347358</span></span>
+<span><span class="co">#&gt; [1] 0.1160459</span></span>
 <span></span>
 <span><span class="co"># Without bounds, it falls back to a skew-proxy test: normal if |skew| is small, lognormal if not.</span></span>
 <span><span class="fu"><a href="../reference/resolve_property_dist.html">resolve_property_dist</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>dist <span class="op">=</span> <span class="st">"auto"</span><span class="op">)</span>, <span class="va">prior_values</span>, <span class="va">prior_probs</span><span class="op">)</span></span>
@@ -427,7 +427,7 @@ those from a 3-point proxy isn’t considered reliable.</p>
 <span><span class="co">#&gt; [1] "auto"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $skew_proxy</span></span>
-<span><span class="co">#&gt; [1] 0.1347358</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 0.1160459</span></span></code></pre></div>
 <p>The skew proxy itself is
 <code>((high - median) - (median - low)) / (high - low)</code>,
 aggregated once across the whole AOI (default
@@ -501,7 +501,223 @@ cell, at the cost of that Normal assumption.</p>
 <p><img src="raster-native-fitting-fusion_files/figure-html/unnamed-chunk-19-1.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level2">
-<h2 id="caching-internals">8. Caching internals<a class="anchor" aria-label="anchor" href="#caching-internals"></a>
+<h2 id="did-fusion-actually-update-the-prior-comparing-prior-likelihood-and-posterior-distributions">8. Did fusion actually update the prior? Comparing prior,
+likelihood, and posterior distributions<a class="anchor" aria-label="anchor" href="#did-fusion-actually-update-the-prior-comparing-prior-likelihood-and-posterior-distributions"></a>
+</h2>
+<p>Section 7 compared two fusion <em>routes</em> against each other. A
+more basic question is whether fusion did anything sensible at all
+relative to its two <em>inputs</em>: does the posterior mean clay
+distribution actually sit somewhere between the SSURGO prior and the
+SOLUS100 likelihood, sharpened by combining them?
+<code>fusion_clay</code> (loaded back in “Reusing real data instead of
+fetching”) already holds the real, full-pipeline answer for this AOI -
+its <code>prior</code>/<code>likelihood</code>/<code>posterior</code>
+are the actual objects <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code> produced, not
+the toy <code>aligned</code>/<code><a href="../reference/fuse_adaptive.html">fuse_adaptive()</a></code> example from
+Section 7:</p>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">dist_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>    <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">prior_values</span><span class="op">$</span><span class="va">P50</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>    <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">lik_values</span><span class="op">$</span><span class="va">P50</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>    <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">mu</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  source <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Prior (SSURGO median)"</span>, <span class="st">"Likelihood (SOLUS prediction)"</span>, <span class="st">"Posterior (fused mean)"</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">prior_values</span><span class="op">$</span><span class="va">P50</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">lik_values</span><span class="op">$</span><span class="va">P50</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">mu</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">dist_df</span><span class="op">$</span><span class="va">source</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">dist_df</span><span class="op">$</span><span class="va">source</span>,</span>
+<span>  levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Prior (SSURGO median)"</span>, <span class="st">"Likelihood (SOLUS prediction)"</span>, <span class="st">"Posterior (fused mean)"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">means</span> <span class="op">&lt;-</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/aggregate.html" class="external-link">aggregate</a></span><span class="op">(</span><span class="va">value</span> <span class="op">~</span> <span class="va">source</span>, <span class="va">dist_df</span>, <span class="va">mean</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">dist_df</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">value</span>, fill <span class="op">=</span> <span class="va">source</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_density.html" class="external-link">geom_density</a></span><span class="op">(</span>alpha <span class="op">=</span> <span class="fl">0.45</span>, color <span class="op">=</span> <span class="cn">NA</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html" class="external-link">geom_vline</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">means</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>xintercept <span class="op">=</span> <span class="va">value</span>, color <span class="op">=</span> <span class="va">source</span><span class="op">)</span>,</span>
+<span>             linetype <span class="op">=</span> <span class="st">"dashed"</span>, linewidth <span class="op">=</span> <span class="fl">0.7</span>, show.legend <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_viridis.html" class="external-link">scale_fill_viridis_d</a></span><span class="op">(</span>name <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_viridis.html" class="external-link">scale_color_viridis_d</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Prior vs. likelihood vs. posterior mean clay content"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Dashed lines mark each distribution's mean"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"Clay content (%)"</span>, y <span class="op">=</span> <span class="st">"Density"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<p><img src="raster-native-fitting-fusion_files/figure-html/unnamed-chunk-20-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span></span>
+<span><span class="va">means</span></span>
+<span><span class="co">#&gt;                          source    value</span></span>
+<span><span class="co">#&gt; 1         Prior (SSURGO median) 12.50059</span></span>
+<span><span class="co">#&gt; 2 Likelihood (SOLUS prediction) 20.83220</span></span>
+<span><span class="co">#&gt; 3        Posterior (fused mean) 12.71270</span></span></code></pre></div>
+<p>The posterior sits almost on top of the prior here, barely nudged
+toward the likelihood’s much higher mean (~21%). If fusion were simply
+averaging its two inputs, the posterior would land roughly halfway
+between them; it clearly doesn’t. This is exactly what
+precision-weighted Bayesian fusion is <em>supposed</em> to do when one
+side states far more uncertainty about itself than the other - not a
+sign that the likelihood is being ignored. Fitting each side’s own
+Normal distribution independently (the same
+<code><a href="../reference/fit_normal_raster.html">fit_normal_raster()</a></code> from Section 1, applied to whichever
+low/high percentile pair each source actually has) makes the reason
+concrete:</p>
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit_prior_normal</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_normal_raster.html">fit_normal_raster</a></span><span class="op">(</span></span>
+<span>  p_lo_r <span class="op">=</span> <span class="va">prior_values</span><span class="op">$</span><span class="va">P05</span>, p50_r <span class="op">=</span> <span class="va">prior_values</span><span class="op">$</span><span class="va">P50</span>, p_hi_r <span class="op">=</span> <span class="va">prior_values</span><span class="op">$</span><span class="va">P95</span>,</span>
+<span>  p_lo <span class="op">=</span> <span class="fl">0.05</span>, p_hi <span class="op">=</span> <span class="fl">0.95</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">fit_lik_normal</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_normal_raster.html">fit_normal_raster</a></span><span class="op">(</span></span>
+<span>  p_lo_r <span class="op">=</span> <span class="va">lik_values</span><span class="op">$</span><span class="va">P025</span>, p50_r <span class="op">=</span> <span class="va">lik_values</span><span class="op">$</span><span class="va">P50</span>, p_hi_r <span class="op">=</span> <span class="va">lik_values</span><span class="op">$</span><span class="va">P975</span>,</span>
+<span>  p_lo <span class="op">=</span> <span class="fl">0.025</span>, p_hi <span class="op">=</span> <span class="fl">0.975</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">sigma_compare</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  source <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Prior (SSURGO)"</span>, <span class="st">"Likelihood (SOLUS)"</span><span class="op">)</span>,</span>
+<span>  mean_sigma <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/summarize-generics.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">fit_prior_normal</span><span class="op">$</span><span class="va">sigma</span><span class="op">)</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>                 <span class="fu"><a href="https://rspatial.github.io/terra/reference/summarize-generics.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">fit_lik_normal</span><span class="op">$</span><span class="va">sigma</span><span class="op">)</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">sigma_compare</span><span class="op">$</span><span class="va">mean_precision</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">/</span> <span class="va">sigma_compare</span><span class="op">$</span><span class="va">mean_sigma</span><span class="op">^</span><span class="fl">2</span></span>
+<span><span class="va">sigma_compare</span></span>
+<span><span class="co">#&gt;               source mean_sigma mean_precision</span></span>
+<span><span class="co">#&gt; 1     Prior (SSURGO)    2.49010    0.161274775</span></span>
+<span><span class="co">#&gt; 2 Likelihood (SOLUS)   12.54174    0.006357473</span></span></code></pre></div>
+<p>SOLUS100’s raw 95% prediction interval
+(<code>P025</code>-<code>P975</code>) implies a mean <code>sigma</code>
+roughly 5x wider than SSURGO’s 5th-95th percentile spread for this AOI -
+a real, known characteristic of SOLUS100’s output (its stated prediction
+intervals are often wide), not an artifact of this pipeline. Since
+fusion weights each side by <em>precision</em> (<code>1/sigma^2</code>,
+see <code>bayesian-updating.Rmd</code>’s worked scalar examples of this
+exact tug-of-war), a 5x wider sigma means roughly a 25x lower precision
+- so the posterior mean above (12.71) landing close to the prior’s mean
+(12.5) rather than the likelihood’s (20.83) is the fusion math doing
+exactly what it should with these particular inputs, confirmed by
+manually recomputing <code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code> on these
+two independently-fit sides and getting (within floating-point/per-cell
+alignment differences) the same answer the pipeline’s own route
+produced. A different AOI/property where the two sources agree more
+closely on their own uncertainty would show the posterior pulled further
+toward whichever side is sharper, without one side this lopsidedly
+dominating.</p>
+</div>
+<div class="section level2">
+<h2 id="a-per-pixel-view-prior-likelihood-and-posterior-at-individual-mapunits">9. A per-pixel view: prior, likelihood, and posterior at individual
+mapunits<a class="anchor" aria-label="anchor" href="#a-per-pixel-view-prior-likelihood-and-posterior-at-individual-mapunits"></a>
+</h2>
+<p>Section 8’s density plot pools every cell in the AOI into one
+distribution per source, which is useful for the big picture but hides
+what fusion actually does <em>at a single location</em> - precision
+weighting happens per pixel, using that pixel’s own prior/likelihood
+spread, not the AOI-wide average spread used above. This section looks
+at a handful of individual pixels instead.</p>
+<p>The cached object here only carries percentile-<em>value</em> rasters
+(<code>prior_values</code>, <code>lik_values</code>), not the
+categorical mukey raster <code><a href="../reference/fetch_ssurgo_mukey_raster.html">fetch_ssurgo_mukey_raster()</a></code> would
+return - so there’s no direct mukey lookup to pick pixels by mapunit
+membership. As a proxy, SSURGO’s simulated median
+(<code>prior_values$P50</code>) is close to constant within a mapunit
+and differs between mapunits (each mapunit gets its own Monte Carlo
+simulation draws), so cells sharing a repeated <code>P50</code> value
+are, in practice, sitting in the same sizeable mapunit. Picking a few
+<em>different</em> repeated values gives a handful of distinct mapunit
+areas:</p>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">p50_all</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">prior_values</span><span class="op">$</span><span class="va">P50</span><span class="op">)</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span></span>
+<span><span class="va">cell_ids</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">p50_all</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">rounded</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/math-generics.html" class="external-link">round</a></span><span class="op">(</span><span class="va">p50_all</span><span class="op">[</span><span class="va">cell_ids</span><span class="op">]</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Only consider values shared by several cells (a proxy for "a sizeable, distinct mapunit",</span></span>
+<span><span class="co"># rather than a one-off simulation outlier), then spread the picks across the low-to-high clay</span></span>
+<span><span class="co"># range so the examples aren't all pulled from one part of the AOI.</span></span>
+<span><span class="va">freq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">rounded</span><span class="op">)</span></span>
+<span><span class="va">frequent_vals</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">freq</span><span class="op">[</span><span class="va">freq</span> <span class="op">&gt;=</span> <span class="fl">4</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">pick_idx</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/math-generics.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">frequent_vals</span><span class="op">)</span>, length.out <span class="op">=</span> <span class="fl">4</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">picked_vals</span> <span class="op">&lt;-</span> <span class="va">frequent_vals</span><span class="op">[</span><span class="va">pick_idx</span><span class="op">]</span></span>
+<span><span class="va">example_cells</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">picked_vals</span>, <span class="kw">function</span><span class="op">(</span><span class="va">v</span><span class="op">)</span> <span class="va">cell_ids</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">rounded</span> <span class="op">==</span> <span class="va">v</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">picked_vals</span></span>
+<span><span class="co">#&gt; [1]  1.7 10.7 14.4 28.0</span></span></code></pre></div>
+<p>For each of these four example pixels, pull
+<code>mu</code>/<code>sigma</code> from the same Normal fits used above
+- <code>fit_prior_normal</code>/<code>fit_lik_normal</code> (Section 8)
+for the prior/likelihood, and <code>fusion_clay$posterior</code> (the
+pipeline’s real per-cell posterior, which carries both <code>mu</code>
+<em>and</em> <code>sigma</code>) for the posterior:</p>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">extract_at</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">r</span>, <span class="va">cell</span><span class="op">)</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">r</span><span class="op">)</span><span class="op">[</span><span class="va">cell</span><span class="op">]</span></span>
+<span></span>
+<span><span class="va">pixel_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">example_cells</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">cell</span> <span class="op">&lt;-</span> <span class="va">example_cells</span><span class="op">[</span><span class="va">i</span><span class="op">]</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    pixel <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Pixel %d (mapunit-like cluster, prior P50 ~%.1f%%)"</span>, <span class="va">i</span>, <span class="va">picked_vals</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>    prior_mu <span class="op">=</span> <span class="fu">extract_at</span><span class="op">(</span><span class="va">fit_prior_normal</span><span class="op">$</span><span class="va">mu</span>, <span class="va">cell</span><span class="op">)</span>, prior_sigma <span class="op">=</span> <span class="fu">extract_at</span><span class="op">(</span><span class="va">fit_prior_normal</span><span class="op">$</span><span class="va">sigma</span>, <span class="va">cell</span><span class="op">)</span>,</span>
+<span>    lik_mu <span class="op">=</span> <span class="fu">extract_at</span><span class="op">(</span><span class="va">fit_lik_normal</span><span class="op">$</span><span class="va">mu</span>, <span class="va">cell</span><span class="op">)</span>, lik_sigma <span class="op">=</span> <span class="fu">extract_at</span><span class="op">(</span><span class="va">fit_lik_normal</span><span class="op">$</span><span class="va">sigma</span>, <span class="va">cell</span><span class="op">)</span>,</span>
+<span>    post_mu <span class="op">=</span> <span class="fu">extract_at</span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">mu</span>, <span class="va">cell</span><span class="op">)</span>, post_sigma <span class="op">=</span> <span class="fu">extract_at</span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">sigma</span>, <span class="va">cell</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">pixel_df</span></span>
+<span><span class="co">#&gt;                                              pixel prior_mu prior_sigma lik_mu</span></span>
+<span><span class="co">#&gt; 1  Pixel 1 (mapunit-like cluster, prior P50 ~1.7%)  1.74080    3.081634     18</span></span>
+<span><span class="co">#&gt; 2 Pixel 2 (mapunit-like cluster, prior P50 ~10.7%) 10.70449    3.508857     17</span></span>
+<span><span class="co">#&gt; 3 Pixel 3 (mapunit-like cluster, prior P50 ~14.4%) 14.40415    3.725312     24</span></span>
+<span><span class="co">#&gt; 4 Pixel 4 (mapunit-like cluster, prior P50 ~28.0%) 28.00061    4.541492     24</span></span>
+<span><span class="co">#&gt;   lik_sigma   post_mu post_sigma</span></span>
+<span><span class="co">#&gt; 1  12.50023  3.723446   3.338727</span></span>
+<span><span class="co">#&gt; 2  12.75534 10.353137   3.674820</span></span>
+<span><span class="co">#&gt; 3  12.75534 13.498238   4.005540</span></span>
+<span><span class="co">#&gt; 4  12.24512 27.030965   4.630531</span></span></code></pre></div>
+<p>Then evaluate each pixel’s three Normal curves
+(<code><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">stats::dnorm()</a></code>, no raster machinery needed for a single
+cell) over a shared x-range wide enough to show all three, and facet by
+pixel:</p>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">curve_at_pixel</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">row</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">x_lo</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">row</span><span class="op">$</span><span class="va">prior_mu</span> <span class="op">-</span> <span class="fl">4</span> <span class="op">*</span> <span class="va">row</span><span class="op">$</span><span class="va">prior_sigma</span>, <span class="va">row</span><span class="op">$</span><span class="va">lik_mu</span> <span class="op">-</span> <span class="fl">4</span> <span class="op">*</span> <span class="va">row</span><span class="op">$</span><span class="va">lik_sigma</span>,</span>
+<span>              <span class="va">row</span><span class="op">$</span><span class="va">post_mu</span> <span class="op">-</span> <span class="fl">4</span> <span class="op">*</span> <span class="va">row</span><span class="op">$</span><span class="va">post_sigma</span>, <span class="fl">0</span><span class="op">)</span></span>
+<span>  <span class="va">x_hi</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">row</span><span class="op">$</span><span class="va">prior_mu</span> <span class="op">+</span> <span class="fl">4</span> <span class="op">*</span> <span class="va">row</span><span class="op">$</span><span class="va">prior_sigma</span>, <span class="va">row</span><span class="op">$</span><span class="va">lik_mu</span> <span class="op">+</span> <span class="fl">4</span> <span class="op">*</span> <span class="va">row</span><span class="op">$</span><span class="va">lik_sigma</span>,</span>
+<span>              <span class="va">row</span><span class="op">$</span><span class="va">post_mu</span> <span class="op">+</span> <span class="fl">4</span> <span class="op">*</span> <span class="va">row</span><span class="op">$</span><span class="va">post_sigma</span>, <span class="fl">100</span><span class="op">)</span></span>
+<span>  <span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">x_lo</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">x_hi</span>, <span class="fl">100</span><span class="op">)</span>, length.out <span class="op">=</span> <span class="fl">300</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>pixel <span class="op">=</span> <span class="va">row</span><span class="op">$</span><span class="va">pixel</span>, x <span class="op">=</span> <span class="va">x</span>, density <span class="op">=</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">dnorm</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">row</span><span class="op">$</span><span class="va">prior_mu</span>, <span class="va">row</span><span class="op">$</span><span class="va">prior_sigma</span><span class="op">)</span>,</span>
+<span>               source <span class="op">=</span> <span class="st">"Prior (SSURGO)"</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>pixel <span class="op">=</span> <span class="va">row</span><span class="op">$</span><span class="va">pixel</span>, x <span class="op">=</span> <span class="va">x</span>, density <span class="op">=</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">dnorm</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">row</span><span class="op">$</span><span class="va">lik_mu</span>, <span class="va">row</span><span class="op">$</span><span class="va">lik_sigma</span><span class="op">)</span>,</span>
+<span>               source <span class="op">=</span> <span class="st">"Likelihood (SOLUS)"</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>pixel <span class="op">=</span> <span class="va">row</span><span class="op">$</span><span class="va">pixel</span>, x <span class="op">=</span> <span class="va">x</span>, density <span class="op">=</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">dnorm</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">row</span><span class="op">$</span><span class="va">post_mu</span>, <span class="va">row</span><span class="op">$</span><span class="va">post_sigma</span><span class="op">)</span>,</span>
+<span>               source <span class="op">=</span> <span class="st">"Posterior (fused)"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="va">curve_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/dimensions.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">pixel_df</span><span class="op">)</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="fu">curve_at_pixel</span><span class="op">(</span><span class="va">pixel_df</span><span class="op">[</span><span class="va">i</span>, <span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">curve_df</span><span class="op">$</span><span class="va">source</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">curve_df</span><span class="op">$</span><span class="va">source</span>,</span>
+<span>  levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Prior (SSURGO)"</span>, <span class="st">"Likelihood (SOLUS)"</span>, <span class="st">"Posterior (fused)"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">curve_df</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">x</span>, y <span class="op">=</span> <span class="va">density</span>, color <span class="op">=</span> <span class="va">source</span>, fill <span class="op">=</span> <span class="va">source</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_ribbon.html" class="external-link">geom_area</a></span><span class="op">(</span>alpha <span class="op">=</span> <span class="fl">0.3</span>, position <span class="op">=</span> <span class="st">"identity"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_path.html" class="external-link">geom_line</a></span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/facet_wrap.html" class="external-link">facet_wrap</a></span><span class="op">(</span><span class="op">~</span><span class="va">pixel</span>, scales <span class="op">=</span> <span class="st">"free_y"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_viridis.html" class="external-link">scale_color_viridis_d</a></span><span class="op">(</span>name <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_viridis.html" class="external-link">scale_fill_viridis_d</a></span><span class="op">(</span>name <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Prior, likelihood, and posterior at four individual pixels"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Each panel is one pixel from a different mapunit-like cluster"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"Clay content (%)"</span>, y <span class="op">=</span> <span class="st">"Density"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>legend.position <span class="op">=</span> <span class="st">"bottom"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="raster-native-fitting-fusion_files/figure-html/unnamed-chunk-24-1.png" class="r-plt" alt="" width="864"></p>
+<p>Every pixel here tells the same qualitative story as the AOI-wide
+picture in Section 8 - the posterior curve sits close to the prior
+curve, barely shifted toward the likelihood - because precision
+weighting is happening independently at each pixel and, for this
+property/AOI, SOLUS’s per-pixel <code>sigma</code> is consistently much
+larger than SSURGO’s regardless of which mapunit the pixel falls in
+(visible directly in <code>pixel_df$lik_sigma</code>
+vs. <code>pixel_df$prior_sigma</code> above). A property or AOI where
+the two sources’ stated uncertainty is closer would show more
+pixel-to-pixel variation in how far the posterior moves, including
+pixels where the likelihood dominates instead.</p>
+</div>
+<div class="section level2">
+<h2 id="caching-internals">10. Caching internals<a class="anchor" aria-label="anchor" href="#caching-internals"></a>
 </h2>
 <p><code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>/<code><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code>
 disk-cache every fetch step under
@@ -511,7 +727,7 @@ property/group id + depth window + kind.</p>
 key from an AOI’s WKT geometry (hashed via
 <code><a href="https://eddelbuettel.github.io/digest/man/digest.html" class="external-link">digest::digest()</a></code>), a property/group id, a depth window, and
 a <code>kind</code> string:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">salinas_wkt</span> <span class="op">&lt;-</span> <span class="st">"POLYGON((-121.66 36.60, -121.64 36.60, -121.64 36.62, -121.66 36.62, -121.66 36.60))"</span></span>
 <span><span class="va">aoi</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/project.html" class="external-link">project</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/vect.html" class="external-link">vect</a></span><span class="op">(</span><span class="va">salinas_wkt</span>, crs <span class="op">=</span> <span class="st">"epsg:4326"</span><span class="op">)</span>, <span class="st">"epsg:5070"</span><span class="op">)</span></span>
 <span></span>
@@ -524,7 +740,7 @@ a <code>kind</code> string:</p>
 are the generic get/set pair every fetch step above uses - a miss
 (absent, or older than <code>ttl_seconds</code>) returns
 <code>NULL</code> rather than erroring:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/cache_get.html">cache_get</a></span><span class="op">(</span><span class="va">key</span><span class="op">)</span>  <span class="co"># NULL: nothing has been cached under this exact key in this session</span></span>
 <span><span class="co">#&gt; NULL</span></span>
 <span><span class="fu"><a href="../reference/cache_set.html">cache_set</a></span><span class="op">(</span><span class="va">key</span>, <span class="st">"ssurgo"</span>, value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>hello <span class="op">=</span> <span class="st">"world"</span><span class="op">)</span><span class="op">)</span></span>
@@ -544,7 +760,7 @@ round-trip serializes that pointer, which is meaningless in a new R
 session - the read-back object <em>looks</em> like a
 <code>SpatRaster</code> but errors the moment anything tries to touch
 its actual data:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">r</span> <span class="op">&lt;-</span> <span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">mu</span></span>
 <span><span class="va">naive_file</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".rds"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">saveRDS</a></span><span class="op">(</span><span class="va">r</span>, <span class="va">naive_file</span><span class="op">)</span>               <span class="co"># serializes the pointer, not the raster's values</span></span>
@@ -561,7 +777,7 @@ its actual data:</p>
 <span><span class="co">#&gt;   [4,]        NA</span></span>
 <span><span class="co">#&gt;   [5,]        NA</span></span>
 <span><span class="co">#&gt;   [6,]        NA</span></span>
-<span><span class="co">#&gt;   [7,]  5.617684</span></span>
+<span><span class="co">#&gt;   [7,]  5.513754</span></span>
 <span><span class="co">#&gt;   [8,]        NA</span></span>
 <span><span class="co">#&gt;   [9,]        NA</span></span>
 <span><span class="co">#&gt;  [10,]        NA</span></span>
@@ -584,11 +800,11 @@ its actual data:</p>
 <span><span class="co">#&gt;  [27,]        NA</span></span>
 <span><span class="co">#&gt;  [28,]        NA</span></span>
 <span><span class="co">#&gt;  [29,]        NA</span></span>
-<span><span class="co">#&gt;  [30,]  5.702985</span></span>
-<span><span class="co">#&gt;  [31,]  6.338704</span></span>
-<span><span class="co">#&gt;  [32,]  6.716888</span></span>
-<span><span class="co">#&gt;  [33,] 20.168330</span></span>
-<span><span class="co">#&gt;  [34,] 27.702405</span></span>
+<span><span class="co">#&gt;  [30,]  6.056102</span></span>
+<span><span class="co">#&gt;  [31,]  6.338324</span></span>
+<span><span class="co">#&gt;  [32,]  6.912659</span></span>
+<span><span class="co">#&gt;  [33,] 21.334730</span></span>
+<span><span class="co">#&gt;  [34,] 27.030965</span></span>
 <span><span class="co">#&gt;  [35,]        NA</span></span>
 <span><span class="co">#&gt;  [36,]        NA</span></span>
 <span><span class="co">#&gt;  [37,]        NA</span></span>
@@ -607,15 +823,15 @@ its actual data:</p>
 <span><span class="co">#&gt;  [50,]        NA</span></span>
 <span><span class="co">#&gt;  [51,]        NA</span></span>
 <span><span class="co">#&gt;  [52,]        NA</span></span>
-<span><span class="co">#&gt;  [53,]  4.176256</span></span>
-<span><span class="co">#&gt;  [54,]  7.046635</span></span>
-<span><span class="co">#&gt;  [55,] 15.987307</span></span>
-<span><span class="co">#&gt;  [56,] 25.949105</span></span>
-<span><span class="co">#&gt;  [57,] 27.156740</span></span>
-<span><span class="co">#&gt;  [58,] 26.814613</span></span>
-<span><span class="co">#&gt;  [59,] 27.525625</span></span>
-<span><span class="co">#&gt;  [60,] 27.621148</span></span>
-<span><span class="co">#&gt;  [61,] 27.401021</span></span>
+<span><span class="co">#&gt;  [53,]  4.971009</span></span>
+<span><span class="co">#&gt;  [54,]  6.479068</span></span>
+<span><span class="co">#&gt;  [55,] 16.503437</span></span>
+<span><span class="co">#&gt;  [56,] 25.814255</span></span>
+<span><span class="co">#&gt;  [57,] 27.907140</span></span>
+<span><span class="co">#&gt;  [58,] 28.022443</span></span>
+<span><span class="co">#&gt;  [59,] 27.281745</span></span>
+<span><span class="co">#&gt;  [60,] 27.833118</span></span>
+<span><span class="co">#&gt;  [61,] 27.950841</span></span>
 <span><span class="co">#&gt;  [62,]        NA</span></span>
 <span><span class="co">#&gt;  [63,]        NA</span></span>
 <span><span class="co">#&gt;  [64,]        NA</span></span>
@@ -629,19 +845,19 @@ its actual data:</p>
 <span><span class="co">#&gt;  [72,]        NA</span></span>
 <span><span class="co">#&gt;  [73,]        NA</span></span>
 <span><span class="co">#&gt;  [74,]        NA</span></span>
-<span><span class="co">#&gt;  [75,] 10.694405</span></span>
-<span><span class="co">#&gt;  [76,]  4.511492</span></span>
-<span><span class="co">#&gt;  [77,]  6.298189</span></span>
-<span><span class="co">#&gt;  [78,] 18.944530</span></span>
-<span><span class="co">#&gt;  [79,] 27.238920</span></span>
-<span><span class="co">#&gt;  [80,] 26.786937</span></span>
-<span><span class="co">#&gt;  [81,] 26.916070</span></span>
-<span><span class="co">#&gt;  [82,] 27.174763</span></span>
-<span><span class="co">#&gt;  [83,] 27.185201</span></span>
-<span><span class="co">#&gt;  [84,] 27.356489</span></span>
-<span><span class="co">#&gt;  [85,] 27.425391</span></span>
-<span><span class="co">#&gt;  [86,] 27.500891</span></span>
-<span><span class="co">#&gt;  [87,] 27.823371</span></span>
+<span><span class="co">#&gt;  [75,] 10.497035</span></span>
+<span><span class="co">#&gt;  [76,]  5.387846</span></span>
+<span><span class="co">#&gt;  [77,]  6.053746</span></span>
+<span><span class="co">#&gt;  [78,] 19.060490</span></span>
+<span><span class="co">#&gt;  [79,] 26.926240</span></span>
+<span><span class="co">#&gt;  [80,] 26.661847</span></span>
+<span><span class="co">#&gt;  [81,] 26.745230</span></span>
+<span><span class="co">#&gt;  [82,] 27.432363</span></span>
+<span><span class="co">#&gt;  [83,] 27.652231</span></span>
+<span><span class="co">#&gt;  [84,] 27.917359</span></span>
+<span><span class="co">#&gt;  [85,] 27.344451</span></span>
+<span><span class="co">#&gt;  [86,] 28.013321</span></span>
+<span><span class="co">#&gt;  [87,] 27.378561</span></span>
 <span><span class="co">#&gt;  [88,]        NA</span></span>
 <span><span class="co">#&gt;  [89,]        NA</span></span>
 <span><span class="co">#&gt;  [90,]        NA</span></span>
@@ -652,411 +868,411 @@ its actual data:</p>
 <span><span class="co">#&gt;  [95,]        NA</span></span>
 <span><span class="co">#&gt;  [96,]        NA</span></span>
 <span><span class="co">#&gt;  [97,]        NA</span></span>
-<span><span class="co">#&gt;  [98,] 12.133555</span></span>
-<span><span class="co">#&gt;  [99,]  6.826584</span></span>
-<span><span class="co">#&gt; [100,]  4.679505</span></span>
-<span><span class="co">#&gt; [101,]  9.864507</span></span>
-<span><span class="co">#&gt; [102,] 18.881457</span></span>
+<span><span class="co">#&gt;  [98,] 12.307365</span></span>
+<span><span class="co">#&gt;  [99,]  6.953534</span></span>
+<span><span class="co">#&gt; [100,]  4.701146</span></span>
+<span><span class="co">#&gt; [101,] 10.353137</span></span>
+<span><span class="co">#&gt; [102,] 18.170227</span></span>
 <span><span class="co">#&gt; [103,]        NA</span></span>
-<span><span class="co">#&gt; [104,] 25.159190</span></span>
-<span><span class="co">#&gt; [105,] 27.828436</span></span>
-<span><span class="co">#&gt; [106,] 27.769639</span></span>
-<span><span class="co">#&gt; [107,] 27.660459</span></span>
-<span><span class="co">#&gt; [108,] 27.723049</span></span>
-<span><span class="co">#&gt; [109,] 26.295819</span></span>
-<span><span class="co">#&gt; [110,] 23.918799</span></span>
-<span><span class="co">#&gt; [111,] 26.264536</span></span>
-<span><span class="co">#&gt; [112,] 27.712778</span></span>
-<span><span class="co">#&gt; [113,] 27.483733</span></span>
-<span><span class="co">#&gt; [114,] 27.461973</span></span>
+<span><span class="co">#&gt; [104,] 25.552390</span></span>
+<span><span class="co">#&gt; [105,] 27.528716</span></span>
+<span><span class="co">#&gt; [106,] 27.756149</span></span>
+<span><span class="co">#&gt; [107,] 27.705909</span></span>
+<span><span class="co">#&gt; [108,] 27.002529</span></span>
+<span><span class="co">#&gt; [109,] 26.439329</span></span>
+<span><span class="co">#&gt; [110,] 23.489279</span></span>
+<span><span class="co">#&gt; [111,] 26.525306</span></span>
+<span><span class="co">#&gt; [112,] 28.167618</span></span>
+<span><span class="co">#&gt; [113,] 27.598663</span></span>
+<span><span class="co">#&gt; [114,] 27.753873</span></span>
 <span><span class="co">#&gt; [115,]        NA</span></span>
 <span><span class="co">#&gt; [116,]        NA</span></span>
 <span><span class="co">#&gt; [117,]        NA</span></span>
 <span><span class="co">#&gt; [118,]        NA</span></span>
 <span><span class="co">#&gt; [119,]        NA</span></span>
 <span><span class="co">#&gt; [120,]        NA</span></span>
-<span><span class="co">#&gt; [121,] 12.931697</span></span>
-<span><span class="co">#&gt; [122,]  9.895927</span></span>
-<span><span class="co">#&gt; [123,]  4.633854</span></span>
-<span><span class="co">#&gt; [124,]  5.075940</span></span>
-<span><span class="co">#&gt; [125,]  6.752006</span></span>
+<span><span class="co">#&gt; [121,] 13.047057</span></span>
+<span><span class="co">#&gt; [122,] 10.024957</span></span>
+<span><span class="co">#&gt; [123,]  4.932454</span></span>
+<span><span class="co">#&gt; [124,]  4.936732</span></span>
+<span><span class="co">#&gt; [125,]  6.831262</span></span>
 <span><span class="co">#&gt; [126,]        NA</span></span>
-<span><span class="co">#&gt; [127,] 18.025786</span></span>
-<span><span class="co">#&gt; [128,] 27.405256</span></span>
-<span><span class="co">#&gt; [129,] 27.458148</span></span>
-<span><span class="co">#&gt; [130,] 27.431489</span></span>
-<span><span class="co">#&gt; [131,] 20.730648</span></span>
-<span><span class="co">#&gt; [132,] 10.910891</span></span>
-<span><span class="co">#&gt; [133,]  7.702441</span></span>
-<span><span class="co">#&gt; [134,] 15.348878</span></span>
-<span><span class="co">#&gt; [135,] 26.559989</span></span>
-<span><span class="co">#&gt; [136,] 26.997718</span></span>
-<span><span class="co">#&gt; [137,] 27.480773</span></span>
-<span><span class="co">#&gt; [138,] 27.720959</span></span>
+<span><span class="co">#&gt; [127,] 17.906676</span></span>
+<span><span class="co">#&gt; [128,] 27.921046</span></span>
+<span><span class="co">#&gt; [129,] 27.611038</span></span>
+<span><span class="co">#&gt; [130,] 27.264879</span></span>
+<span><span class="co">#&gt; [131,] 21.064458</span></span>
+<span><span class="co">#&gt; [132,] 10.789871</span></span>
+<span><span class="co">#&gt; [133,]  7.551773</span></span>
+<span><span class="co">#&gt; [134,] 14.936048</span></span>
+<span><span class="co">#&gt; [135,] 26.407569</span></span>
+<span><span class="co">#&gt; [136,] 27.075128</span></span>
+<span><span class="co">#&gt; [137,] 27.950843</span></span>
+<span><span class="co">#&gt; [138,] 27.974339</span></span>
 <span><span class="co">#&gt; [139,]        NA</span></span>
 <span><span class="co">#&gt; [140,]        NA</span></span>
 <span><span class="co">#&gt; [141,]        NA</span></span>
 <span><span class="co">#&gt; [142,]        NA</span></span>
-<span><span class="co">#&gt; [143,] 12.952013</span></span>
-<span><span class="co">#&gt; [144,] 12.854790</span></span>
-<span><span class="co">#&gt; [145,] 12.092157</span></span>
-<span><span class="co">#&gt; [146,]  6.591795</span></span>
-<span><span class="co">#&gt; [147,]  4.095535</span></span>
-<span><span class="co">#&gt; [148,]  6.028768</span></span>
+<span><span class="co">#&gt; [143,] 13.059353</span></span>
+<span><span class="co">#&gt; [144,] 13.184770</span></span>
+<span><span class="co">#&gt; [145,] 12.369777</span></span>
+<span><span class="co">#&gt; [146,]  6.688725</span></span>
+<span><span class="co">#&gt; [147,]  4.001997</span></span>
+<span><span class="co">#&gt; [148,]  5.500645</span></span>
 <span><span class="co">#&gt; [149,]        NA</span></span>
-<span><span class="co">#&gt; [150,]  8.729769</span></span>
-<span><span class="co">#&gt; [151,] 22.668705</span></span>
-<span><span class="co">#&gt; [152,] 23.691406</span></span>
-<span><span class="co">#&gt; [153,] 13.578688</span></span>
-<span><span class="co">#&gt; [154,]  7.076538</span></span>
-<span><span class="co">#&gt; [155,]  5.763104</span></span>
-<span><span class="co">#&gt; [156,]  6.192164</span></span>
-<span><span class="co">#&gt; [157,]  7.666363</span></span>
-<span><span class="co">#&gt; [158,] 21.648069</span></span>
-<span><span class="co">#&gt; [159,] 27.513079</span></span>
-<span><span class="co">#&gt; [160,] 27.647589</span></span>
-<span><span class="co">#&gt; [161,] 27.387311</span></span>
+<span><span class="co">#&gt; [150,]  8.867549</span></span>
+<span><span class="co">#&gt; [151,] 23.061965</span></span>
+<span><span class="co">#&gt; [152,] 23.422876</span></span>
+<span><span class="co">#&gt; [153,] 13.498238</span></span>
+<span><span class="co">#&gt; [154,]  7.153168</span></span>
+<span><span class="co">#&gt; [155,]  6.018624</span></span>
+<span><span class="co">#&gt; [156,]  6.496624</span></span>
+<span><span class="co">#&gt; [157,]  7.579653</span></span>
+<span><span class="co">#&gt; [158,] 21.731349</span></span>
+<span><span class="co">#&gt; [159,] 27.881159</span></span>
+<span><span class="co">#&gt; [160,] 26.986269</span></span>
+<span><span class="co">#&gt; [161,] 27.544781</span></span>
 <span><span class="co">#&gt; [162,]        NA</span></span>
 <span><span class="co">#&gt; [163,]        NA</span></span>
 <span><span class="co">#&gt; [164,]        NA</span></span>
 <span><span class="co">#&gt; [165,]        NA</span></span>
-<span><span class="co">#&gt; [166,] 12.726173</span></span>
-<span><span class="co">#&gt; [167,] 13.846402</span></span>
-<span><span class="co">#&gt; [168,] 14.409468</span></span>
-<span><span class="co">#&gt; [169,] 10.239828</span></span>
-<span><span class="co">#&gt; [170,]  4.704287</span></span>
-<span><span class="co">#&gt; [171,]  4.316316</span></span>
-<span><span class="co">#&gt; [172,]  6.323697</span></span>
-<span><span class="co">#&gt; [173,]  6.434593</span></span>
-<span><span class="co">#&gt; [174,]  8.658343</span></span>
-<span><span class="co">#&gt; [175,]  8.805277</span></span>
-<span><span class="co">#&gt; [176,]  5.897694</span></span>
-<span><span class="co">#&gt; [177,]  5.743684</span></span>
-<span><span class="co">#&gt; [178,]  5.854044</span></span>
-<span><span class="co">#&gt; [179,]  5.848724</span></span>
-<span><span class="co">#&gt; [180,]  6.243088</span></span>
-<span><span class="co">#&gt; [181,] 15.715158</span></span>
-<span><span class="co">#&gt; [182,] 24.417458</span></span>
-<span><span class="co">#&gt; [183,] 23.792208</span></span>
-<span><span class="co">#&gt; [184,] 24.238709</span></span>
+<span><span class="co">#&gt; [166,] 13.103153</span></span>
+<span><span class="co">#&gt; [167,] 14.142842</span></span>
+<span><span class="co">#&gt; [168,] 14.424858</span></span>
+<span><span class="co">#&gt; [169,] 10.214928</span></span>
+<span><span class="co">#&gt; [170,]  4.667976</span></span>
+<span><span class="co">#&gt; [171,]  4.422348</span></span>
+<span><span class="co">#&gt; [172,]  6.019767</span></span>
+<span><span class="co">#&gt; [173,]  6.291146</span></span>
+<span><span class="co">#&gt; [174,]  8.234903</span></span>
+<span><span class="co">#&gt; [175,]  8.431786</span></span>
+<span><span class="co">#&gt; [176,]  5.854015</span></span>
+<span><span class="co">#&gt; [177,]  5.768374</span></span>
+<span><span class="co">#&gt; [178,]  6.097004</span></span>
+<span><span class="co">#&gt; [179,]  6.215924</span></span>
+<span><span class="co">#&gt; [180,]  6.266272</span></span>
+<span><span class="co">#&gt; [181,] 15.597548</span></span>
+<span><span class="co">#&gt; [182,] 24.776698</span></span>
+<span><span class="co">#&gt; [183,] 24.074538</span></span>
+<span><span class="co">#&gt; [184,] 23.832819</span></span>
 <span><span class="co">#&gt; [185,]        NA</span></span>
 <span><span class="co">#&gt; [186,]        NA</span></span>
 <span><span class="co">#&gt; [187,]        NA</span></span>
 <span><span class="co">#&gt; [188,]        NA</span></span>
-<span><span class="co">#&gt; [189,] 20.229208</span></span>
-<span><span class="co">#&gt; [190,] 20.900485</span></span>
-<span><span class="co">#&gt; [191,] 21.078078</span></span>
-<span><span class="co">#&gt; [192,] 18.251905</span></span>
-<span><span class="co">#&gt; [193,]  7.099557</span></span>
-<span><span class="co">#&gt; [194,]  4.299301</span></span>
-<span><span class="co">#&gt; [195,]  4.869237</span></span>
-<span><span class="co">#&gt; [196,]  6.038959</span></span>
-<span><span class="co">#&gt; [197,]  6.301134</span></span>
-<span><span class="co">#&gt; [198,]  6.377844</span></span>
-<span><span class="co">#&gt; [199,]  6.184424</span></span>
-<span><span class="co">#&gt; [200,]  6.095194</span></span>
-<span><span class="co">#&gt; [201,]  6.118544</span></span>
-<span><span class="co">#&gt; [202,]  6.650154</span></span>
-<span><span class="co">#&gt; [203,]  6.713374</span></span>
-<span><span class="co">#&gt; [204,]  7.144828</span></span>
-<span><span class="co">#&gt; [205,]  9.139453</span></span>
-<span><span class="co">#&gt; [206,] 11.903225</span></span>
+<span><span class="co">#&gt; [189,] 20.076558</span></span>
+<span><span class="co">#&gt; [190,] 20.487495</span></span>
+<span><span class="co">#&gt; [191,] 20.823638</span></span>
+<span><span class="co">#&gt; [192,] 18.588315</span></span>
+<span><span class="co">#&gt; [193,]  6.721067</span></span>
+<span><span class="co">#&gt; [194,]  4.529395</span></span>
+<span><span class="co">#&gt; [195,]  5.259927</span></span>
+<span><span class="co">#&gt; [196,]  6.084984</span></span>
+<span><span class="co">#&gt; [197,]  5.895144</span></span>
+<span><span class="co">#&gt; [198,]  6.639594</span></span>
+<span><span class="co">#&gt; [199,]  5.835514</span></span>
+<span><span class="co">#&gt; [200,]  6.072674</span></span>
+<span><span class="co">#&gt; [201,]  6.282354</span></span>
+<span><span class="co">#&gt; [202,]  6.170624</span></span>
+<span><span class="co">#&gt; [203,]  6.273654</span></span>
+<span><span class="co">#&gt; [204,]  7.085832</span></span>
+<span><span class="co">#&gt; [205,]  9.216213</span></span>
+<span><span class="co">#&gt; [206,] 11.617685</span></span>
 <span><span class="co">#&gt; [207,]        NA</span></span>
 <span><span class="co">#&gt; [208,]        NA</span></span>
 <span><span class="co">#&gt; [209,]        NA</span></span>
 <span><span class="co">#&gt; [210,]        NA</span></span>
 <span><span class="co">#&gt; [211,]        NA</span></span>
-<span><span class="co">#&gt; [212,] 22.010988</span></span>
-<span><span class="co">#&gt; [213,] 21.358278</span></span>
-<span><span class="co">#&gt; [214,] 24.971645</span></span>
-<span><span class="co">#&gt; [215,] 23.887198</span></span>
-<span><span class="co">#&gt; [216,] 13.119547</span></span>
-<span><span class="co">#&gt; [217,]  5.340641</span></span>
-<span><span class="co">#&gt; [218,]  3.160899</span></span>
-<span><span class="co">#&gt; [219,]  5.121146</span></span>
-<span><span class="co">#&gt; [220,]  5.454242</span></span>
-<span><span class="co">#&gt; [221,]  6.008744</span></span>
-<span><span class="co">#&gt; [222,]  5.974584</span></span>
-<span><span class="co">#&gt; [223,]  6.009174</span></span>
-<span><span class="co">#&gt; [224,]  6.597794</span></span>
-<span><span class="co">#&gt; [225,]  6.158204</span></span>
-<span><span class="co">#&gt; [226,]  6.388054</span></span>
-<span><span class="co">#&gt; [227,]  6.325234</span></span>
-<span><span class="co">#&gt; [228,]  6.053934</span></span>
-<span><span class="co">#&gt; [229,]  6.591564</span></span>
+<span><span class="co">#&gt; [212,] 22.365728</span></span>
+<span><span class="co">#&gt; [213,] 21.290888</span></span>
+<span><span class="co">#&gt; [214,] 24.862545</span></span>
+<span><span class="co">#&gt; [215,] 23.873698</span></span>
+<span><span class="co">#&gt; [216,] 12.820867</span></span>
+<span><span class="co">#&gt; [217,]  5.334646</span></span>
+<span><span class="co">#&gt; [218,]  3.869894</span></span>
+<span><span class="co">#&gt; [219,]  5.236623</span></span>
+<span><span class="co">#&gt; [220,]  5.934822</span></span>
+<span><span class="co">#&gt; [221,]  6.288284</span></span>
+<span><span class="co">#&gt; [222,]  5.930204</span></span>
+<span><span class="co">#&gt; [223,]  5.821164</span></span>
+<span><span class="co">#&gt; [224,]  6.458184</span></span>
+<span><span class="co">#&gt; [225,]  5.959404</span></span>
+<span><span class="co">#&gt; [226,]  5.920964</span></span>
+<span><span class="co">#&gt; [227,]  5.922634</span></span>
+<span><span class="co">#&gt; [228,]  6.420774</span></span>
+<span><span class="co">#&gt; [229,]  6.340584</span></span>
 <span><span class="co">#&gt; [230,]        NA</span></span>
 <span><span class="co">#&gt; [231,]        NA</span></span>
 <span><span class="co">#&gt; [232,]        NA</span></span>
 <span><span class="co">#&gt; [233,]        NA</span></span>
 <span><span class="co">#&gt; [234,]        NA</span></span>
-<span><span class="co">#&gt; [235,] 12.909365</span></span>
-<span><span class="co">#&gt; [236,] 13.179286</span></span>
-<span><span class="co">#&gt; [237,] 20.019355</span></span>
-<span><span class="co">#&gt; [238,] 21.488223</span></span>
-<span><span class="co">#&gt; [239,] 20.022960</span></span>
-<span><span class="co">#&gt; [240,]  8.490597</span></span>
-<span><span class="co">#&gt; [241,]  3.971563</span></span>
-<span><span class="co">#&gt; [242,]  3.638997</span></span>
-<span><span class="co">#&gt; [243,]  5.022210</span></span>
-<span><span class="co">#&gt; [244,]  6.301289</span></span>
-<span><span class="co">#&gt; [245,]  5.959104</span></span>
-<span><span class="co">#&gt; [246,]  6.284724</span></span>
-<span><span class="co">#&gt; [247,]  6.271624</span></span>
-<span><span class="co">#&gt; [248,]  6.349554</span></span>
-<span><span class="co">#&gt; [249,]  6.433059</span></span>
-<span><span class="co">#&gt; [250,]  7.317796</span></span>
-<span><span class="co">#&gt; [251,]  7.286896</span></span>
-<span><span class="co">#&gt; [252,]  6.693646</span></span>
+<span><span class="co">#&gt; [235,] 12.740495</span></span>
+<span><span class="co">#&gt; [236,] 12.696656</span></span>
+<span><span class="co">#&gt; [237,] 20.025115</span></span>
+<span><span class="co">#&gt; [238,] 21.557923</span></span>
+<span><span class="co">#&gt; [239,] 20.222260</span></span>
+<span><span class="co">#&gt; [240,]  8.747617</span></span>
+<span><span class="co">#&gt; [241,]  3.845663</span></span>
+<span><span class="co">#&gt; [242,]  3.376861</span></span>
+<span><span class="co">#&gt; [243,]  5.147157</span></span>
+<span><span class="co">#&gt; [244,]  5.649134</span></span>
+<span><span class="co">#&gt; [245,]  5.809154</span></span>
+<span><span class="co">#&gt; [246,]  5.907154</span></span>
+<span><span class="co">#&gt; [247,]  5.869964</span></span>
+<span><span class="co">#&gt; [248,]  6.032694</span></span>
+<span><span class="co">#&gt; [249,]  6.209942</span></span>
+<span><span class="co">#&gt; [250,]  6.704714</span></span>
+<span><span class="co">#&gt; [251,]  7.324813</span></span>
+<span><span class="co">#&gt; [252,]  6.724679</span></span>
 <span><span class="co">#&gt; [253,]        NA</span></span>
 <span><span class="co">#&gt; [254,]        NA</span></span>
 <span><span class="co">#&gt; [255,]        NA</span></span>
 <span><span class="co">#&gt; [256,]        NA</span></span>
-<span><span class="co">#&gt; [257,] 11.448872</span></span>
-<span><span class="co">#&gt; [258,] 11.380142</span></span>
-<span><span class="co">#&gt; [259,] 11.535049</span></span>
-<span><span class="co">#&gt; [260,] 16.861378</span></span>
-<span><span class="co">#&gt; [261,] 21.476056</span></span>
-<span><span class="co">#&gt; [262,] 21.392043</span></span>
-<span><span class="co">#&gt; [263,] 14.707120</span></span>
-<span><span class="co">#&gt; [264,]  4.639382</span></span>
-<span><span class="co">#&gt; [265,]  2.989449</span></span>
-<span><span class="co">#&gt; [266,]  3.194979</span></span>
-<span><span class="co">#&gt; [267,]  4.767386</span></span>
-<span><span class="co">#&gt; [268,]  6.324323</span></span>
-<span><span class="co">#&gt; [269,]  5.722054</span></span>
-<span><span class="co">#&gt; [270,]  6.361562</span></span>
-<span><span class="co">#&gt; [271,]  8.252430</span></span>
-<span><span class="co">#&gt; [272,]  8.905715</span></span>
-<span><span class="co">#&gt; [273,]  9.941006</span></span>
-<span><span class="co">#&gt; [274,]  9.491506</span></span>
-<span><span class="co">#&gt; [275,]  7.863938</span></span>
+<span><span class="co">#&gt; [257,] 10.878542</span></span>
+<span><span class="co">#&gt; [258,] 10.840802</span></span>
+<span><span class="co">#&gt; [259,] 11.048089</span></span>
+<span><span class="co">#&gt; [260,] 16.683608</span></span>
+<span><span class="co">#&gt; [261,] 21.603606</span></span>
+<span><span class="co">#&gt; [262,] 21.546903</span></span>
+<span><span class="co">#&gt; [263,] 14.785350</span></span>
+<span><span class="co">#&gt; [264,]  4.953229</span></span>
+<span><span class="co">#&gt; [265,]  3.723446</span></span>
+<span><span class="co">#&gt; [266,]  3.919309</span></span>
+<span><span class="co">#&gt; [267,]  5.154748</span></span>
+<span><span class="co">#&gt; [268,]  5.975419</span></span>
+<span><span class="co">#&gt; [269,]  6.142824</span></span>
+<span><span class="co">#&gt; [270,]  6.079546</span></span>
+<span><span class="co">#&gt; [271,]  7.757721</span></span>
+<span><span class="co">#&gt; [272,]  9.028535</span></span>
+<span><span class="co">#&gt; [273,]  9.917106</span></span>
+<span><span class="co">#&gt; [274,]  9.170676</span></span>
+<span><span class="co">#&gt; [275,]  7.899348</span></span>
 <span><span class="co">#&gt; [276,]        NA</span></span>
 <span><span class="co">#&gt; [277,]        NA</span></span>
 <span><span class="co">#&gt; [278,]        NA</span></span>
 <span><span class="co">#&gt; [279,]        NA</span></span>
-<span><span class="co">#&gt; [280,] 11.357762</span></span>
-<span><span class="co">#&gt; [281,] 11.415883</span></span>
-<span><span class="co">#&gt; [282,] 11.643706</span></span>
-<span><span class="co">#&gt; [283,] 18.487289</span></span>
-<span><span class="co">#&gt; [284,] 21.509336</span></span>
-<span><span class="co">#&gt; [285,] 21.507523</span></span>
-<span><span class="co">#&gt; [286,] 20.019083</span></span>
-<span><span class="co">#&gt; [287,]  8.653790</span></span>
+<span><span class="co">#&gt; [280,] 10.798592</span></span>
+<span><span class="co">#&gt; [281,] 10.924713</span></span>
+<span><span class="co">#&gt; [282,] 11.143986</span></span>
+<span><span class="co">#&gt; [283,] 18.296449</span></span>
+<span><span class="co">#&gt; [284,] 21.686916</span></span>
+<span><span class="co">#&gt; [285,] 21.651943</span></span>
+<span><span class="co">#&gt; [286,] 20.209063</span></span>
+<span><span class="co">#&gt; [287,]  8.513660</span></span>
 <span><span class="co">#&gt; [288,]        NA</span></span>
-<span><span class="co">#&gt; [289,]  3.913314</span></span>
-<span><span class="co">#&gt; [290,]  3.318900</span></span>
-<span><span class="co">#&gt; [291,]  5.588911</span></span>
-<span><span class="co">#&gt; [292,]  6.342805</span></span>
-<span><span class="co">#&gt; [293,]  8.556738</span></span>
-<span><span class="co">#&gt; [294,]  9.118963</span></span>
-<span><span class="co">#&gt; [295,]  6.597258</span></span>
-<span><span class="co">#&gt; [296,]  6.010344</span></span>
-<span><span class="co">#&gt; [297,]  5.673744</span></span>
+<span><span class="co">#&gt; [289,]  3.925391</span></span>
+<span><span class="co">#&gt; [290,]  3.564288</span></span>
+<span><span class="co">#&gt; [291,]  5.328597</span></span>
+<span><span class="co">#&gt; [292,]  6.182809</span></span>
+<span><span class="co">#&gt; [293,]  8.803078</span></span>
+<span><span class="co">#&gt; [294,]  9.104363</span></span>
+<span><span class="co">#&gt; [295,]  7.013611</span></span>
+<span><span class="co">#&gt; [296,]  6.408614</span></span>
+<span><span class="co">#&gt; [297,]  5.915774</span></span>
 <span><span class="co">#&gt; [298,]        NA</span></span>
 <span><span class="co">#&gt; [299,]        NA</span></span>
 <span><span class="co">#&gt; [300,]        NA</span></span>
 <span><span class="co">#&gt; [301,]        NA</span></span>
 <span><span class="co">#&gt; [302,]        NA</span></span>
-<span><span class="co">#&gt; [303,] 11.452175</span></span>
-<span><span class="co">#&gt; [304,] 11.304660</span></span>
+<span><span class="co">#&gt; [303,] 10.891405</span></span>
+<span><span class="co">#&gt; [304,] 10.744310</span></span>
 <span><span class="co">#&gt; [305,]        NA</span></span>
-<span><span class="co">#&gt; [306,] 14.154623</span></span>
-<span><span class="co">#&gt; [307,] 17.910095</span></span>
-<span><span class="co">#&gt; [308,] 20.556115</span></span>
-<span><span class="co">#&gt; [309,] 21.369003</span></span>
-<span><span class="co">#&gt; [310,] 17.519728</span></span>
-<span><span class="co">#&gt; [311,]  6.360027</span></span>
-<span><span class="co">#&gt; [312,]  4.103785</span></span>
-<span><span class="co">#&gt; [313,]  3.040284</span></span>
-<span><span class="co">#&gt; [314,]  3.835789</span></span>
-<span><span class="co">#&gt; [315,]  4.684710</span></span>
-<span><span class="co">#&gt; [316,]  4.504426</span></span>
-<span><span class="co">#&gt; [317,]  4.219863</span></span>
-<span><span class="co">#&gt; [318,]  4.848295</span></span>
-<span><span class="co">#&gt; [319,]  5.556707</span></span>
-<span><span class="co">#&gt; [320,]  6.074394</span></span>
+<span><span class="co">#&gt; [306,] 13.874023</span></span>
+<span><span class="co">#&gt; [307,] 17.731745</span></span>
+<span><span class="co">#&gt; [308,] 20.652735</span></span>
+<span><span class="co">#&gt; [309,] 21.601983</span></span>
+<span><span class="co">#&gt; [310,] 17.579898</span></span>
+<span><span class="co">#&gt; [311,]  6.508097</span></span>
+<span><span class="co">#&gt; [312,]  4.005990</span></span>
+<span><span class="co">#&gt; [313,]  3.476241</span></span>
+<span><span class="co">#&gt; [314,]  4.353991</span></span>
+<span><span class="co">#&gt; [315,]  4.547539</span></span>
+<span><span class="co">#&gt; [316,]  4.571532</span></span>
+<span><span class="co">#&gt; [317,]  4.587507</span></span>
+<span><span class="co">#&gt; [318,]  4.827155</span></span>
+<span><span class="co">#&gt; [319,]  5.354703</span></span>
+<span><span class="co">#&gt; [320,]  5.808944</span></span>
 <span><span class="co">#&gt; [321,]        NA</span></span>
 <span><span class="co">#&gt; [322,]        NA</span></span>
 <span><span class="co">#&gt; [323,]        NA</span></span>
 <span><span class="co">#&gt; [324,]        NA</span></span>
-<span><span class="co">#&gt; [325,] 10.597117</span></span>
-<span><span class="co">#&gt; [326,] 11.036027</span></span>
-<span><span class="co">#&gt; [327,] 11.474717</span></span>
-<span><span class="co">#&gt; [328,] 11.635570</span></span>
-<span><span class="co">#&gt; [329,] 12.336323</span></span>
-<span><span class="co">#&gt; [330,] 16.633663</span></span>
-<span><span class="co">#&gt; [331,] 15.637043</span></span>
-<span><span class="co">#&gt; [332,] 18.540736</span></span>
-<span><span class="co">#&gt; [333,] 21.053512</span></span>
-<span><span class="co">#&gt; [334,] 14.022302</span></span>
-<span><span class="co">#&gt; [335,]  6.105902</span></span>
-<span><span class="co">#&gt; [336,]  4.269402</span></span>
-<span><span class="co">#&gt; [337,]  3.561030</span></span>
-<span><span class="co">#&gt; [338,]  3.039839</span></span>
-<span><span class="co">#&gt; [339,]  3.144924</span></span>
+<span><span class="co">#&gt; [325,] 11.146857</span></span>
+<span><span class="co">#&gt; [326,] 10.866167</span></span>
+<span><span class="co">#&gt; [327,] 10.996337</span></span>
+<span><span class="co">#&gt; [328,] 11.256610</span></span>
+<span><span class="co">#&gt; [329,] 12.307903</span></span>
+<span><span class="co">#&gt; [330,] 16.437633</span></span>
+<span><span class="co">#&gt; [331,] 15.508073</span></span>
+<span><span class="co">#&gt; [332,] 18.310386</span></span>
+<span><span class="co">#&gt; [333,] 21.366032</span></span>
+<span><span class="co">#&gt; [334,] 13.810562</span></span>
+<span><span class="co">#&gt; [335,]  5.731162</span></span>
+<span><span class="co">#&gt; [336,]  4.832626</span></span>
+<span><span class="co">#&gt; [337,]  3.647858</span></span>
+<span><span class="co">#&gt; [338,]  3.675237</span></span>
+<span><span class="co">#&gt; [339,]  3.558191</span></span>
 <span><span class="co">#&gt; [340,]        NA</span></span>
-<span><span class="co">#&gt; [341,]  3.671052</span></span>
-<span><span class="co">#&gt; [342,]  3.901577</span></span>
-<span><span class="co">#&gt; [343,]  5.913622</span></span>
+<span><span class="co">#&gt; [341,]  3.472457</span></span>
+<span><span class="co">#&gt; [342,]  4.263312</span></span>
+<span><span class="co">#&gt; [343,]  5.970253</span></span>
 <span><span class="co">#&gt; [344,]        NA</span></span>
 <span><span class="co">#&gt; [345,]        NA</span></span>
 <span><span class="co">#&gt; [346,]        NA</span></span>
 <span><span class="co">#&gt; [347,]        NA</span></span>
-<span><span class="co">#&gt; [348,] 10.998285</span></span>
-<span><span class="co">#&gt; [349,] 10.950407</span></span>
-<span><span class="co">#&gt; [350,] 11.212268</span></span>
-<span><span class="co">#&gt; [351,] 11.418008</span></span>
-<span><span class="co">#&gt; [352,] 12.163398</span></span>
-<span><span class="co">#&gt; [353,] 13.770360</span></span>
-<span><span class="co">#&gt; [354,] 18.204260</span></span>
-<span><span class="co">#&gt; [355,] 16.576592</span></span>
-<span><span class="co">#&gt; [356,] 20.711823</span></span>
-<span><span class="co">#&gt; [357,] 19.908498</span></span>
-<span><span class="co">#&gt; [358,] 11.591488</span></span>
-<span><span class="co">#&gt; [359,]  6.825564</span></span>
-<span><span class="co">#&gt; [360,]  5.386630</span></span>
-<span><span class="co">#&gt; [361,]  3.783755</span></span>
-<span><span class="co">#&gt; [362,]  3.485764</span></span>
-<span><span class="co">#&gt; [363,]  2.923684</span></span>
-<span><span class="co">#&gt; [364,]  3.299894</span></span>
-<span><span class="co">#&gt; [365,]  3.689571</span></span>
+<span><span class="co">#&gt; [348,] 10.931945</span></span>
+<span><span class="co">#&gt; [349,] 11.141357</span></span>
+<span><span class="co">#&gt; [350,] 10.908728</span></span>
+<span><span class="co">#&gt; [351,] 10.905788</span></span>
+<span><span class="co">#&gt; [352,] 12.287578</span></span>
+<span><span class="co">#&gt; [353,] 13.224830</span></span>
+<span><span class="co">#&gt; [354,] 18.131510</span></span>
+<span><span class="co">#&gt; [355,] 16.486002</span></span>
+<span><span class="co">#&gt; [356,] 20.866743</span></span>
+<span><span class="co">#&gt; [357,] 20.106878</span></span>
+<span><span class="co">#&gt; [358,] 11.392358</span></span>
+<span><span class="co">#&gt; [359,]  6.799787</span></span>
+<span><span class="co">#&gt; [360,]  5.459106</span></span>
+<span><span class="co">#&gt; [361,]  4.438018</span></span>
+<span><span class="co">#&gt; [362,]  4.177861</span></span>
+<span><span class="co">#&gt; [363,]  4.171971</span></span>
+<span><span class="co">#&gt; [364,]  3.402091</span></span>
+<span><span class="co">#&gt; [365,]  3.805834</span></span>
 <span><span class="co">#&gt; [366,]        NA</span></span>
 <span><span class="co">#&gt; [367,]        NA</span></span>
 <span><span class="co">#&gt; [368,]        NA</span></span>
 <span><span class="co">#&gt; [369,]        NA</span></span>
 <span><span class="co">#&gt; [370,]        NA</span></span>
-<span><span class="co">#&gt; [371,] 11.005018</span></span>
-<span><span class="co">#&gt; [372,] 10.812557</span></span>
-<span><span class="co">#&gt; [373,] 10.835087</span></span>
-<span><span class="co">#&gt; [374,] 10.977705</span></span>
-<span><span class="co">#&gt; [375,] 12.119147</span></span>
-<span><span class="co">#&gt; [376,] 12.316670</span></span>
-<span><span class="co">#&gt; [377,] 13.663350</span></span>
-<span><span class="co">#&gt; [378,] 17.782268</span></span>
-<span><span class="co">#&gt; [379,] 17.162470</span></span>
-<span><span class="co">#&gt; [380,] 15.576498</span></span>
-<span><span class="co">#&gt; [381,] 14.396967</span></span>
-<span><span class="co">#&gt; [382,] 14.471198</span></span>
-<span><span class="co">#&gt; [383,] 12.639718</span></span>
-<span><span class="co">#&gt; [384,]  6.617924</span></span>
-<span><span class="co">#&gt; [385,]  3.836892</span></span>
-<span><span class="co">#&gt; [386,]  2.946136</span></span>
-<span><span class="co">#&gt; [387,]  2.893044</span></span>
-<span><span class="co">#&gt; [388,]  3.500804</span></span>
+<span><span class="co">#&gt; [371,] 10.890718</span></span>
+<span><span class="co">#&gt; [372,] 10.922287</span></span>
+<span><span class="co">#&gt; [373,] 11.097847</span></span>
+<span><span class="co">#&gt; [374,] 10.911525</span></span>
+<span><span class="co">#&gt; [375,] 12.515657</span></span>
+<span><span class="co">#&gt; [376,] 12.303930</span></span>
+<span><span class="co">#&gt; [377,] 13.386280</span></span>
+<span><span class="co">#&gt; [378,] 17.649878</span></span>
+<span><span class="co">#&gt; [379,] 17.298030</span></span>
+<span><span class="co">#&gt; [380,] 15.706688</span></span>
+<span><span class="co">#&gt; [381,] 14.589147</span></span>
+<span><span class="co">#&gt; [382,] 14.369648</span></span>
+<span><span class="co">#&gt; [383,] 12.721408</span></span>
+<span><span class="co">#&gt; [384,]  6.958831</span></span>
+<span><span class="co">#&gt; [385,]  4.227801</span></span>
+<span><span class="co">#&gt; [386,]  3.653810</span></span>
+<span><span class="co">#&gt; [387,]  3.624821</span></span>
+<span><span class="co">#&gt; [388,]  3.462741</span></span>
 <span><span class="co">#&gt; [389,]        NA</span></span>
 <span><span class="co">#&gt; [390,]        NA</span></span>
 <span><span class="co">#&gt; [391,]        NA</span></span>
 <span><span class="co">#&gt; [392,]        NA</span></span>
-<span><span class="co">#&gt; [393,] 11.063758</span></span>
-<span><span class="co">#&gt; [394,] 11.091718</span></span>
-<span><span class="co">#&gt; [395,] 11.126497</span></span>
-<span><span class="co">#&gt; [396,] 10.995348</span></span>
-<span><span class="co">#&gt; [397,] 10.747688</span></span>
-<span><span class="co">#&gt; [398,] 11.544555</span></span>
-<span><span class="co">#&gt; [399,] 12.141505</span></span>
-<span><span class="co">#&gt; [400,] 11.731577</span></span>
-<span><span class="co">#&gt; [401,] 12.977408</span></span>
-<span><span class="co">#&gt; [402,] 13.129820</span></span>
-<span><span class="co">#&gt; [403,] 14.005758</span></span>
-<span><span class="co">#&gt; [404,] 14.464418</span></span>
-<span><span class="co">#&gt; [405,] 14.773730</span></span>
-<span><span class="co">#&gt; [406,] 16.545207</span></span>
-<span><span class="co">#&gt; [407,] 15.495910</span></span>
-<span><span class="co">#&gt; [408,]  7.214580</span></span>
-<span><span class="co">#&gt; [409,]  3.802836</span></span>
-<span><span class="co">#&gt; [410,]  3.444904</span></span>
-<span><span class="co">#&gt; [411,]  3.286404</span></span>
+<span><span class="co">#&gt; [393,] 11.012308</span></span>
+<span><span class="co">#&gt; [394,] 10.805578</span></span>
+<span><span class="co">#&gt; [395,] 10.799917</span></span>
+<span><span class="co">#&gt; [396,] 10.779708</span></span>
+<span><span class="co">#&gt; [397,] 11.035818</span></span>
+<span><span class="co">#&gt; [398,] 12.115855</span></span>
+<span><span class="co">#&gt; [399,] 12.546885</span></span>
+<span><span class="co">#&gt; [400,] 12.183557</span></span>
+<span><span class="co">#&gt; [401,] 13.199128</span></span>
+<span><span class="co">#&gt; [402,] 13.216920</span></span>
+<span><span class="co">#&gt; [403,] 14.109438</span></span>
+<span><span class="co">#&gt; [404,] 14.544458</span></span>
+<span><span class="co">#&gt; [405,] 14.656090</span></span>
+<span><span class="co">#&gt; [406,] 16.363107</span></span>
+<span><span class="co">#&gt; [407,] 15.347540</span></span>
+<span><span class="co">#&gt; [408,]  7.089960</span></span>
+<span><span class="co">#&gt; [409,]  4.279458</span></span>
+<span><span class="co">#&gt; [410,]  3.550161</span></span>
+<span><span class="co">#&gt; [411,]  3.218861</span></span>
 <span><span class="co">#&gt; [412,]        NA</span></span>
 <span><span class="co">#&gt; [413,]        NA</span></span>
 <span><span class="co">#&gt; [414,]        NA</span></span>
 <span><span class="co">#&gt; [415,]        NA</span></span>
-<span><span class="co">#&gt; [416,] 11.100818</span></span>
-<span><span class="co">#&gt; [417,] 10.965907</span></span>
-<span><span class="co">#&gt; [418,] 10.932998</span></span>
-<span><span class="co">#&gt; [419,] 10.907047</span></span>
-<span><span class="co">#&gt; [420,] 10.679867</span></span>
-<span><span class="co">#&gt; [421,] 10.682395</span></span>
-<span><span class="co">#&gt; [422,] 10.744802</span></span>
-<span><span class="co">#&gt; [423,] 11.017734</span></span>
-<span><span class="co">#&gt; [424,] 12.269237</span></span>
-<span><span class="co">#&gt; [425,] 12.703248</span></span>
-<span><span class="co">#&gt; [426,] 13.818927</span></span>
-<span><span class="co">#&gt; [427,] 14.499390</span></span>
-<span><span class="co">#&gt; [428,] 14.302580</span></span>
-<span><span class="co">#&gt; [429,] 14.593490</span></span>
-<span><span class="co">#&gt; [430,] 15.420992</span></span>
-<span><span class="co">#&gt; [431,] 13.496583</span></span>
-<span><span class="co">#&gt; [432,]  6.291990</span></span>
-<span><span class="co">#&gt; [433,]  3.611701</span></span>
-<span><span class="co">#&gt; [434,]  3.286138</span></span>
+<span><span class="co">#&gt; [416,] 10.984418</span></span>
+<span><span class="co">#&gt; [417,] 10.788997</span></span>
+<span><span class="co">#&gt; [418,] 10.825308</span></span>
+<span><span class="co">#&gt; [419,] 10.820237</span></span>
+<span><span class="co">#&gt; [420,] 10.867727</span></span>
+<span><span class="co">#&gt; [421,] 10.899135</span></span>
+<span><span class="co">#&gt; [422,] 11.378522</span></span>
+<span><span class="co">#&gt; [423,] 11.425124</span></span>
+<span><span class="co">#&gt; [424,] 12.692597</span></span>
+<span><span class="co">#&gt; [425,] 12.912258</span></span>
+<span><span class="co">#&gt; [426,] 13.965177</span></span>
+<span><span class="co">#&gt; [427,] 14.359950</span></span>
+<span><span class="co">#&gt; [428,] 14.549040</span></span>
+<span><span class="co">#&gt; [429,] 14.566930</span></span>
+<span><span class="co">#&gt; [430,] 15.488322</span></span>
+<span><span class="co">#&gt; [431,] 13.479223</span></span>
+<span><span class="co">#&gt; [432,]  5.926795</span></span>
+<span><span class="co">#&gt; [433,]  4.064121</span></span>
+<span><span class="co">#&gt; [434,]  3.919528</span></span>
 <span><span class="co">#&gt; [435,]        NA</span></span>
 <span><span class="co">#&gt; [436,]        NA</span></span>
 <span><span class="co">#&gt; [437,]        NA</span></span>
 <span><span class="co">#&gt; [438,]        NA</span></span>
-<span><span class="co">#&gt; [439,] 11.131727</span></span>
-<span><span class="co">#&gt; [440,] 11.017138</span></span>
-<span><span class="co">#&gt; [441,] 11.188368</span></span>
-<span><span class="co">#&gt; [442,] 11.804024</span></span>
-<span><span class="co">#&gt; [443,] 11.553905</span></span>
-<span><span class="co">#&gt; [444,] 10.922787</span></span>
-<span><span class="co">#&gt; [445,] 11.616745</span></span>
-<span><span class="co">#&gt; [446,] 10.833914</span></span>
-<span><span class="co">#&gt; [447,] 10.657217</span></span>
-<span><span class="co">#&gt; [448,] 12.071977</span></span>
-<span><span class="co">#&gt; [449,] 14.342268</span></span>
-<span><span class="co">#&gt; [450,] 14.382558</span></span>
-<span><span class="co">#&gt; [451,] 14.546165</span></span>
-<span><span class="co">#&gt; [452,] 14.496087</span></span>
-<span><span class="co">#&gt; [453,] 14.357558</span></span>
-<span><span class="co">#&gt; [454,] 14.137270</span></span>
-<span><span class="co">#&gt; [455,] 11.527928</span></span>
-<span><span class="co">#&gt; [456,]  6.448558</span></span>
+<span><span class="co">#&gt; [439,] 10.938167</span></span>
+<span><span class="co">#&gt; [440,] 10.947518</span></span>
+<span><span class="co">#&gt; [441,] 11.830968</span></span>
+<span><span class="co">#&gt; [442,] 12.068794</span></span>
+<span><span class="co">#&gt; [443,] 11.902735</span></span>
+<span><span class="co">#&gt; [444,] 11.666177</span></span>
+<span><span class="co">#&gt; [445,] 12.191875</span></span>
+<span><span class="co">#&gt; [446,] 11.631574</span></span>
+<span><span class="co">#&gt; [447,] 11.699077</span></span>
+<span><span class="co">#&gt; [448,] 12.689227</span></span>
+<span><span class="co">#&gt; [449,] 14.282238</span></span>
+<span><span class="co">#&gt; [450,] 14.434848</span></span>
+<span><span class="co">#&gt; [451,] 14.492095</span></span>
+<span><span class="co">#&gt; [452,] 14.345407</span></span>
+<span><span class="co">#&gt; [453,] 14.745258</span></span>
+<span><span class="co">#&gt; [454,] 14.572250</span></span>
+<span><span class="co">#&gt; [455,] 11.780028</span></span>
+<span><span class="co">#&gt; [456,]  6.559958</span></span>
 <span><span class="co">#&gt; [457,]        NA</span></span>
 <span><span class="co">#&gt; [458,]        NA</span></span>
 <span><span class="co">#&gt; [459,]        NA</span></span>
 <span><span class="co">#&gt; [460,]        NA</span></span>
 <span><span class="co">#&gt; [461,]        NA</span></span>
-<span><span class="co">#&gt; [462,] 10.902055</span></span>
-<span><span class="co">#&gt; [463,] 11.282760</span></span>
-<span><span class="co">#&gt; [464,] 12.542547</span></span>
-<span><span class="co">#&gt; [465,] 12.720685</span></span>
-<span><span class="co">#&gt; [466,] 11.745327</span></span>
-<span><span class="co">#&gt; [467,] 12.150287</span></span>
-<span><span class="co">#&gt; [468,] 12.832627</span></span>
-<span><span class="co">#&gt; [469,] 12.600565</span></span>
-<span><span class="co">#&gt; [470,] 13.035498</span></span>
-<span><span class="co">#&gt; [471,] 14.193585</span></span>
-<span><span class="co">#&gt; [472,] 14.388327</span></span>
-<span><span class="co">#&gt; [473,] 14.546348</span></span>
-<span><span class="co">#&gt; [474,] 14.558520</span></span>
-<span><span class="co">#&gt; [475,] 14.510922</span></span>
-<span><span class="co">#&gt; [476,] 14.399485</span></span>
-<span><span class="co">#&gt; [477,] 14.335807</span></span>
-<span><span class="co">#&gt; [478,] 14.350758</span></span>
-<span><span class="co">#&gt; [479,] 12.139128</span></span>
+<span><span class="co">#&gt; [462,] 10.928875</span></span>
+<span><span class="co">#&gt; [463,] 11.245520</span></span>
+<span><span class="co">#&gt; [464,] 12.789027</span></span>
+<span><span class="co">#&gt; [465,] 13.050725</span></span>
+<span><span class="co">#&gt; [466,] 12.291167</span></span>
+<span><span class="co">#&gt; [467,] 12.714467</span></span>
+<span><span class="co">#&gt; [468,] 13.248497</span></span>
+<span><span class="co">#&gt; [469,] 12.988325</span></span>
+<span><span class="co">#&gt; [470,] 13.453508</span></span>
+<span><span class="co">#&gt; [471,] 14.154865</span></span>
+<span><span class="co">#&gt; [472,] 14.443577</span></span>
+<span><span class="co">#&gt; [473,] 14.525378</span></span>
+<span><span class="co">#&gt; [474,] 14.552460</span></span>
+<span><span class="co">#&gt; [475,] 14.563272</span></span>
+<span><span class="co">#&gt; [476,] 14.659145</span></span>
+<span><span class="co">#&gt; [477,] 14.854317</span></span>
+<span><span class="co">#&gt; [478,] 14.691288</span></span>
+<span><span class="co">#&gt; [479,] 12.361468</span></span>
 <span><span class="co">#&gt; [480,]        NA</span></span>
 <span><span class="co">#&gt; [481,]        NA</span></span>
 <span><span class="co">#&gt; [482,]        NA</span></span>
 <span><span class="co">#&gt; [483,]        NA</span></span>
 <span><span class="co">#&gt; [484,]        NA</span></span>
-<span><span class="co">#&gt; [485,] 11.369655</span></span>
-<span><span class="co">#&gt; [486,] 11.625507</span></span>
-<span><span class="co">#&gt; [487,] 12.477548</span></span>
-<span><span class="co">#&gt; [488,] 12.386648</span></span>
-<span><span class="co">#&gt; [489,] 11.672267</span></span>
-<span><span class="co">#&gt; [490,] 12.894360</span></span>
-<span><span class="co">#&gt; [491,] 12.919620</span></span>
-<span><span class="co">#&gt; [492,] 13.005918</span></span>
-<span><span class="co">#&gt; [493,] 13.762807</span></span>
-<span><span class="co">#&gt; [494,] 14.364387</span></span>
-<span><span class="co">#&gt; [495,] 14.584837</span></span>
-<span><span class="co">#&gt; [496,] 14.605988</span></span>
-<span><span class="co">#&gt; [497,] 14.575658</span></span>
-<span><span class="co">#&gt; [498,] 14.584730</span></span>
-<span><span class="co">#&gt; [499,] 14.453947</span></span>
-<span><span class="co">#&gt; [500,] 14.536285</span></span>
-<span><span class="co">#&gt; [501,] 14.389497</span></span>
-<span><span class="co">#&gt; [502,] 14.436680</span></span>
+<span><span class="co">#&gt; [485,] 10.727725</span></span>
+<span><span class="co">#&gt; [486,] 10.787947</span></span>
+<span><span class="co">#&gt; [487,] 12.620168</span></span>
+<span><span class="co">#&gt; [488,] 12.796378</span></span>
+<span><span class="co">#&gt; [489,] 12.231647</span></span>
+<span><span class="co">#&gt; [490,] 12.952050</span></span>
+<span><span class="co">#&gt; [491,] 13.142630</span></span>
+<span><span class="co">#&gt; [492,] 13.057588</span></span>
+<span><span class="co">#&gt; [493,] 13.889437</span></span>
+<span><span class="co">#&gt; [494,] 14.324947</span></span>
+<span><span class="co">#&gt; [495,] 14.501487</span></span>
+<span><span class="co">#&gt; [496,] 14.392408</span></span>
+<span><span class="co">#&gt; [497,] 14.446178</span></span>
+<span><span class="co">#&gt; [498,] 14.445120</span></span>
+<span><span class="co">#&gt; [499,] 14.903737</span></span>
+<span><span class="co">#&gt; [500,] 14.814275</span></span>
+<span><span class="co">#&gt; [501,] 14.856947</span></span>
+<span><span class="co">#&gt; [502,] 14.827440</span></span>
 <span><span class="co">#&gt; [503,]        NA</span></span>
 <span><span class="co">#&gt; [504,]        NA</span></span>
 <span><span class="co">#&gt; [505,]        NA</span></span>
@@ -1064,22 +1280,22 @@ its actual data:</p>
 <span><span class="co">#&gt; [507,]        NA</span></span>
 <span><span class="co">#&gt; [508,]        NA</span></span>
 <span><span class="co">#&gt; [509,]        NA</span></span>
-<span><span class="co">#&gt; [510,] 12.663847</span></span>
-<span><span class="co">#&gt; [511,] 12.854205</span></span>
-<span><span class="co">#&gt; [512,] 12.642188</span></span>
-<span><span class="co">#&gt; [513,] 12.926218</span></span>
-<span><span class="co">#&gt; [514,] 12.857848</span></span>
-<span><span class="co">#&gt; [515,] 12.852172</span></span>
-<span><span class="co">#&gt; [516,] 12.887548</span></span>
-<span><span class="co">#&gt; [517,] 14.015755</span></span>
-<span><span class="co">#&gt; [518,] 14.518835</span></span>
-<span><span class="co">#&gt; [519,] 14.512737</span></span>
-<span><span class="co">#&gt; [520,] 14.706808</span></span>
-<span><span class="co">#&gt; [521,] 14.563848</span></span>
-<span><span class="co">#&gt; [522,] 14.499688</span></span>
-<span><span class="co">#&gt; [523,] 14.407165</span></span>
-<span><span class="co">#&gt; [524,] 14.467907</span></span>
-<span><span class="co">#&gt; [525,] 14.370917</span></span>
+<span><span class="co">#&gt; [510,] 12.957137</span></span>
+<span><span class="co">#&gt; [511,] 12.978825</span></span>
+<span><span class="co">#&gt; [512,] 13.039778</span></span>
+<span><span class="co">#&gt; [513,] 13.075728</span></span>
+<span><span class="co">#&gt; [514,] 13.252938</span></span>
+<span><span class="co">#&gt; [515,] 13.082552</span></span>
+<span><span class="co">#&gt; [516,] 13.353278</span></span>
+<span><span class="co">#&gt; [517,] 13.880775</span></span>
+<span><span class="co">#&gt; [518,] 14.499765</span></span>
+<span><span class="co">#&gt; [519,] 14.369447</span></span>
+<span><span class="co">#&gt; [520,] 14.511878</span></span>
+<span><span class="co">#&gt; [521,] 14.474648</span></span>
+<span><span class="co">#&gt; [522,] 14.648868</span></span>
+<span><span class="co">#&gt; [523,] 14.805245</span></span>
+<span><span class="co">#&gt; [524,] 14.868157</span></span>
+<span><span class="co">#&gt; [525,] 14.724677</span></span>
 <span><span class="co">#&gt; [526,]        NA</span></span>
 <span><span class="co">#&gt; [527,]        NA</span></span>
 <span><span class="co">#&gt; [528,]        NA</span></span>
@@ -1091,17 +1307,17 @@ its actual data:</p>
 <span><span class="co">#&gt; [534,]        NA</span></span>
 <span><span class="co">#&gt; [535,]        NA</span></span>
 <span><span class="co">#&gt; [536,]        NA</span></span>
-<span><span class="co">#&gt; [537,] 12.940160</span></span>
-<span><span class="co">#&gt; [538,] 12.776208</span></span>
-<span><span class="co">#&gt; [539,] 12.702400</span></span>
-<span><span class="co">#&gt; [540,] 13.746518</span></span>
-<span><span class="co">#&gt; [541,] 14.474658</span></span>
-<span><span class="co">#&gt; [542,] 14.381805</span></span>
-<span><span class="co">#&gt; [543,] 14.558518</span></span>
+<span><span class="co">#&gt; [537,] 13.207690</span></span>
+<span><span class="co">#&gt; [538,] 13.221258</span></span>
+<span><span class="co">#&gt; [539,] 13.157160</span></span>
+<span><span class="co">#&gt; [540,] 13.906988</span></span>
+<span><span class="co">#&gt; [541,] 14.462158</span></span>
+<span><span class="co">#&gt; [542,] 14.485185</span></span>
+<span><span class="co">#&gt; [543,] 14.343488</span></span>
 <span><span class="co">#&gt; [544,]        NA</span></span>
-<span><span class="co">#&gt; [545,] 14.478268</span></span>
-<span><span class="co">#&gt; [546,] 14.381277</span></span>
-<span><span class="co">#&gt; [547,] 14.398467</span></span>
+<span><span class="co">#&gt; [545,] 14.716618</span></span>
+<span><span class="co">#&gt; [546,] 14.672177</span></span>
+<span><span class="co">#&gt; [547,] 14.790637</span></span>
 <span><span class="co">#&gt; [548,]        NA</span></span>
 <span><span class="co">#&gt; [549,]        NA</span></span>
 <span><span class="co">#&gt; [550,]        NA</span></span>
@@ -1117,14 +1333,14 @@ its actual data:</p>
 <span><span class="co">#&gt; [560,]        NA</span></span>
 <span><span class="co">#&gt; [561,]        NA</span></span>
 <span><span class="co">#&gt; [562,]        NA</span></span>
-<span><span class="co">#&gt; [563,] 13.149357</span></span>
-<span><span class="co">#&gt; [564,] 14.269775</span></span>
-<span><span class="co">#&gt; [565,] 14.452127</span></span>
-<span><span class="co">#&gt; [566,] 14.528230</span></span>
+<span><span class="co">#&gt; [563,] 13.271077</span></span>
+<span><span class="co">#&gt; [564,] 14.080695</span></span>
+<span><span class="co">#&gt; [565,] 14.528477</span></span>
+<span><span class="co">#&gt; [566,] 14.573950</span></span>
 <span><span class="co">#&gt; [567,]        NA</span></span>
-<span><span class="co">#&gt; [568,] 14.608018</span></span>
-<span><span class="co">#&gt; [569,] 14.502137</span></span>
-<span><span class="co">#&gt; [570,] 14.293218</span></span>
+<span><span class="co">#&gt; [568,] 14.452078</span></span>
+<span><span class="co">#&gt; [569,] 14.503257</span></span>
+<span><span class="co">#&gt; [570,] 14.923508</span></span>
 <span><span class="co">#&gt; [571,]        NA</span></span>
 <span><span class="co">#&gt; [572,]        NA</span></span>
 <span><span class="co">#&gt; [573,]        NA</span></span>
@@ -1144,10 +1360,10 @@ its actual data:</p>
 <span><span class="co">#&gt; [587,]        NA</span></span>
 <span><span class="co">#&gt; [588,]        NA</span></span>
 <span><span class="co">#&gt; [589,]        NA</span></span>
-<span><span class="co">#&gt; [590,] 14.641297</span></span>
-<span><span class="co">#&gt; [591,] 14.644867</span></span>
-<span><span class="co">#&gt; [592,] 14.583728</span></span>
-<span><span class="co">#&gt; [593,] 14.481388</span></span>
+<span><span class="co">#&gt; [590,] 14.461267</span></span>
+<span><span class="co">#&gt; [591,] 14.558437</span></span>
+<span><span class="co">#&gt; [592,] 14.742098</span></span>
+<span><span class="co">#&gt; [593,] 14.740058</span></span>
 <span><span class="co">#&gt; [594,]        NA</span></span>
 <span><span class="co">#&gt; [595,]        NA</span></span>
 <span><span class="co">#&gt; [596,]        NA</span></span>
@@ -1158,7 +1374,7 @@ its actual data:</p>
 holding the actual cell values - which <em>does</em> survive
 <code><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">saveRDS()</a></code>/<code><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">readRDS()</a></code>;
 <code><a href="https://rspatial.github.io/terra/reference/wrap.html" class="external-link">terra::unwrap()</a></code> converts it back:</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">wrap_file</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".rds"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">saveRDS</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/wrap.html" class="external-link">wrap</a></span><span class="op">(</span><span class="va">r</span><span class="op">)</span>, <span class="va">wrap_file</span><span class="op">)</span></span>
 <span><span class="va">r_wrapped_read</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="va">wrap_file</span><span class="op">)</span></span>
@@ -1200,7 +1416,7 @@ which is exactly how this vignette’s own <code>fusion_clay</code> object
 was loaded, back in Section “Reusing real data instead of
 fetching”:</li>
 </ul>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># This is the call this whole vignette started with:</span></span>
 <span><span class="va">raw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"fusion_clay_salinas.rds"</span>, package <span class="op">=</span> <span class="st">"soilSIM"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">class</a></span><span class="op">(</span><span class="va">raw</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">mu</span><span class="op">)</span>                              <span class="co"># still PackedSpatRaster on disk</span></span>

@@ -128,7 +128,41 @@ unsuitable horizon detection (default: TRUE)</p></dd>
 <li><p>metadata: Download and processing metadata</p></li>
 <li><p>validation_results: Data validation results (if validate_data = TRUE)</p></li>
 <li><p>cache_info: Cache usage information (if caching enabled)</p></li>
+<li><p>components_missing_horizons: Data frame (<code>mukey</code>/<code>cokey</code>/<code>compname</code>/<code>comppct_l/r/h</code>),
+one row per component that has a real <code>comppct</code> but zero <code>chorizon</code> rows in SDA AND no
+AOI sibling (same <code>compname</code>) to recover a profile from - empty if none. Always empty for
+a cache hit (see Component recovery section below).</p></li>
+<li><p>components_recovered: Data frame (<code>mukey</code>/<code>cokey</code>/<code>compname</code>/<code>n_sibling_cokeys_used</code>),
+one row per component whose horizon profile WAS synthesized from AOI siblings - empty if
+none. Always empty for a cache hit (see Component recovery section below).</p></li>
 </ul></div>
+    <div class="section level2">
+    <h2 id="component-recovery-on-by-default-">Component recovery (on by default)<a class="anchor" aria-label="anchor" href="#component-recovery-on-by-default-"></a></h2>
+
+
+<p><code><a href="execute_ssurgo_query_working.html">execute_ssurgo_query_working()</a></code>'s <code>INNER JOIN chorizon</code> silently drops any real component with
+zero <code>chorizon</code> rows in SDA - a common, verified SSURGO data-completeness gap, especially for
+minor components. This function recovers such components automatically: for each one, it
+searches this same AOI's own fetched data for other cokeys sharing the missing component's
+<code>compname</code> that DO have full horizon data, and averages their profiles (aligned by
+<code><a href="classify_genhz.html">classify_genhz()</a></code> group) to synthesize a representative one - see
+<code><a href="synthesize_component_horizons_from_siblings.html">synthesize_component_horizons_from_siblings()</a></code>'s docs for the exact averaging rule. Synthesized
+rows are tagged <code>component_synthesized = TRUE</code> and <code>infill_method = "component_aoi_average"</code> in
+<code>ssurgo_data</code> for traceability. A component with no AOI sibling to recover from is left out of
+<code>ssurgo_data</code> (same as before this feature existed) but reported in
+<code>components_missing_horizons</code> instead of vanishing with zero trace.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="cache-invalidation">Cache invalidation<a class="anchor" aria-label="anchor" href="#cache-invalidation"></a></h2>
+
+
+<p>A cache entry (<code>cache_dir</code>) written before this feature shipped, or before it was extended,
+predates component recovery entirely - <code>ssurgo_data</code> in that cached entry won't contain any
+synthesized rows, and a cache hit always returns empty <code>components_missing_horizons</code>/
+<code>components_recovered</code> placeholders regardless of what a fresh download would find (only counts,
+not the full data frames, are persisted via <code>metadata</code>). Clear the cache to pick up recovered
+components.</p>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

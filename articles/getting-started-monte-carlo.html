@@ -146,12 +146,12 @@ dependency:</p>
 <code class="sourceCode R"><span><span class="va">ssurgo_amador</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"ssurgo_amador.rds"</span>, package <span class="op">=</span> <span class="st">"soilSIM"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">raw_data</span> <span class="op">&lt;-</span> <span class="va">ssurgo_amador</span><span class="op">$</span><span class="va">ssurgo_data</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">raw_data</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 474  65</span></span>
+<span><span class="co">#&gt; [1] 575  67</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">raw_data</span><span class="op">$</span><span class="va">cokey</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 78</span></span>
+<span><span class="co">#&gt; [1] 116</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">raw_data</span><span class="op">$</span><span class="va">mukey</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 66</span></span></code></pre></div>
-<p>This AOI resolves to 66 real map units and 78 soil components.
+<p>This AOI resolves to 66 real map units and 116 soil components.
 <code><a href="../reference/process_ssurgo_data.html">process_ssurgo_data()</a></code> cleans and standardizes the raw
 download - flagging unsuitable horizons (bedrock, cemented pans, organic
 layers) that shouldn’t feed property simulation:</p>
@@ -159,7 +159,7 @@ layers) that shouldn’t feed property simulation:</p>
 <code class="sourceCode R"><span><span class="va">processed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/process_ssurgo_data.html">process_ssurgo_data</a></span><span class="op">(</span><span class="va">raw_data</span>, max_depth <span class="op">=</span> <span class="fl">150</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="va">horizon_data</span> <span class="op">&lt;-</span> <span class="va">processed</span><span class="op">$</span><span class="va">processed_data</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">horizon_data</span><span class="op">$</span><span class="va">unsuitable_horizon</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 53</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 84</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="step-2-fill-in-missing-property-values">Step 2: Fill in missing property values<a class="anchor" aria-label="anchor" href="#step-2-fill-in-missing-property-values"></a>
@@ -209,12 +209,12 @@ and draws correlated realizations:</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">mc_result</span><span class="op">$</span><span class="va">simulation_data</span><span class="op">)</span>  <span class="co"># [horizon, property, realization]</span></span>
-<span><span class="co">#&gt; [1] 421   4 200</span></span>
+<span><span class="co">#&gt; [1] 491   4 200</span></span>
 <span><span class="va">mc_result</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">success_rate</span></span>
 <span><span class="co">#&gt; [1] 1</span></span>
 <span><span class="va">mc_result</span><span class="op">$</span><span class="va">quality_assessment</span><span class="op">$</span><span class="va">overall_quality_score</span></span>
 <span><span class="co">#&gt; [1] 1</span></span></code></pre></div>
-<p>421 suitable horizons x 4 properties x 200 realizations, at a 100%
+<p>491 suitable horizons x 4 properties x 200 realizations, at a 100%
 success rate. Distribution of simulated clay content across all
 realizations, for the first horizon:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
@@ -295,8 +295,8 @@ series:</p>
 <code class="sourceCode R"><span><span class="va">gp_train</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/prepare_nrcs_training_data.html">prepare_nrcs_training_data</a></span><span class="op">(</span><span class="va">horizon_data</span>, max_depth <span class="op">=</span> <span class="fl">150</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">gp_train</span><span class="op">$</span><span class="va">soil_group</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     Chaix  Cohasset   Holland Josephine  Mariposa  McCarthy </span></span>
-<span><span class="co">#&gt;        24        98        21        81        30        60</span></span></code></pre></div>
+<span><span class="co">#&gt;     Chaix  Cohasset   Holland Josephine  Mariposa  McCarthy     Sites </span></span>
+<span><span class="co">#&gt;        24       118        21        81        50        60        31</span></span></code></pre></div>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">gp_models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models</a></span><span class="op">(</span></span>
 <span>  <span class="va">gp_train</span>,</span>
@@ -306,8 +306,8 @@ series:</p>
 <span>  optimize_hyperparameters <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">gp_models</span><span class="op">$</span><span class="va">model_summary</span><span class="op">$</span><span class="va">total_models</span></span>
-<span><span class="co">#&gt; [1] 22</span></span></code></pre></div>
-<p>22 GP models were fit across 6 real soil-series groups from this AOI.
+<span><span class="co">#&gt; [1] 26</span></span></code></pre></div>
+<p>26 GP models were fit across 7 real soil-series groups from this AOI.
 Each fitted model predicts a property’s mean depth trend (with
 uncertainty) for its soil-series group via
 <code><a href="../reference/predict_gp_depth_trends.html">predict_gp_depth_trends()</a></code>. For clay content in the first

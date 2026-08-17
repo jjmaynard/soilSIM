@@ -15,7 +15,9 @@ create_download_metadata(
   data_rows,
   unique_cokeys,
   spatial_result,
-  validation_results
+  validation_results,
+  components_missing_horizons = NULL,
+  components_recovered = NULL
 )
 ```
 
@@ -60,6 +62,18 @@ create_download_metadata(
 - validation_results:
 
   Data validation results
+
+- components_missing_horizons:
+
+  Data frame or `NULL` - components with a real `comppct` but no AOI
+  sibling to recover a profile from (see
+  [`recover_missing_horizon_components()`](https://jjmaynard.github.io/soilSIM/reference/recover_missing_horizon_components.md)).
+
+- components_recovered:
+
+  Data frame or `NULL` - components successfully synthesized from an AOI
+  sibling's averaged profile (see
+  [`recover_missing_horizon_components()`](https://jjmaynard.github.io/soilSIM/reference/recover_missing_horizon_components.md)).
 
 ## Value
 

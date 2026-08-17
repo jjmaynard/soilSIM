@@ -212,9 +212,9 @@ without a live network dependency:</p>
 <code class="sourceCode R"><span><span class="va">ssurgo_amador</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"ssurgo_amador.rds"</span>, package <span class="op">=</span> <span class="st">"soilSIM"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">raw_data</span> <span class="op">&lt;-</span> <span class="va">ssurgo_amador</span><span class="op">$</span><span class="va">ssurgo_data</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">raw_data</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 474  65</span></span>
+<span><span class="co">#&gt; [1] 575  67</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">raw_data</span><span class="op">$</span><span class="va">cokey</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 78</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 116</span></span></code></pre></div>
 <p><code>raw_data</code> already has the restriction-indicator columns
 <code><a href="../reference/add_restriction_indicators_working.html">add_restriction_indicators_working()</a></code> adds
 (<code>is_cemented</code>, <code>organic_horizon</code>,
@@ -230,7 +230,7 @@ restrictions:</p>
 <span><span class="co">#&gt; [7] "texture_suggests_restriction" "is_potentially_restrictive"  </span></span>
 <span><span class="co">#&gt; [9] "unsuitable_horizon"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">raw_data</span><span class="op">$</span><span class="va">unsuitable_horizon</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 53</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 84</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="step-2-processing---process_ssurgo_datas-two-sub-pipelines">Step 2: Processing - <code>process_ssurgo_data()</code>’s two
@@ -256,7 +256,7 @@ statistics).</p>
 <span><span class="co">#&gt; [1] "processed_data"      "horizon_data"        "component_data"     </span></span>
 <span><span class="co">#&gt; [4] "processing_metadata" "validation_results"  "quality_report"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">processed</span><span class="op">$</span><span class="va">processed_data</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 474  65</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 575  67</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="process_horizon_data_working_compatible-on-its-own">
 <code>process_horizon_data_working_compatible()</code> on its
@@ -286,9 +286,9 @@ any infilling happens:</p>
 <span><span class="op">)</span></span>
 <span><span class="va">na_counts</span></span>
 <span><span class="co">#&gt;                property advanced_cleaning_on advanced_cleaning_off</span></span>
-<span><span class="co">#&gt; sandtotal_r sandtotal_r                   49                    49</span></span>
-<span><span class="co">#&gt; claytotal_r claytotal_r                   49                    49</span></span>
-<span><span class="co">#&gt; dbovendry_r dbovendry_r                   57                    52</span></span></code></pre></div>
+<span><span class="co">#&gt; sandtotal_r sandtotal_r                   59                    59</span></span>
+<span><span class="co">#&gt; claytotal_r claytotal_r                   59                    59</span></span>
+<span><span class="co">#&gt; dbovendry_r dbovendry_r                   88                    62</span></span></code></pre></div>
 <p><code>processing_stats$property_completeness</code> (from
 <code><a href="../reference/calculate_property_completeness_working.html">calculate_property_completeness_working()</a></code>) gives the
 fraction of non-missing <code>_r</code> values per property after
@@ -296,9 +296,9 @@ processing:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">horizon_cleaned</span><span class="op">$</span><span class="va">processing_stats</span><span class="op">$</span><span class="va">property_completeness</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   sandtotal   claytotal   silttotal   dbovendry   ph1to1h2o        cec7 </span></span>
-<span><span class="co">#&gt;   0.8966245   0.8966245   0.8966245   0.8797468   0.8902954   0.8080169 </span></span>
+<span><span class="co">#&gt;   0.8973913   0.8973913   0.8973913   0.8469565   0.8921739   0.7704348 </span></span>
 <span><span class="co">#&gt;          om   wthirdbar wfifteenbar         awc </span></span>
-<span><span class="co">#&gt;   0.8860759   0.8860759   0.8902954   0.8860759</span></span></code></pre></div>
+<span><span class="co">#&gt;   0.8521739   0.8921739   0.8921739   0.8921739</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="process_component_data_working_compatible-on-its-own">
@@ -313,14 +313,14 @@ derived flags (<code><a href="../reference/calculate_component_stats_working.htm
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">component_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/process_component_data_working_compatible.html">process_component_data_working_compatible</a></span><span class="op">(</span><span class="va">raw_data</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">component_result</span><span class="op">$</span><span class="va">processed_data</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 78  5</span></span>
+<span><span class="co">#&gt; [1] 116   5</span></span>
 <span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">component_result</span><span class="op">$</span><span class="va">processed_data</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "cokey"              "compname"           "comppct_r"         </span></span>
 <span><span class="co">#&gt; [4] "mukey"              "is_major_component"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">component_result</span><span class="op">$</span><span class="va">processed_data</span><span class="op">$</span><span class="va">is_major_component</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; TRUE </span></span>
-<span><span class="co">#&gt;   78</span></span></code></pre></div>
+<span><span class="co">#&gt; FALSE  TRUE </span></span>
+<span><span class="co">#&gt;    38    78</span></span></code></pre></div>
 <p><code>is_major_component</code> (<code>comppct_r &gt;= 15</code>) is
 a convenience flag, not a filter - both major and minor components stay
 in the output.</p>
@@ -337,20 +337,20 @@ layers) are never targets <em>or</em> sources for infilling.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">horizon_data</span> <span class="op">&lt;-</span> <span class="va">processed</span><span class="op">$</span><span class="va">processed_data</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">horizon_data</span><span class="op">$</span><span class="va">unsuitable_horizon</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 53</span></span>
+<span><span class="co">#&gt; [1] 84</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">horizon_data</span><span class="op">$</span><span class="va">hzname</span><span class="op">[</span><span class="va">horizon_data</span><span class="op">$</span><span class="va">unsuitable_horizon</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Cr H1 H2 H3 H4 Oi </span></span>
-<span><span class="co">#&gt;  2  2  3 30 11  5</span></span></code></pre></div>
+<span><span class="co">#&gt; 12  2  3 30 11 26</span></span></code></pre></div>
 <p><code><a href="../reference/summarize_unsuitable_horizons.html">summarize_unsuitable_horizons()</a></code> (covered again in Step
 5) is the reporting companion to this flag:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/summarize_unsuitable_horizons.html">summarize_unsuitable_horizons</a></span><span class="op">(</span><span class="va">horizon_data</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $n_unsuitable</span></span>
-<span><span class="co">#&gt; [1] 53</span></span>
+<span><span class="co">#&gt; [1] 84</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $horizon_types</span></span>
-<span><span class="co">#&gt; [1] "H1" "H3" "H4" "H2" "Oi" "Cr"</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "H1" "H3" "Oi" "Cr" "H4" "H2"</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -387,9 +387,9 @@ of the outlier method used.</p>
 <span>  <span class="va">raw_data</span>, <span class="st">"dbovendry"</span>, generate_report <span class="op">=</span> <span class="cn">TRUE</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">clean_result</span><span class="op">$</span><span class="va">report</span><span class="op">$</span><span class="va">outliers_detected</span><span class="op">$</span><span class="va">dbovendry_r</span><span class="op">$</span><span class="va">n_outliers</span></span>
-<span><span class="co">#&gt; [1] 5</span></span>
+<span><span class="co">#&gt; [1] 26</span></span>
 <span><span class="va">clean_result</span><span class="op">$</span><span class="va">report</span><span class="op">$</span><span class="va">type_conversions</span><span class="op">$</span><span class="va">dbovendry_r</span><span class="op">$</span><span class="va">success_rate</span></span>
-<span><span class="co">#&gt; [1] 0.8902954</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 0.8921739</span></span></code></pre></div>
 <p>Before/after distribution of bulk density (<code>dbovendry_r</code>)
 - cleaning removes physically implausible values without touching the
 bulk of the distribution:</p>
@@ -514,20 +514,14 @@ gaps in multi-horizon components to show the hierarchy working:</p>
 <span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">cokey</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">candidate_cokeys</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 11</span></span>
+<span><span class="co">#&gt; [1] 21</span></span>
 <span></span>
 <span><span class="va">example_cokey</span> <span class="op">&lt;-</span> <span class="va">candidate_cokeys</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
 <span><span class="va">example_group</span> <span class="op">&lt;-</span> <span class="va">cleaned_for_infill</span><span class="op">[</span><span class="va">cleaned_for_infill</span><span class="op">$</span><span class="va">cokey</span> <span class="op">==</span> <span class="va">example_cokey</span>, <span class="op">]</span></span>
 <span><span class="va">example_group</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"hzname"</span>, <span class="st">"hzdept_r"</span>, <span class="st">"hzdepb_r"</span>, <span class="st">"cec7_r"</span>, <span class="st">"unsuitable_horizon"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;    hzname hzdept_r hzdepb_r cec7_r unsuitable_horizon</span></span>
-<span><span class="co">#&gt; 80     H1        0       36     20              FALSE</span></span>
-<span><span class="co">#&gt; 81     H1        0       36     20              FALSE</span></span>
-<span><span class="co">#&gt; 82     H2       36       84     NA              FALSE</span></span>
-<span><span class="co">#&gt; 83     H2       36       84     NA              FALSE</span></span>
-<span><span class="co">#&gt; 84     H3       84      127     NA              FALSE</span></span>
-<span><span class="co">#&gt; 85     H3       84      127     NA              FALSE</span></span>
-<span><span class="co">#&gt; 86     H3       84      127     NA              FALSE</span></span>
-<span><span class="co">#&gt; 87     H4      127      137     NA               TRUE</span></span></code></pre></div>
+<span><span class="co">#&gt; 9       A        0       13    5.5              FALSE</span></span>
+<span><span class="co">#&gt; 10     Bt       13       76     NA              FALSE</span></span></code></pre></div>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">problematic_mask</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">example_group</span><span class="op">$</span><span class="va">cec7_r</span><span class="op">)</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">example_group</span><span class="op">$</span><span class="va">unsuitable_horizon</span></span>
 <span><span class="va">infilled_group</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/infill_missing_property_data.html">infill_missing_property_data</a></span><span class="op">(</span></span>
@@ -535,15 +529,9 @@ gaps in multi-horizon components to show the hierarchy working:</p>
 <span>  property_config <span class="op">=</span> <span class="fu"><a href="../reference/get_default_property_config.html">get_default_property_config</a></span><span class="op">(</span><span class="st">"cec7"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">infilled_group</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"hzname"</span>, <span class="st">"hzdept_r"</span>, <span class="st">"hzdepb_r"</span>, <span class="st">"cec7_r"</span>, <span class="st">"infill_method"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="co">#&gt;    hzname hzdept_r hzdepb_r cec7_r          infill_method</span></span>
-<span><span class="co">#&gt; 80     H1        0       36     20                       </span></span>
-<span><span class="co">#&gt; 81     H1        0       36     20                       </span></span>
-<span><span class="co">#&gt; 82     H2       36       84     20 cec7_r:hzname(H,n=2); </span></span>
-<span><span class="co">#&gt; 83     H2       36       84     20 cec7_r:hzname(H,n=2); </span></span>
-<span><span class="co">#&gt; 84     H3       84      127     20 cec7_r:hzname(H,n=2); </span></span>
-<span><span class="co">#&gt; 85     H3       84      127     20 cec7_r:hzname(H,n=2); </span></span>
-<span><span class="co">#&gt; 86     H3       84      127     20 cec7_r:hzname(H,n=2); </span></span>
-<span><span class="co">#&gt; 87     H4      127      137     NA</span></span></code></pre></div>
+<span><span class="co">#&gt;    hzname hzdept_r hzdepb_r cec7_r         infill_method</span></span>
+<span><span class="co">#&gt; 9       A        0       13    5.5 component_aoi_average</span></span>
+<span><span class="co">#&gt; 10     Bt       13       76     NA component_aoi_average</span></span></code></pre></div>
 <p>The <code>infill_method</code> column shows exactly which strategy
 filled each cell - e.g. <code>"hzname(...)"</code> for Strategy 1
 matches, or blank if none of the three within-group strategies could
@@ -634,7 +622,7 @@ zone).</li>
 <span><span class="co">#&gt; [1] 5</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $sample_size</span></span>
-<span><span class="co">#&gt; [1] 420</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 490</span></span></code></pre></div>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">context_ranges</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_property_contextual_ranges.html">get_property_contextual_ranges</a></span><span class="op">(</span><span class="va">horizon_data</span>, <span class="st">"claytotal"</span>, <span class="va">clay_config</span><span class="op">)</span></span>
 <span><span class="va">context_ranges</span></span>
@@ -647,7 +635,7 @@ zone).</li>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $claytotal$max_spread</span></span>
 <span><span class="co">#&gt; [1] 20</span></span></code></pre></div>
-<p>With only 420 complete suitable-horizon rows to learn from, notice
+<p>With only 490 complete suitable-horizon rows to learn from, notice
 how close the learned overall spread is to the hardcoded contextual
 <code>typical_spread</code> above - in a small AOI like this one, the
 two sources of information reinforce rather than override each
@@ -689,7 +677,7 @@ where <code>_r</code> already has a real SSURGO value (default
 <span><span class="va">after_wr</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">wr_result</span><span class="op">$</span><span class="va">wthirdbar_r</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>before <span class="op">=</span> <span class="va">before_wr</span>, after <span class="op">=</span> <span class="va">after_wr</span><span class="op">)</span></span>
 <span><span class="co">#&gt; before  after </span></span>
-<span><span class="co">#&gt;     54     50</span></span></code></pre></div>
+<span><span class="co">#&gt;     62     58</span></span></code></pre></div>
 <p><code>overwrite = FALSE</code> (the default) means SSURGO’s own
 reported values always win where present; <code>overwrite = TRUE</code>
 would let the pedotransfer estimate replace them, which is useful mainly
@@ -776,10 +764,10 @@ the above rather than what was flagged within what remained:</p>
 <div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/summarize_unsuitable_horizons.html">summarize_unsuitable_horizons</a></span><span class="op">(</span><span class="va">infilled</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $n_unsuitable</span></span>
-<span><span class="co">#&gt; [1] 53</span></span>
+<span><span class="co">#&gt; [1] 84</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $horizon_types</span></span>
-<span><span class="co">#&gt; [1] "H1" "H3" "H4" "H2" "Oi" "Cr"</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "H1" "H3" "Oi" "Cr" "H4" "H2"</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="where-this-leaves-you">Where this leaves you<a class="anchor" aria-label="anchor" href="#where-this-leaves-you"></a>

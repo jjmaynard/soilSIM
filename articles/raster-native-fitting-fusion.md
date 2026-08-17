@@ -99,8 +99,8 @@ fit_n$mu
 #> source(s)   : memory
 #> varname     : claytotal_0_cm_l
 #> name        :       P50
-#> min value   :  1.291976
-#> max value   : 27.771105
+#> min value   :  1.721668
+#> max value   : 28.000607
 ```
 
 `sigma` is `(p_hi_r - p_lo_r) / (qnorm(p_hi) - qnorm(p_lo))` - the raw
@@ -234,7 +234,7 @@ n_infeasible <- sum(terra::values(infeasible), na.rm = TRUE)
 n_total <- terra::ncell(infeasible)
 cat(sprintf("%d / %d cells (%.0f%%) have an infeasible metalog fit\n",
             n_infeasible, n_total, 100 * n_infeasible / n_total))
-#> 150 / 598 cells (25%) have an infeasible metalog fit
+#> 152 / 598 cells (25%) have an infeasible metalog fit
 terra::plot(infeasible, main = "Infeasible metalog fit (TRUE = non-monotonic)",
             col = c("grey85", "firebrick"))
 ```
@@ -360,7 +360,7 @@ resolve_property_dist(list(dist = "auto", bounds = c(0, 100)), prior_values, pri
 #> [1] "auto"
 #> 
 #> $skew_proxy
-#> [1] 0.1347358
+#> [1] 0.1160459
 
 # Without bounds, it falls back to a skew-proxy test: normal if |skew| is small, lognormal if not.
 resolve_property_dist(list(dist = "auto"), prior_values, prior_probs)
@@ -371,7 +371,7 @@ resolve_property_dist(list(dist = "auto"), prior_values, prior_probs)
 #> [1] "auto"
 #> 
 #> $skew_proxy
-#> [1] 0.1347358
+#> [1] 0.1160459
 ```
 
 The skew proxy itself is
@@ -463,7 +463,243 @@ ggplot(route_df, aes(x = value, fill = route)) +
 
 ![](raster-native-fitting-fusion_files/figure-html/unnamed-chunk-19-1.png)
 
-## 8. Caching internals
+## 8. Did fusion actually update the prior? Comparing prior, likelihood, and posterior distributions
+
+Section 7 compared two fusion *routes* against each other. A more basic
+question is whether fusion did anything sensible at all relative to its
+two *inputs*: does the posterior mean clay distribution actually sit
+somewhere between the SSURGO prior and the SOLUS100 likelihood,
+sharpened by combining them? `fusion_clay` (loaded back in “Reusing real
+data instead of fetching”) already holds the real, full-pipeline answer
+for this AOI - its `prior`/`likelihood`/`posterior` are the actual
+objects
+[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+produced, not the toy
+`aligned`/[`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md)
+example from Section 7:
+
+``` r
+
+dist_df <- data.frame(
+  value = c(
+    terra::values(prior_values$P50, na.rm = TRUE),
+    terra::values(lik_values$P50, na.rm = TRUE),
+    terra::values(fusion_clay$posterior$mu, na.rm = TRUE)
+  ),
+  source = rep(
+    c("Prior (SSURGO median)", "Likelihood (SOLUS prediction)", "Posterior (fused mean)"),
+    c(sum(!is.na(terra::values(prior_values$P50))),
+      sum(!is.na(terra::values(lik_values$P50))),
+      sum(!is.na(terra::values(fusion_clay$posterior$mu))))
+  )
+)
+dist_df$source <- factor(dist_df$source,
+  levels = c("Prior (SSURGO median)", "Likelihood (SOLUS prediction)", "Posterior (fused mean)"))
+
+means <- stats::aggregate(value ~ source, dist_df, mean)
+
+ggplot(dist_df, aes(x = value, fill = source)) +
+  geom_density(alpha = 0.45, color = NA) +
+  geom_vline(data = means, aes(xintercept = value, color = source),
+             linetype = "dashed", linewidth = 0.7, show.legend = FALSE) +
+  scale_fill_viridis_d(name = NULL) +
+  scale_color_viridis_d() +
+  labs(title = "Prior vs. likelihood vs. posterior mean clay content",
+       subtitle = "Dashed lines mark each distribution's mean",
+       x = "Clay content (%)", y = "Density") +
+  theme_minimal()
+```
+
+![](raster-native-fitting-fusion_files/figure-html/unnamed-chunk-20-1.png)
+
+``` r
+
+
+means
+#>                          source    value
+#> 1         Prior (SSURGO median) 12.50059
+#> 2 Likelihood (SOLUS prediction) 20.83220
+#> 3        Posterior (fused mean) 12.71270
+```
+
+The posterior sits almost on top of the prior here, barely nudged toward
+the likelihood’s much higher mean (~21%). If fusion were simply
+averaging its two inputs, the posterior would land roughly halfway
+between them; it clearly doesn’t. This is exactly what
+precision-weighted Bayesian fusion is *supposed* to do when one side
+states far more uncertainty about itself than the other - not a sign
+that the likelihood is being ignored. Fitting each side’s own Normal
+distribution independently (the same
+[`fit_normal_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_raster.md)
+from Section 1, applied to whichever low/high percentile pair each
+source actually has) makes the reason concrete:
+
+``` r
+
+fit_prior_normal <- fit_normal_raster(
+  p_lo_r = prior_values$P05, p50_r = prior_values$P50, p_hi_r = prior_values$P95,
+  p_lo = 0.05, p_hi = 0.95
+)
+fit_lik_normal <- fit_normal_raster(
+  p_lo_r = lik_values$P025, p50_r = lik_values$P50, p_hi_r = lik_values$P975,
+  p_lo = 0.025, p_hi = 0.975
+)
+
+sigma_compare <- data.frame(
+  source = c("Prior (SSURGO)", "Likelihood (SOLUS)"),
+  mean_sigma = c(mean(terra::values(fit_prior_normal$sigma), na.rm = TRUE),
+                 mean(terra::values(fit_lik_normal$sigma), na.rm = TRUE))
+)
+sigma_compare$mean_precision <- 1 / sigma_compare$mean_sigma^2
+sigma_compare
+#>               source mean_sigma mean_precision
+#> 1     Prior (SSURGO)    2.49010    0.161274775
+#> 2 Likelihood (SOLUS)   12.54174    0.006357473
+```
+
+SOLUS100’s raw 95% prediction interval (`P025`-`P975`) implies a mean
+`sigma` roughly 5x wider than SSURGO’s 5th-95th percentile spread for
+this AOI - a real, known characteristic of SOLUS100’s output (its stated
+prediction intervals are often wide), not an artifact of this pipeline.
+Since fusion weights each side by *precision* (`1/sigma^2`, see
+`bayesian-updating.Rmd`’s worked scalar examples of this exact
+tug-of-war), a 5x wider sigma means roughly a 25x lower precision - so
+the posterior mean above (12.71) landing close to the prior’s mean
+(12.5) rather than the likelihood’s (20.83) is the fusion math doing
+exactly what it should with these particular inputs, confirmed by
+manually recomputing
+[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)
+on these two independently-fit sides and getting (within
+floating-point/per-cell alignment differences) the same answer the
+pipeline’s own route produced. A different AOI/property where the two
+sources agree more closely on their own uncertainty would show the
+posterior pulled further toward whichever side is sharper, without one
+side this lopsidedly dominating.
+
+## 9. A per-pixel view: prior, likelihood, and posterior at individual mapunits
+
+Section 8’s density plot pools every cell in the AOI into one
+distribution per source, which is useful for the big picture but hides
+what fusion actually does *at a single location* - precision weighting
+happens per pixel, using that pixel’s own prior/likelihood spread, not
+the AOI-wide average spread used above. This section looks at a handful
+of individual pixels instead.
+
+The cached object here only carries percentile-*value* rasters
+(`prior_values`, `lik_values`), not the categorical mukey raster
+[`fetch_ssurgo_mukey_raster()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_mukey_raster.md)
+would return - so there’s no direct mukey lookup to pick pixels by
+mapunit membership. As a proxy, SSURGO’s simulated median
+(`prior_values$P50`) is close to constant within a mapunit and differs
+between mapunits (each mapunit gets its own Monte Carlo simulation
+draws), so cells sharing a repeated `P50` value are, in practice,
+sitting in the same sizeable mapunit. Picking a few *different* repeated
+values gives a handful of distinct mapunit areas:
+
+``` r
+
+p50_all <- terra::values(prior_values$P50)[, 1]
+cell_ids <- which(!is.na(p50_all))
+rounded <- round(p50_all[cell_ids], 1)
+
+# Only consider values shared by several cells (a proxy for "a sizeable, distinct mapunit",
+# rather than a one-off simulation outlier), then spread the picks across the low-to-high clay
+# range so the examples aren't all pulled from one part of the AOI.
+freq <- table(rounded)
+frequent_vals <- sort(as.numeric(names(freq[freq >= 4])))
+pick_idx <- round(seq(1, length(frequent_vals), length.out = 4))
+picked_vals <- frequent_vals[pick_idx]
+example_cells <- vapply(picked_vals, function(v) cell_ids[which(rounded == v)[1]], numeric(1))
+
+picked_vals
+#> [1]  1.7 10.7 14.4 28.0
+```
+
+For each of these four example pixels, pull `mu`/`sigma` from the same
+Normal fits used above - `fit_prior_normal`/`fit_lik_normal` (Section 8)
+for the prior/likelihood, and `fusion_clay$posterior` (the pipeline’s
+real per-cell posterior, which carries both `mu` *and* `sigma`) for the
+posterior:
+
+``` r
+
+extract_at <- function(r, cell) terra::values(r)[cell]
+
+pixel_df <- do.call(rbind, lapply(seq_along(example_cells), function(i) {
+  cell <- example_cells[i]
+  data.frame(
+    pixel = sprintf("Pixel %d (mapunit-like cluster, prior P50 ~%.1f%%)", i, picked_vals[i]),
+    prior_mu = extract_at(fit_prior_normal$mu, cell), prior_sigma = extract_at(fit_prior_normal$sigma, cell),
+    lik_mu = extract_at(fit_lik_normal$mu, cell), lik_sigma = extract_at(fit_lik_normal$sigma, cell),
+    post_mu = extract_at(fusion_clay$posterior$mu, cell), post_sigma = extract_at(fusion_clay$posterior$sigma, cell)
+  )
+}))
+pixel_df
+#>                                              pixel prior_mu prior_sigma lik_mu
+#> 1  Pixel 1 (mapunit-like cluster, prior P50 ~1.7%)  1.74080    3.081634     18
+#> 2 Pixel 2 (mapunit-like cluster, prior P50 ~10.7%) 10.70449    3.508857     17
+#> 3 Pixel 3 (mapunit-like cluster, prior P50 ~14.4%) 14.40415    3.725312     24
+#> 4 Pixel 4 (mapunit-like cluster, prior P50 ~28.0%) 28.00061    4.541492     24
+#>   lik_sigma   post_mu post_sigma
+#> 1  12.50023  3.723446   3.338727
+#> 2  12.75534 10.353137   3.674820
+#> 3  12.75534 13.498238   4.005540
+#> 4  12.24512 27.030965   4.630531
+```
+
+Then evaluate each pixel’s three Normal curves
+([`stats::dnorm()`](https://rdrr.io/r/stats/Normal.html), no raster
+machinery needed for a single cell) over a shared x-range wide enough to
+show all three, and facet by pixel:
+
+``` r
+
+curve_at_pixel <- function(row) {
+  x_lo <- min(row$prior_mu - 4 * row$prior_sigma, row$lik_mu - 4 * row$lik_sigma,
+              row$post_mu - 4 * row$post_sigma, 0)
+  x_hi <- max(row$prior_mu + 4 * row$prior_sigma, row$lik_mu + 4 * row$lik_sigma,
+              row$post_mu + 4 * row$post_sigma, 100)
+  x <- seq(max(x_lo, 0), min(x_hi, 100), length.out = 300)
+  rbind(
+    data.frame(pixel = row$pixel, x = x, density = stats::dnorm(x, row$prior_mu, row$prior_sigma),
+               source = "Prior (SSURGO)"),
+    data.frame(pixel = row$pixel, x = x, density = stats::dnorm(x, row$lik_mu, row$lik_sigma),
+               source = "Likelihood (SOLUS)"),
+    data.frame(pixel = row$pixel, x = x, density = stats::dnorm(x, row$post_mu, row$post_sigma),
+               source = "Posterior (fused)")
+  )
+}
+curve_df <- do.call(rbind, lapply(seq_len(nrow(pixel_df)), function(i) curve_at_pixel(pixel_df[i, ])))
+curve_df$source <- factor(curve_df$source,
+  levels = c("Prior (SSURGO)", "Likelihood (SOLUS)", "Posterior (fused)"))
+
+ggplot(curve_df, aes(x = x, y = density, color = source, fill = source)) +
+  geom_area(alpha = 0.3, position = "identity") +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~pixel, scales = "free_y") +
+  scale_color_viridis_d(name = NULL) +
+  scale_fill_viridis_d(name = NULL) +
+  labs(title = "Prior, likelihood, and posterior at four individual pixels",
+       subtitle = "Each panel is one pixel from a different mapunit-like cluster",
+       x = "Clay content (%)", y = "Density") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+![](raster-native-fitting-fusion_files/figure-html/unnamed-chunk-24-1.png)
+
+Every pixel here tells the same qualitative story as the AOI-wide
+picture in Section 8 - the posterior curve sits close to the prior
+curve, barely shifted toward the likelihood - because precision
+weighting is happening independently at each pixel and, for this
+property/AOI, SOLUS’s per-pixel `sigma` is consistently much larger than
+SSURGO’s regardless of which mapunit the pixel falls in (visible
+directly in `pixel_df$lik_sigma` vs. `pixel_df$prior_sigma` above). A
+property or AOI where the two sources’ stated uncertainty is closer
+would show more pixel-to-pixel variation in how far the posterior moves,
+including pixels where the likelihood dominates instead.
+
+## 10. Caching internals
 
 [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)/[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
 disk-cache every fetch step under
@@ -533,7 +769,7 @@ terra::values(r_naive)               # ...but touching it throws
 #>   [4,]        NA
 #>   [5,]        NA
 #>   [6,]        NA
-#>   [7,]  5.617684
+#>   [7,]  5.513754
 #>   [8,]        NA
 #>   [9,]        NA
 #>  [10,]        NA
@@ -556,11 +792,11 @@ terra::values(r_naive)               # ...but touching it throws
 #>  [27,]        NA
 #>  [28,]        NA
 #>  [29,]        NA
-#>  [30,]  5.702985
-#>  [31,]  6.338704
-#>  [32,]  6.716888
-#>  [33,] 20.168330
-#>  [34,] 27.702405
+#>  [30,]  6.056102
+#>  [31,]  6.338324
+#>  [32,]  6.912659
+#>  [33,] 21.334730
+#>  [34,] 27.030965
 #>  [35,]        NA
 #>  [36,]        NA
 #>  [37,]        NA
@@ -579,15 +815,15 @@ terra::values(r_naive)               # ...but touching it throws
 #>  [50,]        NA
 #>  [51,]        NA
 #>  [52,]        NA
-#>  [53,]  4.176256
-#>  [54,]  7.046635
-#>  [55,] 15.987307
-#>  [56,] 25.949105
-#>  [57,] 27.156740
-#>  [58,] 26.814613
-#>  [59,] 27.525625
-#>  [60,] 27.621148
-#>  [61,] 27.401021
+#>  [53,]  4.971009
+#>  [54,]  6.479068
+#>  [55,] 16.503437
+#>  [56,] 25.814255
+#>  [57,] 27.907140
+#>  [58,] 28.022443
+#>  [59,] 27.281745
+#>  [60,] 27.833118
+#>  [61,] 27.950841
 #>  [62,]        NA
 #>  [63,]        NA
 #>  [64,]        NA
@@ -601,19 +837,19 @@ terra::values(r_naive)               # ...but touching it throws
 #>  [72,]        NA
 #>  [73,]        NA
 #>  [74,]        NA
-#>  [75,] 10.694405
-#>  [76,]  4.511492
-#>  [77,]  6.298189
-#>  [78,] 18.944530
-#>  [79,] 27.238920
-#>  [80,] 26.786937
-#>  [81,] 26.916070
-#>  [82,] 27.174763
-#>  [83,] 27.185201
-#>  [84,] 27.356489
-#>  [85,] 27.425391
-#>  [86,] 27.500891
-#>  [87,] 27.823371
+#>  [75,] 10.497035
+#>  [76,]  5.387846
+#>  [77,]  6.053746
+#>  [78,] 19.060490
+#>  [79,] 26.926240
+#>  [80,] 26.661847
+#>  [81,] 26.745230
+#>  [82,] 27.432363
+#>  [83,] 27.652231
+#>  [84,] 27.917359
+#>  [85,] 27.344451
+#>  [86,] 28.013321
+#>  [87,] 27.378561
 #>  [88,]        NA
 #>  [89,]        NA
 #>  [90,]        NA
@@ -624,411 +860,411 @@ terra::values(r_naive)               # ...but touching it throws
 #>  [95,]        NA
 #>  [96,]        NA
 #>  [97,]        NA
-#>  [98,] 12.133555
-#>  [99,]  6.826584
-#> [100,]  4.679505
-#> [101,]  9.864507
-#> [102,] 18.881457
+#>  [98,] 12.307365
+#>  [99,]  6.953534
+#> [100,]  4.701146
+#> [101,] 10.353137
+#> [102,] 18.170227
 #> [103,]        NA
-#> [104,] 25.159190
-#> [105,] 27.828436
-#> [106,] 27.769639
-#> [107,] 27.660459
-#> [108,] 27.723049
-#> [109,] 26.295819
-#> [110,] 23.918799
-#> [111,] 26.264536
-#> [112,] 27.712778
-#> [113,] 27.483733
-#> [114,] 27.461973
+#> [104,] 25.552390
+#> [105,] 27.528716
+#> [106,] 27.756149
+#> [107,] 27.705909
+#> [108,] 27.002529
+#> [109,] 26.439329
+#> [110,] 23.489279
+#> [111,] 26.525306
+#> [112,] 28.167618
+#> [113,] 27.598663
+#> [114,] 27.753873
 #> [115,]        NA
 #> [116,]        NA
 #> [117,]        NA
 #> [118,]        NA
 #> [119,]        NA
 #> [120,]        NA
-#> [121,] 12.931697
-#> [122,]  9.895927
-#> [123,]  4.633854
-#> [124,]  5.075940
-#> [125,]  6.752006
+#> [121,] 13.047057
+#> [122,] 10.024957
+#> [123,]  4.932454
+#> [124,]  4.936732
+#> [125,]  6.831262
 #> [126,]        NA
-#> [127,] 18.025786
-#> [128,] 27.405256
-#> [129,] 27.458148
-#> [130,] 27.431489
-#> [131,] 20.730648
-#> [132,] 10.910891
-#> [133,]  7.702441
-#> [134,] 15.348878
-#> [135,] 26.559989
-#> [136,] 26.997718
-#> [137,] 27.480773
-#> [138,] 27.720959
+#> [127,] 17.906676
+#> [128,] 27.921046
+#> [129,] 27.611038
+#> [130,] 27.264879
+#> [131,] 21.064458
+#> [132,] 10.789871
+#> [133,]  7.551773
+#> [134,] 14.936048
+#> [135,] 26.407569
+#> [136,] 27.075128
+#> [137,] 27.950843
+#> [138,] 27.974339
 #> [139,]        NA
 #> [140,]        NA
 #> [141,]        NA
 #> [142,]        NA
-#> [143,] 12.952013
-#> [144,] 12.854790
-#> [145,] 12.092157
-#> [146,]  6.591795
-#> [147,]  4.095535
-#> [148,]  6.028768
+#> [143,] 13.059353
+#> [144,] 13.184770
+#> [145,] 12.369777
+#> [146,]  6.688725
+#> [147,]  4.001997
+#> [148,]  5.500645
 #> [149,]        NA
-#> [150,]  8.729769
-#> [151,] 22.668705
-#> [152,] 23.691406
-#> [153,] 13.578688
-#> [154,]  7.076538
-#> [155,]  5.763104
-#> [156,]  6.192164
-#> [157,]  7.666363
-#> [158,] 21.648069
-#> [159,] 27.513079
-#> [160,] 27.647589
-#> [161,] 27.387311
+#> [150,]  8.867549
+#> [151,] 23.061965
+#> [152,] 23.422876
+#> [153,] 13.498238
+#> [154,]  7.153168
+#> [155,]  6.018624
+#> [156,]  6.496624
+#> [157,]  7.579653
+#> [158,] 21.731349
+#> [159,] 27.881159
+#> [160,] 26.986269
+#> [161,] 27.544781
 #> [162,]        NA
 #> [163,]        NA
 #> [164,]        NA
 #> [165,]        NA
-#> [166,] 12.726173
-#> [167,] 13.846402
-#> [168,] 14.409468
-#> [169,] 10.239828
-#> [170,]  4.704287
-#> [171,]  4.316316
-#> [172,]  6.323697
-#> [173,]  6.434593
-#> [174,]  8.658343
-#> [175,]  8.805277
-#> [176,]  5.897694
-#> [177,]  5.743684
-#> [178,]  5.854044
-#> [179,]  5.848724
-#> [180,]  6.243088
-#> [181,] 15.715158
-#> [182,] 24.417458
-#> [183,] 23.792208
-#> [184,] 24.238709
+#> [166,] 13.103153
+#> [167,] 14.142842
+#> [168,] 14.424858
+#> [169,] 10.214928
+#> [170,]  4.667976
+#> [171,]  4.422348
+#> [172,]  6.019767
+#> [173,]  6.291146
+#> [174,]  8.234903
+#> [175,]  8.431786
+#> [176,]  5.854015
+#> [177,]  5.768374
+#> [178,]  6.097004
+#> [179,]  6.215924
+#> [180,]  6.266272
+#> [181,] 15.597548
+#> [182,] 24.776698
+#> [183,] 24.074538
+#> [184,] 23.832819
 #> [185,]        NA
 #> [186,]        NA
 #> [187,]        NA
 #> [188,]        NA
-#> [189,] 20.229208
-#> [190,] 20.900485
-#> [191,] 21.078078
-#> [192,] 18.251905
-#> [193,]  7.099557
-#> [194,]  4.299301
-#> [195,]  4.869237
-#> [196,]  6.038959
-#> [197,]  6.301134
-#> [198,]  6.377844
-#> [199,]  6.184424
-#> [200,]  6.095194
-#> [201,]  6.118544
-#> [202,]  6.650154
-#> [203,]  6.713374
-#> [204,]  7.144828
-#> [205,]  9.139453
-#> [206,] 11.903225
+#> [189,] 20.076558
+#> [190,] 20.487495
+#> [191,] 20.823638
+#> [192,] 18.588315
+#> [193,]  6.721067
+#> [194,]  4.529395
+#> [195,]  5.259927
+#> [196,]  6.084984
+#> [197,]  5.895144
+#> [198,]  6.639594
+#> [199,]  5.835514
+#> [200,]  6.072674
+#> [201,]  6.282354
+#> [202,]  6.170624
+#> [203,]  6.273654
+#> [204,]  7.085832
+#> [205,]  9.216213
+#> [206,] 11.617685
 #> [207,]        NA
 #> [208,]        NA
 #> [209,]        NA
 #> [210,]        NA
 #> [211,]        NA
-#> [212,] 22.010988
-#> [213,] 21.358278
-#> [214,] 24.971645
-#> [215,] 23.887198
-#> [216,] 13.119547
-#> [217,]  5.340641
-#> [218,]  3.160899
-#> [219,]  5.121146
-#> [220,]  5.454242
-#> [221,]  6.008744
-#> [222,]  5.974584
-#> [223,]  6.009174
-#> [224,]  6.597794
-#> [225,]  6.158204
-#> [226,]  6.388054
-#> [227,]  6.325234
-#> [228,]  6.053934
-#> [229,]  6.591564
+#> [212,] 22.365728
+#> [213,] 21.290888
+#> [214,] 24.862545
+#> [215,] 23.873698
+#> [216,] 12.820867
+#> [217,]  5.334646
+#> [218,]  3.869894
+#> [219,]  5.236623
+#> [220,]  5.934822
+#> [221,]  6.288284
+#> [222,]  5.930204
+#> [223,]  5.821164
+#> [224,]  6.458184
+#> [225,]  5.959404
+#> [226,]  5.920964
+#> [227,]  5.922634
+#> [228,]  6.420774
+#> [229,]  6.340584
 #> [230,]        NA
 #> [231,]        NA
 #> [232,]        NA
 #> [233,]        NA
 #> [234,]        NA
-#> [235,] 12.909365
-#> [236,] 13.179286
-#> [237,] 20.019355
-#> [238,] 21.488223
-#> [239,] 20.022960
-#> [240,]  8.490597
-#> [241,]  3.971563
-#> [242,]  3.638997
-#> [243,]  5.022210
-#> [244,]  6.301289
-#> [245,]  5.959104
-#> [246,]  6.284724
-#> [247,]  6.271624
-#> [248,]  6.349554
-#> [249,]  6.433059
-#> [250,]  7.317796
-#> [251,]  7.286896
-#> [252,]  6.693646
+#> [235,] 12.740495
+#> [236,] 12.696656
+#> [237,] 20.025115
+#> [238,] 21.557923
+#> [239,] 20.222260
+#> [240,]  8.747617
+#> [241,]  3.845663
+#> [242,]  3.376861
+#> [243,]  5.147157
+#> [244,]  5.649134
+#> [245,]  5.809154
+#> [246,]  5.907154
+#> [247,]  5.869964
+#> [248,]  6.032694
+#> [249,]  6.209942
+#> [250,]  6.704714
+#> [251,]  7.324813
+#> [252,]  6.724679
 #> [253,]        NA
 #> [254,]        NA
 #> [255,]        NA
 #> [256,]        NA
-#> [257,] 11.448872
-#> [258,] 11.380142
-#> [259,] 11.535049
-#> [260,] 16.861378
-#> [261,] 21.476056
-#> [262,] 21.392043
-#> [263,] 14.707120
-#> [264,]  4.639382
-#> [265,]  2.989449
-#> [266,]  3.194979
-#> [267,]  4.767386
-#> [268,]  6.324323
-#> [269,]  5.722054
-#> [270,]  6.361562
-#> [271,]  8.252430
-#> [272,]  8.905715
-#> [273,]  9.941006
-#> [274,]  9.491506
-#> [275,]  7.863938
+#> [257,] 10.878542
+#> [258,] 10.840802
+#> [259,] 11.048089
+#> [260,] 16.683608
+#> [261,] 21.603606
+#> [262,] 21.546903
+#> [263,] 14.785350
+#> [264,]  4.953229
+#> [265,]  3.723446
+#> [266,]  3.919309
+#> [267,]  5.154748
+#> [268,]  5.975419
+#> [269,]  6.142824
+#> [270,]  6.079546
+#> [271,]  7.757721
+#> [272,]  9.028535
+#> [273,]  9.917106
+#> [274,]  9.170676
+#> [275,]  7.899348
 #> [276,]        NA
 #> [277,]        NA
 #> [278,]        NA
 #> [279,]        NA
-#> [280,] 11.357762
-#> [281,] 11.415883
-#> [282,] 11.643706
-#> [283,] 18.487289
-#> [284,] 21.509336
-#> [285,] 21.507523
-#> [286,] 20.019083
-#> [287,]  8.653790
+#> [280,] 10.798592
+#> [281,] 10.924713
+#> [282,] 11.143986
+#> [283,] 18.296449
+#> [284,] 21.686916
+#> [285,] 21.651943
+#> [286,] 20.209063
+#> [287,]  8.513660
 #> [288,]        NA
-#> [289,]  3.913314
-#> [290,]  3.318900
-#> [291,]  5.588911
-#> [292,]  6.342805
-#> [293,]  8.556738
-#> [294,]  9.118963
-#> [295,]  6.597258
-#> [296,]  6.010344
-#> [297,]  5.673744
+#> [289,]  3.925391
+#> [290,]  3.564288
+#> [291,]  5.328597
+#> [292,]  6.182809
+#> [293,]  8.803078
+#> [294,]  9.104363
+#> [295,]  7.013611
+#> [296,]  6.408614
+#> [297,]  5.915774
 #> [298,]        NA
 #> [299,]        NA
 #> [300,]        NA
 #> [301,]        NA
 #> [302,]        NA
-#> [303,] 11.452175
-#> [304,] 11.304660
+#> [303,] 10.891405
+#> [304,] 10.744310
 #> [305,]        NA
-#> [306,] 14.154623
-#> [307,] 17.910095
-#> [308,] 20.556115
-#> [309,] 21.369003
-#> [310,] 17.519728
-#> [311,]  6.360027
-#> [312,]  4.103785
-#> [313,]  3.040284
-#> [314,]  3.835789
-#> [315,]  4.684710
-#> [316,]  4.504426
-#> [317,]  4.219863
-#> [318,]  4.848295
-#> [319,]  5.556707
-#> [320,]  6.074394
+#> [306,] 13.874023
+#> [307,] 17.731745
+#> [308,] 20.652735
+#> [309,] 21.601983
+#> [310,] 17.579898
+#> [311,]  6.508097
+#> [312,]  4.005990
+#> [313,]  3.476241
+#> [314,]  4.353991
+#> [315,]  4.547539
+#> [316,]  4.571532
+#> [317,]  4.587507
+#> [318,]  4.827155
+#> [319,]  5.354703
+#> [320,]  5.808944
 #> [321,]        NA
 #> [322,]        NA
 #> [323,]        NA
 #> [324,]        NA
-#> [325,] 10.597117
-#> [326,] 11.036027
-#> [327,] 11.474717
-#> [328,] 11.635570
-#> [329,] 12.336323
-#> [330,] 16.633663
-#> [331,] 15.637043
-#> [332,] 18.540736
-#> [333,] 21.053512
-#> [334,] 14.022302
-#> [335,]  6.105902
-#> [336,]  4.269402
-#> [337,]  3.561030
-#> [338,]  3.039839
-#> [339,]  3.144924
+#> [325,] 11.146857
+#> [326,] 10.866167
+#> [327,] 10.996337
+#> [328,] 11.256610
+#> [329,] 12.307903
+#> [330,] 16.437633
+#> [331,] 15.508073
+#> [332,] 18.310386
+#> [333,] 21.366032
+#> [334,] 13.810562
+#> [335,]  5.731162
+#> [336,]  4.832626
+#> [337,]  3.647858
+#> [338,]  3.675237
+#> [339,]  3.558191
 #> [340,]        NA
-#> [341,]  3.671052
-#> [342,]  3.901577
-#> [343,]  5.913622
+#> [341,]  3.472457
+#> [342,]  4.263312
+#> [343,]  5.970253
 #> [344,]        NA
 #> [345,]        NA
 #> [346,]        NA
 #> [347,]        NA
-#> [348,] 10.998285
-#> [349,] 10.950407
-#> [350,] 11.212268
-#> [351,] 11.418008
-#> [352,] 12.163398
-#> [353,] 13.770360
-#> [354,] 18.204260
-#> [355,] 16.576592
-#> [356,] 20.711823
-#> [357,] 19.908498
-#> [358,] 11.591488
-#> [359,]  6.825564
-#> [360,]  5.386630
-#> [361,]  3.783755
-#> [362,]  3.485764
-#> [363,]  2.923684
-#> [364,]  3.299894
-#> [365,]  3.689571
+#> [348,] 10.931945
+#> [349,] 11.141357
+#> [350,] 10.908728
+#> [351,] 10.905788
+#> [352,] 12.287578
+#> [353,] 13.224830
+#> [354,] 18.131510
+#> [355,] 16.486002
+#> [356,] 20.866743
+#> [357,] 20.106878
+#> [358,] 11.392358
+#> [359,]  6.799787
+#> [360,]  5.459106
+#> [361,]  4.438018
+#> [362,]  4.177861
+#> [363,]  4.171971
+#> [364,]  3.402091
+#> [365,]  3.805834
 #> [366,]        NA
 #> [367,]        NA
 #> [368,]        NA
 #> [369,]        NA
 #> [370,]        NA
-#> [371,] 11.005018
-#> [372,] 10.812557
-#> [373,] 10.835087
-#> [374,] 10.977705
-#> [375,] 12.119147
-#> [376,] 12.316670
-#> [377,] 13.663350
-#> [378,] 17.782268
-#> [379,] 17.162470
-#> [380,] 15.576498
-#> [381,] 14.396967
-#> [382,] 14.471198
-#> [383,] 12.639718
-#> [384,]  6.617924
-#> [385,]  3.836892
-#> [386,]  2.946136
-#> [387,]  2.893044
-#> [388,]  3.500804
+#> [371,] 10.890718
+#> [372,] 10.922287
+#> [373,] 11.097847
+#> [374,] 10.911525
+#> [375,] 12.515657
+#> [376,] 12.303930
+#> [377,] 13.386280
+#> [378,] 17.649878
+#> [379,] 17.298030
+#> [380,] 15.706688
+#> [381,] 14.589147
+#> [382,] 14.369648
+#> [383,] 12.721408
+#> [384,]  6.958831
+#> [385,]  4.227801
+#> [386,]  3.653810
+#> [387,]  3.624821
+#> [388,]  3.462741
 #> [389,]        NA
 #> [390,]        NA
 #> [391,]        NA
 #> [392,]        NA
-#> [393,] 11.063758
-#> [394,] 11.091718
-#> [395,] 11.126497
-#> [396,] 10.995348
-#> [397,] 10.747688
-#> [398,] 11.544555
-#> [399,] 12.141505
-#> [400,] 11.731577
-#> [401,] 12.977408
-#> [402,] 13.129820
-#> [403,] 14.005758
-#> [404,] 14.464418
-#> [405,] 14.773730
-#> [406,] 16.545207
-#> [407,] 15.495910
-#> [408,]  7.214580
-#> [409,]  3.802836
-#> [410,]  3.444904
-#> [411,]  3.286404
+#> [393,] 11.012308
+#> [394,] 10.805578
+#> [395,] 10.799917
+#> [396,] 10.779708
+#> [397,] 11.035818
+#> [398,] 12.115855
+#> [399,] 12.546885
+#> [400,] 12.183557
+#> [401,] 13.199128
+#> [402,] 13.216920
+#> [403,] 14.109438
+#> [404,] 14.544458
+#> [405,] 14.656090
+#> [406,] 16.363107
+#> [407,] 15.347540
+#> [408,]  7.089960
+#> [409,]  4.279458
+#> [410,]  3.550161
+#> [411,]  3.218861
 #> [412,]        NA
 #> [413,]        NA
 #> [414,]        NA
 #> [415,]        NA
-#> [416,] 11.100818
-#> [417,] 10.965907
-#> [418,] 10.932998
-#> [419,] 10.907047
-#> [420,] 10.679867
-#> [421,] 10.682395
-#> [422,] 10.744802
-#> [423,] 11.017734
-#> [424,] 12.269237
-#> [425,] 12.703248
-#> [426,] 13.818927
-#> [427,] 14.499390
-#> [428,] 14.302580
-#> [429,] 14.593490
-#> [430,] 15.420992
-#> [431,] 13.496583
-#> [432,]  6.291990
-#> [433,]  3.611701
-#> [434,]  3.286138
+#> [416,] 10.984418
+#> [417,] 10.788997
+#> [418,] 10.825308
+#> [419,] 10.820237
+#> [420,] 10.867727
+#> [421,] 10.899135
+#> [422,] 11.378522
+#> [423,] 11.425124
+#> [424,] 12.692597
+#> [425,] 12.912258
+#> [426,] 13.965177
+#> [427,] 14.359950
+#> [428,] 14.549040
+#> [429,] 14.566930
+#> [430,] 15.488322
+#> [431,] 13.479223
+#> [432,]  5.926795
+#> [433,]  4.064121
+#> [434,]  3.919528
 #> [435,]        NA
 #> [436,]        NA
 #> [437,]        NA
 #> [438,]        NA
-#> [439,] 11.131727
-#> [440,] 11.017138
-#> [441,] 11.188368
-#> [442,] 11.804024
-#> [443,] 11.553905
-#> [444,] 10.922787
-#> [445,] 11.616745
-#> [446,] 10.833914
-#> [447,] 10.657217
-#> [448,] 12.071977
-#> [449,] 14.342268
-#> [450,] 14.382558
-#> [451,] 14.546165
-#> [452,] 14.496087
-#> [453,] 14.357558
-#> [454,] 14.137270
-#> [455,] 11.527928
-#> [456,]  6.448558
+#> [439,] 10.938167
+#> [440,] 10.947518
+#> [441,] 11.830968
+#> [442,] 12.068794
+#> [443,] 11.902735
+#> [444,] 11.666177
+#> [445,] 12.191875
+#> [446,] 11.631574
+#> [447,] 11.699077
+#> [448,] 12.689227
+#> [449,] 14.282238
+#> [450,] 14.434848
+#> [451,] 14.492095
+#> [452,] 14.345407
+#> [453,] 14.745258
+#> [454,] 14.572250
+#> [455,] 11.780028
+#> [456,]  6.559958
 #> [457,]        NA
 #> [458,]        NA
 #> [459,]        NA
 #> [460,]        NA
 #> [461,]        NA
-#> [462,] 10.902055
-#> [463,] 11.282760
-#> [464,] 12.542547
-#> [465,] 12.720685
-#> [466,] 11.745327
-#> [467,] 12.150287
-#> [468,] 12.832627
-#> [469,] 12.600565
-#> [470,] 13.035498
-#> [471,] 14.193585
-#> [472,] 14.388327
-#> [473,] 14.546348
-#> [474,] 14.558520
-#> [475,] 14.510922
-#> [476,] 14.399485
-#> [477,] 14.335807
-#> [478,] 14.350758
-#> [479,] 12.139128
+#> [462,] 10.928875
+#> [463,] 11.245520
+#> [464,] 12.789027
+#> [465,] 13.050725
+#> [466,] 12.291167
+#> [467,] 12.714467
+#> [468,] 13.248497
+#> [469,] 12.988325
+#> [470,] 13.453508
+#> [471,] 14.154865
+#> [472,] 14.443577
+#> [473,] 14.525378
+#> [474,] 14.552460
+#> [475,] 14.563272
+#> [476,] 14.659145
+#> [477,] 14.854317
+#> [478,] 14.691288
+#> [479,] 12.361468
 #> [480,]        NA
 #> [481,]        NA
 #> [482,]        NA
 #> [483,]        NA
 #> [484,]        NA
-#> [485,] 11.369655
-#> [486,] 11.625507
-#> [487,] 12.477548
-#> [488,] 12.386648
-#> [489,] 11.672267
-#> [490,] 12.894360
-#> [491,] 12.919620
-#> [492,] 13.005918
-#> [493,] 13.762807
-#> [494,] 14.364387
-#> [495,] 14.584837
-#> [496,] 14.605988
-#> [497,] 14.575658
-#> [498,] 14.584730
-#> [499,] 14.453947
-#> [500,] 14.536285
-#> [501,] 14.389497
-#> [502,] 14.436680
+#> [485,] 10.727725
+#> [486,] 10.787947
+#> [487,] 12.620168
+#> [488,] 12.796378
+#> [489,] 12.231647
+#> [490,] 12.952050
+#> [491,] 13.142630
+#> [492,] 13.057588
+#> [493,] 13.889437
+#> [494,] 14.324947
+#> [495,] 14.501487
+#> [496,] 14.392408
+#> [497,] 14.446178
+#> [498,] 14.445120
+#> [499,] 14.903737
+#> [500,] 14.814275
+#> [501,] 14.856947
+#> [502,] 14.827440
 #> [503,]        NA
 #> [504,]        NA
 #> [505,]        NA
@@ -1036,22 +1272,22 @@ terra::values(r_naive)               # ...but touching it throws
 #> [507,]        NA
 #> [508,]        NA
 #> [509,]        NA
-#> [510,] 12.663847
-#> [511,] 12.854205
-#> [512,] 12.642188
-#> [513,] 12.926218
-#> [514,] 12.857848
-#> [515,] 12.852172
-#> [516,] 12.887548
-#> [517,] 14.015755
-#> [518,] 14.518835
-#> [519,] 14.512737
-#> [520,] 14.706808
-#> [521,] 14.563848
-#> [522,] 14.499688
-#> [523,] 14.407165
-#> [524,] 14.467907
-#> [525,] 14.370917
+#> [510,] 12.957137
+#> [511,] 12.978825
+#> [512,] 13.039778
+#> [513,] 13.075728
+#> [514,] 13.252938
+#> [515,] 13.082552
+#> [516,] 13.353278
+#> [517,] 13.880775
+#> [518,] 14.499765
+#> [519,] 14.369447
+#> [520,] 14.511878
+#> [521,] 14.474648
+#> [522,] 14.648868
+#> [523,] 14.805245
+#> [524,] 14.868157
+#> [525,] 14.724677
 #> [526,]        NA
 #> [527,]        NA
 #> [528,]        NA
@@ -1063,17 +1299,17 @@ terra::values(r_naive)               # ...but touching it throws
 #> [534,]        NA
 #> [535,]        NA
 #> [536,]        NA
-#> [537,] 12.940160
-#> [538,] 12.776208
-#> [539,] 12.702400
-#> [540,] 13.746518
-#> [541,] 14.474658
-#> [542,] 14.381805
-#> [543,] 14.558518
+#> [537,] 13.207690
+#> [538,] 13.221258
+#> [539,] 13.157160
+#> [540,] 13.906988
+#> [541,] 14.462158
+#> [542,] 14.485185
+#> [543,] 14.343488
 #> [544,]        NA
-#> [545,] 14.478268
-#> [546,] 14.381277
-#> [547,] 14.398467
+#> [545,] 14.716618
+#> [546,] 14.672177
+#> [547,] 14.790637
 #> [548,]        NA
 #> [549,]        NA
 #> [550,]        NA
@@ -1089,14 +1325,14 @@ terra::values(r_naive)               # ...but touching it throws
 #> [560,]        NA
 #> [561,]        NA
 #> [562,]        NA
-#> [563,] 13.149357
-#> [564,] 14.269775
-#> [565,] 14.452127
-#> [566,] 14.528230
+#> [563,] 13.271077
+#> [564,] 14.080695
+#> [565,] 14.528477
+#> [566,] 14.573950
 #> [567,]        NA
-#> [568,] 14.608018
-#> [569,] 14.502137
-#> [570,] 14.293218
+#> [568,] 14.452078
+#> [569,] 14.503257
+#> [570,] 14.923508
 #> [571,]        NA
 #> [572,]        NA
 #> [573,]        NA
@@ -1116,10 +1352,10 @@ terra::values(r_naive)               # ...but touching it throws
 #> [587,]        NA
 #> [588,]        NA
 #> [589,]        NA
-#> [590,] 14.641297
-#> [591,] 14.644867
-#> [592,] 14.583728
-#> [593,] 14.481388
+#> [590,] 14.461267
+#> [591,] 14.558437
+#> [592,] 14.742098
+#> [593,] 14.740058
 #> [594,]        NA
 #> [595,]        NA
 #> [596,]        NA
