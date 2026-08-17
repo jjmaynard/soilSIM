@@ -30,7 +30,35 @@ NULL
 #'     \item metadata: Download and processing metadata
 #'     \item validation_results: Data validation results (if validate_data = TRUE)
 #'     \item cache_info: Cache usage information (if caching enabled)
+#'     \item components_missing_horizons: Data frame (`mukey`/`cokey`/`compname`/`comppct_l/r/h`),
+#'       one row per component that has a real `comppct` but zero `chorizon` rows in SDA AND no
+#'       AOI sibling (same `compname`) to recover a profile from - empty if none. Always empty for
+#'       a cache hit (see Component recovery section below).
+#'     \item components_recovered: Data frame (`mukey`/`cokey`/`compname`/`n_sibling_cokeys_used`),
+#'       one row per component whose horizon profile WAS synthesized from AOI siblings - empty if
+#'       none. Always empty for a cache hit (see Component recovery section below).
 #'   }
+#'
+#' @section Component recovery (on by default):
+#' `execute_ssurgo_query_working()`'s `INNER JOIN chorizon` silently drops any real component with
+#' zero `chorizon` rows in SDA - a common, verified SSURGO data-completeness gap, especially for
+#' minor components. This function recovers such components automatically: for each one, it
+#' searches this same AOI's own fetched data for other cokeys sharing the missing component's
+#' `compname` that DO have full horizon data, and averages their profiles (aligned by
+#' `classify_genhz()` group) to synthesize a representative one - see
+#' `synthesize_component_horizons_from_siblings()`'s docs for the exact averaging rule. Synthesized
+#' rows are tagged `component_synthesized = TRUE` and `infill_method = "component_aoi_average"` in
+#' `ssurgo_data` for traceability. A component with no AOI sibling to recover from is left out of
+#' `ssurgo_data` (same as before this feature existed) but reported in
+#' `components_missing_horizons` instead of vanishing with zero trace.
+#'
+#' @section Cache invalidation:
+#' A cache entry (`cache_dir`) written before this feature shipped, or before it was extended,
+#' predates component recovery entirely - `ssurgo_data` in that cached entry won't contain any
+#' synthesized rows, and a cache hit always returns empty `components_missing_horizons`/
+#' `components_recovered` placeholders regardless of what a fresh download would find (only counts,
+#' not the full data frames, are persisted via `metadata`). Clear the cache to pick up recovered
+#' components.
 #'
 #' @export
 download_ssurgo_tabular <- function(aoi_wkt,
@@ -104,6 +132,13 @@ download_ssurgo_tabular <- function(aoi_wkt,
         )
       }
 
+      # NOTE: components_missing_horizons/components_recovered are NOT persisted across a cache
+      # round-trip (only their counts, via cache_result$metadata's
+      # components_missing_horizons_count/components_recovered_count fields, if the cache entry
+      # was written by a post-recovery-feature download) - a cache hit returns empty placeholders
+      # here rather than extending the on-disk cache schema. A cache entry written BEFORE this
+      # feature shipped also predates component recovery entirely (ssurgo_data itself won't
+      # contain any synthesized rows) - clear the cache to pick up recovered components.
       return(list(
         ssurgo_data = cache_result$data,
         mu = cache_result$mu,
@@ -113,7 +148,12 @@ download_ssurgo_tabular <- function(aoi_wkt,
           cache_hit = TRUE,
           cache_file = cache_result$cache_file,
           cache_timestamp = cache_result$timestamp
-        )
+        ),
+        components_missing_horizons = data.frame(mukey = character(0), cokey = character(0),
+          compname = character(0), comppct_l = numeric(0), comppct_r = numeric(0),
+          comppct_h = numeric(0), stringsAsFactors = FALSE),
+        components_recovered = data.frame(mukey = character(0), cokey = character(0),
+          compname = character(0), n_sibling_cokeys_used = integer(0), stringsAsFactors = FALSE)
       ))
     }
   }
@@ -177,6 +217,20 @@ download_ssurgo_tabular <- function(aoi_wkt,
     ssurgo_data$unsuitable_horizon <- is_unsuitable(ssurgo_data, hzname_col = "hzname")
   }
 
+  # Step 7.5: Recover components with a real comppct but zero chorizon rows - a real, verified
+  # SSURGO data-completeness gap (execute_ssurgo_query_working()'s INNER JOIN chorizon silently
+  # drops such components with zero trace). On by default: search this same AOI's ssurgo_data for
+  # other cokeys sharing the missing component's compname and average their profiles (see
+  # recover_missing_horizon_components()'s docs). Runs after RFV/restriction processing (so
+  # synthesized rows average already-fully-processed sibling columns) and before validation (so
+  # the fuller dataset is what gets validated/cached).
+  if (verbose) log_message("INFO", "Checking for components missing horizon data", category = "Download")
+  all_components <- fetch_ssurgo_all_components_working(mukey_list, verbose = verbose)
+  recovery_result <- recover_missing_horizon_components(ssurgo_data, all_components, verbose = verbose)
+  ssurgo_data <- recovery_result$ssurgo_data
+  components_missing_horizons <- recovery_result$components_missing_horizons
+  components_recovered <- recovery_result$components_recovered
+
   # Step 8: Data validation using Module 8
   validation_results <- NULL
   if (validate_data) {
@@ -219,7 +273,9 @@ download_ssurgo_tabular <- function(aoi_wkt,
     data_rows = nrow(ssurgo_data),
     unique_cokeys = length(unique(ssurgo_data$cokey %||% character(0))),
     spatial_result = spatial_result,
-    validation_results = validation_results
+    validation_results = validation_results,
+    components_missing_horizons = components_missing_horizons,
+    components_recovered = components_recovered
   )
 
   if (verbose) {
@@ -234,7 +290,9 @@ download_ssurgo_tabular <- function(aoi_wkt,
     mu = mu,
     metadata = metadata,
     validation_results = validation_results,
-    cache_info = cache_info
+    cache_info = cache_info,
+    components_missing_horizons = components_missing_horizons,
+    components_recovered = components_recovered
   ))
 }
 
@@ -396,6 +454,237 @@ execute_ssurgo_query_working <- function(mukey_list, properties, ssurgo_lookup,
   }
 
   return(ssurgo_data)
+}
+
+#' Fetch All Components for a Set of Map Unit Keys (No Horizon Join)
+#'
+#' Companion query to `execute_ssurgo_query_working()`. That function's `INNER JOIN chorizon`
+#' silently drops any real SSURGO component that has zero `chorizon` (horizon-level property) rows
+#' in SDA - a real, verified data-completeness gap, especially common for minor components (e.g. a
+#' 3%-share component whose horizon table was never populated). This function queries the
+#' `component` table alone, with no `chorizon` join, so callers can detect exactly which components
+#' `execute_ssurgo_query_working()`'s result is missing (see `recover_missing_horizon_components()`).
+#'
+#' @param mukey_list Vector of map unit keys (same input `execute_ssurgo_query_working()` takes).
+#' @param verbose Logical; provide progress messages.
+#' @return Data frame with one row per component: `mukey`, `cokey`, `compname`, `comppct_l`,
+#'   `comppct_r`, `comppct_h`. An empty (0-row) data frame with these columns if the query returns
+#'   nothing or fails outright - this is a best-effort enrichment step, not a hard requirement, so
+#'   failures are logged and swallowed rather than raised (unlike `execute_ssurgo_query_working()`,
+#'   whose own query failure is fatal to the whole download).
+#' @keywords internal
+fetch_ssurgo_all_components_working <- function(mukey_list, verbose = FALSE) {
+  empty_result <- data.frame(mukey = character(0), cokey = character(0), compname = character(0),
+                              comppct_l = numeric(0), comppct_r = numeric(0), comppct_h = numeric(0),
+                              stringsAsFactors = FALSE)
+
+  formatted_mukey <- paste0("(", paste0("'", as.integer(mukey_list), "'", collapse = ","), ")")
+
+  query <- sprintf(
+    "SELECT co.mukey, co.cokey, co.compname, co.comppct_l, co.comppct_r, co.comppct_h
+     FROM component AS co
+     WHERE co.mukey IN %s;",
+    formatted_mukey
+  )
+
+  if (verbose) log_message("DEBUG", "Fetching component-only table (no chorizon join)", category = "Query")
+
+  result <- tryCatch(
+    soilDB::SDA_query(query),
+    error = function(e) {
+      log_message("WARN", paste("Component-only query failed:", e$message), category = "Query")
+      NULL
+    }
+  )
+
+  if (is.null(result) || !is.data.frame(result) || nrow(result) == 0) {
+    return(empty_result)
+  }
+  result
+}
+
+#' Synthesize a Representative Horizon Profile for a Component from AOI Siblings
+#'
+#' Given one component known to exist (via a real `comppct`) but missing all horizon data
+#' (`target_component`), and the already fully processed horizon rows of OTHER cokeys within the
+#' same `download_ssurgo_tabular()` call's `ssurgo_data` that share `target_component$compname`
+#' (`sibling_horizons`), builds a synthetic horizon profile for `target_component$cokey` by
+#' averaging sibling horizons within each `classify_genhz()` group.
+#'
+#' @section Alignment method:
+#' Horizons are aligned by `classify_genhz(hzname)` group (`O`/`A`/`E`/`B`/`C`/`Cr`/`R`), not by
+#' position or depth bin - robust to sibling profiles having different horizon counts or depths.
+#' Sibling rows whose `hzname` doesn't classify (`classify_genhz()` returns `NA`) are dropped from
+#' averaging entirely rather than guessed at - verified before choosing this: no depth-or-property-
+#' based genhz fallback exists anywhere else in soilSIM to reuse (`classify_genhz()` itself and the
+#' separate `aqp::generalizeHz()` usage in `R/depth-simulation.R` are both purely `hzname`-regex
+#' matchers).
+#'
+#' @section Averaging rule per genhz group:
+#' \itemize{
+#'   \item Numeric columns (depths, thicknesses, every property column present): arithmetic mean
+#'     across whichever sibling rows fall in that genhz group, `na.rm = TRUE`.
+#'   \item `hzname`: the most frequent `hzname` string among the group's sibling rows (ties broken
+#'     alphabetically) - reused verbatim, never invented, so it re-classifies to the same genhz
+#'     group deterministically.
+#'   \item Other character/logical columns (`texcl`, `desgnmaster`, `unsuitable_horizon`, etc.):
+#'     most frequent non-`NA` value in the group; `NA` if every sibling value in the group is `NA`.
+#'   \item `mukey`/`cokey`/`compname`/`comppct_l`/`comppct_r`/`comppct_h`: taken from
+#'     `target_component`, never averaged from siblings - the missing component's own real identity
+#'     and composition percentages are already known and correct.
+#'   \item `chkey`: freshly generated (`"synth_<cokey>_<genhz>"`), unique and clearly synthetic.
+#' }
+#' A genhz group present in only one sibling still produces a row (mean of one = a copy); a group
+#' present in zero siblings is simply absent from the output - never fabricated from nothing.
+#'
+#' @param target_component One-row data frame: `mukey`, `cokey`, `compname`, `comppct_l`,
+#'   `comppct_r`, `comppct_h`.
+#' @param sibling_horizons Data frame of horizon rows (same column shape as
+#'   `download_ssurgo_tabular()`'s `ssurgo_data`) from one or more OTHER cokeys sharing
+#'   `target_component$compname`.
+#' @return Data frame of synthesized horizon rows for `target_component$cokey`, one row per genhz
+#'   group produced, with `infill_method = "component_aoi_average"` and
+#'   `component_synthesized = TRUE` on every row. A 0-row data frame if no sibling horizon was
+#'   classifiable at all.
+#' @keywords internal
+synthesize_component_horizons_from_siblings <- function(target_component, sibling_horizons) {
+  sibling_horizons$.genhz <- classify_genhz(sibling_horizons$hzname)
+  sibling_horizons <- sibling_horizons[!is.na(sibling_horizons$.genhz), , drop = FALSE]
+  if (nrow(sibling_horizons) == 0) {
+    return(sibling_horizons[0, setdiff(names(sibling_horizons), ".genhz"), drop = FALSE])
+  }
+
+  identity_cols <- c("mukey", "cokey", "compname", "comppct_l", "comppct_r", "comppct_h",
+                      "chkey", "hzname", ".genhz")
+  avg_cols <- setdiff(names(sibling_horizons), identity_cols)
+  numeric_cols <- avg_cols[vapply(sibling_horizons[avg_cols], is.numeric, logical(1))]
+  other_cols <- setdiff(avg_cols, numeric_cols)
+
+  # table()/names(table(...)) would coerce x to character (corrupting e.g. a logical
+  # unsuitable_horizon column into "TRUE"/"FALSE" strings, breaking bind_rows() against the real
+  # rows' logical column downstream) - index back into the original x instead, preserving type.
+  mode_val <- function(x) {
+    x <- x[!is.na(x)]
+    if (length(x) == 0) return(NA)
+    ux <- unique(x)
+    counts <- vapply(ux, function(v) sum(x == v), integer(1))
+    ux[[which.max(counts)]]
+  }
+
+  groups <- split(sibling_horizons, sibling_horizons$.genhz)
+  rows <- lapply(names(groups), function(g) {
+    grp <- groups[[g]]
+    out <- target_component[1, c("mukey", "cokey", "compname", "comppct_l", "comppct_r", "comppct_h"), drop = FALSE]
+    out$chkey <- paste0("synth_", target_component$cokey[1], "_", g)
+    hz_tab <- sort(table(grp$hzname), decreasing = TRUE)
+    out$hzname <- names(hz_tab)[1]
+    for (col in numeric_cols) out[[col]] <- mean(as.numeric(grp[[col]]), na.rm = TRUE)
+    for (col in other_cols) out[[col]] <- mode_val(grp[[col]])
+    out
+  })
+
+  result <- dplyr::bind_rows(rows)
+  result$infill_method <- "component_aoi_average"
+  result$component_synthesized <- TRUE
+  if ("hzdept_r" %in% names(result)) result <- result[order(result$hzdept_r), , drop = FALSE]
+  rownames(result) <- NULL
+  result
+}
+
+#' Recover SSURGO Components Missing All Horizon Data
+#'
+#' `execute_ssurgo_query_working()`'s `INNER JOIN chorizon` silently drops any real component that
+#' has zero `chorizon` rows in SDA. This function finds such components (via `all_components`, a
+#' component-only fetch with no chorizon join - see `fetch_ssurgo_all_components_working()`) and,
+#' for each one, tries to synthesize a representative horizon profile by averaging OTHER cokeys in
+#' the same AOI's `ssurgo_data` that share the missing component's `compname` (see
+#' `synthesize_component_horizons_from_siblings()`). Components with no such AOI sibling are left
+#' out of `ssurgo_data` (same as current behavior) but are returned in
+#' `components_missing_horizons` instead of vanishing untraced.
+#'
+#' @param ssurgo_data The AOI's already fully processed horizon-grain data frame (i.e.
+#'   `download_ssurgo_tabular()`'s Step 7 output - after RFV aggregation and restriction
+#'   indicators, before `validate_data_quality()`).
+#' @param all_components Data frame from `fetch_ssurgo_all_components_working()` (or shaped like
+#'   it) - every real component for this AOI's `mukey_list`, independent of horizon data
+#'   availability.
+#' @param verbose Logical; provide progress messages.
+#' @return `list(ssurgo_data = <ssurgo_data, with synthesized rows appended if any>,
+#'   components_missing_horizons = <data frame: mukey/cokey/compname/comppct_l/r/h for components
+#'   neither present in ssurgo_data nor resolvable via an AOI sibling>, components_recovered =
+#'   <data frame: mukey/cokey/compname/n_sibling_cokeys_used for components that WERE
+#'   synthesized>)`.
+#' @keywords internal
+recover_missing_horizon_components <- function(ssurgo_data, all_components, verbose = FALSE) {
+  empty_missing <- data.frame(mukey = character(0), cokey = character(0), compname = character(0),
+                               comppct_l = numeric(0), comppct_r = numeric(0), comppct_h = numeric(0),
+                               stringsAsFactors = FALSE)
+  empty_recovered <- data.frame(mukey = character(0), cokey = character(0), compname = character(0),
+                                 n_sibling_cokeys_used = integer(0), stringsAsFactors = FALSE)
+
+  if (is.null(all_components) || nrow(all_components) == 0) {
+    return(list(ssurgo_data = ssurgo_data, components_missing_horizons = empty_missing,
+                components_recovered = empty_recovered))
+  }
+
+  present_cokeys <- unique(as.character(ssurgo_data$cokey))
+  missing <- all_components[!as.character(all_components$cokey) %in% present_cokeys, , drop = FALSE]
+  if (nrow(missing) == 0) {
+    return(list(ssurgo_data = ssurgo_data, components_missing_horizons = empty_missing,
+                components_recovered = empty_recovered))
+  }
+
+  if (verbose) {
+    log_message("WARN", paste(nrow(missing), "component(s) have comppct but zero chorizon rows",
+                               "- attempting AOI-sibling recovery"), category = "ComponentRecovery")
+  }
+
+  unresolved_rows <- list()
+  recovered_rows <- list()
+  synthesized_list <- list()
+
+  for (i in seq_len(nrow(missing))) {
+    target <- missing[i, , drop = FALSE]
+    siblings <- ssurgo_data[!is.na(ssurgo_data$compname) & ssurgo_data$compname == target$compname &
+                               as.character(ssurgo_data$cokey) != as.character(target$cokey), , drop = FALSE]
+    if (nrow(siblings) == 0) {
+      unresolved_rows[[length(unresolved_rows) + 1]] <- target
+      next
+    }
+    synth <- synthesize_component_horizons_from_siblings(target, siblings)
+    if (nrow(synth) == 0) {
+      unresolved_rows[[length(unresolved_rows) + 1]] <- target
+      next
+    }
+    synthesized_list[[length(synthesized_list) + 1]] <- synth
+    recovered_rows[[length(recovered_rows) + 1]] <- data.frame(
+      mukey = target$mukey, cokey = target$cokey, compname = target$compname,
+      n_sibling_cokeys_used = length(unique(siblings$cokey)), stringsAsFactors = FALSE
+    )
+  }
+
+  if (length(synthesized_list) > 0) {
+    # Real chkey values from SDA are integer; synthesize_component_horizons_from_siblings()
+    # deliberately generates a "synth_<cokey>_<genhz>" STRING chkey (unique, clearly synthetic) -
+    # dplyr::bind_rows() refuses to combine an integer column with a character one, so coerce the
+    # real rows' chkey to character first. chkey is only ever used as an identifier/grouping key
+    # elsewhere in the package (e.g. aggregate_rock_fragment_volume_working()'s group_by(chkey)),
+    # never arithmetically, so this is safe.
+    if ("chkey" %in% names(ssurgo_data)) ssurgo_data$chkey <- as.character(ssurgo_data$chkey)
+    ssurgo_data <- dplyr::bind_rows(ssurgo_data, dplyr::bind_rows(synthesized_list))
+    # bind_rows() fills structurally-absent columns with NA, not the real rows' correct defaults -
+    # backfill explicitly so ensure_infilling_columns() (R/data-infilling.R) never sees NA here.
+    if (!"infill_method" %in% names(ssurgo_data)) ssurgo_data$infill_method <- ""
+    ssurgo_data$infill_method[is.na(ssurgo_data$infill_method)] <- ""
+    if (!"component_synthesized" %in% names(ssurgo_data)) ssurgo_data$component_synthesized <- FALSE
+    ssurgo_data$component_synthesized[is.na(ssurgo_data$component_synthesized)] <- FALSE
+  }
+
+  list(
+    ssurgo_data = ssurgo_data,
+    components_missing_horizons = if (length(unresolved_rows) > 0) dplyr::bind_rows(unresolved_rows) else empty_missing,
+    components_recovered = if (length(recovered_rows) > 0) dplyr::bind_rows(recovered_rows) else empty_recovered
+  )
 }
 
 #' Aggregate Rock Fragment Volume (Working Version)
@@ -1282,10 +1571,15 @@ generate_ssurgo_cache_key <- function(aoi_wkt, properties, include_restrictions)
 #' @param unique_cokeys Number of unique component keys
 #' @param spatial_result Spatial processing results
 #' @param validation_results Data validation results
+#' @param components_missing_horizons Data frame or `NULL` - components with a real `comppct` but
+#'   no AOI sibling to recover a profile from (see `recover_missing_horizon_components()`).
+#' @param components_recovered Data frame or `NULL` - components successfully synthesized from an
+#'   AOI sibling's averaged profile (see `recover_missing_horizon_components()`).
 #'
 #' @return List with comprehensive metadata
 create_download_metadata <- function(start_time, end_time, aoi_wkt, properties, include_restrictions,
-                                     mukey_count, data_rows, unique_cokeys, spatial_result, validation_results) {
+                                     mukey_count, data_rows, unique_cokeys, spatial_result, validation_results,
+                                     components_missing_horizons = NULL, components_recovered = NULL) {
 
   list(
     # Timing information
@@ -1302,6 +1596,8 @@ create_download_metadata <- function(start_time, end_time, aoi_wkt, properties, 
     mukey_count = mukey_count,
     data_rows = data_rows,
     unique_cokeys = unique_cokeys,
+    components_missing_horizons_count = if (!is.null(components_missing_horizons)) nrow(components_missing_horizons) else NA_integer_,
+    components_recovered_count = if (!is.null(components_recovered)) nrow(components_recovered) else NA_integer_,
 
     # Spatial information
     aoi_area_m2 = if (!is.null(spatial_result$aoi)) {

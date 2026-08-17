@@ -14,7 +14,9 @@ create_download_metadata(
   data_rows,
   unique_cokeys,
   spatial_result,
-  validation_results
+  validation_results,
+  components_missing_horizons = NULL,
+  components_recovered = NULL
 )
 }
 \arguments{
@@ -37,6 +39,12 @@ create_download_metadata(
 \item{spatial_result}{Spatial processing results}
 
 \item{validation_results}{Data validation results}
+
+\item{components_missing_horizons}{Data frame or \code{NULL} - components with a real \code{comppct} but
+no AOI sibling to recover a profile from (see \code{recover_missing_horizon_components()}).}
+
+\item{components_recovered}{Data frame or \code{NULL} - components successfully synthesized from an
+AOI sibling's averaged profile (see \code{recover_missing_horizon_components()}).}
 }
 \value{
 List with comprehensive metadata

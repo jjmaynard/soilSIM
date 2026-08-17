@@ -40,6 +40,13 @@ List containing:
 \item metadata: Download and processing metadata
 \item validation_results: Data validation results (if validate_data = TRUE)
 \item cache_info: Cache usage information (if caching enabled)
+\item components_missing_horizons: Data frame (\code{mukey}/\code{cokey}/\code{compname}/\code{comppct_l/r/h}),
+one row per component that has a real \code{comppct} but zero \code{chorizon} rows in SDA AND no
+AOI sibling (same \code{compname}) to recover a profile from - empty if none. Always empty for
+a cache hit (see Component recovery section below).
+\item components_recovered: Data frame (\code{mukey}/\code{cokey}/\code{compname}/\code{n_sibling_cokeys_used}),
+one row per component whose horizon profile WAS synthesized from AOI siblings - empty if
+none. Always empty for a cache hit (see Component recovery section below).
 }
 }
 \description{
@@ -47,3 +54,28 @@ Enhanced version of the proven download_ssurgo_tabular function with additional
 caching, validation, and reporting capabilities while maintaining compatibility
 with existing soil property simulation workflows.
 }
+\section{Component recovery (on by default)}{
+
+\code{execute_ssurgo_query_working()}'s \verb{INNER JOIN chorizon} silently drops any real component with
+zero \code{chorizon} rows in SDA - a common, verified SSURGO data-completeness gap, especially for
+minor components. This function recovers such components automatically: for each one, it
+searches this same AOI's own fetched data for other cokeys sharing the missing component's
+\code{compname} that DO have full horizon data, and averages their profiles (aligned by
+\code{classify_genhz()} group) to synthesize a representative one - see
+\code{synthesize_component_horizons_from_siblings()}'s docs for the exact averaging rule. Synthesized
+rows are tagged \code{component_synthesized = TRUE} and \code{infill_method = "component_aoi_average"} in
+\code{ssurgo_data} for traceability. A component with no AOI sibling to recover from is left out of
+\code{ssurgo_data} (same as before this feature existed) but reported in
+\code{components_missing_horizons} instead of vanishing with zero trace.
+}
+
+\section{Cache invalidation}{
+
+A cache entry (\code{cache_dir}) written before this feature shipped, or before it was extended,
+predates component recovery entirely - \code{ssurgo_data} in that cached entry won't contain any
+synthesized rows, and a cache hit always returns empty \code{components_missing_horizons}/
+\code{components_recovered} placeholders regardless of what a fresh download would find (only counts,
+not the full data frames, are persisted via \code{metadata}). Clear the cache to pick up recovered
+components.
+}
+

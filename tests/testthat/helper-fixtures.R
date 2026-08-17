@@ -202,6 +202,57 @@ make_component_data <- function() {
   )
 }
 
+#' Build synthetic data for `recover_missing_horizon_components()`/
+#' `synthesize_component_horizons_from_siblings()` testing (`R/ssurgo-acquisition.R`).
+#'
+#' `ssurgo_data`: two sibling cokeys ("10","11") sharing `compname = "compA"`, each with an A and
+#' a Bt horizon (deliberately different exact depths/values so averaging is verifiable), plus one
+#' unrelated cokey ("12", `compB`) that should never be touched by recovery logic aimed at compA.
+#'
+#' `all_components`: the full component-only table (no chorizon join) - includes all three cokeys
+#' above (redundant with `ssurgo_data`, as a real `fetch_ssurgo_all_components_working()` result
+#' would be) PLUS a 4th component, cokey "20" under a DIFFERENT mukey ("2"), also named "compA",
+#' with a real `comppct` but zero horizon rows in `ssurgo_data` - the gap this feature recovers.
+#' Deliberately placed under a different mukey than its siblings to verify sibling search is
+#' AOI-wide (matching `compname` anywhere in the AOI's `ssurgo_data`), not restricted to one mukey.
+make_component_recovery_fixture <- function() {
+  sibling1 <- data.frame(
+    mukey = "1", cokey = "10", compname = "compA",
+    comppct_l = 40, comppct_r = 50, comppct_h = 60,
+    hzname = c("A", "Bt"), hzdept_r = c(0, 20), hzdepb_r = c(20, 60),
+    sandtotal_r = c(40, 30), claytotal_r = c(15, 25),
+    unsuitable_horizon = c(FALSE, FALSE),
+    stringsAsFactors = FALSE
+  )
+  sibling2 <- data.frame(
+    mukey = "1", cokey = "11", compname = "compA",
+    comppct_l = 40, comppct_r = 50, comppct_h = 60,
+    hzname = c("A", "Bt"), hzdept_r = c(0, 18), hzdepb_r = c(18, 55),
+    sandtotal_r = c(44, 34), claytotal_r = c(19, 29),
+    unsuitable_horizon = c(FALSE, FALSE),
+    stringsAsFactors = FALSE
+  )
+  compB <- data.frame(
+    mukey = "1", cokey = "12", compname = "compB",
+    comppct_l = 10, comppct_r = 15, comppct_h = 20,
+    hzname = "A", hzdept_r = 0, hzdepb_r = 25,
+    sandtotal_r = 55, claytotal_r = 10,
+    unsuitable_horizon = FALSE,
+    stringsAsFactors = FALSE
+  )
+  ssurgo_data <- dplyr::bind_rows(sibling1, sibling2, compB)
+
+  all_components <- data.frame(
+    mukey = c("1", "1", "1", "2"),
+    cokey = c("10", "11", "12", "20"),
+    compname = c("compA", "compA", "compB", "compA"),
+    comppct_l = c(40, 40, 10, 3), comppct_r = c(50, 50, 15, 5), comppct_h = c(60, 60, 20, 7),
+    stringsAsFactors = FALSE
+  )
+
+  list(ssurgo_data = ssurgo_data, all_components = all_components)
+}
+
 #' Build a genhz-keyed list of small, positive-definite correlation matrices
 #' for `simulate_cokey_generalized()` testing (`R/property-simulation.R`),
 #' covering `db`/`ph` plus the `ilr1`/`ilr2` texture pseudo-properties (present

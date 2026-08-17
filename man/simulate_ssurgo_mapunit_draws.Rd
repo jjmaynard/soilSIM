@@ -35,6 +35,10 @@ Default \code{parallel = FALSE} matches prior behavior exactly.}
 \value{
 A data frame, one row per \code{mukey}/\code{cokey}/\code{simulation_number} replicate, with simulated
 property columns aggregated over the depth window - or \code{NULL} if the tabular fetch fails.
+Minor components that \code{download_ssurgo_tabular()}'s underlying query would otherwise drop
+entirely (real \code{comppct}, zero \code{chorizon} rows in SDA) are included transparently here
+whenever an AOI sibling let them be recovered - see \code{download_ssurgo_tabular()}'s "Component
+recovery" section.
 }
 \description{
 Orchestrates the full SSURGO percentile-prior pipeline for one AOI/depth-window: fetch (cached)
@@ -44,4 +48,13 @@ tabular SSURGO data, infill missing values, derive \code{genhz}, simulate compon
 remove organic horizons and apply depth-trend GP adjustment, then aggregate to the requested
 depth window.
 }
+\section{Cache invalidation}{
+
+This function's own disk cache (\code{build_cache_key()}/\code{cache_get()}/\code{cache_set()}, keyed by
+\code{aoi_vect}/depth window) is separate from \code{download_ssurgo_tabular()}'s own \code{cache_dir}
+parameter (always \code{NULL} here). A cache entry for a given AOI/depth-window combination written
+before component recovery shipped predates it entirely - clear that cache entry (or the whole
+cache directory) to pick up recovered components.
+}
+
 \keyword{datasets}

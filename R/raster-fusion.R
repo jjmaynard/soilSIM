@@ -795,8 +795,7 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
   }
 
   ssurgo_key <- build_cache_key(aoi_vect, property_config$id, top_depth, bottom_depth, "ssurgo")
-  prior <- cache_get(ssurgo_key)
-  if (!is.null(prior)) prior <- unwrap_percentile_list(prior)
+  prior <- cache_get_valid_percentiles(ssurgo_key)
   if (is.null(prior)) {
     ssurgo_property_id <- if (!is.null(property_config$solus_variable)) property_config$solus_variable else property_config$id
     prior <- fetch_ssurgo_percentiles(aoi_vect, ssurgo_property_id, top_depth, bottom_depth,
@@ -806,8 +805,7 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
   }
 
   solus_key <- build_cache_key(aoi_vect, property_config$id, top_depth, bottom_depth, "solus")
-  solus <- cache_get(solus_key)
-  if (!is.null(solus)) solus <- unwrap_percentile_list(solus)
+  solus <- cache_get_valid_percentiles(solus_key)
   if (is.null(solus)) {
     solus <- fetch_solus_percentiles(aoi_vect, property_config$solus_variable, top_depth, bottom_depth)
     if (is.null(solus)) return(NULL)
@@ -872,12 +870,13 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
   members <- property_configs[member_ids]
 
   group_key <- build_cache_key(aoi_vect, group, top_depth, bottom_depth, "texture_group")
-  group_result <- cache_get(group_key)
   # cache_set()'s own docs flag that SpatRasters must be wrap()/unwrap()ed around a cache
   # round-trip - group_result nests them inside each member's $posterior$value/ilr_mu/ilr_Sigma,
   # not the simple list(values=, probs=) shape wrap_percentile_list() handles, so the generic
-  # wrap_nested_rasters()/unwrap_nested_rasters() pair is needed here instead.
-  if (!is.null(group_result)) group_result <- unwrap_nested_rasters(group_result)
+  # wrap_nested_rasters()/unwrap_nested_rasters() pair is needed here instead. A malformed hit
+  # (see cache_get_valid_percentiles()'s docs for why this matters) is discarded rather than
+  # trusted, via cache_get_valid_group_result()'s shape check.
+  group_result <- cache_get_valid_group_result(group_key, member_ids)
 
   if (is.null(group_result)) {
     # Each member's own SSURGO percentile cache is still checked first (so a later single-
@@ -891,10 +890,7 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
     # together. percentiles_from_draws() (R/ssurgo-simulation.R) is the shared quantile/
     # rasterize step, factored out of fetch_ssurgo_percentiles() for exactly this reuse.
     ssurgo_keys <- lapply(members, function(m) build_cache_key(aoi_vect, m$id, top_depth, bottom_depth, "ssurgo"))
-    ssurgo_cached <- lapply(ssurgo_keys, function(k) {
-      p <- cache_get(k)
-      if (!is.null(p)) unwrap_percentile_list(p) else NULL
-    })
+    ssurgo_cached <- lapply(ssurgo_keys, cache_get_valid_percentiles)
 
     shared_mukey_raster <- NULL
     shared_draws <- NULL
@@ -921,8 +917,7 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
       }
 
       solus_key <- build_cache_key(aoi_vect, m$id, top_depth, bottom_depth, "solus")
-      solus <- cache_get(solus_key)
-      if (!is.null(solus)) solus <- unwrap_percentile_list(solus)
+      solus <- cache_get_valid_percentiles(solus_key)
       if (is.null(solus)) {
         solus <- fetch_solus_percentiles(aoi_vect, m$solus_variable, top_depth, bottom_depth)
         if (!is.null(solus)) cache_set(solus_key, "solus", wrap_percentile_list(solus))

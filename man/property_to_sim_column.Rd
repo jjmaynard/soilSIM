@@ -7,8 +7,9 @@
 property_to_sim_column(property_id)
 }
 \arguments{
-\item{property_id}{One of \code{"ph"}, \code{"bulk_density"}, \code{"soc"}, \code{"cec"}, \code{"clay"}, \code{"sand"},
-\code{"silt"}, \code{"rock_fragments"}.}
+\item{property_id}{One of \code{"ph"}, \code{"ph1to1h2o"}, \code{"bulk_density"}, \code{"dbovendry"},
+\code{"soc"}, \code{"om"}, \code{"cec"}, \code{"cec7"}, \code{"clay"}, \code{"claytotal"}, \code{"sand"},
+\code{"sandtotal"}, \code{"silt"}, \code{"silttotal"}, \code{"rock_fragments"}, or \code{"rfv"}.}
 }
 \value{
 The corresponding column name in \code{simulate_cokey_generalized()}'s output.

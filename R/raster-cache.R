@@ -116,6 +116,50 @@ unwrap_percentile_list <- function(x) {
   x
 }
 
+#' Validate a `list(values=, probs=)` percentile structure
+#'
+#' `cache_get()` returns whatever a cache hit's `.rds` deserializes to without checking its shape,
+#' so a stale or corrupted cache entry (e.g. left behind by an interrupted run, or written by a
+#' since-changed code path) would otherwise be trusted as-is by every `cache_get()` caller
+#' downstream. A malformed hit with an empty/missing `probs` is especially dangerous here: it
+#' doesn't error where it's read, it silently propagates into `align_percentile_probs()`'s
+#' `range()` calls (degrading into "no non-missing arguments to min/max" warnings) and then into
+#' `fuse_property_adaptive()`'s `terra::ncell(prior_value_rasters[[1]])` as a cryptic "subscript
+#' out of bounds" error, far from the actual cause. This validator lets cache-hit call sites treat
+#' a malformed hit as a plain cache miss (re-fetch) instead.
+#' @param x A candidate value read from `cache_get()`, already `unwrap_percentile_list()`-ed.
+#' @return `TRUE` if `x` has the expected `list(values = <non-empty list of SpatRaster>,
+#'   probs = <numeric vector, same length as values, finite, in [0,1]>)` shape, else `FALSE`.
+#' @keywords internal
+is_valid_percentile_list <- function(x) {
+  if (!is.list(x) || is.null(x$values) || is.null(x$probs)) return(FALSE)
+  if (!is.list(x$values) || length(x$values) == 0) return(FALSE)
+  if (!all(vapply(x$values, inherits, logical(1), what = "SpatRaster"))) return(FALSE)
+  if (!is.numeric(x$probs) || length(x$probs) != length(x$values)) return(FALSE)
+  if (any(!is.finite(x$probs)) || any(x$probs < 0 | x$probs > 1)) return(FALSE)
+  TRUE
+}
+
+#' Cache-hit lookup for a `list(values=, probs=)` percentile structure, with shape validation
+#'
+#' Combines `cache_get()` + `unwrap_percentile_list()` + `is_valid_percentile_list()` into the one
+#' safe operation every `fetch_ssurgo_percentiles()`/`fetch_solus_percentiles()` cache-hit call
+#' site needs: a malformed or unreadable hit is treated as a cache miss (returns `NULL`, so the
+#' caller re-fetches) rather than being trusted as-is - see `is_valid_percentile_list()`'s docs for
+#' why that distinction matters.
+#' @param key,ttl_seconds Passed through to `cache_get()`.
+#' @return The validated, unwrapped `list(values=, probs=)`, or `NULL` on a miss/stale/malformed
+#'   entry.
+#' @keywords internal
+cache_get_valid_percentiles <- function(key, ttl_seconds = CACHE_TTL_SECONDS) {
+  cached <- cache_get(key, ttl_seconds)
+  if (is.null(cached)) return(NULL)
+  tryCatch({
+    cached <- unwrap_percentile_list(cached)
+    if (is_valid_percentile_list(cached)) cached else NULL
+  }, error = function(e) NULL)
+}
+
 #' Wrap/unwrap every `SpatRaster` found anywhere inside an arbitrarily-nested list
 #'
 #' A generic counterpart to `wrap_percentile_list()`/`unwrap_percentile_list()`, for result
@@ -149,4 +193,38 @@ unwrap_nested_rasters <- function(x) {
   } else {
     x
   }
+}
+
+#' Validate a `run_stage1_fusion_group()`-shaped cached group result
+#'
+#' The `run_stage1_fusion_group()` counterpart to `is_valid_percentile_list()` - see its docs for
+#' why an unvalidated cache hit is dangerous. A valid group result is a named list keyed by every
+#' `member_ids` entry, each element carrying a non-`NULL` `posterior`/`dist` (see
+#' `run_stage1_fusion_group()`'s return-value docs for the full per-member shape).
+#' @param x A candidate value read from `cache_get()`, already `unwrap_nested_rasters()`-ed.
+#' @param member_ids Character vector of expected member ids (from `group_members()`).
+#' @return `TRUE` if `x` has the expected shape, else `FALSE`.
+#' @keywords internal
+is_valid_group_result <- function(x, member_ids) {
+  if (!is.list(x) || !all(member_ids %in% names(x))) return(FALSE)
+  all(vapply(x[member_ids], function(m) {
+    is.list(m) && !is.null(m$posterior) && !is.null(m$dist)
+  }, logical(1)))
+}
+
+#' Cache-hit lookup for a `run_stage1_fusion_group()` result, with shape validation
+#'
+#' The nested-group counterpart to `cache_get_valid_percentiles()` - see its docs for the general
+#' rationale. Combines `cache_get()` + `unwrap_nested_rasters()` + `is_valid_group_result()`.
+#' @param key,ttl_seconds Passed through to `cache_get()`.
+#' @param member_ids Passed through to `is_valid_group_result()`.
+#' @return The validated, unwrapped group result, or `NULL` on a miss/stale/malformed entry.
+#' @keywords internal
+cache_get_valid_group_result <- function(key, member_ids, ttl_seconds = CACHE_TTL_SECONDS) {
+  cached <- cache_get(key, ttl_seconds)
+  if (is.null(cached)) return(NULL)
+  tryCatch({
+    cached <- unwrap_nested_rasters(cached)
+    if (is_valid_group_result(cached, member_ids)) cached else NULL
+  }, error = function(e) NULL)
 }

@@ -246,6 +246,16 @@ property_to_sim_column <- function(property_id) {
 #'   Default `parallel = FALSE` matches prior behavior exactly.
 #' @return A data frame, one row per `mukey`/`cokey`/`simulation_number` replicate, with simulated
 #'   property columns aggregated over the depth window - or `NULL` if the tabular fetch fails.
+#'   Minor components that `download_ssurgo_tabular()`'s underlying query would otherwise drop
+#'   entirely (real `comppct`, zero `chorizon` rows in SDA) are included transparently here
+#'   whenever an AOI sibling let them be recovered - see `download_ssurgo_tabular()`'s "Component
+#'   recovery" section.
+#' @section Cache invalidation:
+#' This function's own disk cache (`build_cache_key()`/`cache_get()`/`cache_set()`, keyed by
+#' `aoi_vect`/depth window) is separate from `download_ssurgo_tabular()`'s own `cache_dir`
+#' parameter (always `NULL` here). A cache entry for a given AOI/depth-window combination written
+#' before component recovery shipped predates it entirely - clear that cache entry (or the whole
+#' cache directory) to pick up recovered components.
 #' @export
 simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
                                            parallel = FALSE, n_cores = NULL) {

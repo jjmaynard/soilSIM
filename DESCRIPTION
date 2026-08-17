@@ -46,6 +46,7 @@ Imports:
     future,
     future.apply
 Suggests:
+    MASS,
     readxl,
     openxlsx,
     ggplot2,

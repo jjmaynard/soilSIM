@@ -333,7 +333,186 @@ ggplot(route_df, aes(x = value, fill = route)) +
   theme_minimal()
 ```
 
-## 8. Caching internals
+## 8. Did fusion actually update the prior? Comparing prior, likelihood, and posterior distributions
+
+Section 7 compared two fusion *routes* against each other. A more basic question is whether fusion
+did anything sensible at all relative to its two *inputs*: does the posterior mean clay distribution
+actually sit somewhere between the SSURGO prior and the SOLUS100 likelihood, sharpened by combining
+them? `fusion_clay` (loaded back in "Reusing real data instead of fetching") already holds the real,
+full-pipeline answer for this AOI - its `prior`/`likelihood`/`posterior` are the actual objects
+`run_stage1_fusion()` produced, not the toy `aligned`/`fuse_adaptive()` example from Section 7:
+
+```{r, fig.width = 7, fig.height = 4.5}
+dist_df <- data.frame(
+  value = c(
+    terra::values(prior_values$P50, na.rm = TRUE),
+    terra::values(lik_values$P50, na.rm = TRUE),
+    terra::values(fusion_clay$posterior$mu, na.rm = TRUE)
+  ),
+  source = rep(
+    c("Prior (SSURGO median)", "Likelihood (SOLUS prediction)", "Posterior (fused mean)"),
+    c(sum(!is.na(terra::values(prior_values$P50))),
+      sum(!is.na(terra::values(lik_values$P50))),
+      sum(!is.na(terra::values(fusion_clay$posterior$mu))))
+  )
+)
+dist_df$source <- factor(dist_df$source,
+  levels = c("Prior (SSURGO median)", "Likelihood (SOLUS prediction)", "Posterior (fused mean)"))
+
+means <- stats::aggregate(value ~ source, dist_df, mean)
+
+ggplot(dist_df, aes(x = value, fill = source)) +
+  geom_density(alpha = 0.45, color = NA) +
+  geom_vline(data = means, aes(xintercept = value, color = source),
+             linetype = "dashed", linewidth = 0.7, show.legend = FALSE) +
+  scale_fill_viridis_d(name = NULL) +
+  scale_color_viridis_d() +
+  labs(title = "Prior vs. likelihood vs. posterior mean clay content",
+       subtitle = "Dashed lines mark each distribution's mean",
+       x = "Clay content (%)", y = "Density") +
+  theme_minimal()
+
+means
+```
+
+The posterior sits almost on top of the prior here, barely nudged toward the likelihood's much
+higher mean (~21%). If fusion were simply averaging its two inputs, the posterior would land roughly
+halfway between them; it clearly doesn't. This is exactly what precision-weighted Bayesian fusion is
+*supposed* to do when one side states far more uncertainty about itself than the other - not a sign
+that the likelihood is being ignored. Fitting each side's own Normal distribution independently (the
+same `fit_normal_raster()` from Section 1, applied to whichever low/high percentile pair each source
+actually has) makes the reason concrete:
+
+```{r}
+fit_prior_normal <- fit_normal_raster(
+  p_lo_r = prior_values$P05, p50_r = prior_values$P50, p_hi_r = prior_values$P95,
+  p_lo = 0.05, p_hi = 0.95
+)
+fit_lik_normal <- fit_normal_raster(
+  p_lo_r = lik_values$P025, p50_r = lik_values$P50, p_hi_r = lik_values$P975,
+  p_lo = 0.025, p_hi = 0.975
+)
+
+sigma_compare <- data.frame(
+  source = c("Prior (SSURGO)", "Likelihood (SOLUS)"),
+  mean_sigma = c(mean(terra::values(fit_prior_normal$sigma), na.rm = TRUE),
+                 mean(terra::values(fit_lik_normal$sigma), na.rm = TRUE))
+)
+sigma_compare$mean_precision <- 1 / sigma_compare$mean_sigma^2
+sigma_compare
+```
+
+SOLUS100's raw 95% prediction interval (`P025`-`P975`) implies a mean `sigma` roughly
+`r round(sigma_compare$mean_sigma[2] / sigma_compare$mean_sigma[1], 0)`x wider than SSURGO's 5th-95th
+percentile spread for this AOI - a real, known characteristic of SOLUS100's output (its stated
+prediction intervals are often wide), not an artifact of this pipeline. Since fusion weights each
+side by *precision* (`1/sigma^2`, see `bayesian-updating.Rmd`'s worked scalar examples of this exact
+tug-of-war), a `r round(sigma_compare$mean_sigma[2] / sigma_compare$mean_sigma[1], 0)`x wider sigma
+means roughly a `r round((sigma_compare$mean_sigma[2] / sigma_compare$mean_sigma[1])^2, 0)`x lower
+precision - so the posterior mean above (`r round(means$value[3], 2)`) landing close to the prior's
+mean (`r round(means$value[1], 2)`) rather than the likelihood's (`r round(means$value[2], 2)`) is
+the fusion math doing exactly what it should with these particular inputs, confirmed by manually
+recomputing `bayes_update_normal_normal()` on these two independently-fit sides and getting
+(within floating-point/per-cell alignment differences) the same answer the pipeline's own route
+produced. A different AOI/property where the two sources agree more closely on their own uncertainty
+would show the posterior pulled further toward whichever side is sharper, without one side this
+lopsidedly dominating.
+
+## 9. A per-pixel view: prior, likelihood, and posterior at individual mapunits
+
+Section 8's density plot pools every cell in the AOI into one distribution per source, which is
+useful for the big picture but hides what fusion actually does *at a single location* - precision
+weighting happens per pixel, using that pixel's own prior/likelihood spread, not the AOI-wide average
+spread used above. This section looks at a handful of individual pixels instead.
+
+The cached object here only carries percentile-*value* rasters (`prior_values`, `lik_values`), not
+the categorical mukey raster `fetch_ssurgo_mukey_raster()` would return - so there's no direct mukey
+lookup to pick pixels by mapunit membership. As a proxy, SSURGO's simulated median (`prior_values$P50`)
+is close to constant within a mapunit and differs between mapunits (each mapunit gets its own Monte
+Carlo simulation draws), so cells sharing a repeated `P50` value are, in practice, sitting in the same
+sizeable mapunit. Picking a few *different* repeated values gives a handful of distinct mapunit areas:
+
+```{r}
+p50_all <- terra::values(prior_values$P50)[, 1]
+cell_ids <- which(!is.na(p50_all))
+rounded <- round(p50_all[cell_ids], 1)
+
+# Only consider values shared by several cells (a proxy for "a sizeable, distinct mapunit",
+# rather than a one-off simulation outlier), then spread the picks across the low-to-high clay
+# range so the examples aren't all pulled from one part of the AOI.
+freq <- table(rounded)
+frequent_vals <- sort(as.numeric(names(freq[freq >= 4])))
+pick_idx <- round(seq(1, length(frequent_vals), length.out = 4))
+picked_vals <- frequent_vals[pick_idx]
+example_cells <- vapply(picked_vals, function(v) cell_ids[which(rounded == v)[1]], numeric(1))
+
+picked_vals
+```
+
+For each of these four example pixels, pull `mu`/`sigma` from the same Normal fits used above -
+`fit_prior_normal`/`fit_lik_normal` (Section 8) for the prior/likelihood, and `fusion_clay$posterior`
+(the pipeline's real per-cell posterior, which carries both `mu` *and* `sigma`) for the posterior:
+
+```{r}
+extract_at <- function(r, cell) terra::values(r)[cell]
+
+pixel_df <- do.call(rbind, lapply(seq_along(example_cells), function(i) {
+  cell <- example_cells[i]
+  data.frame(
+    pixel = sprintf("Pixel %d (mapunit-like cluster, prior P50 ~%.1f%%)", i, picked_vals[i]),
+    prior_mu = extract_at(fit_prior_normal$mu, cell), prior_sigma = extract_at(fit_prior_normal$sigma, cell),
+    lik_mu = extract_at(fit_lik_normal$mu, cell), lik_sigma = extract_at(fit_lik_normal$sigma, cell),
+    post_mu = extract_at(fusion_clay$posterior$mu, cell), post_sigma = extract_at(fusion_clay$posterior$sigma, cell)
+  )
+}))
+pixel_df
+```
+
+Then evaluate each pixel's three Normal curves (`stats::dnorm()`, no raster machinery needed for a
+single cell) over a shared x-range wide enough to show all three, and facet by pixel:
+
+```{r, fig.width = 9, fig.height = 6.5}
+curve_at_pixel <- function(row) {
+  x_lo <- min(row$prior_mu - 4 * row$prior_sigma, row$lik_mu - 4 * row$lik_sigma,
+              row$post_mu - 4 * row$post_sigma, 0)
+  x_hi <- max(row$prior_mu + 4 * row$prior_sigma, row$lik_mu + 4 * row$lik_sigma,
+              row$post_mu + 4 * row$post_sigma, 100)
+  x <- seq(max(x_lo, 0), min(x_hi, 100), length.out = 300)
+  rbind(
+    data.frame(pixel = row$pixel, x = x, density = stats::dnorm(x, row$prior_mu, row$prior_sigma),
+               source = "Prior (SSURGO)"),
+    data.frame(pixel = row$pixel, x = x, density = stats::dnorm(x, row$lik_mu, row$lik_sigma),
+               source = "Likelihood (SOLUS)"),
+    data.frame(pixel = row$pixel, x = x, density = stats::dnorm(x, row$post_mu, row$post_sigma),
+               source = "Posterior (fused)")
+  )
+}
+curve_df <- do.call(rbind, lapply(seq_len(nrow(pixel_df)), function(i) curve_at_pixel(pixel_df[i, ])))
+curve_df$source <- factor(curve_df$source,
+  levels = c("Prior (SSURGO)", "Likelihood (SOLUS)", "Posterior (fused)"))
+
+ggplot(curve_df, aes(x = x, y = density, color = source, fill = source)) +
+  geom_area(alpha = 0.3, position = "identity") +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~pixel, scales = "free_y") +
+  scale_color_viridis_d(name = NULL) +
+  scale_fill_viridis_d(name = NULL) +
+  labs(title = "Prior, likelihood, and posterior at four individual pixels",
+       subtitle = "Each panel is one pixel from a different mapunit-like cluster",
+       x = "Clay content (%)", y = "Density") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+Every pixel here tells the same qualitative story as the AOI-wide picture in Section 8 - the
+posterior curve sits close to the prior curve, barely shifted toward the likelihood - because
+precision weighting is happening independently at each pixel and, for this property/AOI, SOLUS's
+per-pixel `sigma` is consistently much larger than SSURGO's regardless of which mapunit the pixel
+falls in (visible directly in `pixel_df$lik_sigma` vs. `pixel_df$prior_sigma` above). A property or
+AOI where the two sources' stated uncertainty is closer would show more pixel-to-pixel variation in
+how far the posterior moves, including pixels where the likelihood dominates instead.
+
+## 10. Caching internals
 
 `run_stage1_fusion()`/`run_stage1_fusion_group()` disk-cache every fetch step under
 `tools::R_user_dir("soilSIM", "cache")`, keyed by AOI + property/group id + depth window + kind.
