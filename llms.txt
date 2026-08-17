@@ -1,5 +1,7 @@
 # soilSIM
 
+![](reference/figures/soilSIM.png)
+
 `soilSIM` is a data-source-agnostic framework for simulating soil
 properties and fusing estimates from multiple soil data products under
 uncertainty. Its core statistical machinery - percentile-triplet and
