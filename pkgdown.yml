@@ -1,0 +1,29 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  articles/architecture-aws-van-genuchten-modeling: architecture-aws-van-genuchten-modeling.html
+  articles/architecture-bayesian-updating: architecture-bayesian-updating.html
+  articles/architecture-data-acquisition-processing: architecture-data-acquisition-processing.html
+  articles/architecture-distribution-fitting-correlations: architecture-distribution-fitting-correlations.html
+  articles/architecture-gp-modeling-multivariate-adjustment: architecture-gp-modeling-multivariate-adjustment.html
+  articles/architecture-monte-carlo-simulation: architecture-monte-carlo-simulation.html
+  articles/architecture-multi-source-raster-fusion-pipeline: architecture-multi-source-raster-fusion-pipeline.html
+  articles/architecture-overview: architecture-overview.html
+  articles/architecture-profile-component-depth-simulation: architecture-profile-component-depth-simulation.html
+  articles/architecture-statistics-diagnostics: architecture-statistics-diagnostics.html
+  articles/architecture-utilities: architecture-utilities.html
+  aws-van-genuchten: aws-van-genuchten.html
+  bayesian-updating: bayesian-updating.html
+  data-acquisition-processing: data-acquisition-processing.html
+  distribution-fitting-correlations: distribution-fitting-correlations.html
+  getting-started-monte-carlo: getting-started-monte-carlo.html
+  gp-modeling-multivariate-adjustment: gp-modeling-multivariate-adjustment.html
+  profile-depth-simulation: profile-depth-simulation.html
+  raster-fusion-ssurgo-solus: raster-fusion-ssurgo-solus.html
+  raster-native-fitting-fusion: raster-native-fitting-fusion.html
+  statistics-diagnostics: statistics-diagnostics.html
+last_built: 2026-08-17T04:32Z
+urls:
+  reference: https://jjmaynard.github.io/soilSIM/reference
+  article: https://jjmaynard.github.io/soilSIM/articles

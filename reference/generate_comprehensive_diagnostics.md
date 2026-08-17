@@ -1,0 +1,42 @@
+# Generate diagnostic plots across all validated workflow components
+
+Builds real plots from `components` (mod01-07 outputs) and
+`validation_results` (this file's own already-computed assessments)
+rather than returning empty placeholders. Each of the 5 categories is
+independently tryCatch-wrapped so a missing/malformed component degrades
+that one category to an empty list rather than failing the whole call -
+matching this file's existing per-step error-tolerance convention.
+
+## Usage
+
+``` r
+generate_comprehensive_diagnostics(components, validation_results, output_dir)
+```
+
+## Arguments
+
+- components:
+
+  From extract_and_validate_components(): may contain simulation_data,
+  monte_carlo_results, final_data, gp_models, correlation_matrices,
+  training_data.
+
+- validation_results:
+
+  The accumulating validation_results list built by
+  execute_validation_pipeline() (soil_science_validation,
+  overall_assessment, etc.).
+
+- output_dir:
+
+  If non-NULL, each plot is additionally saved there (nothing downstream
+  currently consumes these plot objects otherwise -
+  generate_html_report()/generate_markdown_report()/generate_pdf_report()
+  are themselves still-unimplemented stubs).
+
+## Value
+
+List with monte_carlo_plots, correlation_plots, gp_model_plots,
+soil_science_plots, summary_plots (each a named list of plot objects or
+file paths, empty if that category's data wasn't available), and
+plot_generation_status.

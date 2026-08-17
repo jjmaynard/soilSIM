@@ -1,0 +1,653 @@
+# GP Depth Modeling & Multivariate Adjustment: Function by Function
+
+## Overview
+
+`getting-started-monte-carlo.Rmd` walks the full tabular pipeline end to
+end, and its final step only touches Gaussian-process (GP) depth
+modeling briefly - fitting one set of stratified GP models and plotting
+a single depth trend. This vignette is a companion, finer-grained tour
+of the same functional group: it walks through the *individual*
+functions in `R/gp-modeling.R` and `R/multivariate-adjustment.R` one at
+a time, explains what each parameter controls (not just how to call the
+function), and shows parameter effects visually. See
+`soilSIM/docs/05_gp_modeling_multivariate_adjustment.md` for the full
+function-level architecture reference this vignette is drawn from.
+
+Functions covered, in order:
+
+1.  [`prepare_nrcs_training_data()`](https://jjmaynard.github.io/soilSIM/reference/prepare_nrcs_training_data.md) -
+    shape raw NRCS/SSURGO data into GP training data
+2.  [`select_optimal_grouping()`](https://jjmaynard.github.io/soilSIM/reference/select_optimal_grouping.md) -
+    choose a soil-grouping strategy for stratified GP fitting
+3.  [`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md)
+    and
+    [`fit_individual_gp_model()`](https://jjmaynard.github.io/soilSIM/reference/fit_individual_gp_model.md) -
+    fit the depth-trend GPs
+4.  [`predict_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/predict_gp_depth_trends.md) -
+    predict a fitted model at new depths, with an uncertainty band
+5.  [`validate_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/validate_gp_models.md) -
+    diagnostic pass over a fitted model set
+6.  [`adjust_multivariate_depthwise_GP()`](https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.md) -
+    why correlation-preserving adjustment matters
+7.  [`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md)
+    /
+    [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md) -
+    the long-format production path
+8.  [`apply_nrcs_trend_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_nrcs_trend_adjustments.md)
+    vs. [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md) -
+    regional vs. local trends
+
+This vignette reuses the same real, cached Amador County, CA SSURGO data
+(`inst/extdata/ssurgo_amador.rds`) that
+`getting-started-monte-carlo.Rmd` uses, following the same preprocessing
+steps, so results here are directly comparable to that vignette.
+
+``` r
+
+library(soilSIM)
+library(ggplot2)
+```
+
+## Step 0: Get to the same starting point as the Getting Started vignette
+
+[`prepare_nrcs_training_data()`](https://jjmaynard.github.io/soilSIM/reference/prepare_nrcs_training_data.md)
+(below) takes the same *processed but not-yet-infilled* SSURGO horizon
+data that `getting-started-monte-carlo.Rmd` calls `horizon_data` - the
+output of
+[`process_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_data.md),
+before any missing-value infilling.
+[`download_and_prepare_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/download_and_prepare_ssurgo.md)
+is the real, live call that produced the cached data (shown for
+reference only - not run here):
+
+``` r
+
+# The real call the cached data came from:
+ssurgo_amador <- download_and_prepare_ssurgo(
+  aoi_wkt = "POLYGON((-120.5 38.5, -120.4 38.5, -120.4 38.6, -120.5 38.6, -120.5 38.5))",
+  properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
+                 "cec7", "om", "wthirdbar", "wfifteenbar"),
+  max_depth = 150
+)
+```
+
+``` r
+
+ssurgo_amador <- readRDS(system.file("extdata", "ssurgo_amador.rds", package = "soilSIM"))
+raw_data <- ssurgo_amador$ssurgo_data
+
+processed <- process_ssurgo_data(raw_data, max_depth = 150, verbose = FALSE)
+horizon_data <- processed$processed_data
+dim(horizon_data)
+#> [1] 474  65
+```
+
+## Step 1: `prepare_nrcs_training_data()` - shaping raw data for GP fitting
+
+**Purpose**: turn raw combined NRCS component/horizon data into a
+cleaned, grouped training set ready for
+[`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md).
+
+**Parameters that matter**:
+
+- `grouping_strategy` - `"auto"` (the default here) hands the decision
+  to
+  [`select_optimal_grouping()`](https://jjmaynard.github.io/soilSIM/reference/select_optimal_grouping.md)
+  (Step 2); or force one of `"soil_series"`, `"taxonomic_class"`,
+  `"particle_size"`, `"soil_grtgroup"`, `"soil_suborder"`,
+  `"soil_order"`, `"none"` directly.
+- `min_profiles_per_group` / `min_observations_per_group` - how many
+  distinct components / total horizon rows a group needs before it’s
+  considered adequate for GP fitting (used both by the auto-selector and
+  to drop inadequate groups from the final output).
+- `target_min_groups` - how many adequate groups the auto-selector wants
+  to find before it accepts a strategy (higher values push it toward
+  coarser, more-populated groupings).
+- `max_depth` - horizons deeper than this (cm) are dropped before
+  fitting.
+
+Internally it also validates data quality, standardizes property names,
+flags and removes unsuitable horizons (bedrock, cemented pans, etc.),
+and coalesces synonym columns (`claytotal_r`/`clay_r`/`clay` -\>
+`clay_pct`, and similarly for the other seven standard properties) - see
+the doc for the full algorithm.
+
+``` r
+
+gp_train <- prepare_nrcs_training_data(horizon_data, max_depth = 150)
+dim(gp_train)
+#> [1] 314  75
+table(gp_train$soil_group)
+#> 
+#>     Chaix  Cohasset   Holland Josephine  Mariposa  McCarthy 
+#>        24        98        21        81        30        60
+```
+
+The output has the eight standardized property columns (`clay_pct`,
+`sand_pct`, `silt_pct`, `pH`, `organic_matter`, `bulk_density`, `cec`,
+`awc`), plus `soil_group` and `depth_midpoint`, restricted to groups
+meeting `min_observations_per_group`.
+
+## Step 2: `select_optimal_grouping()` - choosing a grouping strategy
+
+[`prepare_nrcs_training_data()`](https://jjmaynard.github.io/soilSIM/reference/prepare_nrcs_training_data.md)
+calls this internally when `grouping_strategy = "auto"`, but it’s a
+useful function to call directly to see *why* a particular strategy was
+chosen. It walks a fixed hierarchy -
+`soil_series -> taxonomic_class -> particle_size -> soil_grtgroup -> soil_suborder -> soil_order -> none` -
+skipping any strategy whose required column is missing, and returns the
+first strategy that produces at least `target_groups` “adequate” groups
+(`>= min_profiles` distinct components, `>= min_obs` rows, and `>= 20`
+cm of depth range). If no strategy meets the target, it falls back to
+whichever produced the most adequate groups.
+
+`target_groups` is the parameter that most directly controls how fine-
+or coarse-grained the resulting grouping is - raising it forces the
+selector further down the hierarchy (coarser groupings, since coarser
+strategies pool more components together):
+
+``` r
+
+select_optimal_grouping(horizon_data, min_profiles = 3, min_obs = 15, target_groups = 3)
+#> [1] "soil_series"
+select_optimal_grouping(horizon_data, min_profiles = 3, min_obs = 15, target_groups = 15)
+#> [1] "soil_series"
+```
+
+For this small AOI, asking for far more adequate groups than the data
+can really support (`target_groups = 15`) either falls back to a coarser
+strategy or falls back to the best-available option with a warning
+logged - a direct illustration of `target_groups` trading off grouping
+resolution against data adequacy per group.
+
+## Step 3: Fitting depth-trend GP models
+
+### `build_stratified_gp_models()` - the master fitting function
+
+**Concept**: for each requested property, and separately within each
+soil group, this fits a 1-D Gaussian Process regression of the property
+against (scaled) depth - i.e., a smooth, flexible depth-trend curve with
+uncertainty, rather than a single depth-independent mean. Groups that
+are too small get folded into progressively coarser fallback groups
+(particle size -\> great group -\> suborder -\> order -\> a general
+pool) via `apply_hierarchical_grouping()` before fitting, so every group
+that reaches
+[`fit_individual_gp_model()`](https://jjmaynard.github.io/soilSIM/reference/fit_individual_gp_model.md)
+has enough training points.
+
+**Parameters that matter**:
+
+- `properties` - which standardized property columns to model.
+- `min_profiles_per_group` / `min_observations_per_group` - adequacy
+  thresholds used by the fallback grouping (same meaning as in Step 1).
+- `optimize_hyperparameters` - `TRUE` runs
+  [`optimize_gp_hyperparameters()`](https://jjmaynard.github.io/soilSIM/reference/optimize_gp_hyperparameters.md),
+  a 5-fold cross-validated search over three `GPfit` correlation
+  families (exponential power, Matern nu=3/2, Matern nu=5/2), picking
+  the lowest mean held-out RMSE; `FALSE` fits a single default GP
+  directly. `FALSE` is dramatically faster and is what this vignette
+  uses (matching `getting-started-monte-carlo.Rmd`’s Step 5), at the
+  cost of not searching over correlation families.
+
+``` r
+
+gp_models <- build_stratified_gp_models(
+  gp_train,
+  properties = c("clay_pct", "sand_pct", "pH", "organic_matter"),
+  min_profiles_per_group = 3,
+  min_observations_per_group = 15,
+  optimize_hyperparameters = FALSE
+)
+gp_models$model_summary$total_models
+#> [1] 22
+names(gp_models$clay_pct$models)
+#> [1] "Cohasset"  "Josephine" "Mariposa"  "Holland"
+```
+
+22 GP models were fit in total, across 4 clay-content groups (and
+similarly for the other three properties) from this AOI’s real data.
+
+### `fit_individual_gp_model()` - the per-group fit, called directly
+
+This is the function
+[`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md)
+calls once per (property, group) combination. Calling it directly on a
+single group’s data shows what it actually does: aggregate to one mean
+value per depth (across profiles, then across horizons at that depth),
+min-max scale depths to `[0, 1]` (so the GP’s length-scale
+hyperparameter is on a comparable footing across groups with different
+depth ranges), and fit
+[`GPfit::GP_fit()`](https://rdrr.io/pkg/GPfit/man/GP_fit.html). It
+returns `NULL` rather than erroring when there’s too little data to fit
+(fewer than 3 aggregated depth points, no variance in values, or no
+depth range) -
+[`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md)
+relies on this to skip ungroupable data gracefully.
+
+``` r
+
+# Pick a soil_group that already has a successfully-fit clay_pct AND
+# organic_matter model in gp_models (used again in later steps), with the
+# most training points among those - guarantees the direct, un-fallback-ed
+# fit_individual_gp_model() call below actually succeeds (fitting can return
+# NULL for groups whose raw soil_group data - as opposed to
+# build_stratified_gp_models()'s internal hierarchical-fallback final_group -
+# turns out to have no depth variation for this property).
+candidate_groups <- intersect(names(gp_models$clay_pct$models), names(gp_models$organic_matter$models))
+candidate_groups <- candidate_groups[order(
+  sapply(gp_models$clay_pct$models[candidate_groups], function(m) m$n_training_points),
+  decreasing = TRUE
+)]
+
+single_fit <- NULL
+for (candidate in candidate_groups) {
+  group_data <- gp_train[gp_train$soil_group == candidate, ]
+  single_fit <- fit_individual_gp_model(group_data, "clay_pct", optimize_hyperparameters = FALSE)
+  if (!is.null(single_fit)) {
+    demo_group <- candidate
+    break
+  }
+}
+demo_group
+#> [1] "Cohasset"
+single_fit$model$depth_scaling
+#> $min
+#> [1] 0
+#> 
+#> $max
+#> [1] 93
+#> 
+#> $range
+#> [1] 93
+single_fit$model$n_training_points
+#> [1] 9
+single_fit$diagnostics
+#> $property
+#> [1] "clay_pct"
+#> 
+#> $n_training_points
+#> [1] 9
+#> 
+#> $depth_range
+#> [1]  0 93
+#> 
+#> $value_range
+#> [1] 18.84615 32.00000
+#> 
+#> $training_rmse
+#> [1] 2.05116e-15
+#> 
+#> $log_likelihood
+#> [1] NA
+```
+
+`depth_scaling` (the training depth range, min-max, rescaled to
+`[0, 1]`) is stored on the fitted model precisely so that
+[`predict_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/predict_gp_depth_trends.md)
+(next step) can rescale *new* depths the same way before calling
+[`GPfit::predict.GP()`](https://rdrr.io/pkg/GPfit/man/predict.html).
+
+## Step 4: `predict_gp_depth_trends()` - depth-trend curves with a prediction interval
+
+**Purpose**: predict a fitted GP model’s property values at arbitrary
+new depths. It rescales `new_depths` into the `[0, 1]` range the model
+was trained on (using the stored `depth_scaling`), clamps to `[0, 1]`
+(so predictions outside the training depth range are extrapolated at the
+boundary rather than on a nonsensical negative/\> 1 scale), and calls
+[`GPfit::predict.GP()`](https://rdrr.io/pkg/GPfit/man/predict.html).
+
+[`predict_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/predict_gp_depth_trends.md)
+itself only returns the fitted mean (`Y_hat`) - not the prediction
+uncertainty. To draw an uncertainty band, pull the prediction variance
+directly from
+[`GPfit::predict.GP()`](https://rdrr.io/pkg/GPfit/man/predict.html)
+using the same rescaling logic, exactly as
+`getting-started-monte-carlo.Rmd` does in its final step. Here for a
+different property/group than that vignette used - `organic_matter` in
+this same `demo_group`:
+
+``` r
+
+om_gp_model <- gp_models$organic_matter$models[[demo_group]]
+
+depth_seq <- seq(0, 150, by = 5)
+om_mean <- predict_gp_depth_trends(om_gp_model, depth_seq)
+
+scaling <- om_gp_model$depth_scaling
+scaled_depths <- pmax(0, pmin(1, (depth_seq - scaling$min) / scaling$range))
+om_pred <- GPfit::predict.GP(om_gp_model$gp_model, xnew = as.matrix(scaled_depths))
+om_se <- sqrt(pmax(om_pred$MSE, 0))
+
+om_depth_trend <- data.frame(
+  depth = depth_seq,
+  mean = om_mean,
+  lower = om_mean - 1.96 * om_se,
+  upper = om_mean + 1.96 * om_se
+)
+
+ggplot(om_depth_trend, aes(x = depth, y = mean)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = viridisLite::viridis(1, begin = 0.5), alpha = 0.25) +
+  geom_line(color = viridisLite::viridis(1, begin = 0.15), linewidth = 1) +
+  theme_minimal() +
+  labs(
+    title = paste0("GP depth trend: organic matter, \"", demo_group, "\" soil group"),
+    subtitle = "Shaded band is a 95% prediction interval",
+    x = "Depth (cm)",
+    y = "Organic matter (%)"
+  )
+```
+
+![](gp-modeling-multivariate-adjustment_files/figure-html/unnamed-chunk-8-1.png)
+
+The band narrows near depths with more training observations and widens
+where the GP is extrapolating - exactly the behavior a GP is meant to
+provide over a plain regression trend line.
+
+## Step 5: `validate_gp_models()` - diagnosing a fitted model set
+
+**Purpose**: a diagnostic pass over an entire fitted GP model set (the
+output of
+[`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md)),
+checking three things per (property, group) model: whether predictions
+come back at all (`model_valid`), whether the depth trend is reasonably
+monotonic (`>= 70%` of consecutive depth-to-depth differences share the
+same sign, via `assess_trend_monotonicity()`), and whether predictions
+fall inside a property-specific realistic range (e.g. clay/sand/silt in
+`[0, 100]`, pH in `[2.5, 11]`, via `assess_realistic_values()`).
+
+``` r
+
+validation <- validate_gp_models(gp_models, nrcs_data = gp_train, validation_depths = seq(0, 150, by = 10))
+validation$overall_assessment
+#> $total_models
+#> [1] 22
+#> 
+#> $valid_models
+#> [1] 22
+#> 
+#> $success_rate
+#> [1] 1
+#> 
+#> $validation_passed
+#> [1] TRUE
+validation$recommendations
+#> character(0)
+```
+
+`overall_assessment$validation_passed` is `TRUE` when `>= 80%` of all
+fitted models pass; anything lower is worth investigating via
+`model_validation` before trusting the model set downstream.
+
+## Step 6: Why correlation-preserving adjustment matters
+
+Once GP depth-trend models exist, the next step in the full pipeline
+(see `getting-started-monte-carlo.Rmd`’s closing note and
+`soilSIM/docs/05_gp_modeling_multivariate_adjustment.md`) is to nudge
+Monte Carlo simulation realizations toward those depth trends. The naive
+way to do this - adjust each property’s realizations independently to
+match its own GP trend - breaks the *cross-property* correlation that
+the Monte Carlo engine worked to preserve in the first place (e.g. clay
+and sand content are naturally anti-correlated within a horizon;
+adjusting each to its own trend independently reshuffles which simulated
+clay value is paired with which simulated sand value).
+[`adjust_multivariate_depthwise_GP()`](https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.md)
+avoids this by computing a single *reference quantile* per simulation
+(from the primary property’s surface-depth distribution) and using that
+same quantile - not each property’s own independent quantile - to drive
+every property’s adjustment, so realization *j*’s properties all move
+together.
+
+To demonstrate concretely with real fitted models, build a small
+synthetic set of “before adjustment” Monte Carlo-style realizations for
+clay and sand content at a few depths, correlated within each simulation
+(mimicking what
+[`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)
+produces before any depth-trend adjustment is applied) but with no depth
+trend yet:
+
+``` r
+
+set.seed(2024)
+n_sims <- 300
+demo_depths <- c(0, 20, 40, 60, 80)
+
+common_groups <- intersect(names(gp_models$clay_pct$models), names(gp_models$sand_pct$models))
+xv_group <- common_groups[1]
+clay_gp_model <- gp_models$clay_pct$models[[xv_group]]
+sand_gp_model <- gp_models$sand_pct$models[[xv_group]]
+
+# One shared per-simulation draw, reused at every depth (no trend yet) - clay and
+# sand are drawn jointly and negatively correlated, as real compositional
+# texture properties are.
+z_clay <- rnorm(n_sims)
+target_rho <- -0.65
+z_sand <- target_rho * z_clay + sqrt(1 - target_rho^2) * rnorm(n_sims)
+
+clay_base <- mean(clay_gp_model$training_data$mean_value)
+sand_base <- mean(sand_gp_model$training_data$mean_value)
+
+clay_mat <- matrix(clay_base + 6 * z_clay, nrow = length(demo_depths), ncol = n_sims, byrow = TRUE)
+sand_mat <- matrix(sand_base + 8 * z_sand, nrow = length(demo_depths), ncol = n_sims, byrow = TRUE)
+
+simulated_list <- list(clay_pct = clay_mat, sand_pct = sand_mat)
+cor(clay_mat[1, ], sand_mat[1, ])  # starting correlation, ~ target_rho
+#> [1] -0.685475
+```
+
+Now adjust toward the two real fitted GP depth trends two different
+ways: **jointly** (the correlation-preserving way
+[`adjust_multivariate_depthwise_GP()`](https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.md)
+is designed for) and **naively**, by calling the same function
+separately on each property in isolation - which forces each property to
+use *its own* surface distribution as the reference quantile ordering
+instead of sharing one:
+
+``` r
+
+joint_adjusted <- adjust_multivariate_depthwise_GP(
+  simulated_list = simulated_list,
+  gp_models = list(clay_pct = clay_gp_model, sand_pct = sand_gp_model),
+  depths = demo_depths,
+  primary_property = "clay_pct"
+)
+
+naive_clay <- adjust_multivariate_depthwise_GP(
+  simulated_list = simulated_list["clay_pct"],
+  gp_models = list(clay_pct = clay_gp_model),
+  depths = demo_depths
+)
+
+naive_sand <- adjust_multivariate_depthwise_GP(
+  simulated_list = simulated_list["sand_pct"],
+  gp_models = list(sand_pct = sand_gp_model),
+  depths = demo_depths
+)
+
+deep_idx <- length(demo_depths)
+
+cor_comparison <- data.frame(
+  stage = factor(
+    c("Original\n(unadjusted)", "Naive\n(each property adjusted alone)", "Correlation-preserving\n(adjust_multivariate_depthwise_GP)"),
+    levels = c("Original\n(unadjusted)", "Naive\n(each property adjusted alone)", "Correlation-preserving\n(adjust_multivariate_depthwise_GP)")
+  ),
+  correlation = c(
+    cor(clay_mat[deep_idx, ], sand_mat[deep_idx, ]),
+    cor(naive_clay$clay_pct[deep_idx, ], naive_sand$sand_pct[deep_idx, ]),
+    cor(joint_adjusted$clay_pct[deep_idx, ], joint_adjusted$sand_pct[deep_idx, ])
+  )
+)
+cor_comparison
+#>                                                        stage correlation
+#> 1                                     Original\n(unadjusted)  -0.6854750
+#> 2                      Naive\n(each property adjusted alone)  -0.6847005
+#> 3 Correlation-preserving\n(adjust_multivariate_depthwise_GP)  -0.6847005
+```
+
+``` r
+
+ggplot(cor_comparison, aes(x = stage, y = correlation, fill = correlation)) +
+  geom_col(width = 0.6) +
+  geom_hline(yintercept = target_rho, linetype = "dashed", color = "grey40") +
+  scale_fill_viridis_c(limits = c(-1, 1)) +
+  theme_minimal() +
+  labs(
+    title = "Clay-sand correlation at the deepest demo depth",
+    subtitle = "Dashed line is the original correlation before any depth-trend adjustment",
+    x = NULL, y = "Correlation (clay_pct, sand_pct)"
+  ) +
+  theme(legend.position = "none")
+```
+
+![](gp-modeling-multivariate-adjustment_files/figure-html/unnamed-chunk-12-1.png)
+
+Adjusting each property in isolation lets its quantile ordering drift
+away from the other property’s - clay’s deep-depth quantile ranking no
+longer lines up with sand’s, so their correlation degrades from the
+original. The joint, correlation-preserving call keeps both properties
+keyed to the *same* per-simulation reference quantile at every depth, so
+the original correlation survives the depth-trend adjustment nearly
+intact.
+
+## Step 7: `preserve_correlation_structure()` / `apply_gp_depth_trends()` - the production path
+
+[`adjust_multivariate_depthwise_GP()`](https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.md)
+above (from `gp-modeling.R`) operates directly on `[depth x simulation]`
+matrices and is the original, array-based implementation of this
+algorithm. The production pipeline that
+[`integrate_monte_carlo_with_gp()`](https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.md)
+actually calls works on long-format Monte Carlo output instead, via
+`multivariate-adjustment.R`’s
+[`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md)
+(reshapes long-format rows into matrices, dispatches to
+[`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md)
+when `preserve_correlations = TRUE` and at least two properties are
+present, then reshapes back) and
+[`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md)
+itself (the identical reference-quantile algorithm - same
+`calculate_safe_gp_ratio()` clamped-ratio step, same
+`apply_quantile_adjustment()` reference-quantile nudge, same
+`correct_distribution_shape()` marginal-distribution remap - just
+operating on `property_matrices`/`gp_predictions` named lists rather
+than being handed `gp_models` objects directly).
+[`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md)
+is used indirectly below, via
+[`apply_nrcs_trend_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_nrcs_trend_adjustments.md)
+and
+[`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md).
+
+## Step 8: NRCS-generalized vs. local models
+
+Two different sources of “what depth trend should this cokey be nudged
+toward” exist in the package, and they’re used via two different
+functions:
+
+- **[`apply_nrcs_trend_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_nrcs_trend_adjustments.md)** -
+  looks up the cokey’s matched *regional* GP model group (from
+  [`match_soils_to_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/match_soils_to_gp_models.md),
+  e.g. “this cokey’s soil series”) in the stratified GP model set fit in
+  Step 3, and uses *that* group’s depth trend - fit from potentially
+  many profiles across the AOI. It “borrows strength” from the broader
+  dataset, at the cost of being generic to the group rather than
+  specific to this one cokey.
+- **[`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md)** -
+  fits a brand-new, tiny GP (via
+  [`fit_local_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_models.md))
+  using *only* the current cokey’s own aggregated-by-depth data
+  (`min_depths = 3` unique depths required). It captures whatever depth
+  pattern this specific cokey’s own horizons show, but with very few
+  training points it is much more sensitive to noise in that one
+  profile.
+
+`integrate_monte_carlo_with_gp(integration_method = "hybrid")` (the
+default) actually applies both, in sequence, per cokey. Demonstrate the
+two independently on the synthetic `demo_cokey_data` built from Step 6’s
+matrices (which, by construction, has *no* real depth trend - just noise
+around a constant mean at each depth - so any trend either function
+introduces is coming entirely from the adjustment itself):
+
+``` r
+
+demo_cokey_data <- expand.grid(hzdept_r = demo_depths, simulation_number = seq_len(n_sims))
+demo_cokey_data$claytotal <- as.vector(clay_mat)  # column-major flatten matches expand.grid's order
+demo_cokey_data$sandtotal <- as.vector(sand_mat)
+demo_cokey_data$cokey <- "demo_cokey"
+
+nrcs_adjusted <- apply_nrcs_trend_adjustments(
+  cokey_data = demo_cokey_data,
+  gp_models = gp_models,
+  model_group = xv_group,
+  properties = c("claytotal", "sandtotal")
+)
+
+local_adjusted <- apply_local_gp_adjustments(
+  cokey_data = demo_cokey_data,
+  properties = c("claytotal", "sandtotal")
+)
+```
+
+Compare the resulting mean clay-content-by-depth curves against the real
+regional GP trend that
+[`apply_nrcs_trend_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_nrcs_trend_adjustments.md)
+pulled from (`clay_gp_model`, fit from many profiles in Step 3) and
+against the flat, untrended original:
+
+``` r
+
+regional_trend <- data.frame(
+  depth = demo_depths,
+  mean_clay = predict_gp_depth_trends(clay_gp_model, demo_depths),
+  source = "Regional GP trend (this cokey's matched group)"
+)
+
+trend_comparison <- rbind(
+  regional_trend,
+  data.frame(
+    depth = demo_depths,
+    mean_clay = tapply(demo_cokey_data$claytotal, demo_cokey_data$hzdept_r, mean),
+    source = "Original (untrended synthetic data)"
+  ),
+  data.frame(
+    depth = demo_depths,
+    mean_clay = tapply(nrcs_adjusted$claytotal, nrcs_adjusted$hzdept_r, mean),
+    source = "apply_nrcs_trend_adjustments() (regional model)"
+  ),
+  data.frame(
+    depth = demo_depths,
+    mean_clay = tapply(local_adjusted$claytotal, local_adjusted$hzdept_r, mean),
+    source = "apply_local_gp_adjustments() (this cokey only)"
+  )
+)
+
+ggplot(trend_comparison, aes(x = depth, y = mean_clay, color = source)) +
+  geom_line(linewidth = 1) +
+  geom_point() +
+  scale_color_viridis_d(end = 0.9) +
+  theme_minimal() +
+  labs(
+    title = "Regional vs. local GP depth-trend adjustment",
+    subtitle = "Synthetic demo cokey with no inherent depth trend",
+    x = "Depth (cm)", y = "Mean simulated clay content (%)", color = NULL
+  ) +
+  theme(legend.position = "bottom", legend.direction = "vertical")
+```
+
+![](gp-modeling-multivariate-adjustment_files/figure-html/unnamed-chunk-14-1.png)
+
+[`apply_nrcs_trend_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_nrcs_trend_adjustments.md)
+pulls the mean curve toward the regional GP trend fit from many profiles
+in Step 3.
+[`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md),
+fitting a GP from only this cokey’s own 5 (noisy, untrended) depth
+means, tends to track that noise rather than impose a strong trend -
+useful when a cokey’s own data really does deviate from its group’s
+regional pattern, but a weaker signal to lean on than the regional model
+when a cokey has little data of its own.
+
+## Where this data came from
+
+The cached data this vignette loads (`inst/extdata/ssurgo_amador.rds`)
+was produced once by `data-raw/build_vignette_data.R`, which calls
+[`download_and_prepare_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/download_and_prepare_ssurgo.md)
+live against NRCS Soil Data Access for the AOI used above - the same
+cached file `getting-started-monte-carlo.Rmd` uses. Re-run that script
+to refresh it.
