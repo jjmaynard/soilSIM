@@ -13,6 +13,43 @@ test_that("normalize_monte_carlo_config() accepts both flat and nested simulatio
   expect_equal(normalize_monte_carlo_config(list(), default_config), list())
 })
 
+test_that("check_property_data_availability()'s vectorized rowSums() matches the original nested per-row loop", {
+  # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4. Covers: a row with data in one property but not
+  # another (still TRUE), a row with no data in any present property (FALSE), and a property
+  # whose "_r" column isn't present in soil_data at all (silently ignored, not an error).
+  soil_data <- data.frame(
+    claytotal_r = c(10, NA, NA, 20),
+    sandtotal_r = c(NA, NA, 30, NA),
+    dbovendry_r = c(NA, NA, NA, NA)
+  )
+  properties <- c("claytotal", "sandtotal", "dbovendry", "ph1to1h2o") # ph1to1h2o_r not present
+
+  reference_availability <- function(soil_data, properties) {
+    has_data <- rep(FALSE, nrow(soil_data))
+    for (i in seq_len(nrow(soil_data))) {
+      for (prop in properties) {
+        r_col <- paste0(prop, "_r")
+        if (r_col %in% names(soil_data) && !is.na(soil_data[[r_col]][i])) {
+          has_data[i] <- TRUE
+          break
+        }
+      }
+    }
+    has_data
+  }
+
+  result <- check_property_data_availability(soil_data, properties, config = list())
+  expected <- reference_availability(soil_data, properties)
+  expect_equal(result, expected)
+  expect_equal(result, c(TRUE, FALSE, TRUE, TRUE))
+})
+
+test_that("check_property_data_availability() returns all FALSE when no property's _r column is present", {
+  soil_data <- data.frame(x = 1:3)
+  result <- check_property_data_availability(soil_data, c("claytotal"), config = list())
+  expect_equal(result, c(FALSE, FALSE, FALSE))
+})
+
 test_that("distribution_type='normal' actually threads through to a real fit (bug #1 regression)", {
   soil_data <- make_soil_data(10, properties = c("dbovendry"))
   res <- generate_monte_carlo_realizations(

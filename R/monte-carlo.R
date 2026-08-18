@@ -2510,21 +2510,19 @@ check_data_sufficiency <- function(soil_data, properties, config) {
   ))
 }
 
+#' @section Performance:
+#' Previously re-subset `soil_data[[r_col]]` (the full column) inside a nested per-row loop for
+#' every (row, property) pair instead of once - each individual operation was cheap, but the
+#' repeated re-indexing was avoidable (PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4). Replaced with a
+#' single vectorized "any non-NA across the present `_r` columns" check.
 check_property_data_availability <- function(soil_data, properties, config) {
   # Check if each row has data for at least one property
-  has_data <- rep(FALSE, nrow(soil_data))
-
-  for (i in seq_len(nrow(soil_data))) {
-    for (prop in properties) {
-      r_col <- paste0(prop, "_r")
-      if (r_col %in% names(soil_data) && !is.na(soil_data[[r_col]][i])) {
-        has_data[i] <- TRUE
-        break
-      }
-    }
+  r_cols <- paste0(properties, "_r")
+  r_cols <- r_cols[r_cols %in% names(soil_data)]
+  if (length(r_cols) == 0) {
+    return(rep(FALSE, nrow(soil_data)))
   }
-
-  return(has_data)
+  rowSums(!is.na(as.matrix(soil_data[, r_cols, drop = FALSE]))) > 0
 }
 
 analyze_property_simulation_quality <- function(prop_values, prop_name, config) {

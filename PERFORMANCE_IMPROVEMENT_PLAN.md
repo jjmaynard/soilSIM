@@ -422,11 +422,22 @@ that call. It was not fine - see below.
   - [x] Benchmarked after: 31.61s -> 0.02s - **~1,580x**.
   - [x] Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors, 0 warnings, 1
     pre-existing unrelated NOTE.
-  - [ ] Committed + pushed
+  - [x] Committed (`cec26f2`); not yet pushed.
 
-- [ ] `R/monte-carlo.R::check_property_data_availability()` - nested per-row/per-property NA check
-  with repeated column re-indexing. Benchmarked before: 0.42s (20,000 rows x 5 properties) - real
-  caller (`monte-carlo.R:1840`) but already cheap; lowest priority of the 5. Not yet fixed.
+- [x] `R/monte-carlo.R::check_property_data_availability()` - nested per-row/per-property NA check
+  with repeated column re-indexing. Real caller (`monte-carlo.R:1840`) but already cheap; lowest
+  priority of the 5, fixed anyway for completeness.
+  - [x] Benchmarked before: 0.42s (20,000 rows x 5 properties).
+  - [x] Fixed: single vectorized `rowSums(!is.na(as.matrix(soil_data[, r_cols])))  > 0` check
+    over whichever `_r` columns are actually present, replacing the nested per-row/per-property
+    loop.
+  - [x] Regression test added: `test-monte-carlo.R` - reimplements the original nested loop
+    inline and asserts identical output, including a property whose `_r` column isn't present at
+    all (silently ignored either way) and the all-columns-absent edge case.
+  - [x] Benchmarked after: 0.42s -> ~0.00s (at measurement noise floor).
+  - [x] Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors, 0 warnings, 1
+    pre-existing unrelated NOTE.
+  - [ ] Committed + pushed
 
 ## Final gate
 
