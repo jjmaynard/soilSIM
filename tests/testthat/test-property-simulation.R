@@ -206,6 +206,108 @@ test_that("simulate_cokey_generalized() falls back to a pooled texture matrix fo
   expect_true(all(abs(totals - 100) < 1e-6))
 })
 
+test_that("simulate_cokey_generalized()'s per-genhz PD-matrix caching matches the original uncached-per-row computation bit-for-bit", {
+  # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4: ensure_positive_definite_matrix(txt_corr) is now
+  # cached per genhz_val instead of recomputed identically on every row (Rprof() profiling found
+  # this call accounted for 18% of total wall-clock). It involves no randomness (eigen()/
+  # isSymmetric.matrix() are deterministic), so caching must not shift simulate_correlated_
+  # triangular()'s RNG stream consumption at all - reimplements the ORIGINAL uncached per-row
+  # loop inline (as it existed before this fix) and asserts identical output at the same seed,
+  # across multiple rows that intentionally share a genhz (the case the caching actually exercises
+  # - the existing single-row fixtures above never did).
+  row1 <- make_sim_cokey_data(texture = TRUE, sim_comppct = 15)
+  row2 <- make_sim_cokey_data(texture = TRUE, sim_comppct = 20)
+  row2$hzdept_r <- 20; row2$hzdepb_r <- 40
+  sim_cokey <- rbind(row1, row2) # both rows share genhz = "A" (make_sim_cokey_data()'s default)
+  corr <- make_property_correlation_matrices()
+  txt_corr <- make_texture_correlation_matrices()
+
+  set.seed(42)
+  result_cached <- simulate_cokey_generalized(sim_cokey, corr, txt_corr)
+
+  # Original (pre-fix) uncached-per-row reference implementation.
+  reference_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_correlation_matrices) {
+    param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc")
+    texture_cols_required <- c("sandtotal_l", "sandtotal_r", "sandtotal_h",
+                               "silttotal_l", "silttotal_r", "silttotal_h",
+                               "claytotal_l", "claytotal_r", "claytotal_h")
+    get_param_set <- function(row, prefix) {
+      lcol <- paste0(prefix, "_l"); rcol <- paste0(prefix, "_r"); hcol <- paste0(prefix, "_h")
+      if (all(c(lcol, rcol, hcol) %in% names(row))) return(c(row[[lcol]], row[[rcol]], row[[hcol]]))
+      NULL
+    }
+    sim_data_out <- list()
+    pooled_property_corr <- Reduce(`+`, correlation_matrices) / length(correlation_matrices)
+    pooled_txt_corr <- Reduce(`+`, txt_correlation_matrices) / length(txt_correlation_matrices)
+    for (i in seq_len(nrow(sim_cokey))) {
+      row <- sim_cokey[i, ]
+      genhz_val <- as.character(row$genhz)
+      local_corr <- correlation_matrices[[genhz_val]]
+      if (is.null(local_corr)) local_corr <- pooled_property_corr
+      has_texture <- all(texture_cols_required %in% names(row))
+      ilr1_lrh <- NULL; ilr2_lrh <- NULL
+      if (has_texture) {
+        txt_corr <- txt_correlation_matrices[[genhz_val]]
+        if (is.null(txt_corr)) txt_corr <- pooled_txt_corr
+        txt_corr <- ensure_positive_definite_matrix(txt_corr) # recomputed every row - the original
+        params_txt <- list(
+          c(row$sandtotal_l, row$sandtotal_r, row$sandtotal_h),
+          c(row$silttotal_l, row$silttotal_r, row$silttotal_h),
+          c(row$claytotal_l, row$claytotal_r, row$claytotal_h)
+        )
+        texture_result <- tryCatch({
+          sim_txt <- simulate_correlated_triangular(as.integer(row$sim_comppct), params_txt, txt_corr)
+          sim_txt_ilr <- ilr_forward(clay = sim_txt[, 3], sand = sim_txt[, 1], silt = sim_txt[, 2])
+          list(ilr1_lrh = c(min(sim_txt_ilr[, "z1"]), calculate_mode(sim_txt_ilr[, "z1"]), max(sim_txt_ilr[, "z1"])),
+               ilr2_lrh = c(min(sim_txt_ilr[, "z2"]), calculate_mode(sim_txt_ilr[, "z2"]), max(sim_txt_ilr[, "z2"])))
+        }, error = function(e) NULL)
+        if (!is.null(texture_result)) { ilr1_lrh <- texture_result$ilr1_lrh; ilr2_lrh <- texture_result$ilr2_lrh }
+      }
+      param_list <- vector("list", length(param_order)); names(param_list) <- param_order
+      db_set <- get_param_set(row, "dbovendry"); if (!is.null(db_set)) param_list[["db"]] <- db_set
+      wr3_set <- get_param_set(row, "wthirdbar"); if (!is.null(wr3_set)) param_list[["wr_3b"]] <- wr3_set
+      wr15_set <- get_param_set(row, "wfifteenbar"); if (!is.null(wr15_set)) param_list[["wr_15b"]] <- wr15_set
+      if (has_texture && !is.null(ilr1_lrh) && !is.null(ilr2_lrh)) {
+        param_list[["ilr1"]] <- ilr1_lrh; param_list[["ilr2"]] <- ilr2_lrh
+      }
+      rfv_set <- get_param_set(row, "rfv"); if (!is.null(rfv_set)) param_list[["rfv"]] <- rfv_set
+      ph_set <- get_param_set(row, "ph1to1h2o"); if (!is.null(ph_set)) param_list[["ph"]] <- ph_set
+      cec_set <- get_param_set(row, "cec7"); if (!is.null(cec_set)) param_list[["cec"]] <- cec_set
+      om_set <- get_param_set(row, "om"); if (!is.null(om_set)) param_list[["soc"]] <- om_set
+      param_list <- param_list[!vapply(param_list, is.null, logical(1))]
+      if (!length(param_list)) next
+      params_for_sim <- unname(param_list)
+      keep_cols <- names(param_list)
+      local_corr_sub <- local_corr[keep_cols, keep_cols, drop = FALSE]
+      tryCatch({
+        n_sim <- as.integer(row$sim_comppct)
+        sim_data <- as.data.frame(simulate_correlated_triangular(n = n_sim, params = params_for_sim, correlation_matrix = local_corr_sub))
+        colnames(sim_data) <- names(param_list)
+        if ("wr_3b" %in% names(param_list)) sim_data[["wr_3b"]] <- sim_data[["wr_3b"]] / 100
+        if ("wr_15b" %in% names(param_list)) sim_data[["wr_15b"]] <- sim_data[["wr_15b"]] / 100
+        if (has_texture && all(c("ilr1", "ilr2") %in% names(param_list))) {
+          sim_txt <- ilr_inverse(sim_data[["ilr1"]], sim_data[["ilr2"]], total = 100)
+          sim_txt <- as.data.frame(sim_txt)[, c("sand", "silt", "clay")]
+          colnames(sim_txt) <- c("sand_total", "silt_total", "clay_total")
+          sim_data <- sim_data[, setdiff(names(sim_data), c("ilr1", "ilr2"))]
+          sim_data <- cbind(sim_data, sim_txt)
+        }
+        sim_data$compname <- row$compname; sim_data$mukey <- row$mukey; sim_data$cokey <- row$cokey
+        sim_data$hzdept_r <- row$hzdept_r; sim_data$hzdepb_r <- row$hzdepb_r
+        sim_data$simulation_number <- seq_len(nrow(sim_data))
+        sim_data$unique_id <- paste0(row$cokey, "-", sprintf("%02d", sim_data$simulation_number))
+        sim_data_out <- append(sim_data_out, list(sim_data))
+      }, error = function(e) NULL)
+    }
+    if (length(sim_data_out) == 0) NULL else dplyr::bind_rows(sim_data_out)
+  }
+
+  set.seed(42)
+  result_reference <- reference_cokey_generalized(sim_cokey, corr, txt_corr)
+
+  expect_equal(result_cached, result_reference)
+})
+
 test_that("simulate_cokey_generalized() skips a row with no recognized properties rather than erroring", {
   sim_cokey <- data.frame(
     genhz = "A", sim_comppct = 10, compname = "x", mukey = "1", cokey = "1",

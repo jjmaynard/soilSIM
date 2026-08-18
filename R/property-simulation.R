@@ -302,11 +302,20 @@ simulate_correlated_triangular <- function(n, params, correlation_matrix, random
 #'
 #' @param x A vector of values.
 #' @return The most frequently-occurring value in `x`.
+#' @section Performance:
+#' `table(x)`/`factor(x)` build a full factor/hash table just to count occurrences - `Rprof()`
+#' profiling on `simulate_cokey_generalized()` (its only caller, invoked twice per horizon row)
+#' attributed 22% of that function's total wall-clock to this call alone
+#' (PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4). `tabulate(match(x, ux))` on pre-sorted unique values
+#' computes the same counts without the factor-coercion overhead. Verified to return identical
+#' output (including `table()`'s implicit tie-break - the smallest value among ties, since
+#' `table()` sorts unique values ascending and `which.max()` returns the first maximum) across
+#' ties, negative values, singletons, and random floating-point draws.
 #' @export
 calculate_mode <- function(x) {
-  freq_table <- table(x)
-  mode_value <- as.numeric(names(freq_table)[which.max(freq_table)])
-  return(mode_value)
+  ux <- sort(unique(x))
+  counts <- tabulate(match(x, ux))
+  ux[which.max(counts)]
 }
 
 #' Simulate Soil Properties for a Specific Cokey (Generalized)
@@ -361,6 +370,15 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
     NULL
   }
 
+  # ensure_positive_definite_matrix(txt_corr) is a deterministic function of genhz_val alone
+  # (txt_corr is looked up per genhz_val, with the same pooled fallback every time it's
+  # missing) - Rprof() profiling found this call (eigen() + isSymmetric.matrix() internally)
+  # recomputed identically on every row accounted for 18% of simulate_cokey_generalized()'s
+  # total wall-clock (PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4), despite there typically being only
+  # a handful of distinct genhz values across a whole cokey's rows. Cache per genhz_val instead
+  # of recomputing per row.
+  pd_txt_corr_cache <- list()
+
   for (i in seq_len(nrow(sim_cokey))) {
     row <- sim_cokey[i, ]
     genhz_val <- as.character(row$genhz)
@@ -382,17 +400,22 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
     ilr2_lrh <- NULL
 
     if (has_texture && !is.null(txt_correlation_matrices)) {
-      txt_corr <- txt_correlation_matrices[[genhz_val]]
-      if (is.null(txt_corr)) {
-        txt_corr <- pooled_txt_corr
-      }
       # .kssl_texture_matrices() is documented as exactly singular for genhz E/Cr/R even
       # when correctly matched (see R/kssl-reference-correlations.R) - chol() inside
       # simulate_correlated_triangular() would otherwise error deterministically for those
       # groups (again, before this loop's tryCatch() below - a whole-cokey crash). Nudge
       # to the nearest positive-definite matrix defensively; cheap, and the same pattern
-      # already used elsewhere in this package (e.g. build_kssl_fallback_matrix()).
-      txt_corr <- ensure_positive_definite_matrix(txt_corr)
+      # already used elsewhere in this package (e.g. build_kssl_fallback_matrix()). Cached per
+      # genhz_val (see pd_txt_corr_cache's own comment above) since it's deterministic given
+      # genhz_val alone - avoids recomputing an identical eigen() decomposition on every row.
+      if (is.null(pd_txt_corr_cache[[genhz_val]])) {
+        txt_corr_raw <- txt_correlation_matrices[[genhz_val]]
+        if (is.null(txt_corr_raw)) {
+          txt_corr_raw <- pooled_txt_corr
+        }
+        pd_txt_corr_cache[[genhz_val]] <- ensure_positive_definite_matrix(txt_corr_raw)
+      }
+      txt_corr <- pd_txt_corr_cache[[genhz_val]]
       # Order here (sand, silt, clay) must match txt_corr's own row/column order - preserved
       # exactly as the legacy source wires it, not changed.
       params_txt <- list(

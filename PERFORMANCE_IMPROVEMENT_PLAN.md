@@ -349,13 +349,41 @@ that call. It was not fine - see below.
     this takes the original ~14-minute worst case down to roughly 3 minutes.
   - [x] Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors, 0 warnings, 1
     pre-existing unrelated NOTE.
-  - [ ] Committed + pushed
+  - [x] Committed (`a00a993`); not yet pushed.
 
-- [ ] `R/property-simulation.R::simulate_cokey_generalized()` - per-row Cholesky decomposition +
-  correlated multivariate draw. Benchmarked before: 4.74s (2,000 synthetic horizon rows -> 75,188
-  simulated rows). Not yet fixed - per-row correlation-matrix subsetting varies by row (which
-  properties are present), so full vectorization across heterogeneous rows needs care; plan is to
-  vectorize dispatch overhead while likely keeping the actual draw call per row.
+- [x] `R/property-simulation.R::simulate_cokey_generalized()` - **assumption corrected by
+  profiling before fixing**: the per-row Cholesky/multivariate draw itself
+  (`simulate_correlated_triangular()`) turned out to only be 8.4% of total wall-clock. A full
+  vectorization was not attempted, since `simulate_correlated_triangular()` takes one (a,b,c)
+  triplet per property and draws `n` realizations from it, and both the triplets **and** `n`
+  (`sim_comppct`) vary per row - true multi-row batching would need a substantial redesign of
+  that function's contract. `Rprof()` profiling (2,000 synthetic rows) found the *real* cost
+  elsewhere:
+  - [x] `calculate_mode()` (called twice per row, in the texture step) = **22% of total
+    wall-clock** via `table()`/`factor()`/`unique()` - a full factor/hash-table build just to
+    count occurrences of up to `sim_comppct` (~15-60) continuous values.
+  - [x] `ensure_positive_definite_matrix(txt_corr)` = **18% of total wall-clock** via
+    `eigen()`/`isSymmetric.matrix()`, recomputed identically on every row despite being a
+    deterministic function of `genhz_val` alone (typically a handful of distinct values per
+    cokey, not one per row).
+  - [x] Fixed `calculate_mode()`: replaced `table(x)`/`factor(x)` with
+    `tabulate(match(x, sort(unique(x))))` - verified identical output (including `table()`'s
+    implicit smallest-value tie-break) across ties, negatives, singletons, and random floats.
+    Only caller is `simulate_cokey_generalized()`; has its own pre-existing unit test.
+  - [x] Fixed the PD-matrix recomputation: added `pd_txt_corr_cache` (keyed by `genhz_val`)
+    inside `simulate_cokey_generalized()`, computed once per distinct genhz value instead of
+    once per row. Confirmed `list[[NA_character_]]` always returns `NULL` even after
+    "storing" under that key (an R quirk) - the one row-level edge case (unparseable/NA genhz)
+    simply never benefits from the cache and recomputes every time, same correct result, no bug.
+  - [x] Regression test added: `test-property-simulation.R` - reimplements the ORIGINAL
+    uncached-per-row version inline (as it existed before this fix) and asserts bit-identical
+    output at the same seed, using a 2-row fixture that intentionally shares one `genhz` value
+    (the case the caching actually exercises - the existing single-row fixtures never did).
+  - [x] Benchmarked after: 4.74s -> 2.94s (2,000 synthetic rows) - **~1.6x**, from two low-risk
+    fixes with zero change to the actual statistical/RNG behavior.
+  - [x] Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors, 0 warnings, 1
+    pre-existing unrelated NOTE.
+  - [ ] Committed + pushed
 
 - [ ] `R/multivariate-adjustment.R::merge_adjusted_data()` - per-row `which()` full-table scan
   "join," reached per-cokey via `apply_gp_depth_trends()`. Benchmarked before: 3.22s (10,000 rows,

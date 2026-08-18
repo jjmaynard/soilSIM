@@ -15,3 +15,15 @@ The most frequently-occurring value in \code{x}.
 \description{
 Compute the Mode of a Numeric Vector
 }
+\section{Performance}{
+
+\code{table(x)}/\code{factor(x)} build a full factor/hash table just to count occurrences - \code{Rprof()}
+profiling on \code{simulate_cokey_generalized()} (its only caller, invoked twice per horizon row)
+attributed 22\% of that function's total wall-clock to this call alone
+(PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4). \code{tabulate(match(x, ux))} on pre-sorted unique values
+computes the same counts without the factor-coercion overhead. Verified to return identical
+output (including \code{table()}'s implicit tie-break - the smallest value among ties, since
+\code{table()} sorts unique values ascending and \code{which.max()} returns the first maximum) across
+ties, negative values, singletons, and random floating-point draws.
+}
+
