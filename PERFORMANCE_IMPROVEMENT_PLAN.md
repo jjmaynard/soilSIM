@@ -437,7 +437,19 @@ that call. It was not fine - see below.
   - [x] Benchmarked after: 0.42s -> ~0.00s (at measurement noise floor).
   - [x] Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors, 0 warnings, 1
     pre-existing unrelated NOTE.
-  - [ ] Committed + pushed
+  - [x] Committed (`b7b8418`); not yet pushed.
+
+All 5 Tier 4 candidates now fixed, tested, benchmarked, and committed. Summary of speedups:
+
+| Item | Before | After | Factor |
+|---|---|---|---|
+| `fuse_general_kde()` (`grid_resolution` + batched sampling, combined) | 5.88s-209.13s | 1.27s-44.92s | 4.6x-5.7x |
+| `simulate_cokey_generalized()` (`calculate_mode()` + PD-matrix caching) | 4.74s | 2.94s | 1.6x |
+| `merge_adjusted_data()` | 3.22s | 0.07s | ~46x |
+| `apply_cross_property_constraints()` | 31.61s | 0.02s | ~1,580x |
+| `check_property_data_availability()` | 0.42s | ~0.00s | n/a (noise floor) |
+
+Not yet pushed to remote - all 5 commits are local only, pending explicit push confirmation.
 
 ## Final gate
 
