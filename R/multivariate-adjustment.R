@@ -1421,25 +1421,37 @@ fit_local_gp_model_single <- function(agg_data, prop, gp_control = c(20, 10, 2))
   return(NULL)
 }
 
+#' @section Performance:
+#' Previously did a per-row `which()` full-table scan of `result_data` for every row of
+#' `adjusted_data` (an O(n_adjusted x n_result) join) - `Rprof()` profiling (10,000-row synthetic
+#' benchmark) confirmed this as a real per-cokey hot path cost
+#' (PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4). Replaced with a single vectorized key match. A row
+#' only updates `result_data` when its (`hzdept_r`, `simulation_number`) key matches **exactly
+#' one** `result_data` row (the original's `length(match_idx) == 1` contract, silently preserved
+#' - zero or multiple matches are skipped, not an error) and its own value for that property is
+#' non-`NA`. When multiple `adjusted_data` rows share the same key, R's vectorized `[<-`
+#' assignment applies them in order and the last one wins - verified to match the original
+#' sequential loop's last-write-wins behavior exactly (confirmed empirically:
+#' `x[c(2,2,3)] <- c(10,20,30)` yields `x[2] == 20`, not `10`).
 merge_adjusted_data <- function(cokey_data, adjusted_data, available_properties) {
   result_data <- cokey_data
 
-  for (i in seq_len(nrow(adjusted_data))) {
-    adj_row <- adjusted_data[i, ]
+  key_result <- paste(result_data$hzdept_r, result_data$simulation_number, sep = "\a")
+  key_adj <- paste(adjusted_data$hzdept_r, adjusted_data$simulation_number, sep = "\a")
 
-    # Find matching row in original data
-    match_idx <- which(
-      result_data$hzdept_r == adj_row$hzdept_r &
-        result_data$simulation_number == adj_row$simulation_number
-    )
+  # A key must be unique WITHIN result_data (exactly one candidate row) to match the original
+  # "length(match_idx) == 1" contract - match() alone only finds the first occurrence and can't
+  # tell duplicates from a genuine single match.
+  key_counts <- table(key_result)
+  unique_keys <- names(key_counts)[key_counts == 1]
+  match_idx <- match(key_adj, key_result)
+  match_idx[!(key_adj %in% unique_keys)] <- NA_integer_
 
-    if (length(match_idx) == 1) {
-      # Update property values
-      for (prop in available_properties) {
-        if (prop %in% names(adj_row) && !is.na(adj_row[[prop]])) {
-          result_data[[prop]][match_idx] <- adj_row[[prop]]
-        }
-      }
+  for (prop in available_properties) {
+    if (!(prop %in% names(adjusted_data))) next
+    valid <- !is.na(match_idx) & !is.na(adjusted_data[[prop]])
+    if (any(valid)) {
+      result_data[[prop]][match_idx[valid]] <- adjusted_data[[prop]][valid]
     }
   }
 

@@ -66,6 +66,61 @@ test_that("get_property_constraints()/apply_range_constraints() enforce known pl
   expect_equal(clamped, c(0, 50, 100))
 })
 
+test_that("merge_adjusted_data()'s vectorized key match matches the original per-row which()-scan loop bit-for-bit", {
+  # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4: covers the original per-row loop's edge cases -
+  # exactly-one-match required (zero or duplicate matches in result_data skip the update), NA
+  # values in adjusted_data skip that row/property, and duplicate keys WITHIN adjusted_data
+  # resolve to the last (highest row index) value, matching sequential last-write-wins.
+  cokey_data <- data.frame(
+    hzdept_r = c(0, 0, 20, 20, 40, 40), # (0, 2) is a duplicate key -> should never match
+    simulation_number = c(1, 2, 1, 2, 1, 1), # (40, 1) also duplicated -> should never match
+    clay_pct = c(15, 16, 17, 18, 19, 20),
+    sand_pct = c(45, 44, 43, 42, 41, 40)
+  )
+  adjusted_data <- data.frame(
+    hzdept_r = c(0, 0, 20, 20, 20, 40, 99),
+    simulation_number = c(1, 1, 1, 2, 2, 1, 1), # rows 1-2 duplicate key (0,1); last wins
+    clay_pct = c(100, 200, NA, 300, 301, 999, 500), # row 3 NA -> skip; rows 4-5 duplicate, last wins
+    sand_pct = c(-1, -2, -3, -4, -5, -6, -7)
+  )
+  available_properties <- c("clay_pct", "sand_pct")
+
+  reference_merge <- function(cokey_data, adjusted_data, available_properties) {
+    result_data <- cokey_data
+    for (i in seq_len(nrow(adjusted_data))) {
+      adj_row <- adjusted_data[i, ]
+      match_idx <- which(
+        result_data$hzdept_r == adj_row$hzdept_r &
+          result_data$simulation_number == adj_row$simulation_number
+      )
+      if (length(match_idx) == 1) {
+        for (prop in available_properties) {
+          if (prop %in% names(adj_row) && !is.na(adj_row[[prop]])) {
+            result_data[[prop]][match_idx] <- adj_row[[prop]]
+          }
+        }
+      }
+    }
+    result_data
+  }
+
+  result <- merge_adjusted_data(cokey_data, adjusted_data, available_properties)
+  expected <- reference_merge(cokey_data, adjusted_data, available_properties)
+  expect_equal(result, expected)
+
+  # Spot-check the semantics directly, not just bit-identity to the reference:
+  # (0,1) matched a unique result_data row and had 2 duplicate adjusted_data rows -> last (200) wins.
+  expect_equal(result$clay_pct[result$hzdept_r == 0 & result$simulation_number == 1], 200)
+  # (0,2) is duplicated WITHIN result_data -> never matched, stays at its original value (16).
+  expect_equal(result$clay_pct[result$hzdept_r == 0 & result$simulation_number == 2][1], 16)
+  # (20,1)'s adjusted_data value was NA -> skipped, stays at original (17).
+  expect_equal(result$clay_pct[result$hzdept_r == 20 & result$simulation_number == 1], 17)
+  # (20,2) had 2 non-NA duplicate adjusted_data rows -> last (301) wins.
+  expect_equal(result$clay_pct[result$hzdept_r == 20 & result$simulation_number == 2], 301)
+  # (40,1) is duplicated WITHIN result_data -> never matched, stays at original values (19, 20).
+  expect_equal(sort(result$clay_pct[result$hzdept_r == 40]), c(19, 20))
+})
+
 test_that("apply_cross_property_constraints() renormalizes texture properties to sum to 100", {
   df <- data.frame(sandtotal = c(50, 30), claytotal = c(30, 30), silttotal = c(30, 20))
   result <- apply_cross_property_constraints(df, c("sandtotal", "claytotal", "silttotal"))

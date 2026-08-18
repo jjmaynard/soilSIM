@@ -383,13 +383,27 @@ that call. It was not fine - see below.
     fixes with zero change to the actual statistical/RNG behavior.
   - [x] Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors, 0 warnings, 1
     pre-existing unrelated NOTE.
-  - [ ] Committed + pushed
+  - [x] Committed (`d81248d`); not yet pushed.
 
-- [ ] `R/multivariate-adjustment.R::merge_adjusted_data()` - per-row `which()` full-table scan
-  "join," reached per-cokey via `apply_gp_depth_trends()`. Benchmarked before: 3.22s (10,000 rows,
-  10 depths x 1,000 realizations - one cokey's scale). Not yet fixed; planned fix is a proper
-  `merge()`/`dplyr::left_join()` keyed on `hzdept_r`+`simulation_number`, mirroring the earlier
-  `process_single_cokey()` fix.
+- [x] `R/multivariate-adjustment.R::merge_adjusted_data()` - per-row `which()` full-table scan
+  "join," reached per-cokey via `apply_gp_depth_trends()`.
+  - [x] Benchmarked before: 3.22s (10,000 rows, 10 depths x 1,000 realizations - one cokey's
+    scale).
+  - [x] Fixed: replaced the per-row `which()` scan with a single vectorized key match
+    (`paste(hzdept_r, simulation_number)` composite key, `match()` + a uniqueness check via
+    `table()` to preserve the original's "exactly one match" contract - zero or duplicate
+    matches in `result_data` are silently skipped, not an error). Verified empirically that R's
+    vectorized `[<-` assignment applies duplicate indices in order with the last one winning
+    (`x[c(2,2,3)] <- c(10,20,30)` -> `x[2] == 20`), matching the original sequential loop's
+    last-write-wins behavior for `adjusted_data` rows that share a key.
+  - [x] Regression test added: `test-multivariate-adjustment.R` - reimplements the original
+    per-row loop inline and asserts bit-identical output, plus explicit spot-checks of every
+    edge case (duplicate key within `result_data` -> never matched; duplicate key within
+    `adjusted_data` -> last wins; `NA` value in `adjusted_data` -> skipped).
+  - [x] Benchmarked after: 3.22s -> 0.07s - **~46x**.
+  - [x] Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors, 0 warnings, 1
+    pre-existing unrelated NOTE.
+  - [ ] Committed + pushed
 
 - [ ] `R/multivariate-adjustment.R::apply_cross_property_constraints()` - per-row texture
   sum/rescale. Benchmarked before: **31.61s** (50,000 synthetic rows) - much more expensive than
