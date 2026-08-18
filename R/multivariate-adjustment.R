@@ -1663,6 +1663,15 @@ correct_property_distribution <- function(adjusted_values, original_values, cons
   })
 }
 
+#' @section Performance:
+#' Previously scaled texture properties one row at a time via `data[i, texture_props]`
+#' data.frame row-slicing - `Rprof()`-free benchmarking alone made this obvious (31.61s for
+#' 50,000 synthetic rows despite a trivial per-row body, PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4),
+#' matching the same anti-pattern already fixed in `related_property_estimation()`'s texture
+#' branch (195x there). Replaced with a `rowSums()`-based vectorization operating on the whole
+#' texture-column matrix at once. `texture_sum > 0 & !is.na(texture_sum)` preserves the
+#' original's exact `&&`-based NA handling (R's `&`/`&&` both resolve `NA & FALSE` to `FALSE`,
+#' so an `NA` sum still correctly skips scaling for that row either way).
 apply_cross_property_constraints <- function(data, properties) {
   # Enhanced texture sum constraint using Module 8 validation
   texture_props <- intersect(c("sand_total", "sandtotal", "clay_total", "claytotal", "silt_total", "silttotal"),
@@ -1671,14 +1680,12 @@ apply_cross_property_constraints <- function(data, properties) {
   if (length(texture_props) >= 2) {
     tryCatch({
       # Normalize texture properties to sum to 100%
-      for (i in seq_len(nrow(data))) {
-        texture_values <- unlist(data[i, texture_props])
-        texture_sum <- sum(texture_values, na.rm = TRUE)
-
-        if (texture_sum > 0 && !is.na(texture_sum)) {
-          scaling_factor <- 100 / texture_sum
-          data[i, texture_props] <- texture_values * scaling_factor
-        }
+      texture_mat <- as.matrix(data[, texture_props, drop = FALSE])
+      texture_sum <- rowSums(texture_mat, na.rm = TRUE)
+      needs_scaling <- texture_sum > 0 & !is.na(texture_sum)
+      if (any(needs_scaling)) {
+        scaling_factor <- 100 / texture_sum[needs_scaling]
+        data[needs_scaling, texture_props] <- texture_mat[needs_scaling, , drop = FALSE] * scaling_factor
       }
     }, error = function(e) {
       handle_workflow_error(e, "Cross-property constraint application", "warn")

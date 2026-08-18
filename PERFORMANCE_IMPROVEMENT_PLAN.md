@@ -403,16 +403,26 @@ that call. It was not fine - see below.
   - [x] Benchmarked after: 3.22s -> 0.07s - **~46x**.
   - [x] Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors, 0 warnings, 1
     pre-existing unrelated NOTE.
-  - [ ] Committed + pushed
+  - [x] Committed (`6af405f`); not yet pushed.
 
-- [ ] `R/multivariate-adjustment.R::apply_cross_property_constraints()` - per-row texture
-  sum/rescale. Benchmarked before: **31.61s** (50,000 synthetic rows) - much more expensive than
-  its trivial per-row body suggests. **Note**: `correct_distribution_shapes()` (this function's
-  only caller) has zero internal call sites anywhere in `R/` (confirmed via
+- [x] `R/multivariate-adjustment.R::apply_cross_property_constraints()` - per-row texture
+  sum/rescale via `data[i, texture_props]` row-slicing. **Note**: `correct_distribution_shapes()`
+  (this function's only caller) has zero internal call sites anywhere in `R/` (confirmed via
   `grep -rn "correct_distribution_shapes(" R/`) - exported-API-only, same status as the earlier
-  Tier 3 `hz_quant_prob_mukey()` item. Worth fixing for correctness/consistency regardless (same
-  `rowSums()`-based pattern as the already-fixed `related_property_estimation()` texture branch,
-  195x there) even though it won't show up in a real AOI pipeline run today. Not yet fixed.
+  Tier 3 `hz_quant_prob_mukey()` item. Fixed for correctness/consistency regardless.
+  - [x] Benchmarked before: **31.61s** (50,000 synthetic rows) - much more expensive than its
+    trivial per-row body suggested.
+  - [x] Fixed: `rowSums()`-based vectorization over the whole texture-column matrix at once,
+    mirroring the already-fixed `related_property_estimation()` texture branch exactly.
+    `texture_sum > 0 & !is.na(texture_sum)` preserves the original's exact `&&`-based NA
+    handling (`NA & FALSE` resolves to `FALSE` for both `&`/`&&`).
+  - [x] Regression test added: `test-multivariate-adjustment.R` - reimplements the original
+    per-row loop inline and asserts bit-identical output across NA-sum, zero-sum, and
+    already-100 rows.
+  - [x] Benchmarked after: 31.61s -> 0.02s - **~1,580x**.
+  - [x] Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors, 0 warnings, 1
+    pre-existing unrelated NOTE.
+  - [ ] Committed + pushed
 
 - [ ] `R/monte-carlo.R::check_property_data_availability()` - nested per-row/per-property NA check
   with repeated column re-indexing. Benchmarked before: 0.42s (20,000 rows x 5 properties) - real

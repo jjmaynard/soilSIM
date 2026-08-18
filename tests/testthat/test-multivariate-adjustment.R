@@ -128,6 +128,43 @@ test_that("apply_cross_property_constraints() renormalizes texture properties to
   expect_equal(totals, c(100, 100), tolerance = 1e-6)
 })
 
+test_that("apply_cross_property_constraints()'s vectorized rowSums() matches the original per-row loop, including NA/zero-sum edge cases", {
+  # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4: row 3 has an NA in one texture column (NA sum ->
+  # skip, per the original's `texture_sum > 0 && !is.na(texture_sum)` check); row 4 sums to
+  # exactly 0 (skip, avoids division by zero); row 5 is already exactly 100 (scaling_factor = 1,
+  # a no-op that must still leave the row unchanged, not corrupted).
+  df <- data.frame(
+    sandtotal = c(50, 30, 40, 0, 33.3333),
+    claytotal = c(30, 30, NA, 0, 33.3333),
+    silttotal = c(30, 20, 20, 0, 33.3334)
+  )
+  properties <- c("sandtotal", "claytotal", "silttotal")
+
+  reference_constraints <- function(data, properties) {
+    texture_props <- intersect(c("sand_total", "sandtotal", "clay_total", "claytotal", "silt_total", "silttotal"), properties)
+    for (i in seq_len(nrow(data))) {
+      texture_values <- unlist(data[i, texture_props])
+      texture_sum <- sum(texture_values, na.rm = TRUE)
+      if (texture_sum > 0 && !is.na(texture_sum)) {
+        scaling_factor <- 100 / texture_sum
+        data[i, texture_props] <- texture_values * scaling_factor
+      }
+    }
+    data
+  }
+
+  result <- apply_cross_property_constraints(df, properties)
+  expected <- reference_constraints(df, properties)
+  expect_equal(result, expected)
+
+  # Row 3 (NA claytotal): na.rm=TRUE means the sum (60) excludes the NA, so this row IS scaled
+  # (100/60 factor) - only the NA cell itself stays NA (NA * scaling_factor is still NA).
+  expect_equal(result$sandtotal[3], 40 * 100 / 60)
+  expect_true(is.na(result$claytotal[3]))
+  # Row 4 (all zeros) is untouched, not NaN from a 100/0 division.
+  expect_equal(as.numeric(result[4, properties]), c(0, 0, 0))
+})
+
 test_that("get_nrcs_property_mapping() returns a static lookup with the expected keys", {
   mapping <- get_nrcs_property_mapping()
   expect_equal(mapping[["claytotal"]], "clay_pct")
