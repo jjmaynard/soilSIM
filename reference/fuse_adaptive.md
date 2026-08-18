@@ -57,7 +57,12 @@ fuse_adaptive(
 
   Passed to
   [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
-  for the general route.
+  for the general route. `NULL` (default) resolves to
+  [FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION](https://jjmaynard.github.io/soilSIM/reference/FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION.md)
+  (`0.1`) - see that constant's docs for the profiling/accuracy
+  justification for why this differs from
+  [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+  own standalone default of `0.01`.
 
 - verbose:
 

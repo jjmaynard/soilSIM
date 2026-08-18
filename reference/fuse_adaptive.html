@@ -121,7 +121,10 @@ contract across routes.</p></dd>
 
 
 <dt id="arg-grid-resolution">grid_resolution<a class="anchor" aria-label="anchor" href="#arg-grid-resolution"></a></dt>
-<dd><p>Passed to <code><a href="bayesian_update.html">bayesian_update()</a></code> for the general route.</p></dd>
+<dd><p>Passed to <code><a href="bayesian_update.html">bayesian_update()</a></code> for the general route. <code>NULL</code> (default)
+resolves to <a href="FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION.html">FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION</a> (<code>0.1</code>) - see that constant's docs for
+the profiling/accuracy justification for why this differs from <code><a href="bayesian_update.html">bayesian_update()</a></code>'s own
+standalone default of <code>0.01</code>.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

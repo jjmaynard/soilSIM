@@ -29,6 +29,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/authors.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/index.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/news/index.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/add_range_rule.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/add_relationship_rule.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/add_restriction_indicators_working.html</loc></url>
@@ -353,6 +354,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/sim_component_compositions.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/sim_kde.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/sim_linear_cdf.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/sim_linear_cdf_batch.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/sim_normal.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/sim_spline.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/simulate_and_perturb_soil_profiles.html</loc></url>

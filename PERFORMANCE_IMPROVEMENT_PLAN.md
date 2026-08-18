@@ -452,15 +452,310 @@ Committed + pushed
   [`evaluate_simulated_depths()`](https://jjmaynard.github.io/soilSIM/reference/evaluate_simulated_depths.md),
   [`fetch_osd_horizons_cached()`](https://jjmaynard.github.io/soilSIM/reference/fetch_osd_horizons_cached.md)) -
   genuinely per-profile work or already cached.
-- `distribution-fitting-raster.R` non-KDE routes,
-  [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)
-  (already gated behind `threshold_cells`) - working as designed.
+- `distribution-fitting-raster.R` non-KDE routes - working as designed.
 - `bayesian-updating.R::bayesian_update()` - confirmed not wired into
   the main pipeline by the file’s own header comment; dead code from the
   hot-path perspective by original design.
 - Small/capped loops in `validation-diagnostics.R` and
   `statistics.R::analyze_property_distributions_safe()` - negligible
   impact.
+
+## Tier 4 - KDE fusion + new row-loop candidates (found by comparing against a sibling Python
+
+project’s own performance report,
+`soil-id-algorithm-api/docs/PERFORMANCE_PROFILING_REPORT.md`)
+
+**Correction to the “Confirmed NOT bugs” entry above**:
+[`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)
+was previously waved off as “already gated behind `threshold_cells` -
+working as designed” with no benchmark behind that call. It was not
+fine - see below.
+
+`R/raster-fusion.R::fuse_general_kde()` - per-cell
+[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
+call (itself calling
+[`stats::density()`](https://rdrr.io/r/stats/density.html) twice) inside
+[`terra::app()`](https://rspatial.github.io/terra/reference/app.html) +
+`apply(row_mat, 1, ...)`, for every cell at or below `threshold_cells`
+(default 80,000).
+
+Benchmarked before (synthetic percentile rasters, bypassing network
+fetch): 5.88s / 29.58s / 109.94s / 209.13s at 506 / 2,024 / 10,000 /
+20,022 actual cells respectively (~linear, ~10.4ms/cell) - extrapolating
+to the default `threshold_cells = 80,000` implies ~14 minutes in the
+worst case.
+
+[`Rprof()`](https://rdrr.io/r/utils/Rprof.html) profiling (10,000-cell
+case) found
+[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
+= 77% of total time, of which
+[`stats::density()`](https://rdrr.io/r/stats/density.html) alone = 65%
+(`dnorm` 26%, `fft` 16%) -
+[`simulate_from_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/simulate_from_percentiles.md)
+(the piece originally assumed to be the main target) was only 12%, of
+which
+[`extract_percentile_pairs()`](https://jjmaynard.github.io/soilSIM/reference/extract_percentile_pairs.md)
+dispatch overhead alone was 9% (more than the actual
+[`approxfun()`](https://rdrr.io/r/stats/approxfun.html)-based sampling
+itself). This reprioritized the fix:
+[`density()`](https://rdrr.io/r/stats/density.html)’s evaluation grid
+length (driven by
+[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)’s
+`grid_resolution` parameter, default `0.01`) was the real lever, not
+per-cell R dispatch.
+
+Accuracy-vs-speed sweep across 4 representative percentile scenarios
+(narrow/wide/skewed distributions) comparing `grid_resolution` against a
+`0.01` reference: at `0.1`, max mean error 0.018%, max variance error
+0.12% (analytical, sampling-noise-free comparison) - both far inside the
+~5-10% variability typical of field-measured soil properties (the same
+bar the sibling Python report’s cubic-spline-to-linear-interpolation
+swap was validated against). Coarser than `0.1` degrades fast (variance
+error reaches double digits by `0.25`, 470% by `2.0`).
+
+Fixed: added `FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION <- 0.1`
+(`R/raster-fusion.R`) and changed
+[`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)’s
+`NULL`-`grid_resolution` fallback to use it instead of silently
+deferring to
+[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)’s
+own standalone default of `0.01`.
+[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)’s
+own default is deliberately left unchanged - only
+[`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)/[`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md)’s
+caller-facing default shifted, so any other direct caller of
+[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
+is unaffected.
+
+Regression test added: `test-raster-fusion.R` - compares mean posterior
+mu/sigma (averaged over 8 seeds, to isolate the systematic
+`grid_resolution` effect from
+[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)’s
+own two-layer Monte Carlo sampling noise) between the new default and
+the `0.01` reference, across the same 3 representative scenarios, within
+a tolerance looser than the analytical bound (2%/10%) to stay robust
+while still catching a real regression.
+
+Benchmarked after: 3.65s / 10.35s / 49.17s / 84.92s at the same 4
+scales - **1.6x-2.9x** (largest at the 2,024-cell scale).
+
+Full `devtools::test()`: 0 failures (only pre-existing live-network
+skips/unrelated warnings). Full `devtools::check()`: 0 errors, 0
+warnings, 1 pre-existing unrelated NOTE (untracked `pkgdown/` directory,
+predates this work).
+
+Committed (`c1b64fb`); not yet pushed.
+
+[`simulate_from_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/simulate_from_percentiles.md)/[`extract_percentile_pairs()`](https://jjmaynard.github.io/soilSIM/reference/extract_percentile_pairs.md)
+batching across cells - originally planned as the primary fix before
+profiling reprioritized it as secondary; turned out bigger than the
+~10-12% estimate.
+
+Added
+[`sim_linear_cdf_batch()`](https://jjmaynard.github.io/soilSIM/reference/sim_linear_cdf_batch.md)
+(`R/percentile-sampling.R`) - vectorized equivalent of calling
+[`sim_linear_cdf()`](https://jjmaynard.github.io/soilSIM/reference/sim_linear_cdf.md)
+once per row via
+[`stats::approxfun()`](https://rdrr.io/r/stats/approxfun.html), using
+[`findInterval()`](https://rdrr.io/r/base/findInterval.html) + matrix
+arithmetic across all rows sharing the same `probs` knots at once.
+Validated against
+[`stats::approxfun()`](https://rdrr.io/r/stats/approxfun.html) at fixed
+evaluation points (bit-identical, max abs diff = 0) and distributionally
+equivalent to
+[`sim_linear_cdf()`](https://jjmaynard.github.io/soilSIM/reference/sim_linear_cdf.md)
+via KS test (both checks now in `test-percentile-sampling.R`).
+
+Wired into
+[`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md):
+cells with no NA/`-1`-sentinel percentile values (the common case) now
+go through a batched fast path
+([`sim_linear_cdf_batch()`](https://jjmaynard.github.io/soilSIM/reference/sim_linear_cdf_batch.md)
+for both prior and likelihood, once per chunk); any cell with a missing
+value falls back to the original per-cell
+[`simulate_from_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/simulate_from_percentiles.md)
+path unchanged, preserving the existing NA-degrades-to-NA-output
+contract exactly (confirmed by the existing dedicated test still
+passing).
+[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)’s
+[`density()`](https://rdrr.io/r/stats/density.html) call still runs per
+cell - no vectorized form exists in base R.
+
+Benchmarked after (on top of the `grid_resolution` fix): 1.27s / 5.18s /
+23.37s / 44.92s at the same 4 scales - a further **1.9x-2.9x**, for a
+**cumulative 4.6x-5.7x** from the original baseline
+(5.88s/29.58s/109.94s/209.13s). At the default
+`threshold_cells = 80,000`, this takes the original ~14-minute worst
+case down to roughly 3 minutes.
+
+Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors,
+0 warnings, 1 pre-existing unrelated NOTE.
+
+Committed (`a00a993`); not yet pushed.
+
+`R/property-simulation.R::simulate_cokey_generalized()` - **assumption
+corrected by profiling before fixing**: the per-row
+Cholesky/multivariate draw itself
+([`simulate_correlated_triangular()`](https://jjmaynard.github.io/soilSIM/reference/simulate_correlated_triangular.md))
+turned out to only be 8.4% of total wall-clock. A full vectorization was
+not attempted, since
+[`simulate_correlated_triangular()`](https://jjmaynard.github.io/soilSIM/reference/simulate_correlated_triangular.md)
+takes one (a,b,c) triplet per property and draws `n` realizations from
+it, and both the triplets **and** `n` (`sim_comppct`) vary per row -
+true multi-row batching would need a substantial redesign of that
+function’s contract. [`Rprof()`](https://rdrr.io/r/utils/Rprof.html)
+profiling (2,000 synthetic rows) found the *real* cost elsewhere:
+
+[`calculate_mode()`](https://jjmaynard.github.io/soilSIM/reference/calculate_mode.md)
+(called twice per row, in the texture step) = **22% of total
+wall-clock** via
+[`table()`](https://rdrr.io/r/base/table.html)/[`factor()`](https://rdrr.io/r/base/factor.html)/[`unique()`](https://rdrr.io/r/base/unique.html) -
+a full factor/hash-table build just to count occurrences of up to
+`sim_comppct` (~15-60) continuous values.
+
+`ensure_positive_definite_matrix(txt_corr)` = **18% of total
+wall-clock** via
+[`eigen()`](https://rdrr.io/r/base/eigen.html)/[`isSymmetric.matrix()`](https://rdrr.io/r/base/isSymmetric.html),
+recomputed identically on every row despite being a deterministic
+function of `genhz_val` alone (typically a handful of distinct values
+per cokey, not one per row).
+
+Fixed
+[`calculate_mode()`](https://jjmaynard.github.io/soilSIM/reference/calculate_mode.md):
+replaced `table(x)`/`factor(x)` with
+`tabulate(match(x, sort(unique(x))))` - verified identical output
+(including [`table()`](https://rdrr.io/r/base/table.html)’s implicit
+smallest-value tie-break) across ties, negatives, singletons, and random
+floats. Only caller is
+[`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md);
+has its own pre-existing unit test.
+
+Fixed the PD-matrix recomputation: added `pd_txt_corr_cache` (keyed by
+`genhz_val`) inside
+[`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md),
+computed once per distinct genhz value instead of once per row.
+Confirmed `list[[NA_character_]]` always returns `NULL` even after
+“storing” under that key (an R quirk) - the one row-level edge case
+(unparseable/NA genhz) simply never benefits from the cache and
+recomputes every time, same correct result, no bug.
+
+Regression test added: `test-property-simulation.R` - reimplements the
+ORIGINAL uncached-per-row version inline (as it existed before this fix)
+and asserts bit-identical output at the same seed, using a 2-row fixture
+that intentionally shares one `genhz` value (the case the caching
+actually exercises - the existing single-row fixtures never did).
+
+Benchmarked after: 4.74s -\> 2.94s (2,000 synthetic rows) - **~1.6x**,
+from two low-risk fixes with zero change to the actual statistical/RNG
+behavior.
+
+Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors,
+0 warnings, 1 pre-existing unrelated NOTE.
+
+Committed (`d81248d`); not yet pushed.
+
+`R/multivariate-adjustment.R::merge_adjusted_data()` - per-row
+[`which()`](https://rdrr.io/r/base/which.html) full-table scan “join,”
+reached per-cokey via
+[`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md).
+
+Benchmarked before: 3.22s (10,000 rows, 10 depths x 1,000 realizations -
+one cokey’s scale).
+
+Fixed: replaced the per-row
+[`which()`](https://rdrr.io/r/base/which.html) scan with a single
+vectorized key match (`paste(hzdept_r, simulation_number)` composite
+key, [`match()`](https://rdrr.io/r/base/match.html) + a uniqueness check
+via [`table()`](https://rdrr.io/r/base/table.html) to preserve the
+original’s “exactly one match” contract - zero or duplicate matches in
+`result_data` are silently skipped, not an error). Verified empirically
+that R’s vectorized `[<-` assignment applies duplicate indices in order
+with the last one winning (`x[c(2,2,3)] <- c(10,20,30)` -\>
+`x[2] == 20`), matching the original sequential loop’s last-write-wins
+behavior for `adjusted_data` rows that share a key.
+
+Regression test added: `test-multivariate-adjustment.R` - reimplements
+the original per-row loop inline and asserts bit-identical output, plus
+explicit spot-checks of every edge case (duplicate key within
+`result_data` -\> never matched; duplicate key within `adjusted_data`
+-\> last wins; `NA` value in `adjusted_data` -\> skipped).
+
+Benchmarked after: 3.22s -\> 0.07s - **~46x**.
+
+Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors,
+0 warnings, 1 pre-existing unrelated NOTE.
+
+Committed (`6af405f`); not yet pushed.
+
+`R/multivariate-adjustment.R::apply_cross_property_constraints()` -
+per-row texture sum/rescale via `data[i, texture_props]` row-slicing.
+**Note**:
+[`correct_distribution_shapes()`](https://jjmaynard.github.io/soilSIM/reference/correct_distribution_shapes.md)
+(this function’s only caller) has zero internal call sites anywhere in
+`R/` (confirmed via `grep -rn "correct_distribution_shapes(" R/`) -
+exported-API-only, same status as the earlier Tier 3
+[`hz_quant_prob_mukey()`](https://jjmaynard.github.io/soilSIM/reference/hz_quant_prob_mukey.md)
+item. Fixed for correctness/consistency regardless.
+
+Benchmarked before: **31.61s** (50,000 synthetic rows) - much more
+expensive than its trivial per-row body suggested.
+
+Fixed: [`rowSums()`](https://rdrr.io/r/base/colSums.html)-based
+vectorization over the whole texture-column matrix at once, mirroring
+the already-fixed
+[`related_property_estimation()`](https://jjmaynard.github.io/soilSIM/reference/related_property_estimation.md)
+texture branch exactly. `texture_sum > 0 & !is.na(texture_sum)`
+preserves the original’s exact `&&`-based NA handling (`NA & FALSE`
+resolves to `FALSE` for both `&`/`&&`).
+
+Regression test added: `test-multivariate-adjustment.R` - reimplements
+the original per-row loop inline and asserts bit-identical output across
+NA-sum, zero-sum, and already-100 rows.
+
+Benchmarked after: 31.61s -\> 0.02s - **~1,580x**.
+
+Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors,
+0 warnings, 1 pre-existing unrelated NOTE.
+
+Committed (`cec26f2`); not yet pushed.
+
+`R/monte-carlo.R::check_property_data_availability()` - nested
+per-row/per-property NA check with repeated column re-indexing. Real
+caller (`monte-carlo.R:1840`) but already cheap; lowest priority of the
+5, fixed anyway for completeness.
+
+Benchmarked before: 0.42s (20,000 rows x 5 properties).
+
+Fixed: single vectorized
+`rowSums(!is.na(as.matrix(soil_data[, r_cols]))) > 0` check over
+whichever `_r` columns are actually present, replacing the nested
+per-row/per-property loop.
+
+Regression test added: `test-monte-carlo.R` - reimplements the original
+nested loop inline and asserts identical output, including a property
+whose `_r` column isn’t present at all (silently ignored either way) and
+the all-columns-absent edge case.
+
+Benchmarked after: 0.42s -\> ~0.00s (at measurement noise floor).
+
+Full `devtools::test()`: 0 failures. Full `devtools::check()`: 0 errors,
+0 warnings, 1 pre-existing unrelated NOTE.
+
+Committed (`b7b8418`); not yet pushed.
+
+All 5 Tier 4 candidates now fixed, tested, benchmarked, and committed.
+Summary of speedups:
+
+| Item | Before | After | Factor |
+|----|----|----|----|
+| [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md) (`grid_resolution` + batched sampling, combined) | 5.88s-209.13s | 1.27s-44.92s | 4.6x-5.7x |
+| [`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md) ([`calculate_mode()`](https://jjmaynard.github.io/soilSIM/reference/calculate_mode.md) + PD-matrix caching) | 4.74s | 2.94s | 1.6x |
+| `merge_adjusted_data()` | 3.22s | 0.07s | ~46x |
+| `apply_cross_property_constraints()` | 31.61s | 0.02s | ~1,580x |
+| `check_property_data_availability()` | 0.42s | ~0.00s | n/a (noise floor) |
+
+Not yet pushed to remote - all 5 commits are local only, pending
+explicit push confirmation.
 
 ## Final gate
 
