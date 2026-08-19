@@ -10,7 +10,8 @@ apply_nrcs_trend_adjustments(
   model_group,
   properties,
   preserve_correlations = TRUE,
-  verbose = getOption("ssurgo.verbose", FALSE)
+  verbose = getOption("ssurgo.verbose", FALSE),
+  config = NULL
 )
 }
 \arguments{
@@ -27,6 +28,13 @@ apply_nrcs_trend_adjustments(
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's log level so
 \code{INFO}-level progress messages print for the duration of this call (default
 \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
+
+\item{config}{Optional Monte Carlo config, passed through to \code{apply_gp_depth_trends()} -
+\code{config$monte_carlo$vertical_correlation_method} (default \code{"joint_copula"} as of
+\code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 13; set to \code{"gp_quantile_retrofit"} to opt
+back into the original algorithm) reaches the NRCS/regional GP path the same way it already
+reaches the local-GP path (Phase 6/11). \code{NULL} (default) resolves to \code{"joint_copula"},
+matching \code{get_monte_carlo_defaults()}'s own default.}
 }
 \value{
 Adjusted simulation data

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This functional group is soilSIM's SSURGO data-source adapter. It is the entry point of the entire soilSIM pipeline: it acquires raw tabular soil survey data from USDA-NRCS's Soil Data Access (SDA) service for a user-specified area of interest, cleans and standardizes that data (parsing malformed strings, removing statistical/physical outliers, aggregating rock-fragment fractions, flagging unsuitable horizons), and then infills missing low/representative/high ("triplet") property values using a hierarchy of pedologically-informed recovery strategies (horizon-name matching, depth-weighted averaging, within- and cross-component interpolation, related-property estimation, and pedotransfer functions such as Saxton-Rawls). The three files covered here - `ssurgo-acquisition.R`, `ssurgo-processing.R`, and `data-infilling.R` - together turn a WKT polygon and a list of property names into a complete, gap-free horizon/component data set with `_l`/`_r`/`_h` triplet columns, ready to be handed to the Statistics & Diagnostics module and the Monte Carlo simulation core.
+This functional group is soilSIM's SSURGO data-source adapter. It is the entry point of the entire soilSIM pipeline: it acquires raw tabular soil survey data from USDA-NRCS's Soil Data Access (SDA) service for a user-specified area of interest, cleans and standardizes that data (parsing malformed strings, removing statistical/physical outliers, aggregating rock-fragment fractions, flagging unsuitable horizons), and then infills missing low/representative/high ("triplet") property values using a hierarchy of pedologically-informed recovery strategies (horizon-name matching, depth-weighted averaging, within- and cross-component interpolation, related-property estimation, and pedotransfer functions such as Saxton-Rawls). The three files covered here - `ssurgo-acquisition.R`, `ssurgo-processing.R`, and `data-infilling.R` - together turn a WKT polygon and a list of property names into a complete, gap-free horizon/component data set with `_l`/`_r`/`_h` triplet columns, ready to be handed to the [Statistics & Diagnostics](02_statistics_diagnostics.md) module and the [Monte Carlo simulation](04_monte_carlo_simulation.md) core.
 
 ## Core Functions
 
@@ -11,6 +11,7 @@ This functional group is soilSIM's SSURGO data-source adapter. It is the entry p
 **Purpose**: Downloads SSURGO tabular horizon/component/restriction data for an AOI from Soil Data Access, with input validation, caching, rock-fragment aggregation, unsuitable-horizon flagging, and data-quality validation.
 
 **Parameters**:
+
 ```r
 download_ssurgo_tabular(
   aoi_wkt,                     # Character. WKT representation of the area of interest.
@@ -94,15 +95,17 @@ download_ssurgo_tabular(
 **Purpose**: Turns raw downloaded SSURGO data into a cleaned, standardized, infill-ready data set, producing horizon-level, component-level, and combined views plus a quality report.
 
 **Parameters**:
+
 ```r
 process_ssurgo_data(
   raw_data,                    # Raw SSURGO data from download functions.
   processing_options = list(), # Overrides merged over defaults (see below).
-  validate_results = TRUE,     # Logical. Run Module-8 validation on the output.
+  validate_results = TRUE,     # Logical. Run Statistics & Diagnostics validation (validation-diagnostics.R) on the output.
   max_depth = 250,             # Numeric. Maximum depth (cm) retained.
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 ```
+
 Default `processing_options` (each independently overridable): `detect_unsuitable = TRUE`, `advanced_cleaning = TRUE`, `standardize_names = TRUE`, `remove_invalid = TRUE`, `calculate_derived = TRUE`, `validate_logic = TRUE`, `preserve_compatibility = TRUE`.
 
 **Returns**: A list with `processed_data` (the main combined output), `horizon_data`, `component_data`, `processing_metadata` (timing, options used, row counts, per-stage stats), `validation_results`, and `quality_report`.
@@ -114,6 +117,7 @@ Default `processing_options` (each independently overridable): `detect_unsuitabl
 **Purpose**: Horizon-level cleaning pipeline: standardizes names, flags unsuitable horizons, cleans each known soil-property column, drops invalid records, computes derived properties, and tracks statistics at each stage.
 
 **Parameters**:
+
 ```r
 process_horizon_data_working_compatible(
   raw_data,
@@ -188,6 +192,7 @@ process_horizon_data_working_compatible(
 **Purpose**: Fills missing representative (`_r`) and range (`_l`/`_h`) values for a single soil property, using a six-strategy recovery hierarchy that always excludes unsuitable horizons (R, Cr/Cd/Cx, O horizons, etc.) from both being infilled and being used as sources.
 
 **Parameters**:
+
 ```r
 infill_soil_property(
   df,                          # Input soil data frame.
@@ -207,6 +212,7 @@ infill_soil_property(
 **Purpose**: Orchestrates `infill_soil_property()` (and RFV's special path) across a whole property set in three phases, with optional post-hoc filtering.
 
 **Parameters**:
+
 ```r
 process_soil_properties_comprehensive(
   df,
@@ -236,6 +242,7 @@ process_soil_properties_comprehensive(
 **Purpose**: Estimates missing field-capacity (`wthirdbar`) and wilting-point (`wfifteenbar`) values from texture, bulk density, rock fragments, and organic matter via the Saxton-Rawls pedotransfer function.
 
 **Parameters**:
+
 ```r
 infill_water_retention_saxton_rawls_integrated(
   df,
@@ -373,20 +380,22 @@ process_soil_properties_comprehensive() [data-infilling.R, MULTI-PROPERTY WORKFL
 
 ## Dependencies
 
-**From elsewhere in soilSIM** (the "Module 8"-equivalent utility layer, all in `R/utils.R`): `log_message()`, `handle_workflow_error()` *(referenced in this group's older code comments; not called directly in the current source)*, `validate_parameters()`, `validate_wkt_geometry()`, `validate_properties_with_synonyms()`, `validate_data_quality()`, `validate_numeric_ranges()`, `is_unsuitable()`, `standardize_property_names()`, `detect_outliers()`, `load_configuration()`, `get_default_configuration()`, `setup_logging()`, `merge_configurations()`, and the `%||%` null-coalescing helper.
+**From elsewhere in soilSIM** (the [Utilities](10_utilities.md) module, all in `R/utils.R`): `log_message()`, `handle_workflow_error()` *(referenced in this group's older code comments; not called directly in the current source)*, `validate_parameters()`, `validate_wkt_geometry()`, `validate_properties_with_synonyms()`, `validate_data_quality()`, `validate_numeric_ranges()`, `is_unsuitable()`, `standardize_property_names()`, `detect_outliers()`, `load_configuration()`, `get_default_configuration()`, `setup_logging()`, `merge_configurations()`, and the `%||%` null-coalescing helper.
 
 **External packages**: `soilDB` (`mukey.wcs()` for spatial mukey lookup, `SDA_query()` for the SDA SQL query itself); `terra` (`vect()`, `project()`, `as.polygons()`, `ext()`, `values()`, `expanse()` for AOI geometry handling); `dplyr` (`mutate`, `filter`, `group_by`/`summarise`, `case_when`, joins, `across` - used throughout for data-frame transformations); `stringr` (`str_replace`/`str_replace_all` in `standardize_horizon_name()`); `rlang` (`sym()` for programmatic grouping); `digest` (cache key hashing); `stats` (`quantile`, `approx`, `weighted.mean`); `soiltexture` (optional, `Suggests`; USDA texture classification in `hz_quant_prob_mukey()`, guarded by `requireNamespace()`).
 
-**Downstream consumers**: The cleaned/infilled horizon+component data frames (with complete `_l/_r/_h` triplet columns) produced by this group feed the **Statistics & Diagnostics** module (descriptive statistics, correlation analysis over the property triplets) and the **Monte Carlo simulation core** (percentile-triplet distribution fitting and correlated sampling consume the `sim_*`/triplet columns this group guarantees are gap-free). `hz_quant_prob_mukey()` runs in the opposite direction - it consumes *already-simulated* horizon data (post Monte Carlo) to produce per-mukey/depth summary statistics, so it is better understood as a reporting utility co-located here for historical (ported-file) reasons rather than a pure acquisition/processing step.
+**Downstream consumers**: The cleaned/infilled horizon+component data frames (with complete `_l/_r/_h` triplet columns) produced by this group feed the **[Statistics & Diagnostics](02_statistics_diagnostics.md)** module (descriptive statistics, correlation analysis over the property triplets) and the **[Monte Carlo simulation](04_monte_carlo_simulation.md)** core (percentile-triplet distribution fitting and correlated sampling consume the `sim_*`/triplet columns this group guarantees are gap-free). `hz_quant_prob_mukey()` runs in the opposite direction - it consumes *already-simulated* horizon data (post Monte Carlo) to produce per-mukey/depth summary statistics, so it is better understood as a reporting utility co-located here for historical (ported-file) reasons rather than a pure acquisition/processing step.
 
 ## Data Flow In/Out
 
 **Inputs required from the caller**:
+
 - An **AOI** as a WKT string in `EPSG:4326` (geographic WGS84) coordinates, valid per `validate_wkt_geometry()` (bounded to `[-180,180] x [-90,90]`, default max area 100 deg^2, max 1000 vertices / 100 parts).
 - A **property name list** drawn from (or resolvable via synonym to) SSURGO base names: `sandtotal`, `claytotal`, `silttotal`, `dbovendry`, `ph1to1h2o`, `cec7`, `om`, `wthirdbar`, `wfifteenbar` (default set), plus `rfv` for rock fragments, which is handled specially throughout.
 - Optionally, a `cache_dir` for download caching, and a `max_depth` (cm) governing how deep into the profile processing/infilling extends (default 250 cm throughout).
 
 **Outputs produced**:
+
 - `download_ssurgo_tabular()` &rarr; raw `ssurgo_data` (one row per horizon per component, `_l/_r/_h` columns per requested property, restriction/unsuitable-horizon flags if requested) + spatial `mu` + metadata.
 - `process_ssurgo_data()` &rarr; `processed_data` (the infill-ready combined data frame - cleaned, standardized column names, essential columns guaranteed, depth-filtered, sorted by `cokey`/depth), plus separate `horizon_data`/`component_data` views and a quality report.
 - `infill_soil_property()` / `process_soil_properties_comprehensive()` &rarr; the same data frame shape with **no remaining `NA`s** in suitable, in-depth `_r` cells for the processed properties (to the extent recoverable), complete `_l`/`_h` ranges satisfying `_l <= _r <= _h`, an `unsuitable_horizon` logical flag, and an `infill_method` audit-trail string per row documenting which strategy filled each cell.

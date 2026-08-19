@@ -336,7 +336,9 @@ calculate_mode <- function(x) {
 #' @param txt_correlation_matrices A list of texture correlation matrices keyed by `genhz`
 #'   (sand/silt/clay order, matching the `simulate_correlated_triangular()` call for texture).
 #' @return A data frame of simulated property values across all rows/realizations, with
-#'   `compname`, `mukey`, `cokey`, `hzdept_r`, `hzdepb_r`, `simulation_number`, `unique_id`.
+#'   `compname`, `mukey`, `cokey`, `hzdept_r`, `hzdepb_r`, `simulation_number`, `unique_id`, and
+#'   (when `sim_cokey` itself has a `bound_sd` column - see `attach_osd_boundary_distinctness()`)
+#'   `bound_sd`.
 #' @export
 simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_correlation_matrices = NULL) {
 
@@ -529,6 +531,14 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
       sim_data$cokey    <- row$cokey
       sim_data$hzdept_r <- row$hzdept_r
       sim_data$hzdepb_r <- row$hzdepb_r
+
+      # OSD-derived boundary distinctness (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 1b) -
+      # optional column, only present when the caller ran attach_osd_boundary_distinctness() on
+      # its input first (e.g. simulate_ssurgo_mapunit_draws()); absent for any pre-existing caller
+      # that never had a bound_sd column, so this can't break an existing sim_cokey input.
+      if ("bound_sd" %in% names(row)) {
+        sim_data$bound_sd <- row$bound_sd
+      }
 
       sim_data$simulation_number <- seq_len(nrow(sim_data))
       sim_data$unique_id <- paste0(row$cokey, "-", sprintf("%02d", sim_data$simulation_number))

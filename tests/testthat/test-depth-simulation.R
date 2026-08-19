@@ -159,6 +159,71 @@ test_that("get_aws_data_by_mukey()/query_osd_distinctness() require the live SDA
   testthat::skip("Live NRCS Soil Data Access / OSD queries are not exercised in automated tests - see test-ssurgo-acquisition.R for the established precedent.")
 })
 
+test_that("attach_osd_boundary_distinctness() joins per-(compname,genhz) bound_sd onto every matching row, offline via a mocked query_osd_distinctness()", {
+  # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 1b. query_osd_distinctness() itself requires a
+  # live soilDB::fetchOSD() call (see the skipped test above) - mock it directly, the same pattern
+  # test-gp-modeling.R uses for predict_gp_depth_trends(), to test the join/aggregation logic here
+  # fully offline.
+  #
+  # Mocked `id` is UPPER-CASED ("AMADOR"/"PENTZ") deliberately - this matches
+  # soilDB::fetchOSD()'s own documented behavior (see fetch_osd_horizons_cached()'s "Known quirk
+  # preserved" section) and is what a REAL query_osd_distinctness() call actually returns. A
+  # Phase 9 real-AOI validation run found the original (pre-fix) join silently produced all-NA
+  # bound_sd against real data because it joined on exact compname case - this test's mock now
+  # exercises that same case mismatch to lock the fix in (see Phase 9's write-up below).
+  testthat::local_mocked_bindings(
+    query_osd_distinctness = function(horizon_data) {
+      data.frame(
+        id = c("AMADOR", "AMADOR", "AMADOR", "PENTZ"),
+        hzname = c("A", "Bt1", "Bt2", "A"),
+        distinctness = c("clear", "gradual", "gradual", "abrupt"),
+        genhz = c("A", "B", "B", "A"),
+        # Two "B" rows for amador (10, 20) - the group_by(genhz) mean should collapse
+        # them to 15, confirming the same aggregation simulate_and_perturb_soil_profiles()
+        # already uses is reused here.
+        bound_sd = c(5, 10, 20, 2),
+        stringsAsFactors = FALSE
+      )
+    },
+    .package = "soilSIM"
+  )
+
+  hz_data <- data.frame(
+    compname = c("amador", "amador", "amador", "pentz"),
+    hzname = c("A", "Bt1", "Bt2", "A"),
+    genhz = c("A", "B", "B", "A"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- attach_osd_boundary_distinctness(hz_data)
+  expect_equal(nrow(result), 4)
+  expect_false("compname_upper" %in% names(result))  # internal join key not leaked into output
+  expect_equal(result$bound_sd[result$compname == "amador" & result$genhz == "A"], 5)
+  expect_equal(result$bound_sd[result$compname == "amador" & result$genhz == "B"], c(15, 15))
+  expect_equal(result$bound_sd[result$compname == "pentz"], 2)
+})
+
+test_that("attach_osd_boundary_distinctness() degrades to bound_sd = NA (not an error) when the OSD lookup fails", {
+  testthat::local_mocked_bindings(
+    query_osd_distinctness = function(horizon_data) stop("simulated network failure"),
+    .package = "soilSIM"
+  )
+
+  hz_data <- data.frame(
+    compname = "amador", hzname = "A", genhz = "A", stringsAsFactors = FALSE
+  )
+  result <- expect_no_error(attach_osd_boundary_distinctness(hz_data))
+  expect_true(is.na(result$bound_sd))
+  expect_equal(nrow(result), 1)
+})
+
+test_that("attach_osd_boundary_distinctness() requires compname/hzname/genhz columns", {
+  expect_error(
+    attach_osd_boundary_distinctness(data.frame(compname = "amador", hzname = "A")),
+    "compname, hzname, and genhz"
+  )
+})
+
 test_that("simulate_profile_depths_by_collection_parallel() runs without erroring at the R level", {
   skip_if_not(
     nzchar(system.file(package = "soilSIM")) &&

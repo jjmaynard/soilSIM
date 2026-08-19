@@ -10,7 +10,9 @@ apply_gp_depth_trends(
   properties,
   preserve_correlations = TRUE,
   primary_property = NULL,
-  verbose = getOption("ssurgo.verbose", FALSE)
+  verbose = getOption("ssurgo.verbose", FALSE),
+  config = NULL,
+  gp_models = NULL
 )
 }
 \arguments{
@@ -27,6 +29,28 @@ apply_gp_depth_trends(
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's log level so
 \code{INFO}-level progress messages print for the duration of this call (default
 \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
+
+\item{config}{Optional Monte Carlo config (as from \code{get_monte_carlo_defaults()}) whose
+\code{monte_carlo$vertical_correlation_method} selects between \code{"joint_copula"}
+(default as of \code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 13 - dispatches to
+\code{preserve_correlation_structure_joint()}, drawing depth correlation and property
+correlation simultaneously) and \code{"gp_quantile_retrofit"} (the original algorithm,
+still fully supported as an explicit opt-out - dispatches to
+\code{preserve_correlation_structure()}). \code{NULL} (default) resolves to
+\code{"joint_copula"}, matching \code{get_monte_carlo_defaults()}'s own default - set
+\code{config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"} explicitly to
+opt back into the original behavior. Under \code{"joint_copula"},
+\code{config$monte_carlo$vertical_correlation_gating} (default \code{FALSE}) separately
+controls whether \code{bound_sd}-based discontinuity gating (Phase 1c/1d) is applied - kept
+independent of the core method choice since its numeric defaults are not yet empirically
+calibrated (Phase 8).}
+
+\item{gp_models}{Optional named list of fitted GP models (as \code{fit_local_gp_model_single()}
+returns), keyed by property - passed through to \code{preserve_correlation_structure_joint()}
+when \code{vertical_correlation_method = "joint_copula"}, so its depth kernel can reuse each
+property's already-fitted, already-cross-validated length-scale (see
+\code{extract_depth_length_scale()}) instead of falling back to a full-depth-range default.
+Ignored entirely under \code{"gp_quantile_retrofit"}.}
 }
 \value{
 Adjusted simulation data

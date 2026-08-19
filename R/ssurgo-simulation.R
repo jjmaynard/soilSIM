@@ -88,14 +88,17 @@ infill_soil_data <- function(df) {
 #' @param cokey_data Simulation data for a single cokey.
 #' @param properties Character vector of property column names to adjust.
 #' @param min_depths Minimum distinct depths required to attempt GP fitting.
+#' @param config Optional Monte Carlo config, passed through to `apply_local_gp_adjustments()`
+#'   (`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 10) - see
+#'   `maybe_adjust_soil_data_depth_trend()`'s own `config` docs.
 #' @return `cokey_data`, depth-trend-adjusted where possible.
 #' @keywords internal
-adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths) {
+adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths, config = NULL) {
   n_depths <- length(unique(cokey_data$hzdept_r[!is.na(cokey_data$hzdept_r)]))
   if (n_depths < min_depths) {
     return(cokey_data)
   }
-  apply_local_gp_adjustments(cokey_data, properties = properties, min_depths = min_depths)
+  apply_local_gp_adjustments(cokey_data, properties = properties, min_depths = min_depths, config = config)
 }
 
 #' Depth-Trend GP Adjustment, Guarded by `GPfit` Availability
@@ -122,10 +125,17 @@ adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths) {
 #'   (`R/parallel-utils.R`).
 #' @param n_cores Number of worker processes to use when `parallel = TRUE` (default
 #'   `max(1, parallel::detectCores() - 1)`).
+#' @param config Optional Monte Carlo config, passed through to
+#'   `adjust_one_cokey_depth_trend()` -> `apply_local_gp_adjustments()` ->
+#'   `apply_gp_depth_trends()`. `config$monte_carlo$vertical_correlation_method` (default
+#'   `"joint_copula"` as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 13; set to
+#'   `"gp_quantile_retrofit"` to opt back into the original algorithm) selects the
+#'   vertical-correlation method; `NULL` (default) resolves to `"joint_copula"`, matching
+#'   `get_monte_carlo_defaults()`'s own default.
 #' @return `sim_long`, depth-trend-adjusted where possible.
 #' @export
 maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths = 2,
-                                                parallel = FALSE, n_cores = NULL) {
+                                                parallel = FALSE, n_cores = NULL, config = NULL) {
   if (!requireNamespace("GPfit", quietly = TRUE)) {
     warning("GPfit not installed - skipping depth-trend GP adjustment.")
     return(sim_long)
@@ -141,7 +151,7 @@ maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths 
       sim_long |>
         dplyr::group_by(cokey) |>
         dplyr::group_modify(function(cokey_data, ...) {
-          adjust_one_cokey_depth_trend(cokey_data, properties, min_depths)
+          adjust_one_cokey_depth_trend(cokey_data, properties, min_depths, config = config)
         }) |>
         dplyr::ungroup()
     )
@@ -151,7 +161,7 @@ maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths 
 
   adjusted <- run_parallel_lapply(
     cokey_groups, adjust_one_cokey_depth_trend,
-    properties = properties, min_depths = min_depths,
+    properties = properties, min_depths = min_depths, config = config,
     n_cores = n_cores,
     # GPfit::GP_fit()'s internal hyperparameter search is a genetic algorithm and genuinely uses
     # R's RNG internally (confirmed empirically - future_lapply(future.seed = FALSE) raises an
@@ -161,7 +171,7 @@ maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths 
     future_seed = TRUE,
     op_name = "depth-trend adjustment",
     sequential_fallback = function() {
-      lapply(cokey_groups, adjust_one_cokey_depth_trend, properties = properties, min_depths = min_depths)
+      lapply(cokey_groups, adjust_one_cokey_depth_trend, properties = properties, min_depths = min_depths, config = config)
     }
   )
 
@@ -244,6 +254,13 @@ property_to_sim_column <- function(property_id) {
 #'   `parallel`/`n_cores` - the depth-trend GP adjustment step is this function's dominant cost
 #'   for AOIs with many cokeys, and each cokey's GP fitting is independent of every other cokey's.
 #'   Default `parallel = FALSE` matches prior behavior exactly.
+#' @param config Optional Monte Carlo config, passed through to
+#'   `maybe_adjust_soil_data_depth_trend()` -> `apply_local_gp_adjustments()` ->
+#'   `apply_gp_depth_trends()`. `config$monte_carlo$vertical_correlation_method` (default
+#'   `"joint_copula"` as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 13; set to
+#'   `"gp_quantile_retrofit"` to opt back into the original algorithm) selects this top-level
+#'   entry point's vertical-correlation method; `NULL` (default) resolves to `"joint_copula"`,
+#'   matching `get_monte_carlo_defaults()`'s own default.
 #' @return A data frame, one row per `mukey`/`cokey`/`simulation_number` replicate, with simulated
 #'   property columns aggregated over the depth window - or `NULL` if the tabular fetch fails.
 #'   Minor components that `download_ssurgo_tabular()`'s underlying query would otherwise drop
@@ -258,7 +275,7 @@ property_to_sim_column <- function(property_id) {
 #' cache directory) to pick up recovered components.
 #' @export
 simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
-                                           parallel = FALSE, n_cores = NULL) {
+                                           parallel = FALSE, n_cores = NULL, config = NULL) {
   # download_ssurgo_tabular()/process_aoi_and_get_mukeys_working() (R/ssurgo-acquisition.R)
   # always assume their aoi_wkt argument is lon/lat EPSG:4326 (hardcoded there), regardless of
   # aoi_vect's actual CRS - extracting WKT directly from an already-projected aoi_vect (e.g.
@@ -290,6 +307,12 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
   }
 
   hz_data$genhz <- classify_genhz(hz_data$hzname)
+
+  # Attach OSD-derived boundary distinctness (bound_sd) so the vertical-correlation depth kernel
+  # can gate against genuine horizon discontinuities (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md
+  # Phase 1b/1c) - degrades to bound_sd = NA (no gating) on OSD lookup failure, never blocks the
+  # rest of this pipeline.
+  hz_data <- attach_osd_boundary_distinctness(hz_data)
 
   component_data <- sim_component_comp(hz_data, n_simulations = n_mc)
   hz_data <- dplyr::left_join(
@@ -324,7 +347,8 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
 
   property_cols <- intersect(SSURGO_SIM_PROPERTY_COLUMNS, names(sim_long))
   sim_long <- maybe_adjust_soil_data_depth_trend(sim_long, property_cols,
-                                                  parallel = parallel, n_cores = n_cores)
+                                                  parallel = parallel, n_cores = n_cores,
+                                                  config = config)
 
   aggregate_depth_window_by_replicate(
     sim_long, top_depth, bottom_depth, property_cols,

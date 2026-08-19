@@ -23,7 +23,9 @@ names matching (a subset of) \code{c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "r
 }
 \value{
 A data frame of simulated property values across all rows/realizations, with
-\code{compname}, \code{mukey}, \code{cokey}, \code{hzdept_r}, \code{hzdepb_r}, \code{simulation_number}, \code{unique_id}.
+\code{compname}, \code{mukey}, \code{cokey}, \code{hzdept_r}, \code{hzdepb_r}, \code{simulation_number}, \code{unique_id}, and
+(when \code{sim_cokey} itself has a \code{bound_sd} column - see \code{attach_osd_boundary_distinctness()})
+\code{bound_sd}.
 }
 \description{
 Simulates a flexible set of soil properties (whichever of bulk density, water retention,

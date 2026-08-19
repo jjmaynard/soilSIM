@@ -863,6 +863,330 @@ validate_correlation_preservation <- function(original_list, adjusted_list, dept
   return(correlation_summary)
 }
 
+#' Validate Joint Depth x Property Correlation Structure
+#'
+#' Diagnostic helper for the vertical-correlation redesign (see
+#' `PERFORMANCE_IMPROVEMENT_PLAN.md`-style acceptance testing): unlike
+#' `validate_correlation_preservation()`, which only checks cross-property correlation and (via
+#' its caller `adjust_multivariate_depthwise_GP()`) only at the first 5 depths, this reports BOTH
+#' halves of the joint structure - cross-property correlation at every depth, and depth-lag
+#' (across-depth, within-property) correlation for every property - against explicit target
+#' matrices when supplied. This is the acceptance test any vertical-correlation method
+#' (the existing GP-quantile-retrofit path or a future joint-copula replacement) should be judged
+#' against: does the SAME simulated output actually achieve both the intended property correlation
+#' matrix and the intended depth correlation structure, simultaneously.
+#'
+#' @param simulated_list A named list of matrices (rows = depths, columns = simulations), the same
+#'   shape consumed/produced by `preserve_correlation_structure()`/
+#'   `adjust_multivariate_depthwise_GP()`.
+#' @param target_property_corr Optional k x k target property-correlation matrix (row/column names
+#'   matching `names(simulated_list)`, or unnamed matching order). If supplied, per-depth and
+#'   overall max absolute deviation from this target is reported.
+#' @param target_depth_corr Optional n_depths x n_depths target depth-correlation matrix. If
+#'   supplied, per-property and overall max absolute deviation from this target is reported.
+#' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so
+#'   \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE}
+#'   - quiet). See \code{set_verbose_logging()}.
+#'
+#' @return A list with elements:
+#'   \describe{
+#'     \item{achieved_property_correlation}{List (one per depth) of achieved k x k property
+#'       correlation matrices.}
+#'     \item{property_correlation_max_diff}{Numeric vector (one per depth) of max absolute
+#'       deviation from `target_property_corr`, or all `NA` if no target supplied.}
+#'     \item{achieved_depth_correlation}{Named list (one per property) of achieved n_depths x
+#'       n_depths depth correlation matrices.}
+#'     \item{depth_correlation_max_diff}{Named numeric vector (one per property) of max absolute
+#'       deviation from `target_depth_corr`, or all `NA` if no target supplied.}
+#'     \item{overall_property_max_diff, overall_depth_max_diff}{Single worst-case summary values
+#'       across all depths/properties respectively.}
+#'   }
+#'
+#' @export
+validate_joint_correlation_structure <- function(simulated_list,
+                                                  target_property_corr = NULL,
+                                                  target_depth_corr = NULL,
+                                                  verbose = getOption("ssurgo.verbose", FALSE)) {
+
+  .old_log_cfg <- set_verbose_logging(verbose)
+  on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
+
+  if (length(simulated_list) == 0) {
+    stop("simulated_list cannot be empty")
+  }
+
+  property_names <- names(simulated_list)
+  n_depths <- nrow(simulated_list[[1]])
+
+  log_message("INFO", "=== JOINT DEPTH x PROPERTY CORRELATION VALIDATION ===", category = "GPModeling")
+
+  # --- Cross-property correlation, at EVERY depth (not just the first 5) ---
+  achieved_property_correlation <- vector("list", n_depths)
+  property_correlation_max_diff <- rep(NA_real_, n_depths)
+
+  for (i in seq_len(n_depths)) {
+    depth_data <- tryCatch({
+      sapply(simulated_list, function(x) x[i, ])
+    }, error = function(e) NULL)
+
+    cors <- if (!is.null(depth_data)) {
+      tryCatch(cor(depth_data, use = "complete.obs"), error = function(e) NULL)
+    } else {
+      NULL
+    }
+
+    achieved_property_correlation[[i]] <- cors
+
+    if (!is.null(cors) && !is.null(target_property_corr)) {
+      property_correlation_max_diff[i] <- max(abs(cors - target_property_corr), na.rm = TRUE)
+    }
+  }
+
+  # --- Depth-lag correlation, for EVERY property (not checked by
+  # validate_correlation_preservation() at all) ---
+  achieved_depth_correlation <- vector("list", length(property_names))
+  names(achieved_depth_correlation) <- property_names
+  depth_correlation_max_diff <- rep(NA_real_, length(property_names))
+  names(depth_correlation_max_diff) <- property_names
+
+  for (prop in property_names) {
+    m <- simulated_list[[prop]]
+    dc <- tryCatch(cor(t(m), use = "complete.obs"), error = function(e) NULL)
+    achieved_depth_correlation[[prop]] <- dc
+
+    if (!is.null(dc) && !is.null(target_depth_corr)) {
+      depth_correlation_max_diff[prop] <- max(abs(dc - target_depth_corr), na.rm = TRUE)
+    }
+  }
+
+  overall_property_max_diff <- if (all(is.na(property_correlation_max_diff))) {
+    NA_real_
+  } else {
+    max(property_correlation_max_diff, na.rm = TRUE)
+  }
+
+  overall_depth_max_diff <- if (all(is.na(depth_correlation_max_diff))) {
+    NA_real_
+  } else {
+    max(depth_correlation_max_diff, na.rm = TRUE)
+  }
+
+  log_message("INFO", paste("Property correlation - overall max diff:", round(overall_property_max_diff, 4),
+                            "| Depth correlation - overall max diff:", round(overall_depth_max_diff, 4)),
+              category = "GPModeling")
+
+  list(
+    achieved_property_correlation = achieved_property_correlation,
+    property_correlation_max_diff = property_correlation_max_diff,
+    achieved_depth_correlation = achieved_depth_correlation,
+    depth_correlation_max_diff = depth_correlation_max_diff,
+    overall_property_max_diff = overall_property_max_diff,
+    overall_depth_max_diff = overall_depth_max_diff
+  )
+}
+
+# ============================================================================
+# 3b. VERTICAL-CORRELATION REDESIGN: DEPTH CORRELATION KERNEL (Phase 1)
+# ============================================================================
+#
+# See VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md. These two functions replace the sequential
+# gp_ratio-nudge in preserve_correlation_structure()/adjust_multivariate_depthwise_GP() with an
+# explicit depth-correlation matrix R_depth, built from a real-distance kernel whose length-scale
+# is extracted from the ALREADY-FITTED, already-cross-validated GPfit model for each property
+# (fit_local_gp_model_single()) rather than a new estimation step. R_depth is consumed by the
+# Phase 2 joint copula sampler as one half of a Kronecker-separable (depth x property) covariance.
+
+#' Extract a Real-Units Depth Length-Scale from a Fitted GP Model
+#'
+#' `GPfit::GP_fit()` fits a power-exponential (or Matern) correlation function
+#' `R(h) = corr(0, h; beta, correlation_param)` over depths already rescaled to `[0,1]` by
+#' `fit_local_gp_model_single()`. This reuses that fitted correlation function exactly (via
+#' `GPfit::corr_matrix()`, the same internal machinery `GP_fit()`/`predict.GP()` use) to solve for
+#' the distance `h` (in scaled `[0,1]` units) at which the correlation first drops to `target_corr`
+#' (default `exp(-1)`, the conventional "range" definition for both exponential and Matern
+#' kernels), then rescales `h` back to real depth units (cm) using the same `depth_scaling`
+#' `fit_local_gp_model_single()` stored alongside the model - so no separate/new length-scale
+#' estimation step is introduced; the value is entirely derived from the already-validated GP fit.
+#'
+#' @param gp_model_list Either the full list returned by `fit_local_gp_model_single()`
+#'   (`list(gp_model, depth_scaling, ...)`) or a raw `GPfit`-classed `"GP"` object (in which case
+#'   `depth_scaling` must be supplied separately, or the result stays in scaled `[0,1]` units).
+#' @param depth_scaling Optional `list(min=, max=, range=)` as stored by
+#'   `fit_local_gp_model_single()`; only needed when `gp_model_list` is a raw `GP` object without
+#'   its own `$depth_scaling`. If neither is available, the returned length-scale stays in scaled
+#'   `[0,1]` units.
+#' @param target_corr The correlation value defining "range" (default `exp(-1) ~= 0.368`).
+#'
+#' @return A single numeric length-scale in real depth units (or scaled `[0,1]` units if no
+#'   `depth_scaling` is available), or `NA_real_` if `gp_model_list` doesn't contain a usable
+#'   fitted model (mirrors `fit_local_gp_model_single()`'s own `NULL`-on-failure contract - callers
+#'   should treat `NA_real_` the same way they'd treat a `NULL` GP model).
+#'
+#' @export
+extract_depth_length_scale <- function(gp_model_list, depth_scaling = NULL, target_corr = exp(-1)) {
+
+  gp_model <- if (is.list(gp_model_list) && "gp_model" %in% names(gp_model_list)) {
+    gp_model_list$gp_model
+  } else {
+    gp_model_list
+  }
+
+  if (is.null(depth_scaling) && is.list(gp_model_list) && !is.null(gp_model_list$depth_scaling)) {
+    depth_scaling <- gp_model_list$depth_scaling
+  }
+
+  if (is.null(gp_model) || is.null(gp_model$beta) || is.null(gp_model$correlation_param)) {
+    return(NA_real_)
+  }
+
+  corr_at <- function(h) {
+    if (h <= 0) return(1)
+    GPfit::corr_matrix(X = matrix(c(0, h), ncol = 1), beta = gp_model$beta,
+                       corr = gp_model$correlation_param)[1, 2]
+  }
+
+  # GPfit's supported correlation families (power-exponential, Matern) are monotonically
+  # non-increasing in distance, so a bracket search + uniroot() reliably finds the crossing point
+  # without needing to hand-derive a closed-form inverse per kernel family (which would need to be
+  # re-derived if GPfit's correlation() options ever change).
+  upper <- 1
+  tries <- 0
+  while (tries < 10 && is.finite(corr_at(upper)) && corr_at(upper) > target_corr) {
+    upper <- upper * 2
+    tries <- tries + 1
+  }
+
+  scaled_length_scale <- tryCatch({
+    stats::uniroot(function(h) corr_at(h) - target_corr, interval = c(1e-8, upper))$root
+  }, error = function(e) NA_real_)
+
+  if (is.na(scaled_length_scale)) {
+    return(NA_real_)
+  }
+
+  if (!is.null(depth_scaling) && !is.null(depth_scaling$range) &&
+      is.finite(depth_scaling$range) && depth_scaling$range > 0) {
+    return(scaled_length_scale * depth_scaling$range)
+  }
+
+  scaled_length_scale
+}
+
+#' Build a Depth Correlation Kernel Matrix
+#'
+#' Constructs an `n_depths x n_depths` correlation matrix from real depth *distances* (not just
+#' adjacent-lag steps, unlike the sequential `gp_ratio` nudge this is designed to replace - see
+#' `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 1/2), via an exponential or Matern kernel with
+#' a given `length_scale`. Intended as the depth half of a Kronecker-separable
+#' `R_depth (x) R_property` joint covariance (Phase 2's `sample_joint_depth_property_copula()`).
+#'
+#' @param depths Numeric vector of depth values (real units, e.g. cm; need not be evenly spaced or
+#'   sorted - internally sorted for the `boundary_distinctness` gating pass, then mapped back to
+#'   `depths`' original order for the returned matrix).
+#' @param length_scale A single positive numeric length-scale (real units matching `depths`),
+#'   typically from `extract_depth_length_scale()`. A non-finite or non-positive value degrades
+#'   gracefully to the identity matrix (no depth correlation) rather than erroring, matching this
+#'   package's established fallback pattern for missing/invalid correlation inputs (see
+#'   `simulate_cokey_generalized()`'s pooled-matrix fallback).
+#' @param kernel `"exponential"` (default) or `"matern"`.
+#' @param nu Matern smoothness parameter (only used when `kernel = "matern"`); default `1.5`.
+#' @param boundary_distinctness Optional numeric vector, same length as `depths`, of OSD-derived
+#'   `bound_sd` values (see `attach_osd_boundary_distinctness()` -
+#'   `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 1b/1c) - one value per depth, interpreted as
+#'   the distinctness of the boundary immediately ABOVE that depth (in sorted-ascending order; the
+#'   value for the shallowest depth is unused, since there is no boundary above the top of the
+#'   profile). Smaller `bound_sd` (e.g. `aqp::hzDistinctnessCodeToOffset()`'s `abrupt` ~= 1,
+#'   `clear` ~= 2.5) means a sharper real discontinuity and more strongly suppresses correlation
+#'   across that boundary; larger `bound_sd` (`gradual` ~= 7.5, `diffuse` ~= 10) leaves the plain
+#'   distance-decay kernel almost untouched. `NULL` (default) or all-`NA` skips gating entirely,
+#'   reproducing the plain (Phase 1) kernel exactly.
+#' @param distinctness_range Named `c(min=, max=)` giving the `bound_sd` values that map to the
+#'   strongest (`min_gate_weight`) and weakest (`1`, no suppression) gating respectively. Default
+#'   `c(min=1, max=10)` spans `aqp::hzDistinctnessCodeToOffset()`'s actual `abrupt`-to-`diffuse`
+#'   range for the codes `infill_missing_distinctness()` ever assigns.
+#' @param min_gate_weight The gating floor (default `0.05`) - even the sharpest boundary leaves a
+#'   small residual correlation rather than exactly zero, both physically (a truly zero-correlation
+#'   entry is rarely justified) and numerically (helps `ensure_positive_definite_matrix()`'s
+#'   eigenvalue repair stay well-conditioned).
+#'
+#' @return A symmetric, unit-diagonal, positive-definite `length(depths) x length(depths)`
+#'   correlation matrix (repaired via `ensure_positive_definite_matrix()` if numerical
+#'   floating-point asymmetry from the distance-matrix/gating construction pushes it slightly off).
+#'
+#' @export
+build_depth_correlation_kernel <- function(depths, length_scale,
+                                           kernel = c("exponential", "matern"), nu = 1.5,
+                                           boundary_distinctness = NULL,
+                                           distinctness_range = c(min = 1, max = 10),
+                                           min_gate_weight = 0.05) {
+  kernel <- match.arg(kernel)
+  n <- length(depths)
+
+  if (n < 1) {
+    stop("depths must have at least one element")
+  }
+
+  R <- if (!is.finite(length_scale) || length_scale <= 0) {
+    diag(n)
+  } else {
+    dist_mat <- as.matrix(stats::dist(depths, method = "euclidean"))
+    dimnames(dist_mat) <- NULL  # stats::dist() labels dims "1","2",... - not meaningful here
+    scaled_dist <- dist_mat / length_scale
+
+    if (kernel == "exponential") {
+      exp(-scaled_dist)
+    } else {
+      # Matern correlation, parameterized directly by length_scale (not GPfit's internal
+      # beta/power-exponential form - a standalone, more standard geostatistical kernel since
+      # this function's `length_scale` is already in real depth units by the time it's called).
+      d <- scaled_dist
+      d[d == 0] <- .Machine$double.eps  # avoid 0/0 in the Bessel term; true limit at d=0 is 1
+      const <- (2^(1 - nu)) / gamma(nu)
+      val <- const * (sqrt(2 * nu) * d)^nu * besselK(sqrt(2 * nu) * d, nu)
+      diag(val) <- 1
+      val
+    }
+  }
+
+  if (!is.null(boundary_distinctness) && n > 1 && !all(is.na(boundary_distinctness))) {
+    if (length(boundary_distinctness) != n) {
+      stop("boundary_distinctness must have the same length as depths")
+    }
+
+    ord <- order(depths)
+    sorted_bound_sd <- boundary_distinctness[ord]
+
+    # One gate weight per adjacent boundary in sorted-depth order (n-1 of them): bound_sd for
+    # sorted depth k (k = 2..n) is the distinctness of the boundary immediately above it, i.e.
+    # between sorted depths k-1 and k. Missing/NA bound_sd degrades to weight 1 (no gating for
+    # that boundary), the same graceful-fallback contract established throughout this package for
+    # missing correlation-relevant inputs.
+    raw <- sorted_bound_sd[-1]
+    range_span <- distinctness_range["max"] - distinctness_range["min"]
+    gate_weights <- (raw - distinctness_range["min"]) / range_span
+    gate_weights[is.na(gate_weights)] <- 1
+    gate_weights <- pmin(1, pmax(min_gate_weight, gate_weights))
+
+    # Compound ALL boundary weights strictly between two depths (not just adjacent pairs) via
+    # cumulative log-sums, so a sharp boundary anywhere along the path suppresses correlation
+    # between the depths on either side of it, however many other depths lie between them.
+    # log_cum[m] = sum of log(gate_weights) for every boundary at or above sorted depth m
+    # (log_cum[1] = 0, the shallowest depth has no boundary above it); the gate between sorted
+    # depths i and j is then exp(-|log_cum[i] - log_cum[j]|) = product of the weights strictly
+    # between them.
+    log_cum <- c(0, cumsum(log(gate_weights)))
+    gate_matrix <- exp(-abs(outer(log_cum, log_cum, `-`)))
+
+    R_sorted <- R[ord, ord, drop = FALSE] * gate_matrix
+    R[ord, ord] <- R_sorted
+  }
+
+  R <- (R + t(R)) / 2
+  diag(R) <- 1
+
+  ensure_positive_definite_matrix(R)
+}
+
 # ============================================================================
 # 4. ENHANCED SOIL PROPERTY SIMULATION (From GP-depth-adjust.R)
 # ============================================================================

@@ -79,6 +79,57 @@ test_that("maybe_adjust_soil_data_depth_trend() parallel = TRUE matches parallel
   expect_equal(res_par$db, res_seq$db, tolerance = 1e-6)
 })
 
+test_that("maybe_adjust_soil_data_depth_trend()/adjust_one_cokey_depth_trend() thread config through to reach joint_copula (Phase 10)", {
+  # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 10: before this fix, config had no path from
+  # simulate_ssurgo_mapunit_draws()'s own top-level API down to apply_gp_depth_trends()'s
+  # dispatch, so "joint_copula" was unreachable except by calling apply_local_gp_adjustments()
+  # directly (Phase 6's fix only closed that one hop). This confirms the full chain
+  # (maybe_adjust_soil_data_depth_trend() -> adjust_one_cokey_depth_trend() ->
+  # apply_local_gp_adjustments()) now carries config end to end.
+  testthat::skip_if_not_installed("GPfit")
+  set.seed(101)
+  # Two properties, not one - apply_gp_depth_trends()'s vertical-correlation method dispatch only
+  # branches with >= 2 properties; with just one, both methods trivially fall through the same
+  # "individual adjustment" path and would never actually diverge (a real gap this test's first
+  # draft had, caught the same way an identical gap was caught in Phase 11's own test).
+  # Multiple realizations per depth (not a single simulation_number = 1) - with only one
+  # realization, quantile-based remapping is a no-op for EITHER algorithm (nothing to remap
+  # against), so both methods degenerate to the same unchanged output regardless of which is
+  # used - a real degenerate case this test's first draft hit, not a source bug (confirmed:
+  # preserve_correlation_structure_joint() already degrades gracefully - warns and falls back to
+  # an identity property-correlation matrix - exactly as designed for too-little-data cases).
+  depths <- c(0, 20, 50, 100)
+  n_sims <- 30
+  sim_long <- data.frame(
+    cokey = "1",
+    hzdept_r = rep(depths, each = n_sims), hzdepb_r = rep(depths + 20, each = n_sims),
+    simulation_number = rep(seq_len(n_sims), times = length(depths)),
+    db = 1.2 + 0.02 * rep(depths, each = n_sims) + stats::rnorm(n_sims * length(depths), sd = 0.02),
+    wr_3b = 0.25 - 0.001 * rep(depths, each = n_sims) + stats::rnorm(n_sims * length(depths), sd = 0.01)
+  )
+  properties <- c("db", "wr_3b")
+
+  retrofit_config <- get_default_configuration("validation")
+  retrofit_config$monte_carlo$vertical_correlation_method <- "gp_quantile_retrofit"
+  joint_config <- get_default_configuration("validation")
+  joint_config$monte_carlo$vertical_correlation_method <- "joint_copula"
+
+  set.seed(102)
+  result_retrofit <- maybe_adjust_soil_data_depth_trend(sim_long, properties, min_depths = 2, config = retrofit_config)
+  set.seed(102)
+  result_joint <- maybe_adjust_soil_data_depth_trend(sim_long, properties, min_depths = 2, config = joint_config)
+
+  expect_equal(nrow(result_joint), nrow(sim_long))
+  expect_false(isTRUE(all.equal(result_retrofit$db, result_joint$db)))
+
+  # config = NULL (the default) now reproduces the joint_copula result - Phase 13 flipped the
+  # default; "gp_quantile_retrofit" remains reachable only as an explicit opt-out (already
+  # confirmed via `retrofit_config` above).
+  set.seed(102)
+  result_default <- maybe_adjust_soil_data_depth_trend(sim_long, properties, min_depths = 2)
+  expect_identical(result_default, result_joint)
+})
+
 test_that("maybe_adjust_soil_data_depth_trend() warns and passes through when GPfit isn't installed", {
   testthat::skip_if(nzchar(system.file(package = "GPfit")), "GPfit is installed - guard path not exercised")
   sim_long <- data.frame(cokey = "1", hzdept_r = c(0, 20), hzdepb_r = c(20, 50), simulation_number = 1, db = c(1.2, 1.5))

@@ -90,7 +90,7 @@ fit_percentile_triplet(l, r, h, family,
 **Algorithm**: A `switch(family, ...)` that routes to `quantile_triangular()`, `qunif()`, `quantile_normal()`, `exp(quantile_normal(...))` (lognormal), `quantile_beta()` rescaled by `bounds`, `quantile_metalog_with_fallback()`, or `quantile_linear_cdf()` as appropriate.
 
 #### 9. **`validate_fit_parameters()`** - Fit sanity checks
-**Purpose**: Real replacement for the always-`valid=TRUE` `validate_distribution_parameters()` stub previously in `mod05_monte_carlo.R`.
+**Purpose**: Real replacement for the always-`valid=TRUE` `validate_distribution_parameters()` stub in an earlier version of the Monte Carlo simulation code.
 **Signature**: `validate_fit_parameters(family, fit)`
 **Returns**: `list(valid=, message=)`.
 **Algorithm**: `family`-specific structural/numeric checks: `triangular`/`uniform` require finite `min <= max` and (if present) `mode` inside `[min, max]`; `normal`/`lognormal` require finite `mean`/`sd` with `sd >= 0`; `beta` requires positive finite `shape1`/`shape2` and `lower < upper`; `metalog` checks only structural completeness (`a`, `term`, `bounds`, `boundedness`, `infeasible`, `fallback_probs`, `fallback_values` all present) - deliberately NOT gated on `!fit$infeasible`, since an infeasible metalog fit still produces correct output via the automatic `linear_cdf` fallback, so flagging it invalid would cause callers to discard a usable fit in favor of a cruder guess; `linear_cdf` requires >= 2 matching `probs`/`values`.

@@ -9,7 +9,8 @@ maybe_adjust_soil_data_depth_trend(
   properties,
   min_depths = 2,
   parallel = FALSE,
-  n_cores = NULL
+  n_cores = NULL,
+  config = NULL
 )
 }
 \arguments{
@@ -27,6 +28,14 @@ to sequential processing if the parallel setup itself errors. See \code{run_para
 
 \item{n_cores}{Number of worker processes to use when \code{parallel = TRUE} (default
 \code{max(1, parallel::detectCores() - 1)}).}
+
+\item{config}{Optional Monte Carlo config, passed through to
+\code{adjust_one_cokey_depth_trend()} -> \code{apply_local_gp_adjustments()} ->
+\code{apply_gp_depth_trends()}. \code{config$monte_carlo$vertical_correlation_method} (default
+\code{"joint_copula"} as of \code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 13; set to
+\code{"gp_quantile_retrofit"} to opt back into the original algorithm) selects the
+vertical-correlation method; \code{NULL} (default) resolves to \code{"joint_copula"}, matching
+\code{get_monte_carlo_defaults()}'s own default.}
 }
 \value{
 \code{sim_long}, depth-trend-adjusted where possible.

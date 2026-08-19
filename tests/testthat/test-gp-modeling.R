@@ -367,3 +367,214 @@ test_that("REGRESSION: prepare_nrcs_training_data() runs without error and filte
   expect_true(nrow(result) > 0)
   expect_false("R" %in% result$hzname)
 })
+
+test_that("validate_joint_correlation_structure() reports achieved property and depth-lag correlation against targets, at every depth/property", {
+  # Phase 0 instrumentation for the vertical-correlation redesign
+  # (PERFORMANCE_IMPROVEMENT_PLAN.md-style acceptance testing): unlike
+  # validate_correlation_preservation(), which only checks property correlation, and only via its
+  # caller's first-5-depths spot check, this must check BOTH property correlation (every depth)
+  # and depth-lag correlation (every property). Construct synthetic data via the same
+  # separable/Kronecker-MVN sampling identity the joint-copula redesign itself will use
+  # (Z = L_depth %*% Eps %*% t(L_prop)) so the achieved correlations are known to approximate a
+  # specific target by construction, at a large n_sims.
+  set.seed(2024)
+  n_depths <- 4
+  n_sims <- 4000
+  property_names <- c("clay_pct", "sand_pct", "bulk_density")
+  k <- length(property_names)
+
+  target_property_corr <- matrix(c(
+    1.00, -0.60,  0.50,
+   -0.60,  1.00, -0.40,
+    0.50, -0.40,  1.00
+  ), nrow = k, dimnames = list(property_names, property_names))
+
+  target_depth_corr <- matrix(c(
+    1.00, 0.80, 0.64, 0.51,
+    0.80, 1.00, 0.80, 0.64,
+    0.64, 0.80, 1.00, 0.80,
+    0.51, 0.64, 0.80, 1.00
+  ), nrow = n_depths)
+
+  L_depth <- chol(target_depth_corr)
+  L_prop <- chol(target_property_corr)
+
+  eps <- array(stats::rnorm(n_depths * k * n_sims), dim = c(n_depths, k, n_sims))
+  joint <- vapply(seq_len(n_sims), function(s) {
+    t(L_depth) %*% eps[, , s] %*% L_prop
+  }, matrix(0, n_depths, k))
+  # joint is n_depths x k x n_sims - split into the per-property [depth x sim] matrix shape
+  # simulate_correlated_triangular()/preserve_correlation_structure() actually use.
+  simulated_list <- setNames(
+    lapply(seq_len(k), function(p) matrix(joint[, p, ], nrow = n_depths)),
+    property_names
+  )
+
+  result <- validate_joint_correlation_structure(
+    simulated_list,
+    target_property_corr = target_property_corr,
+    target_depth_corr = target_depth_corr
+  )
+
+  # Shape: one property-correlation matrix per depth, one depth-correlation matrix per property.
+  expect_length(result$achieved_property_correlation, n_depths)
+  expect_named(result$achieved_depth_correlation, property_names)
+  expect_length(result$property_correlation_max_diff, n_depths)
+  expect_named(result$depth_correlation_max_diff, property_names)
+
+  # Data actually constructed to match both targets - achieved deviation should be small at
+  # n_sims = 4000, well under the 0.1 "large correlation change" threshold
+  # adjust_multivariate_depthwise_GP() itself warns on.
+  expect_true(result$overall_property_max_diff < 0.1)
+  expect_true(result$overall_depth_max_diff < 0.1)
+  expect_true(all(result$property_correlation_max_diff < 0.1))
+  expect_true(all(result$depth_correlation_max_diff < 0.1))
+
+  # A deliberately wrong target should be caught, not silently passed.
+  wrong_target <- diag(k)
+  dimnames(wrong_target) <- dimnames(target_property_corr)
+  bad_result <- validate_joint_correlation_structure(
+    simulated_list, target_property_corr = wrong_target
+  )
+  expect_true(bad_result$overall_property_max_diff > 0.3)
+})
+
+test_that("validate_joint_correlation_structure() returns all-NA diffs (not an error) when no targets are supplied", {
+  set.seed(7)
+  simulated_list <- list(
+    clay_pct = matrix(stats::rnorm(3 * 10, mean = 20, sd = 2), nrow = 3),
+    sand_pct = matrix(stats::rnorm(3 * 10, mean = 40, sd = 3), nrow = 3)
+  )
+  result <- validate_joint_correlation_structure(simulated_list)
+  expect_true(all(is.na(result$property_correlation_max_diff)))
+  expect_true(all(is.na(result$depth_correlation_max_diff)))
+  expect_true(is.na(result$overall_property_max_diff))
+  expect_true(is.na(result$overall_depth_max_diff))
+  expect_length(result$achieved_property_correlation, 3)
+  expect_named(result$achieved_depth_correlation, c("clay_pct", "sand_pct"))
+})
+
+test_that("extract_depth_length_scale() derives a positive real-units length-scale from a fitted GP model", {
+  # Phase 1 of VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md: the depth kernel's length-scale must come
+  # from the already-fitted GPfit model (fit_local_gp_model_single()), not a new estimation step.
+  set.seed(11)
+  agg_data <- data.frame(
+    hzdept_r = c(0, 20, 50, 100, 150),
+    mean_val = c(10, 14, 22, 30, 33)
+  )
+  fitted <- fit_local_gp_model_single(agg_data, "clay_pct")
+  expect_false(is.null(fitted))
+
+  length_scale <- extract_depth_length_scale(fitted)
+  expect_true(is.finite(length_scale))
+  expect_true(length_scale > 0)
+  # Real-units: should be comparable to (not wildly outside) the actual depth range (0-150cm) -
+  # loosely bounding to catch a units mix-up (e.g. forgetting to rescale by depth_scaling$range).
+  expect_true(length_scale > 1 && length_scale < 1500)
+
+  # Without depth_scaling, the result stays in scaled [0,1] units - must be <= ~a few (GPfit
+  # ranges rarely exceed the unit interval by more than a small factor for a well-fit model).
+  scaled_only <- extract_depth_length_scale(fitted$gp_model, depth_scaling = NULL)
+  expect_true(is.finite(scaled_only))
+  expect_equal(scaled_only * fitted$depth_scaling$range, length_scale, tolerance = 1e-8)
+
+  # Malformed/missing model input degrades to NA_real_, not an error - mirrors
+  # fit_local_gp_model_single()'s own NULL-on-failure contract.
+  expect_true(is.na(extract_depth_length_scale(NULL)))
+  expect_true(is.na(extract_depth_length_scale(list(gp_model = NULL))))
+})
+
+test_that("build_depth_correlation_kernel() returns a valid, distance-decaying correlation matrix for both kernel families", {
+  depths <- c(0, 10, 30, 100)  # uneven spacing, on purpose
+
+  for (kernel in c("exponential", "matern")) {
+    R <- build_depth_correlation_kernel(depths, length_scale = 25, kernel = kernel)
+
+    expect_equal(dim(R), c(4, 4))
+    expect_equal(diag(R), rep(1, 4), tolerance = 1e-8)
+    expect_true(isSymmetric(R, tol = 1e-8))
+    expect_true(all(eigen(R, only.values = TRUE)$values > -1e-8))  # positive (semi-)definite
+
+    # Monotonic decay with distance: farther depth-pairs must not be MORE correlated than nearer
+    # ones, comparing every pair sharing depth index 1 as the common anchor.
+    d_from_1 <- abs(depths - depths[1])
+    ord <- order(d_from_1)
+    expect_true(all(diff(R[1, ord]) <= 1e-8))
+  }
+
+  # Non-finite/non-positive length_scale degrades to the identity matrix (no depth correlation),
+  # not an error - matches this package's established fallback pattern for invalid correlation
+  # inputs (e.g. simulate_cokey_generalized()'s pooled-matrix fallback).
+  expect_equal(build_depth_correlation_kernel(depths, length_scale = NA_real_), diag(4))
+  expect_equal(build_depth_correlation_kernel(depths, length_scale = 0), diag(4))
+  expect_equal(build_depth_correlation_kernel(depths, length_scale = -5), diag(4))
+
+  # Single depth is a degenerate 1x1 correlation matrix, not an error.
+  expect_equal(build_depth_correlation_kernel(15, length_scale = 25), matrix(1, 1, 1))
+})
+
+test_that("build_depth_correlation_kernel()'s boundary_distinctness gating suppresses correlation across an abrupt boundary while leaving diffuse-boundary profiles ~unchanged", {
+  # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 1c/1d.
+  depths <- c(0, 20, 40, 60)  # evenly spaced, on purpose - isolates the gating effect from the
+  # plain distance-decay kernel's own shape.
+  length_scale <- 40
+
+  plain <- build_depth_correlation_kernel(depths, length_scale)
+
+  # An injected Abrupt (bound_sd ~= 1, aqp's own code-to-offset value) boundary between depth
+  # index 2 (20cm) and 3 (40cm) - bound_sd is indexed by "depth this boundary sits above", so
+  # index 3 carries it. Other boundaries left NA (no gating - default "no data" behavior).
+  abrupt_bsd <- c(NA, NA, 1, NA)
+  gated <- build_depth_correlation_kernel(depths, length_scale, boundary_distinctness = abrupt_bsd)
+
+  expect_equal(dim(gated), c(4, 4))
+  expect_equal(diag(gated), rep(1, 4), tolerance = 1e-8)
+  expect_true(isSymmetric(gated, tol = 1e-8))
+  expect_true(all(eigen(gated, only.values = TRUE)$values > -1e-8))
+
+  # Every pair straddling the abrupt boundary (one depth in {1,2}, the other in {3,4}) must be
+  # suppressed well below its ungated value; pairs entirely on one side of the boundary must be
+  # essentially unaffected (no NA elsewhere, min_gate_weight floor only applies across the gate).
+  straddling <- list(c(1, 3), c(1, 4), c(2, 3), c(2, 4))
+  for (pair in straddling) {
+    expect_true(gated[pair[1], pair[2]] < plain[pair[1], pair[2]] * 0.5)
+  }
+  same_side <- list(c(1, 2), c(3, 4))
+  for (pair in same_side) {
+    expect_equal(gated[pair[1], pair[2]], plain[pair[1], pair[2]], tolerance = 0.05)
+  }
+
+  # All-Diffuse (bound_sd = 10, the distinctness_range max -> gate weight exactly 1 everywhere)
+  # must reproduce the plain kernel, confirming gating is a strict generalization, not a behavior
+  # change, when every boundary is gradual/diffuse.
+  diffuse_bsd <- rep(10, 4)
+  ungated_equivalent <- build_depth_correlation_kernel(depths, length_scale, boundary_distinctness = diffuse_bsd)
+  expect_equal(ungated_equivalent, plain, tolerance = 1e-8)
+
+  # NULL (default) and all-NA both skip gating entirely - identical to the plain kernel.
+  expect_equal(build_depth_correlation_kernel(depths, length_scale, boundary_distinctness = NULL), plain)
+  expect_equal(build_depth_correlation_kernel(depths, length_scale, boundary_distinctness = rep(NA_real_, 4)), plain)
+
+  # Gating must compound across multiple intervening boundaries, not just gate adjacent pairs:
+  # two abrupt boundaries in a row should suppress the endpoints MORE than a single abrupt
+  # boundary does.
+  two_abrupt_bsd <- c(NA, 1, 1, NA)
+  double_gated <- build_depth_correlation_kernel(depths, length_scale, boundary_distinctness = two_abrupt_bsd)
+  expect_true(double_gated[1, 4] < gated[1, 4])
+
+  # Wrong-length boundary_distinctness errors rather than silently misaligning with depths.
+  expect_error(
+    build_depth_correlation_kernel(depths, length_scale, boundary_distinctness = c(1, 2)),
+    "same length"
+  )
+
+  # Depths passed out of order still gate the correct (physically adjacent) boundary - internal
+  # sorting/un-sorting must round-trip correctly.
+  shuffled_order <- c(3, 1, 4, 2)  # arbitrary permutation of 1:4
+  shuffled_depths <- depths[shuffled_order]
+  shuffled_bsd <- abrupt_bsd[shuffled_order]
+  shuffled_gated <- build_depth_correlation_kernel(shuffled_depths, length_scale, boundary_distinctness = shuffled_bsd)
+  # Map back to original depth-index ordering for a direct comparison against `gated`.
+  unshuffle <- order(shuffled_order)
+  expect_equal(shuffled_gated[unshuffle, unshuffle], gated, tolerance = 1e-8)
+})

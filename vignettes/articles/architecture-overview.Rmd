@@ -21,9 +21,7 @@ roxygen summary of this framing.
 
 This directory's 10 documents go one level deeper than that package doc or the per-function
 `.Rd`/roxygen reference: each covers a functional group's full function signatures, internal call
-graphs, cross-file dependencies, data flow, and known limitations - the same depth the legacy
-`modules/mod0-8_summary.md` docs provided for the pre-package prototype, adapted to soilSIM's
-current (larger, restructured) `R/` layout.
+graphs, cross-file dependencies, data flow, and known limitations.
 
 ## Core vs. adapters
 

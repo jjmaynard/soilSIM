@@ -1,3 +1,58 @@
+test_that("get_monte_carlo_defaults() defaults vertical_correlation_method to joint_copula (Phase 13 flip), and validate_monte_carlo_config() accepts both valid choices", {
+  # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 13 flipped the default from
+  # "gp_quantile_retrofit" to "joint_copula" after Phases 0-12 resolved every blocking decision
+  # point - "gp_quantile_retrofit" remains fully supported as an explicit opt-out, not removed.
+  default_config <- get_monte_carlo_defaults()
+  expect_equal(default_config$monte_carlo$vertical_correlation_method, "joint_copula")
+
+  validation_default <- validate_monte_carlo_config(default_config, n_realizations = 100)
+  expect_true(validation_default$valid)
+
+  retrofit_config <- default_config
+  retrofit_config$monte_carlo$vertical_correlation_method <- "gp_quantile_retrofit"
+  validation_retrofit <- validate_monte_carlo_config(retrofit_config, n_realizations = 100)
+  expect_true(validation_retrofit$valid)
+
+  bad_config <- default_config
+  bad_config$monte_carlo$vertical_correlation_method <- "not_a_real_method"
+  validation_bad <- validate_monte_carlo_config(bad_config, n_realizations = 100)
+  expect_false(validation_bad$valid)
+
+  # Not required (unlike correlation_fallback) - a config missing this key entirely must still
+  # validate cleanly, since older/ad-hoc configs built without get_monte_carlo_defaults() should
+  # not suddenly start failing validation.
+  no_key_config <- default_config
+  no_key_config$monte_carlo$vertical_correlation_method <- NULL
+  validation_no_key <- validate_monte_carlo_config(no_key_config, n_realizations = 100)
+  expect_true(validation_no_key$valid)
+})
+
+test_that("get_monte_carlo_defaults() defaults vertical_correlation_gating to FALSE, and validate_monte_carlo_config() validates it as a logical", {
+  # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 8 - discontinuity gating is a separate opt-in
+  # from vertical_correlation_method itself, defaulting to off.
+  default_config <- get_monte_carlo_defaults()
+  expect_identical(default_config$monte_carlo$vertical_correlation_gating, FALSE)
+
+  validation_default <- validate_monte_carlo_config(default_config, n_realizations = 100)
+  expect_true(validation_default$valid)
+
+  gating_on_config <- default_config
+  gating_on_config$monte_carlo$vertical_correlation_gating <- TRUE
+  validation_on <- validate_monte_carlo_config(gating_on_config, n_realizations = 100)
+  expect_true(validation_on$valid)
+
+  bad_config <- default_config
+  bad_config$monte_carlo$vertical_correlation_gating <- "yes"  # not logical
+  validation_bad <- validate_monte_carlo_config(bad_config, n_realizations = 100)
+  expect_false(validation_bad$valid)
+
+  # Not required - a config missing this key entirely must still validate cleanly.
+  no_key_config <- default_config
+  no_key_config$monte_carlo$vertical_correlation_gating <- NULL
+  validation_no_key <- validate_monte_carlo_config(no_key_config, n_realizations = 100)
+  expect_true(validation_no_key$valid)
+})
+
 test_that("normalize_monte_carlo_config() accepts both flat and nested simulation_config", {
   default_config <- get_monte_carlo_defaults()
 

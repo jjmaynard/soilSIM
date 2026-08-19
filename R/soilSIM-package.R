@@ -159,6 +159,9 @@ utils::globalVariables(c(
   "mukey", "id", "hzname", "sim_comppct", "hzdept_l", "hzdept_h", "hzdepb_l",
   "hzdepb_h", "hzthk_l", "rfv_l", "rfv_r", "rfv_h", "genhz", "distinctness",
   "bound_sd", "top", "bottom", "thickness_sd", "Thickness",
+  # R/depth-simulation.R::attach_osd_boundary_distinctness() (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md
+  # Phase 9 case-insensitive join fix) - a dplyr::mutate()-created NSE column, not a real global.
+  "compname_upper",
   # R/aws-simulation.R (van Genuchten / ROSETTA-based AWS modeling)
   "alpha", "n", "theta_r", "theta_s", "contributing_fraction", "variable",
   # R/property-simulation.R (component-composition / correlated-triangular simulation)

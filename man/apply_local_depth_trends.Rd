@@ -9,7 +9,9 @@ apply_local_depth_trends(
   local_predictions,
   unique_depths,
   preserve_correlations = TRUE,
-  verbose = getOption("ssurgo.verbose", FALSE)
+  verbose = getOption("ssurgo.verbose", FALSE),
+  config = NULL,
+  gp_models = NULL
 )
 }
 \arguments{
@@ -24,6 +26,17 @@ apply_local_depth_trends(
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's log level so
 \code{INFO}-level progress messages print for the duration of this call (default
 \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
+
+\item{config}{Optional config, passed straight through to \code{apply_gp_depth_trends()} - lets
+\code{config$monte_carlo$vertical_correlation_method} (default \code{"joint_copula"} as of
+\code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 13; set to \code{"gp_quantile_retrofit"} to opt
+back into the original algorithm) reach this call site. \code{NULL} (default) resolves to
+\code{"joint_copula"}, matching \code{get_monte_carlo_defaults()}'s own default.}
+
+\item{gp_models}{Optional named list of fitted local GP models (as \code{apply_local_gp_adjustments()}
+already has in scope via \code{fit_local_gp_models()}), passed straight through to
+\code{apply_gp_depth_trends()} so the joint-copula depth kernel can reuse their fitted
+length-scales. Ignored under \code{"gp_quantile_retrofit"}.}
 }
 \value{
 Adjusted simulation data

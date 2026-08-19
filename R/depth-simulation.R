@@ -177,6 +177,76 @@ query_osd_distinctness <- function(horizon_data) {
   return(osd_horizon_data)
 }
 
+#' Attach OSD-Derived Boundary Distinctness to Horizon Data (per-genhz `bound_sd`)
+#'
+#' `query_osd_distinctness()`'s `bound_sd` (OSD boundary-distinctness offset, e.g. Abrupt/Clear/
+#' Gradual/Diffuse converted to a numeric scale via `aqp::hzDistinctnessCodeToOffset()`) was
+#' previously computed and consumed ONLY inside `simulate_and_perturb_soil_profiles()`, as
+#' `aqp::perturb()`'s `boundary.attr` for horizon-DEPTH perturbation - it never reached the
+#' property-value Monte Carlo simulation pipeline (`simulate_cokey_generalized()`,
+#' `apply_gp_depth_trends()`). This exposes the same already-computed, already-genhz-averaged
+#' `bound_sd` value on arbitrary horizon data (via the identical
+#' `dplyr::group_by(id, genhz) |> dplyr::summarise(bound_sd = mean(bound_sd, na.rm = TRUE))`
+#' pattern `simulate_and_perturb_soil_profiles()` already uses), so it can also gate the
+#' vertical-correlation depth kernel (see `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 1c) -
+#' no new data source, no change to how `bound_sd` itself is computed.
+#'
+#' @param hz_data A data frame with at least `compname`, `hzname`, and `genhz` columns (the same
+#'   shape `simulate_ssurgo_mapunit_draws()` builds right after `classify_genhz()`).
+#'
+#' @return `hz_data` with a `bound_sd` numeric column added/overwritten (one value per
+#'   `compname`/`genhz` combination, `NA` for any combination the OSD lookup couldn't resolve).
+#'   On OSD lookup failure (e.g. no network access - `query_osd_distinctness()` calls
+#'   `soilDB::fetchOSD()`), degrades to an all-`NA` `bound_sd` column rather than erroring, so
+#'   callers (and the Phase 1c kernel gating, which already treats missing distinctness data as
+#'   "no gating - fall back to the plain kernel") keep working without OSD access.
+#'
+#' @export
+attach_osd_boundary_distinctness <- function(hz_data) {
+  required_cols <- c("compname", "hzname", "genhz")
+  if (!all(required_cols %in% names(hz_data))) {
+    stop("hz_data must have compname, hzname, and genhz columns")
+  }
+
+  distinctness_data <- tryCatch({
+    query_osd_distinctness(hz_data)
+  }, error = function(e) {
+    message("attach_osd_boundary_distinctness(): OSD distinctness lookup failed (",
+            e$message, ") - proceeding with bound_sd = NA (no depth-kernel discontinuity gating).")
+    NULL
+  })
+
+  if (is.null(distinctness_data)) {
+    hz_data$bound_sd <- NA_real_
+    return(hz_data)
+  }
+
+  # soilDB::fetchOSD() (called inside query_osd_distinctness() -> fetch_osd_horizons_cached())
+  # returns its id column UPPER-CASED regardless of the requested case (documented quirk, see
+  # fetch_osd_horizons_cached()'s own "Known quirk preserved" section) - the ORIGINAL caller of
+  # query_osd_distinctness(), simulate_and_perturb_soil_profiles(), was documented as unaffected
+  # by this because it joins by genhz only, never by id. This function DOES need to join by
+  # compname (to get a per-cokey-relevant value, not just a global per-genhz average across every
+  # series in the input), so it must match case-insensitively - a real bug (title-case
+  # "Placentia" from SSURGO vs. "PLACENTIA" from fetchOSD() silently joining to nothing) found via
+  # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 9's real-AOI validation, not caught by earlier
+  # unit tests because their mocked fixtures happened to use matching case throughout.
+  bound_lut <- distinctness_data |>
+    dplyr::mutate(compname_upper = toupper(id)) |>
+    dplyr::group_by(compname_upper, genhz) |>
+    dplyr::summarise(bound_sd = mean(bound_sd, na.rm = TRUE), .groups = "drop")
+
+  # left_join preserves hz_data's row count/order exactly (one bound_sd value broadcast across
+  # every row sharing a compname/genhz combination) - a genhz/compname combination missing from
+  # the OSD data (or dropped by NA-averaging when every OSD match for it was itself NA) yields
+  # bound_sd = NA for those rows, the same graceful-missing-data contract as the rest of this
+  # function.
+  hz_data |>
+    dplyr::mutate(compname_upper = toupper(compname)) |>
+    dplyr::left_join(bound_lut, by = c("compname_upper", "genhz")) |>
+    dplyr::select(-compname_upper)
+}
+
 #' Fetch OSD horizon distinctness data for a set of soil series names, with per-series caching
 #'
 #' `soilDB::fetchOSD()` is a live network call. Multiple profiles/components in the same

@@ -312,7 +312,7 @@ metadata.
 adjustment followed by local GP adjustment); `preserve_correlations` - whether to run the
 correlation-preserving quantile transform; `properties` - properties to adjust, or `NULL` to
 auto-detect via `detect_simulation_properties()`; `parallel`/`n_cores` - parallel dispatch across
-cokeys; `config` - Module 8-style config, defaults to `get_default_configuration("full")`.
+cokeys; `config` - [Utilities](architecture-utilities.html)-style config, defaults to `get_default_configuration("full")`.
 **Returns**: A list: `integrated_data` (final adjusted long-format data frame), `original_simulation_data`,
 `integration_metadata` (method, properties processed, success rate, processing time, package
 versions, etc.), `validation_results` (from `validate_integration_results()`), `original_metadata`;
@@ -454,8 +454,8 @@ convert_to_property_matrices(simulation_data, properties, unique_depths, sim_num
 property.
 **Returns**: Named list of matrices (only for properties with at least one non-`NA` value found).
 **Algorithm**: Nested loop over `unique_depths` x `sim_numbers`, pulling the matching value via
-`dplyr::filter()`/`dplyr::pull()` for each cell (documented as Module 8 "safe" lookups; O(depths x
-sims) filters per property).
+`dplyr::filter()`/`dplyr::pull()` for each cell (documented in source comments as [Utilities](architecture-utilities.html)-style
+"safe" lookups; O(depths x sims) filters per property).
 
 #### `convert_to_long_format()`
 ```r

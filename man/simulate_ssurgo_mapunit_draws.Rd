@@ -15,7 +15,8 @@ simulate_ssurgo_mapunit_draws(
   bottom_depth,
   n_mc = 1000,
   parallel = FALSE,
-  n_cores = NULL
+  n_cores = NULL,
+  config = NULL
 )
 
 SSURGO_SIM_PROPERTY_COLUMNS
@@ -31,6 +32,14 @@ SSURGO_SIM_PROPERTY_COLUMNS
 \code{parallel}/\code{n_cores} - the depth-trend GP adjustment step is this function's dominant cost
 for AOIs with many cokeys, and each cokey's GP fitting is independent of every other cokey's.
 Default \code{parallel = FALSE} matches prior behavior exactly.}
+
+\item{config}{Optional Monte Carlo config, passed through to
+\code{maybe_adjust_soil_data_depth_trend()} -> \code{apply_local_gp_adjustments()} ->
+\code{apply_gp_depth_trends()}. \code{config$monte_carlo$vertical_correlation_method} (default
+\code{"joint_copula"} as of \code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 13; set to
+\code{"gp_quantile_retrofit"} to opt back into the original algorithm) selects this top-level
+entry point's vertical-correlation method; \code{NULL} (default) resolves to \code{"joint_copula"},
+matching \code{get_monte_carlo_defaults()}'s own default.}
 }
 \value{
 A data frame, one row per \code{mukey}/\code{cokey}/\code{simulation_number} replicate, with simulated

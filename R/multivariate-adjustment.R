@@ -184,6 +184,26 @@ integrate_monte_carlo_with_gp <- function(simulation_results,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
+#' @param config Optional Monte Carlo config (as from \code{get_monte_carlo_defaults()}) whose
+#'   \code{monte_carlo$vertical_correlation_method} selects between \code{"joint_copula"}
+#'   (default as of \code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 13 - dispatches to
+#'   \code{preserve_correlation_structure_joint()}, drawing depth correlation and property
+#'   correlation simultaneously) and \code{"gp_quantile_retrofit"} (the original algorithm,
+#'   still fully supported as an explicit opt-out - dispatches to
+#'   \code{preserve_correlation_structure()}). \code{NULL} (default) resolves to
+#'   \code{"joint_copula"}, matching \code{get_monte_carlo_defaults()}'s own default - set
+#'   \code{config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"} explicitly to
+#'   opt back into the original behavior. Under \code{"joint_copula"},
+#'   \code{config$monte_carlo$vertical_correlation_gating} (default \code{FALSE}) separately
+#'   controls whether \code{bound_sd}-based discontinuity gating (Phase 1c/1d) is applied - kept
+#'   independent of the core method choice since its numeric defaults are not yet empirically
+#'   calibrated (Phase 8).
+#' @param gp_models Optional named list of fitted GP models (as `fit_local_gp_model_single()`
+#'   returns), keyed by property - passed through to \code{preserve_correlation_structure_joint()}
+#'   when \code{vertical_correlation_method = "joint_copula"}, so its depth kernel can reuse each
+#'   property's already-fitted, already-cross-validated length-scale (see
+#'   \code{extract_depth_length_scale()}) instead of falling back to a full-depth-range default.
+#'   Ignored entirely under \code{"gp_quantile_retrofit"}.
 #' @return Adjusted simulation data
 #' @export
 apply_gp_depth_trends <- function(cokey_data,
@@ -191,7 +211,9 @@ apply_gp_depth_trends <- function(cokey_data,
                                   properties,
                                   preserve_correlations = TRUE,
                                   primary_property = NULL,
-                                  verbose = getOption("ssurgo.verbose", FALSE)) {
+                                  verbose = getOption("ssurgo.verbose", FALSE),
+                                  config = NULL,
+                                  gp_models = NULL) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -244,12 +266,56 @@ apply_gp_depth_trends <- function(cokey_data,
     return(cokey_data)
   }
 
+  # Which vertical-correlation method to use. DEFAULT AS OF Phase 13: "joint_copula" (flipped from
+  # "gp_quantile_retrofit" - see get_monte_carlo_defaults()'s own extended comment for the full
+  # decision trail). A NULL/missing config, or a config that simply doesn't set this key, both
+  # resolve to this same default - kept in sync with get_monte_carlo_defaults()'s own default so
+  # "no config passed" means the same thing everywhere in this package, whether or not a caller
+  # goes through get_monte_carlo_defaults() first. Explicitly set
+  # config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit" to opt back into the
+  # original algorithm.
+  vertical_correlation_method <- config$monte_carlo$vertical_correlation_method %||% "joint_copula"
+
+  # Discontinuity gating (build_depth_correlation_kernel()'s boundary_distinctness suppression,
+  # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 1c/1d) is a SEPARATE opt-in from the core
+  # joint_copula method itself (Phase 8) - bound_sd is attached unconditionally upstream
+  # (attach_osd_boundary_distinctness() in simulate_ssurgo_mapunit_draws()), so without this flag
+  # there would be no way to use joint_copula WITHOUT gating whenever OSD lookup succeeds. Its
+  # numeric defaults (distinctness_range/min_gate_weight) are not yet empirically calibrated
+  # against real KSSL/SSURGO lag correlations (see the decision-points section of
+  # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md) - defaults to FALSE so the two decisions (core
+  # method vs. gating strength) can be made independently.
+  vertical_correlation_gating <- isTRUE(config$monte_carlo$vertical_correlation_gating)
+
   # Apply multivariate adjustment with enhanced error handling
   adjusted_matrices <- tryCatch({
     if (preserve_correlations && length(property_matrices) >= 2) {
-      preserve_correlation_structure(
-        property_matrices, gp_predictions, unique_depths, primary_property
-      )
+      if (identical(vertical_correlation_method, "joint_copula")) {
+        # bound_sd (OSD boundary distinctness - VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase
+        # 1b) is broadcast identically across every simulation realization at a given depth
+        # (simulate_cokey_generalized()), so the first non-NA value per unique depth is that
+        # depth's boundary_distinctness for build_depth_correlation_kernel()'s discontinuity
+        # gating - NULL (no gating) when the column isn't present, OR when
+        # vertical_correlation_gating is not explicitly enabled.
+        boundary_distinctness <- if (vertical_correlation_gating && "bound_sd" %in% names(valid_data)) {
+          vapply(unique_depths, function(d) {
+            vals <- valid_data$bound_sd[valid_data$hzdept_r == d]
+            vals <- vals[!is.na(vals)]
+            if (length(vals) > 0) vals[1] else NA_real_
+          }, numeric(1))
+        } else {
+          NULL
+        }
+
+        preserve_correlation_structure_joint(
+          property_matrices, gp_predictions, unique_depths, primary_property,
+          gp_models = gp_models, boundary_distinctness = boundary_distinctness
+        )
+      } else {
+        preserve_correlation_structure(
+          property_matrices, gp_predictions, unique_depths, primary_property
+        )
+      }
     } else {
       apply_individual_adjustments(property_matrices, gp_predictions, unique_depths)
     }
@@ -277,6 +343,165 @@ apply_gp_depth_trends <- function(cokey_data,
   result_data <- merge_adjusted_data(cokey_data, adjusted_data, available_properties)
 
   return(result_data)
+}
+
+# ============================================================================
+# 1b. VERTICAL-CORRELATION REDESIGN: JOINT DEPTH x PROPERTY COPULA (Phase 2)
+# ============================================================================
+#
+# See VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md. `preserve_correlation_structure()` below
+# retrofits vertical correlation onto already-independent-across-depth draws via a sequential
+# gp_ratio nudge keyed off ONE "primary property"'s rank - the two functions here instead draw
+# depth correlation (R_depth, from build_depth_correlation_kernel()) and property correlation
+# (R_prop, the same flat matrix simulate_correlated_triangular() already uses) SIMULTANEOUSLY from
+# a single Kronecker-separable joint distribution, so both are satisfied by construction rather
+# than approximated by a retrofit. Phase 3's preserve_correlation_structure_joint() wires these two
+# functions into a drop-in alternative with the same signature/contract as
+# preserve_correlation_structure() itself.
+
+#' Draw a Joint Depth x Property Gaussian Copula Sample
+#'
+#' Draws `n_sims` realizations of an `n_depths x k` standard-normal field whose ROWS (depths) are
+#' correlated according to `R_depth` and whose COLUMNS (properties) are correlated according to
+#' `R_prop`, SIMULTANEOUSLY - the standard separable/Kronecker-structured multivariate-normal
+#' sampling identity `Z = L_depth %*% Eps %*% t(L_prop)` (where `L_depth`/`L_prop` are Cholesky
+#' factors of `R_depth`/`R_prop` and `Eps` is iid standard normal), which achieves
+#' `Cov(vec(Z)) = R_prop (x) R_depth` (a Kronecker product) without ever materializing that full
+#' `(n_depths*k) x (n_depths*k)` matrix. Vectorized across all `n_sims` realizations at once via
+#' array reshaping (no explicit per-realization loop).
+#'
+#' @param R_depth An `n_depths x n_depths` correlation matrix (e.g. from
+#'   `build_depth_correlation_kernel()`).
+#' @param R_prop A `k x k` correlation matrix (the same flat property-correlation matrix
+#'   `simulate_correlated_triangular()` already uses for within-horizon correlation).
+#' @param n_sims Number of joint realizations to draw.
+#' @param seed Optional integer seed for reproducibility.
+#'
+#' @return A `c(n_depths, k, n_sims)` array of standard-normal values (mean 0, variance 1
+#'   marginally), jointly correlated across both the depth and property dimensions as specified.
+#'
+#' @export
+sample_joint_depth_property_copula <- function(R_depth, R_prop, n_sims, seed = NULL) {
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
+
+  n_depths <- nrow(R_depth)
+  k <- nrow(R_prop)
+
+  if (n_sims < 1) {
+    stop("n_sims must be at least 1")
+  }
+
+  L_depth <- t(chol(R_depth))
+  L_prop <- t(chol(R_prop))
+
+  eps <- array(stats::rnorm(n_depths * k * n_sims), dim = c(n_depths, k, n_sims))
+
+  # Left-multiply by L_depth (depth correlation) across every (property, realization) slice at
+  # once: matrix(eps, nrow = n_depths) flattens the array's trailing dimensions column-major,
+  # exactly matching R's array storage order, so a single n_depths x n_depths matrix multiply
+  # applies to all k * n_sims columns simultaneously.
+  step1 <- L_depth %*% matrix(eps, nrow = n_depths)
+  dim(step1) <- c(n_depths, k, n_sims)
+
+  # Right-multiply by t(L_prop) (property correlation) across every (depth, realization) slice at
+  # once - reshape to bring the property dimension first so the same "one matrix multiply over a
+  # flattened array" trick applies again, then reshape back.
+  step1_prop_first <- aperm(step1, c(2, 1, 3))
+  step2 <- L_prop %*% matrix(step1_prop_first, nrow = k)
+  dim(step2) <- c(k, n_depths, n_sims)
+
+  aperm(step2, c(2, 1, 3))
+}
+
+#' Map a Joint Copula Sample onto Existing Per-Depth Marginal Distributions
+#'
+#' Converts the standard-normal joint sample from `sample_joint_depth_property_copula()` into
+#' actual property values, by probability-integral-transforming each depth/property/realization
+#' cell (`pnorm()`) and then inverse-transforming (`quantile()`) against that depth/property's
+#' OWN already-simulated marginal distribution (`property_matrices[[prop]][depth, ]` - the same
+#' per-horizon triangular-fit values `simulate_correlated_triangular()` produced) - a Gaussian
+#' copula, in the standard statistical sense. This is what actually delivers the achieved
+#' correlation structure from `sample_joint_depth_property_copula()` onto real property values
+#' while preserving each depth's own fitted marginal shape exactly (for large `n_sims`).
+#'
+#' @param Z A `c(n_depths, k, n_sims)` array as returned by
+#'   `sample_joint_depth_property_copula()`.
+#' @param property_matrices Named list of `k` matrices (rows = depths, columns = simulations,
+#'   `dim(Z)[1]`/`dim(Z)[3]` must match), in the same property order as `Z`'s second dimension -
+#'   the same shape `preserve_correlation_structure()` already consumes.
+#' @param gp_predictions Optional named list of per-property depth-trend mean vectors (length
+#'   `n_depths`), e.g. from `predict_gp_depth_trends()`. When supplied for a property, that
+#'   property's marginal at each depth is re-centered (a location shift only - shape/spread
+#'   preserved) onto the GP-predicted mean before the quantile mapping, replacing the old
+#'   sequential `gp_ratio` nudge with a single direct shift.
+#'
+#' @return A named list of `n_depths x n_sims` matrices, same shape/names as `property_matrices`.
+#'
+#' @export
+apply_copula_to_marginals <- function(Z, property_matrices, gp_predictions = NULL) {
+  property_names <- names(property_matrices)
+
+  if (length(property_names) == 0) {
+    stop("property_matrices must have named elements")
+  }
+  if (dim(Z)[2] != length(property_names)) {
+    stop("Z's property dimension (dim(Z)[2]) must match length(property_matrices)")
+  }
+
+  n_depths <- dim(Z)[1]
+  n_sims <- dim(Z)[3]
+  adjusted <- vector("list", length(property_names))
+  names(adjusted) <- property_names
+
+  for (p in seq_along(property_names)) {
+    prop <- property_names[p]
+    current_matrix <- property_matrices[[prop]]
+    adjusted_matrix <- matrix(NA_real_, nrow = n_depths, ncol = n_sims)
+
+    gp_means <- if (!is.null(gp_predictions) && !is.null(gp_predictions[[prop]]) &&
+                     length(gp_predictions[[prop]]) == n_depths) {
+      gp_predictions[[prop]]
+    } else {
+      NULL
+    }
+
+    for (i in seq_len(n_depths)) {
+      curr_values <- current_matrix[i, ]
+
+      # Optional GP-mean recentering: shift the marginal's LOCATION to the GP-predicted mean
+      # while preserving its already-fitted shape/spread exactly - the direct replacement for
+      # preserve_correlation_structure()'s sequential gp_ratio nudge.
+      #
+      # isTRUE()-wrapped: stats::var(x, na.rm = TRUE) returns NA (not FALSE) when x is entirely
+      # NA (a real, non-rare case on messy field data - e.g. a cokey row whose texture triplet
+      # was incomplete, see simulate_cokey_generalized()'s own per-row texture tryCatch()) -
+      # `if (NA > 0)` errors with "missing value where TRUE/FALSE needed" rather than falling
+      # through to the else branch. isTRUE() treats that NA as FALSE, matching this function's
+      # intended "no variation (or no data) - keep original values" contract. Found via
+      # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 10's full-AOI benchmark against real
+      # (messy) Salinas Valley SSURGO data - synthetic test fixtures never happened to include an
+      # all-NA property column.
+      target_values <- if (!is.null(gp_means) && is.finite(gp_means[i]) &&
+                            isTRUE(stats::var(curr_values, na.rm = TRUE) > 0)) {
+        curr_values + (gp_means[i] - mean(curr_values, na.rm = TRUE))
+      } else {
+        curr_values
+      }
+
+      if (isTRUE(stats::var(target_values, na.rm = TRUE) > 0)) {
+        u <- stats::pnorm(Z[i, p, ])
+        adjusted_matrix[i, ] <- unname(stats::quantile(target_values, probs = u, na.rm = TRUE))
+      } else {
+        adjusted_matrix[i, ] <- target_values
+      }
+    }
+
+    adjusted[[prop]] <- adjusted_matrix
+  }
+
+  adjusted
 }
 
 #' Preserve Correlation Structure During GP Adjustment
@@ -383,6 +608,153 @@ preserve_correlation_structure <- function(property_matrices,
   return(adjusted_list)
 }
 
+#' Preserve Correlation Structure via a Joint Depth x Property Copula (Phase 3)
+#'
+#' Drop-in alternative to `preserve_correlation_structure()` - same required parameters, in the
+#' same order, so existing call sites work unchanged - that replaces its sequential
+#' `gp_ratio`/single-"primary-property" retrofit with the joint Kronecker-copula sampler from
+#' `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 2 (`sample_joint_depth_property_copula()` +
+#' `apply_copula_to_marginals()`), so depth correlation and property correlation are satisfied
+#' SIMULTANEOUSLY by construction rather than approximated by a rank-copying retrofit.
+#' `primary_property` is accepted (for signature compatibility with
+#' `preserve_correlation_structure()`) but unused - the joint method has no need for a single
+#' reference property, since every property's correlation to every other is modeled directly via
+#' `R_prop`.
+#'
+#' @param property_matrices Named list of property matrices (rows = depths, columns =
+#'   simulations) - same shape `preserve_correlation_structure()` consumes.
+#' @param gp_predictions Named list of GP-predicted per-depth mean vectors - passed through to
+#'   `apply_copula_to_marginals()`'s optional GP-mean recentering.
+#' @param depths Depth vector (real units, e.g. cm).
+#' @param primary_property Accepted for signature compatibility with
+#'   `preserve_correlation_structure()`; unused by the joint method.
+#' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so
+#'   \code{INFO}-level progress messages print for the duration of this call (default
+#'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
+#' @param gp_models Optional named list of fitted GP models (as returned by
+#'   `fit_local_gp_model_single()`, or raw `GPfit`-classed objects), keyed by property. When
+#'   supplied, the depth kernel's length-scale is derived from `extract_depth_length_scale()`
+#'   applied to every property with a usable model, averaged across them (reusing the
+#'   already-fitted, already-cross-validated GP fits per `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`
+#'   Phase 1, rather than a new estimation step). When `NULL`/empty (e.g. this function is called
+#'   standalone, without the fitted models available), falls back to a length-scale spanning the
+#'   full depth range (`diff(range(depths))`) - a conservative "moderate smooth correlation across
+#'   the whole profile" default that keeps this function usable without requiring GP models.
+#' @param boundary_distinctness Optional per-depth `bound_sd` vector, passed through to
+#'   `build_depth_correlation_kernel()` for discontinuity gating (Phase 1c/1d). `NULL` (default)
+#'   skips gating.
+#' @param kernel `"exponential"` (default) or `"matern"` - passed through to
+#'   `build_depth_correlation_kernel()`.
+#'
+#' @return List of adjusted property matrices - same shape/contract as
+#'   `preserve_correlation_structure()`'s return value. Degrades gracefully to the original,
+#'   unadjusted `property_matrices` (with a warning) on insufficient dimensions or a sampling/
+#'   mapping failure, matching `preserve_correlation_structure()`'s own graceful-failure contract.
+#' @export
+preserve_correlation_structure_joint <- function(property_matrices,
+                                                 gp_predictions,
+                                                 depths,
+                                                 primary_property,
+                                                 verbose = getOption("ssurgo.verbose", FALSE),
+                                                 gp_models = NULL,
+                                                 boundary_distinctness = NULL,
+                                                 kernel = c("exponential", "matern")) {
+  kernel <- match.arg(kernel)
+
+  .old_log_cfg <- set_verbose_logging(verbose)
+  on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
+
+  log_message("DEBUG", "Preserving correlation structure via joint depth x property copula",
+              category = "MultivarAdjust")
+
+  property_names <- names(property_matrices)
+  n_depths <- length(depths)
+  n_sims <- ncol(property_matrices[[1]])
+  k <- length(property_names)
+
+  if (n_depths < 2 || n_sims < 1) {
+    log_message("WARN", "Insufficient dimensions for correlation preservation", category = "MultivarAdjust")
+    return(property_matrices)
+  }
+
+  # --- Property correlation (R_prop): empirical, from the surface (first) depth's already-drawn
+  # values - the same source adjust_multivariate_depthwise_GP()'s own verification step already
+  # uses. Falls back to the identity (no property correlation) on a single property or an
+  # estimation failure, matching this package's established graceful-degradation pattern.
+  if (k < 2) {
+    R_prop <- matrix(1, 1, 1, dimnames = list(property_names, property_names))
+  } else {
+    R_prop <- tryCatch({
+      surface_data <- sapply(property_matrices, function(x) x[1, ])
+      ensure_positive_definite_matrix(stats::cor(surface_data, use = "complete.obs"))
+    }, error = function(e) {
+      handle_workflow_error(e, "Property correlation estimation for joint copula", "warn")
+      NULL
+    })
+
+    if (is.null(R_prop)) {
+      R_prop <- diag(k)
+      dimnames(R_prop) <- list(property_names, property_names)
+    }
+  }
+
+  # --- Depth correlation (R_depth): length-scale reused from already-fitted GP models when
+  # supplied (see @param gp_models above), else a full-depth-range fallback.
+  length_scale <- NA_real_
+  if (!is.null(gp_models) && length(gp_models) > 0) {
+    scales <- vapply(property_names, function(prop) {
+      if (prop %in% names(gp_models)) extract_depth_length_scale(gp_models[[prop]]) else NA_real_
+    }, numeric(1))
+    scales <- scales[is.finite(scales) & scales > 0]
+    if (length(scales) > 0) {
+      length_scale <- mean(scales)
+    }
+  }
+  if (!is.finite(length_scale) || length_scale <= 0) {
+    length_scale <- diff(range(depths))
+    if (!is.finite(length_scale) || length_scale <= 0) {
+      length_scale <- 1
+    }
+  }
+
+  R_depth <- build_depth_correlation_kernel(
+    depths, length_scale, kernel = kernel, boundary_distinctness = boundary_distinctness
+  )
+
+  # --- Joint draw + marginal mapping. property_matrices' name order drives both R_prop's
+  # dimnames (built above from the same sapply()) and Z's property axis (via
+  # sample_joint_depth_property_copula(R_depth, R_prop, ...)), so no reordering is needed before
+  # handing Z to apply_copula_to_marginals().
+  Z <- tryCatch({
+    sample_joint_depth_property_copula(R_depth, R_prop, n_sims)
+  }, error = function(e) {
+    handle_workflow_error(e, "Joint copula sampling", "warn")
+    NULL
+  })
+
+  if (is.null(Z)) {
+    log_message("WARN", "Joint copula sampling failed - returning original property matrices",
+                category = "MultivarAdjust")
+    return(property_matrices)
+  }
+
+  adjusted_list <- tryCatch({
+    apply_copula_to_marginals(Z, property_matrices, gp_predictions = gp_predictions)
+  }, error = function(e) {
+    handle_workflow_error(e, "Copula-to-marginal mapping", "warn")
+    NULL
+  })
+
+  if (is.null(adjusted_list)) {
+    log_message("WARN", "Copula-to-marginal mapping failed - returning original property matrices",
+                category = "MultivarAdjust")
+    return(property_matrices)
+  }
+
+  log_message("DEBUG", "Joint correlation preservation completed", category = "MultivarAdjust")
+  adjusted_list
+}
+
 # ============================================================================
 # 2. NRCS GP INTEGRATION FUNCTIONS (Enhanced)
 # ============================================================================
@@ -399,6 +771,12 @@ preserve_correlation_structure <- function(property_matrices,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
+#' @param config Optional Monte Carlo config, passed through to `apply_gp_depth_trends()` -
+#'   `config$monte_carlo$vertical_correlation_method` (default `"joint_copula"` as of
+#'   `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 13; set to `"gp_quantile_retrofit"` to opt
+#'   back into the original algorithm) reaches the NRCS/regional GP path the same way it already
+#'   reaches the local-GP path (Phase 6/11). `NULL` (default) resolves to `"joint_copula"`,
+#'   matching `get_monte_carlo_defaults()`'s own default.
 #' @return Adjusted simulation data
 #' @export
 apply_nrcs_trend_adjustments <- function(cokey_data,
@@ -406,7 +784,8 @@ apply_nrcs_trend_adjustments <- function(cokey_data,
                                          model_group,
                                          properties,
                                          preserve_correlations = TRUE,
-                                         verbose = getOption("ssurgo.verbose", FALSE)) {
+                                         verbose = getOption("ssurgo.verbose", FALSE),
+                                         config = NULL) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -442,12 +821,30 @@ apply_nrcs_trend_adjustments <- function(cokey_data,
     return(cokey_data)
   }
 
+  # Extract the actual fitted NRCS GP model objects (not just their predictions) for the joint
+  # method's depth-kernel length-scale reuse (extract_depth_length_scale(), Phase 1) - same
+  # gp_models[[nrcs_prop]]$models[[model_group]] lookup get_nrcs_gp_predictions() already does,
+  # keyed here by `prop` (the cokey_data/property_matrices name) to match
+  # apply_gp_depth_trends()'s gp_models contract. Ignored entirely under the default
+  # "gp_quantile_retrofit" method.
+  nrcs_fitted_models <- list()
+  for (prop in available_properties) {
+    nrcs_prop <- property_mapping[[prop]]
+    if (nrcs_prop %in% names(gp_models) &&
+        isTRUE(gp_models[[nrcs_prop]]$type == "stratified_grouped") &&
+        model_group %in% names(gp_models[[nrcs_prop]]$models)) {
+      nrcs_fitted_models[[prop]] <- gp_models[[nrcs_prop]]$models[[model_group]]
+    }
+  }
+
   # Apply GP depth trends using enhanced function
   result <- apply_gp_depth_trends(
     cokey_data,
     nrcs_gp_predictions,
     available_properties,
-    preserve_correlations
+    preserve_correlations,
+    config = config,
+    gp_models = nrcs_fitted_models
   )
 
   return(result)
@@ -621,12 +1018,18 @@ apply_local_gp_adjustments <- function(cokey_data,
     return(cokey_data)
   }
 
-  # Apply local depth trends
+  # Apply local depth trends - config/local_gp_models threaded through so
+  # config$monte_carlo$vertical_correlation_method = "joint_copula"
+  # (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 4/6) is actually reachable from this
+  # function's own already-fitted local_gp_models, not just by calling apply_gp_depth_trends()
+  # directly.
   result <- apply_local_depth_trends(
     cokey_data,
     local_gp_predictions,
     unique_depths,
-    preserve_correlations
+    preserve_correlations,
+    config = config,
+    gp_models = local_gp_models
   )
 
   return(result)
@@ -709,13 +1112,24 @@ fit_local_gp_models <- function(cokey_data, properties, config = NULL, gp_contro
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
+#' @param config Optional config, passed straight through to `apply_gp_depth_trends()` - lets
+#'   `config$monte_carlo$vertical_correlation_method` (default `"joint_copula"` as of
+#'   `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 13; set to `"gp_quantile_retrofit"` to opt
+#'   back into the original algorithm) reach this call site. `NULL` (default) resolves to
+#'   `"joint_copula"`, matching `get_monte_carlo_defaults()`'s own default.
+#' @param gp_models Optional named list of fitted local GP models (as `apply_local_gp_adjustments()`
+#'   already has in scope via `fit_local_gp_models()`), passed straight through to
+#'   `apply_gp_depth_trends()` so the joint-copula depth kernel can reuse their fitted
+#'   length-scales. Ignored under `"gp_quantile_retrofit"`.
 #' @return Adjusted simulation data
 #' @export
 apply_local_depth_trends <- function(cokey_data,
                                      local_predictions,
                                      unique_depths,
                                      preserve_correlations = TRUE,
-                                     verbose = getOption("ssurgo.verbose", FALSE)) {
+                                     verbose = getOption("ssurgo.verbose", FALSE),
+                                     config = NULL,
+                                     gp_models = NULL) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -728,7 +1142,9 @@ apply_local_depth_trends <- function(cokey_data,
       cokey_data,
       local_predictions,
       names(local_predictions),
-      preserve_correlations
+      preserve_correlations,
+      config = config,
+      gp_models = gp_models
     )
   }, error = function(e) {
     handle_workflow_error(e, "Local depth trend application", "warn")
@@ -1097,8 +1513,12 @@ process_single_cokey <- function(cokey_data, cokey, properties, gp_models,
     if (use_nrcs_gp && !is.null(gp_models) && !is.null(cokey_mapping)) {
       model_group <- match_simulations_to_nrcs_models(cokey, cokey_mapping)
 
+      # config threaded through (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 11) - previously
+      # omitted entirely, so "joint_copula" was unreachable via the NRCS/regional GP path
+      # regardless of what a caller's config said, even though the local-GP branch just below
+      # already received it (Phase 6).
       result_data <- apply_nrcs_trend_adjustments(
-        result_data, gp_models, model_group, properties, preserve_correlations
+        result_data, gp_models, model_group, properties, preserve_correlations, config = config
       )
     }
 

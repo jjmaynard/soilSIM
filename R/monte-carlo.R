@@ -1611,6 +1611,37 @@ get_monte_carlo_defaults <- function(verbose = getOption("ssurgo.verbose", FALSE
     # and estimate_property_correlations()). Defaults to "identity" - zero
     # behavior change unless a caller explicitly opts in.
     correlation_fallback = "identity",
+    # Which method apply_gp_depth_trends() uses to add vertical (depth-to-depth) correlation on
+    # top of GP-fitted depth trends: "gp_quantile_retrofit" (the ORIGINAL behavior - a sequential
+    # gp_ratio-nudge retrofitted after independent-per-depth draws, via
+    # preserve_correlation_structure() - still fully supported as an explicit opt-out) or
+    # "joint_copula" (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phases 0-12 - draws depth
+    # correlation and property correlation SIMULTANEOUSLY from a single Kronecker-separable joint
+    # distribution, via preserve_correlation_structure_joint()).
+    #
+    # DEFAULT AS OF Phase 13: "joint_copula". Flipped from "gp_quantile_retrofit" after Phases
+    # 0-12 resolved every blocking decision point identified before a flip
+    # (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md's "Decisions required before flipping the
+    # production default" section): multi-AOI real-data validation (Phase 9, which found the OLD
+    # default induces spurious near-perfect (>0.99) correlation across the entire depth profile
+    # regardless of physical distance - a real defect, not just a missing feature), full-AOI
+    # performance confirmation (Phase 10 - no meaningful overhead at real scale), the NRCS-path
+    # config-threading gap (Phase 11), and an empirical check that GP-recentering doesn't produce
+    # non-physical values for strictly-positive properties (Phase 12). Explicitly set
+    # `vertical_correlation_method = "gp_quantile_retrofit"` to opt back into the original
+    # behavior - that code path is unchanged and fully supported, not deprecated.
+    vertical_correlation_method = "joint_copula",
+    # Independent opt-in for build_depth_correlation_kernel()'s bound_sd-based discontinuity
+    # gating (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 1c/1d), only meaningful when
+    # vertical_correlation_method = "joint_copula". Kept as a SEPARATE flag from
+    # vertical_correlation_method itself (Phase 8) because bound_sd is attached unconditionally
+    # upstream (attach_osd_boundary_distinctness()), so without this flag there would be no way
+    # to use joint_copula without gating whenever OSD lookup succeeds - and gating's own numeric
+    # defaults (distinctness_range/min_gate_weight) are STILL not empirically calibrated against
+    # real KSSL/SSURGO lag correlations (an explicitly deferred, non-blocking decision - see
+    # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md decision #2). Stays FALSE even after the Phase 13
+    # default flip - gating remains a separate, still-open decision independent of the core method.
+    vertical_correlation_gating = FALSE,
     parallel_threshold = 1000,
 
     # Quality control
@@ -1764,7 +1795,14 @@ validate_monte_carlo_config <- function(config, n_realizations, verbose = getOpt
     normalization_method = list(type = "character", required = TRUE,
                                 choices = c("proportional", "additive", "multiplicative")),
     correlation_fallback = list(type = "character", required = TRUE,
-                                choices = c("identity", "kssl_global"))
+                                choices = c("identity", "kssl_global")),
+    # Not required (unlike correlation_fallback above) - a config built without going through
+    # get_monte_carlo_defaults() first (e.g. an ad-hoc config in an older test/caller) should not
+    # start failing validation just because this newer key is absent; validated only when present.
+    vertical_correlation_method = list(type = "character", required = FALSE,
+                                       choices = c("gp_quantile_retrofit", "joint_copula")),
+    # Same non-required rationale as vertical_correlation_method above.
+    vertical_correlation_gating = list(type = "logical", required = FALSE)
   )
 
   # Extract monte carlo config if nested

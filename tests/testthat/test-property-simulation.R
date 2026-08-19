@@ -152,6 +152,26 @@ test_that("simulate_cokey_generalized() simulates non-texture properties with si
                      "simulation_number", "unique_id") %in% names(result)))
 })
 
+test_that("simulate_cokey_generalized() propagates bound_sd (OSD boundary distinctness) onto the output when present on sim_cokey, and omits it when absent", {
+  # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 1b: bound_sd must survive into
+  # simulate_cokey_generalized()'s output so the future depth-kernel gating (Phase 1c) can read it
+  # per depth, without requiring every existing caller to have a bound_sd column.
+  set.seed(5)
+  sim_cokey <- make_sim_cokey_data(texture = FALSE, sim_comppct = 10)
+  corr <- make_property_correlation_matrices()
+
+  # Absent case (existing/default behavior) - no bound_sd column added.
+  result_absent <- simulate_cokey_generalized(sim_cokey, corr)
+  expect_false("bound_sd" %in% names(result_absent))
+
+  # Present case - broadcast onto every simulated row for that horizon.
+  sim_cokey$bound_sd <- 12.5
+  result_present <- simulate_cokey_generalized(sim_cokey, corr)
+  expect_true("bound_sd" %in% names(result_present))
+  expect_equal(nrow(result_present), 10)
+  expect_true(all(result_present$bound_sd == 12.5))
+})
+
 test_that("simulate_cokey_generalized() with texture columns produces sand+silt+clay summing to 100", {
   set.seed(4)
   sim_cokey <- make_sim_cokey_data(texture = TRUE, sim_comppct = 30)

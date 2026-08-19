@@ -32,6 +32,9 @@ Functions covered, in order:
 6. `adjust_multivariate_depthwise_GP()` - why correlation-preserving adjustment matters
 7. `preserve_correlation_structure()` / `apply_gp_depth_trends()` - the long-format production path
 8. `apply_nrcs_trend_adjustments()` vs. `apply_local_gp_adjustments()` - regional vs. local trends
+9. `preserve_correlation_structure_joint()` - the joint depth x property copula method (now the
+   package default), A/B tested against the original `gp_quantile_retrofit` algorithm from Step 7
+   above on this vignette's own real fitted GP models
 
 This vignette reuses the same real, cached Amador County, CA SSURGO data
 (`inst/extdata/ssurgo_amador.rds`) that `getting-started-monte-carlo.Rmd` uses, following the same
@@ -377,14 +380,16 @@ correlation degrades from the original. The joint, correlation-preserving call k
 properties keyed to the *same* per-simulation reference quantile at every depth, so the original
 correlation survives the depth-trend adjustment nearly intact.
 
-## Step 7: `preserve_correlation_structure()` / `apply_gp_depth_trends()` - the production path
+## Step 7: `preserve_correlation_structure()` / `apply_gp_depth_trends()` - the long-format path
 
 `adjust_multivariate_depthwise_GP()` above (from `gp-modeling.R`) operates directly on
 `[depth x simulation]` matrices and is the original, array-based implementation of this algorithm.
-The production pipeline that `integrate_monte_carlo_with_gp()` actually calls works on long-format
-Monte Carlo output instead, via `multivariate-adjustment.R`'s `apply_gp_depth_trends()` (reshapes
-long-format rows into matrices, dispatches to `preserve_correlation_structure()` when
-`preserve_correlations = TRUE` and at least two properties are present, then reshapes back) and
+The pipeline `integrate_monte_carlo_with_gp()` actually calls works on long-format Monte Carlo
+output instead, via `multivariate-adjustment.R`'s `apply_gp_depth_trends()` (reshapes long-format
+rows into matrices, dispatches to `preserve_correlation_structure()` when
+`preserve_correlations = TRUE`, at least two properties are present, and
+`config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"` is explicitly set - see
+Step 9 below for the package's actual current default, `"joint_copula"` - then reshapes back) and
 `preserve_correlation_structure()` itself (the identical reference-quantile algorithm - same
 `calculate_safe_gp_ratio()` clamped-ratio step, same `apply_quantile_adjustment()` reference-quantile
 nudge, same `correct_distribution_shape()` marginal-distribution remap - just operating on
@@ -480,6 +485,187 @@ profiles in Step 3. `apply_local_gp_adjustments()`, fitting a GP from only this 
 (noisy, untrended) depth means, tends to track that noise rather than impose a strong trend - useful
 when a cokey's own data really does deviate from its group's regional pattern, but a weaker signal
 to lean on than the regional model when a cokey has little data of its own.
+
+## Step 9: why the production default changed - the joint depth x property copula
+
+Steps 6-7 above walked through `preserve_correlation_structure()` - the ORIGINAL algorithm this
+package used, still fully supported today as an explicit opt-out
+(`config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"`). It keeps
+cross-*property* correlation intact while nudging realizations toward a GP-fitted depth trend, via
+a shared reference-quantile trick. That same mechanism has a side effect that motivated replacing
+it as the default: because it anchors EVERY depth's adjustment to one FIXED per-realization
+percentile (established once, at the surface, and reused unchanged at every deeper depth), it
+doesn't just preserve realization *ranking* - it forces realization *j* to occupy the same
+percentile at every depth, for the life of the profile. That is a much stronger, more rigid
+constraint than "vertical correlation": it's independent of how quickly or slowly the underlying
+property actually varies with depth (the GP model's own fitted smoothness plays no role here at
+all), and - as the comparison below shows on this vignette's own real fitted models - the result
+is spuriously near-perfect (`> 0.99`) correlation across the *entire* depth profile, not a
+realistic decay.
+
+`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` (in the package root) documents the replacement:
+`preserve_correlation_structure_joint()`, wired into `apply_gp_depth_trends()` behind
+`config$monte_carlo$vertical_correlation_method` (now defaulting to `"joint_copula"` as of that
+plan's Phase 13 - `"gp_quantile_retrofit"` remains available as an explicit opt-out, not removed).
+Instead of a sequential mean-nudge, it draws depth correlation and property correlation
+**simultaneously** from a single Kronecker-separable joint distribution
+(`sample_joint_depth_property_copula()`), so both are satisfied by construction rather than left
+to chance. This default flip followed multi-AOI real-data validation (a second AOI beyond this
+vignette's own Amador County data, plus a full-AOI performance check finding no meaningful
+overhead) and closing every other blocking gap identified before the switch - see
+`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`'s own decision-tracking sections for the full record.
+
+To A/B the two methods fairly, this section reuses the SAME real fitted GP models from Step 3
+(`clay_gp_model`/`sand_gp_model`, for `xv_group`) but needs a different starting fixture than Step
+6's `clay_mat`/`sand_mat`: those matrices deliberately replicate one shared per-simulation draw
+across every depth (`byrow = TRUE`, no fresh noise per depth), which is perfect for demonstrating
+the reference-quantile trick but is *already* perfectly depth-correlated by construction - not a
+useful "before" state for showing whether a method actually *adds* vertical correlation. Here,
+each depth instead gets its own fresh, independent draw (still with the same `target_rho`
+clay-sand property correlation established in Step 6):
+
+```{r}
+set.seed(4041)
+vc_n_sims <- 400
+vc_depths <- c(0, 20, 40, 60, 80)
+
+vc_clay_mat <- matrix(NA_real_, nrow = length(vc_depths), ncol = vc_n_sims)
+vc_sand_mat <- matrix(NA_real_, nrow = length(vc_depths), ncol = vc_n_sims)
+for (i in seq_along(vc_depths)) {
+  z_c <- rnorm(vc_n_sims)
+  z_s <- target_rho * z_c + sqrt(1 - target_rho^2) * rnorm(vc_n_sims)
+  vc_clay_mat[i, ] <- clay_base + 6 * z_c
+  vc_sand_mat[i, ] <- sand_base + 8 * z_s
+}
+
+# Clay's own correlation between the surface and deepest demo depths - near zero by construction,
+# unlike Step 6's fixture (which starts at ~1.0 because every depth is a literal copy).
+cor(vc_clay_mat[1, ], vc_clay_mat[nrow(vc_clay_mat), ])
+```
+
+Reshape to the long format `apply_gp_depth_trends()` consumes (same `expand.grid()`/column-major
+flatten pattern Step 8 already used), and build the `gp_predictions`/`gp_models` lists keyed by
+the same property names this cokey data uses:
+
+```{r}
+vc_cokey_data <- expand.grid(hzdept_r = vc_depths, simulation_number = seq_len(vc_n_sims))
+vc_cokey_data$claytotal <- as.vector(vc_clay_mat)
+vc_cokey_data$sandtotal <- as.vector(vc_sand_mat)
+vc_cokey_data$cokey <- "vc_demo_cokey"
+
+vc_gp_predictions <- list(
+  claytotal = predict_gp_depth_trends(clay_gp_model, vc_depths),
+  sandtotal = predict_gp_depth_trends(sand_gp_model, vc_depths)
+)
+vc_gp_models <- list(claytotal = clay_gp_model, sandtotal = sand_gp_model)
+```
+
+Run `apply_gp_depth_trends()` twice on the identical input, explicitly requesting each method (so
+this comparison stays valid regardless of which one is the package's current default) - the
+original `"gp_quantile_retrofit"` algorithm, still fully supported as an opt-out, and
+`"joint_copula"` (passing the real `gp_models` through so the depth kernel's length-scale is
+derived from these actual fitted models, per `extract_depth_length_scale()`, rather than falling
+back to a generic full-depth-range default):
+
+```{r}
+retrofit_result <- apply_gp_depth_trends(
+  vc_cokey_data, vc_gp_predictions, c("claytotal", "sandtotal"),
+  config = list(monte_carlo = list(vertical_correlation_method = "gp_quantile_retrofit"))
+)
+
+joint_result <- apply_gp_depth_trends(
+  vc_cokey_data, vc_gp_predictions, c("claytotal", "sandtotal"),
+  config = list(monte_carlo = list(vertical_correlation_method = "joint_copula")),
+  gp_models = vc_gp_models
+)
+```
+
+`validate_joint_correlation_structure()` - the same acceptance-test helper
+`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`'s Phase 0 built for exactly this comparison - reports
+both halves of the joint structure (property correlation at every depth, depth correlation for
+every property) against a known target, for each method's output:
+
+```{r}
+sim_nums <- sort(unique(vc_cokey_data$simulation_number))
+retrofit_matrices <- convert_to_property_matrices(retrofit_result, c("claytotal", "sandtotal"), vc_depths, sim_nums)
+joint_matrices <- convert_to_property_matrices(joint_result, c("claytotal", "sandtotal"), vc_depths, sim_nums)
+
+target_prop_corr <- matrix(
+  c(1, target_rho, target_rho, 1), nrow = 2,
+  dimnames = list(c("claytotal", "sandtotal"), c("claytotal", "sandtotal"))
+)
+
+retrofit_check <- validate_joint_correlation_structure(retrofit_matrices, target_property_corr = target_prop_corr)
+joint_check <- validate_joint_correlation_structure(joint_matrices, target_property_corr = target_prop_corr)
+
+data.frame(
+  method = c("gp_quantile_retrofit (production default)", "joint_copula (new, opt-in)"),
+  property_corr_max_diff = c(retrofit_check$overall_property_max_diff, joint_check$overall_property_max_diff),
+  clay_surface_vs_deepest_corr = c(
+    retrofit_check$achieved_depth_correlation$claytotal[1, length(vc_depths)],
+    joint_check$achieved_depth_correlation$claytotal[1, length(vc_depths)]
+  )
+)
+```
+
+```{r}
+depth_cor_df <- rbind(
+  data.frame(
+    depth = vc_depths,
+    correlation = retrofit_check$achieved_depth_correlation$claytotal[1, ],
+    method = "gp_quantile_retrofit\n(production default)"
+  ),
+  data.frame(
+    depth = vc_depths,
+    correlation = joint_check$achieved_depth_correlation$claytotal[1, ],
+    method = "joint_copula\n(new, opt-in)"
+  )
+)
+
+ggplot(depth_cor_df, aes(x = depth, y = correlation, color = method)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  scale_color_viridis_d(end = 0.8) +
+  theme_minimal() +
+  labs(
+    title = "Clay content: correlation with the surface depth (0cm), by method",
+    subtitle = "Identical starting data (near-zero depth correlation at every depth) fed through both methods",
+    x = "Depth (cm)", y = "Correlation with clay at 0cm", color = NULL
+  ) +
+  theme(legend.position = "bottom")
+```
+
+`extract_depth_length_scale(clay_gp_model)` reports `r round(extract_depth_length_scale(clay_gp_model), 1)`
+cm for `clay_gp_model`'s own fitted depth trend - a fairly SHORT range, meaning the training data
+this GP was fit from shows clay content varying fairly quickly with depth for this soil group. The
+`joint_copula` line above tracks that: correlation drops from `1` at the surface to roughly its
+`exp(-1) ~= 0.37` "range" value by ~13cm and is essentially gone by 40cm+ (matching an exponential
+kernel with that length-scale), the same real, GP-derived smoothness this vignette's other steps
+already established for this group.
+
+Both methods keep the clay-sand property correlation close to its `r target_rho` target
+(`property_corr_max_diff` small for both) - neither one distorts the correlation structure that was
+already there. The depth axis is where they genuinely diverge, and not in the direction a "the old
+method under-correlates" story would predict: `gp_quantile_retrofit`'s fixed-per-realization-rank
+mechanism pushes clay's own cross-depth correlation to `> 0.99` at every depth tested, regardless
+of distance from the surface - a rigidity that has nothing to do with how quickly clay actually
+varies with depth in this soil group's own training data. `joint_copula`, by contrast, reproduces a
+decay directly tied to `clay_gp_model`'s own fitted length-scale, dropping toward zero within a few
+tens of centimeters - the behavior a genuinely physically-motivated vertical correlation model
+should have, and the concrete gap `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`'s redesign was built
+to close.
+
+This is real AOI data (Amador County SSURGO, via the same cached data and fitted GP models used
+throughout this vignette) run through both methods with identical synthetic Monte Carlo-style
+inputs - offline-reproducible validation of the joint-copula redesign's core claim, without
+requiring a live network call. `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`'s later phases extended
+this validation to a second, independent AOI (finding the same result), confirmed negligible
+full-AOI performance overhead, and closed the remaining top-level API gaps - `joint_copula` is now
+reachable through `simulate_ssurgo_mapunit_draws()`/`integrate_monte_carlo_with_gp()`'s own
+top-level config, not only via `apply_gp_depth_trends()` directly, and is now the package default.
+What remains open per that plan's own decision-tracking notes: calibrating the depth kernel's
+discontinuity-gating defaults (`distinctness_range`/`min_gate_weight`, still off by default via
+`vertical_correlation_gating = FALSE`) against real KSSL/SSURGO profile lag-correlations.
 
 ## Where this data came from
 
