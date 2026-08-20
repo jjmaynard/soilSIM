@@ -7,13 +7,30 @@ component-horizon data and fits Gaussian Process (GP) models of how each soil pr
 with depth, stratified by soil group (series, taxonomic class, particle-size class, etc., with
 hierarchical fallback to coarser groupings when a stratum is too sparse). `multivariate-adjustment.R`
 takes the output of Monte Carlo simulation (see the Monte Carlo simulation engine module) across an
-entire dataset and integrates it with these fitted GP depth trends: for every simulated cokey it
-nudges each realization at each depth toward the GP-predicted trend using a reference-quantile
-("rank-preserving") transform, so that the depth trend becomes realistic while the *within-depth*
-correlation structure between properties (e.g. clay vs. bulk density vs. pH) is preserved rather than
-scrambled by adjusting each property independently. The result is a GP-depth-adjusted,
-correlation-preserving set of property realizations per component (cokey), ready for downstream
-statistical summarization and validation.
+entire dataset and integrates it with these fitted GP depth trends, adding realistic vertical
+(depth-to-depth) correlation on top of the GP mean trend while preserving the *within-depth*
+correlation structure between properties (e.g. clay vs. bulk density vs. pH). The result is a
+GP-depth-adjusted, correlation-preserving set of property realizations per component (cokey),
+ready for downstream statistical summarization and validation.
+
+Two vertical-correlation methods are available, selected via
+`config$monte_carlo$vertical_correlation_method`:
+
+- **`"joint_copula"`** (the default as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`) - draws
+  depth correlation and property correlation *simultaneously* from a single Kronecker-separable
+  joint distribution (`sample_joint_depth_property_copula()`, `apply_copula_to_marginals()`,
+  `preserve_correlation_structure_joint()`), so both are satisfied by construction. The depth
+  kernel's length-scale is reused from the already-fitted GP model
+  (`extract_depth_length_scale()`, `build_depth_correlation_kernel()`), and can optionally be
+  gated against genuine horizon discontinuities via OSD-derived boundary distinctness
+  (`config$monte_carlo$vertical_correlation_gating = TRUE`, off by default pending calibration -
+  see `attach_osd_boundary_distinctness()` in the Data Acquisition & Processing module).
+- **`"gp_quantile_retrofit"`** (the original algorithm, still fully supported as an explicit
+  opt-out) - nudges each realization at each depth toward the GP-predicted trend using a single
+  reference-quantile ("rank-preserving") transform fixed at the surface depth. Real-AOI validation
+  found this induces spurious near-perfect (`>0.99`) correlation across the entire depth profile
+  regardless of physical distance, independent of the GP model's own fitted smoothness - the
+  motivation for the `"joint_copula"` replacement.
 
 ## Core Functions
 
@@ -184,6 +201,91 @@ matrix).
 computes `cor(..., use = "complete.obs")` for each, and records the max/mean absolute difference;
 wrapped in per-depth `tryCatch` so one bad depth does not abort the whole validation.
 
+#### `validate_joint_correlation_structure()`
+
+```r
+validate_joint_correlation_structure(
+  simulated_list,
+  target_property_corr = NULL,
+  target_depth_corr = NULL
+)
+```
+
+**Purpose**: The acceptance-test helper the joint-copula vertical-correlation redesign
+(`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`) was built and validated against. Unlike
+`validate_correlation_preservation()`, which only checks cross-property correlation and only at
+the first five depths, this checks BOTH halves of the joint structure - cross-property correlation
+at *every* depth, and depth-lag (across-depth, within-property) correlation for *every*
+property - against optional known target matrices.
+**Parameters**: `simulated_list` - named list of `[depths x simulations]` matrices; `target_property_corr`
+- optional `k x k` target property-correlation matrix; `target_depth_corr` - optional
+`n_depths x n_depths` target depth-correlation matrix.
+**Returns**: A list with `achieved_property_correlation` (one matrix per depth),
+`property_correlation_max_diff` (per depth), `achieved_depth_correlation` (one matrix per
+property), `depth_correlation_max_diff` (per property), and `overall_property_max_diff`/
+`overall_depth_max_diff` summary values. All-`NA` diffs (not an error) when no targets are
+supplied.
+**Algorithm**: Loops over every depth computing `cor()` across properties, and over every property
+computing `cor()` across depths (via `cor(t(matrix))`), comparing each against the corresponding
+target when supplied.
+
+#### `extract_depth_length_scale()`
+
+```r
+extract_depth_length_scale(gp_model_list, depth_scaling = NULL, target_corr = exp(-1))
+```
+
+**Purpose**: Derive a real-units (cm) depth length-scale from an already-fitted `GPfit` model, for
+the joint-copula method's depth-correlation kernel - reuses the GP's own fitted smoothness rather
+than introducing a new estimation step.
+**Parameters**: `gp_model_list` - either the full list `fit_local_gp_model_single()` returns
+(`list(gp_model, depth_scaling, ...)`) or a raw `GPfit`-classed `"GP"` object; `depth_scaling` -
+only needed when `gp_model_list` is a raw `GP` object without its own; `target_corr` - the
+correlation value defining "range" (default `exp(-1) ~= 0.368`).
+**Returns**: A single numeric length-scale in real depth units (or scaled `[0,1]` units if no
+`depth_scaling` is available), or `NA_real_` on a `NULL`/malformed model (mirroring
+`fit_local_gp_model_single()`'s own `NULL`-on-failure contract).
+**Algorithm**: Evaluates the fitted model's own correlation function numerically via
+`GPfit::corr_matrix()` (GPfit's own exported correlation-evaluation function) and solves via
+`stats::uniroot()` for the scaled-`[0,1]`-units distance at which it crosses `target_corr`, then
+rescales by `depth_scaling$range`. Works generically across GPfit's correlation families
+(exponential, Matern) without hand-deriving a closed-form inverse per family.
+
+#### `build_depth_correlation_kernel()`
+
+```r
+build_depth_correlation_kernel(
+  depths,
+  length_scale,
+  kernel = c("exponential", "matern"),
+  nu = 1.5,
+  boundary_distinctness = NULL,
+  distinctness_range = c(min = 1, max = 10),
+  min_gate_weight = 0.05
+)
+```
+
+**Purpose**: Build the `n_depths x n_depths` depth-correlation matrix (`R_depth`) for the
+joint-copula method, from real Euclidean depth *distances* (handles uneven horizon spacing), with
+optional discontinuity gating against genuine horizon boundaries.
+**Parameters**: `depths` - numeric depth values (need not be sorted); `length_scale` - a positive
+length-scale (typically from `extract_depth_length_scale()`) - non-finite/non-positive degrades to
+the identity matrix (no depth correlation); `kernel` - `"exponential"` or `"matern"`;
+`boundary_distinctness` - optional per-depth OSD `bound_sd` vector (see
+`attach_osd_boundary_distinctness()`), interpreted as the distinctness of the boundary immediately
+above each depth in sorted order; `distinctness_range`/`min_gate_weight` - map `bound_sd` to a
+gating strength (defaults span `aqp::hzDistinctnessCodeToOffset()`'s actual abrupt-to-diffuse
+range).
+**Returns**: A symmetric, unit-diagonal, positive-(semi-)definite `length(depths) x length(depths)`
+correlation matrix, repaired via `ensure_positive_definite_matrix()`.
+**Algorithm**: Builds the plain distance-decay kernel (`exp(-dist/length_scale)` for exponential,
+a standard Matern-nu form for matern), then - when `boundary_distinctness` is supplied - compounds
+per-boundary gate weights across every boundary strictly between two depths via cumulative
+log-sums (`exp(-|log_cum[i] - log_cum[j]|)`), so a sharp boundary anywhere along the path
+suppresses correlation between the depths on either side of it, not just adjacent pairs. Missing
+`bound_sd` for a given boundary degrades to no gating for that boundary only; `NULL`/all-`NA`
+`boundary_distinctness` skips gating entirely, reproducing the plain kernel exactly.
+
 #### `simulate_soil_properties()`
 
 ```r
@@ -353,26 +455,38 @@ apply_gp_depth_trends(
   gp_predictions,
   properties,
   preserve_correlations = TRUE,
-  primary_property = NULL
+  primary_property = NULL,
+  config = NULL,
+  gp_models = NULL
 )
 ```
 
 **Purpose**: Core single-cokey routine that reshapes long-format simulation rows into matrices,
-applies the GP-trend adjustment (correlation-preserving or independent), and reshapes back.
+applies the vertical-correlation adjustment (correlation-preserving or independent), and reshapes
+back. This is the dispatch point for which vertical-correlation method is used.
 **Parameters**: `cokey_data` - long-format rows for one cokey; `gp_predictions` - named list of
 depth-indexed GP mean predictions per property; `properties` - properties to adjust;
-`preserve_correlations` - use `preserve_correlation_structure()` (>=2 properties) vs.
-`apply_individual_adjustments()`; `primary_property` - reference property for quantile ordering
-(defaults to the first available property).
+`preserve_correlations` - dispatch to a correlation-preserving method (>=2 properties) vs.
+`apply_individual_adjustments()`; `primary_property` - reference property for the
+`"gp_quantile_retrofit"` method's quantile ordering (unused by `"joint_copula"`); `config` -
+optional Monte Carlo config whose `monte_carlo$vertical_correlation_method` selects
+`"joint_copula"` (default) or `"gp_quantile_retrofit"` (explicit opt-out), and whose
+`monte_carlo$vertical_correlation_gating` (default `FALSE`) separately controls discontinuity
+gating under `"joint_copula"`; `gp_models` - named list of fitted GP models (as
+`fit_local_gp_model_single()` returns), keyed by property, so the `"joint_copula"` depth kernel can
+reuse each property's fitted length-scale - ignored under `"gp_quantile_retrofit"`.
 **Returns**: `cokey_data` with adjusted property columns merged back in (unchanged if there are
 fewer than 2 rows, fewer than 2 valid depths, or no properties overlap with `gp_predictions`).
 **Algorithm**: Filters to valid depths, builds `[depth x simulation]` matrices via
-`convert_to_property_matrices()`, adjusts them via `preserve_correlation_structure()` or
-`apply_individual_adjustments()`, converts the result back to long format via
-`convert_to_long_format()`, and merges the adjusted values into `cokey_data` via
-`merge_adjusted_data()` (matched on `hzdept_r` + `simulation_number`). Every stage is wrapped in
-`tryCatch`/`handle_workflow_error()` so a failure at any step degrades to returning the
-unmodified/partially-modified data rather than aborting.
+`convert_to_property_matrices()`, dispatches to `preserve_correlation_structure_joint()` (default)
+or `preserve_correlation_structure()` (`"gp_quantile_retrofit"` opt-out) - or
+`apply_individual_adjustments()` when `preserve_correlations = FALSE`/fewer than 2 properties -
+converts the result back to long format via `convert_to_long_format()`, and merges the adjusted
+values into `cokey_data` via `merge_adjusted_data()` (matched on `hzdept_r` + `simulation_number`).
+Under `"joint_copula"` with gating enabled, extracts a per-unique-depth `boundary_distinctness`
+vector from `cokey_data$bound_sd` when present (see `attach_osd_boundary_distinctness()`). Every
+stage is wrapped in `tryCatch`/`handle_workflow_error()` so a failure at any step degrades to
+returning the unmodified/partially-modified data rather than aborting.
 
 #### `preserve_correlation_structure()`
 
@@ -380,8 +494,9 @@ unmodified/partially-modified data rather than aborting.
 preserve_correlation_structure(property_matrices, gp_predictions, depths, primary_property)
 ```
 
-**Purpose**: The production correlation-preserving depth-adjustment algorithm (long-format
-pipeline's counterpart to `gp-modeling.R`'s `adjust_multivariate_depthwise_GP()`).
+**Purpose**: The original correlation-preserving depth-adjustment algorithm (long-format
+pipeline's counterpart to `gp-modeling.R`'s `adjust_multivariate_depthwise_GP()`), still fully
+supported as an explicit `"gp_quantile_retrofit"` opt-out from `apply_gp_depth_trends()`'s default.
 **Parameters**: `property_matrices` - named list of `[depth x simulation]` matrices;
 `gp_predictions` - named list of per-depth GP mean vectors; `depths` - depth vector; `primary_property`
 
@@ -394,12 +509,90 @@ pipeline's counterpart to `gp-modeling.R`'s `adjust_multivariate_depthwise_GP()`
   quantile within the current property's own current-depth distribution
   (`apply_quantile_adjustment()`), then remaps the nudged values back onto the current property's
   original ECDF (`correct_distribution_shape()`) to preserve its marginal shape. Properties lacking a
-  usable GP prediction are passed through unchanged.
+  usable GP prediction are passed through unchanged. **Known limitation** (the motivation for the
+  `"joint_copula"` replacement below): anchoring every depth to one FIXED per-realization reference
+  quantile forces realization *j* to occupy the same percentile at every depth for the life of the
+  profile - confirmed on real AOI data to induce spurious near-perfect (`>0.99`) correlation across
+  the entire depth profile, independent of the GP model's own fitted smoothness.
+
+#### `sample_joint_depth_property_copula()`
+
+```r
+sample_joint_depth_property_copula(R_depth, R_prop, n_sims, seed = NULL)
+```
+
+**Purpose**: Draw the standard-normal joint field underlying the `"joint_copula"` method - rows
+(depths) correlated per `R_depth`, columns (properties) correlated per `R_prop`, simultaneously.
+**Parameters**: `R_depth` - `n_depths x n_depths` correlation matrix (e.g. from
+`build_depth_correlation_kernel()`); `R_prop` - `k x k` property-correlation matrix; `n_sims` -
+number of realizations.
+**Returns**: A `c(n_depths, k, n_sims)` standard-normal array.
+**Algorithm**: The separable/Kronecker-MVN sampling identity `Z = L_depth %*% Eps %*% t(L_prop)`
+(`L_depth <- t(chol(R_depth))`, `L_prop <- t(chol(R_prop))`), which achieves
+`Cov(vec(Z)) = R_prop (x) R_depth` without ever materializing the full Kronecker product. Vectorized
+across all `n_sims` via array-reshape + single-matrix-multiply passes (no per-realization loop).
+
+#### `apply_copula_to_marginals()`
+
+```r
+apply_copula_to_marginals(Z, property_matrices, gp_predictions = NULL)
+```
+
+**Purpose**: Convert the standard-normal joint sample into actual property values - a Gaussian
+copula, mapping each cell onto that depth/property's own already-simulated marginal distribution.
+**Parameters**: `Z` - array from `sample_joint_depth_property_copula()`; `property_matrices` -
+named list of `[depth x simulation]` matrices in the same property order as `Z`'s second
+dimension; `gp_predictions` - optional per-property depth-trend mean vectors; when supplied, that
+property's marginal is re-centered onto the GP-predicted mean via a pure location shift (shape/
+spread preserved) - the direct replacement for `preserve_correlation_structure()`'s sequential
+`gp_ratio` nudge.
+**Returns**: Named list of `n_depths x n_sims` matrices, same shape as `property_matrices`.
+**Algorithm**: `u = pnorm(Z[i, p, ])`; `quantile(target_values, probs = u)` against that depth's
+own already-simulated values (optionally recentered first). No variation at a depth/property
+(`var() == 0` or `NA`, e.g. an all-`NA` column on messy field data) falls through to the original
+values unchanged rather than erroring.
+
+#### `preserve_correlation_structure_joint()`
+
+```r
+preserve_correlation_structure_joint(
+  property_matrices,
+  gp_predictions,
+  depths,
+  primary_property,
+  gp_models = NULL,
+  boundary_distinctness = NULL,
+  kernel = c("exponential", "matern")
+)
+```
+
+**Purpose**: The default vertical-correlation method as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`
+- a drop-in for `preserve_correlation_structure()` (identical required-parameter shape/order) that
+draws depth correlation and property correlation *simultaneously* rather than retrofitting one
+after the other. `primary_property` is accepted for signature compatibility but unused - no single
+reference property is needed.
+**Parameters**: Same required parameters as `preserve_correlation_structure()`, plus `gp_models` -
+optional fitted GP models keyed by property, used to derive the depth kernel's length-scale via
+`extract_depth_length_scale()`, averaged across every property with a usable fit (falls back to a
+full-depth-range length-scale, `diff(range(depths))`, when no models are supplied);
+`boundary_distinctness` - optional per-depth `bound_sd` for discontinuity gating (passed through
+to `build_depth_correlation_kernel()`); `kernel` - `"exponential"` or `"matern"`.
+**Returns**: List of adjusted property matrices, same contract as `preserve_correlation_structure()`
+- degrades gracefully to the original, unadjusted matrices (with a warning) on insufficient
+dimensions or a sampling/mapping failure.
+**Algorithm**: Estimates `R_prop` empirically from the surface (first) depth's already-drawn
+values (falls back to the identity matrix on a single property or an estimation failure - e.g. too
+few realizations for `stats::cor()`), builds `R_depth` via `build_depth_correlation_kernel()`,
+draws the joint sample via `sample_joint_depth_property_copula()`, and maps it onto the real
+marginals via `apply_copula_to_marginals()`.
 
 #### `apply_nrcs_trend_adjustments()`
 
 ```r
-apply_nrcs_trend_adjustments(cokey_data, gp_models, model_group, properties, preserve_correlations = TRUE)
+apply_nrcs_trend_adjustments(
+  cokey_data, gp_models, model_group, properties,
+  preserve_correlations = TRUE, config = NULL
+)
 ```
 
 **Purpose**: Adjust one cokey's simulated properties toward NRCS-model-derived depth trends for its
@@ -407,9 +600,15 @@ matched GP model group.
 **Parameters**: `cokey_data` - simulation rows for one cokey; `gp_models` - fitted NRCS GP models;
 `model_group` - the GP model group name for this cokey (from `match_soils_to_gp_models()` /
 `match_simulations_to_nrcs_models()`); `properties` - simulation property names to adjust;
-`preserve_correlations` - passed through to `apply_gp_depth_trends()`.
+`preserve_correlations` - passed through to `apply_gp_depth_trends()`; `config` - optional Monte
+Carlo config, passed through to `apply_gp_depth_trends()` so `"joint_copula"` is reachable via the
+NRCS/regional path the same way it already is via the local-GP path.
 **Returns**: Adjusted `cokey_data` (unchanged if no properties map to an NRCS property name or fewer
 than 2 unique depths exist).
+**Also extracts** the actual fitted NRCS GP model objects (not just their predictions), keyed by
+`cokey_data` property name, for `apply_gp_depth_trends()`'s `gp_models` parameter under
+`"joint_copula"` - the same `gp_models[[nrcs_prop]]$models[[model_group]]` lookup described below,
+re-keyed to match the caller-facing property names.
 **Algorithm**: Maps simulation property names to NRCS property names via
 `get_nrcs_property_mapping()` (e.g. `"sandtotal"` -> `"sand_pct"`, `"ph"` -> `"pH"`, `"om"`/`"cec"`/`"soc"`
 -> `"organic_matter"`), obtains per-depth GP predictions for the matched group via
@@ -477,11 +676,18 @@ and fits via `fit_local_gp_model_single()` (min-max depth scaling + `GPfit::GP_f
 #### `apply_local_depth_trends()`
 
 ```r
-apply_local_depth_trends(cokey_data, local_predictions, unique_depths, preserve_correlations = TRUE)
+apply_local_depth_trends(
+  cokey_data, local_predictions, unique_depths,
+  preserve_correlations = TRUE, config = NULL, gp_models = NULL
+)
 ```
 
 **Purpose**: Thin wrapper applying locally-fit GP predictions via the same
 `apply_gp_depth_trends()` machinery used for NRCS predictions.
+**Parameters**: `config`/`gp_models` - passed straight through to `apply_gp_depth_trends()`;
+`apply_local_gp_adjustments()` (the caller) already has both the fitted `local_gp_models` and its
+own `config` in scope, so this is how `"joint_copula"` reaches this call site with a real
+length-scale to reuse rather than the fallback.
 
 #### `convert_to_property_matrices()`
 

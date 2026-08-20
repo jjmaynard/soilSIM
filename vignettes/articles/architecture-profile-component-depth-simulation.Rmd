@@ -132,7 +132,10 @@ machinery but shipped from the same legacy file.
   input rows and all realizations, with `compname`, `mukey`, `cokey`,
   `hzdept_r`, `hzdepb_r`, `simulation_number`, and `unique_id`
   (`"<cokey>-<simulation_number>"`, zero-padded to 2 digits) columns
-  attached.
+  attached - plus `bound_sd`, whenever `sim_cokey` itself has a `bound_sd`
+  column (see `attach_osd_boundary_distinctness()`), broadcast unchanged onto
+  every realization for that horizon row; absent entirely for any caller
+  whose `sim_cokey` never had one.
 - **Behavior**: For each row of `sim_cokey`, looks up that row's `genhz`-
   keyed local correlation matrix, then builds a parameter list from whichever
   of bulk density (`dbovendry`), 1/3-bar and 15-bar water retention
@@ -195,6 +198,38 @@ machinery but shipped from the same legacy file.
   NA`) for them, calls `infill_missing_distinctness()` to fill remaining
   `NA` distinctness values, then converts distinctness codes to numeric
   offsets via `aqp::hzDistinctnessCodeToOffset()` into `bound_sd`.
+
+#### `attach_osd_boundary_distinctness(hz_data)`
+
+- **Parameters**: `hz_data` - a data frame with at least `compname`, `hzname`,
+  and `genhz` columns (the same shape `simulate_ssurgo_mapunit_draws()`
+  builds right after `classify_genhz()`).
+- **Returns**: `hz_data` with a `bound_sd` numeric column added/overwritten -
+  one value per `compname`/`genhz` combination, `NA` for any combination the
+  OSD lookup couldn't resolve. On OSD lookup failure (e.g. no network
+  access), degrades to an all-`NA` `bound_sd` column rather than erroring.
+- **Behavior**: Exposes `query_osd_distinctness()`'s already-computed,
+  already-genhz-averaged `bound_sd` value on arbitrary horizon data, so it
+  can also gate the joint-copula vertical-correlation depth kernel (see the
+  [GP Depth Modeling & Multivariate Adjustment](architecture-gp-modeling-multivariate-adjustment.html)
+  module, `build_depth_correlation_kernel()`) - previously `bound_sd` was
+  computed and consumed only inside `simulate_and_perturb_soil_profiles()`,
+  as `aqp::perturb()`'s `boundary.attr` for horizon-*depth* perturbation, and
+  never reached the property-*value* Monte Carlo simulation pipeline. Calls
+  `query_osd_distinctness()`, then reuses the identical
+  `dplyr::group_by(id, genhz) |> dplyr::summarise(bound_sd = mean(bound_sd, na.rm = TRUE))`
+  aggregation `simulate_and_perturb_soil_profiles()` already used internally,
+  and left-joins the result onto `hz_data`. **Joins case-insensitively**
+  (`toupper()` on both sides): `soilDB::fetchOSD()` (called inside
+  `query_osd_distinctness()`) returns its `id` column upper-cased regardless
+  of the requested case - a real bug (found via real-AOI validation, not
+  synthetic test fixtures) where a naive exact-case join against
+  `hz_data$compname` silently produced all-`NA` `bound_sd` for every row.
+  Wired into `simulate_ssurgo_mapunit_draws()` (`ssurgo-simulation.R`)
+  immediately after `classify_genhz()`; unconditional, so `bound_sd` (all-`NA`
+  or resolved) is always present in that pipeline's output regardless of
+  whether the joint-copula method's discontinuity gating is actually enabled
+  (`config$monte_carlo$vertical_correlation_gating`, off by default).
 
 #### `infill_missing_distinctness(horizon_data)`
 
