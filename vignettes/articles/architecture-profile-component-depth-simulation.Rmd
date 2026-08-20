@@ -211,10 +211,10 @@ machinery but shipped from the same legacy file.
 - **Behavior**: Exposes `query_osd_distinctness()`'s already-computed,
   already-genhz-averaged `bound_sd` value on arbitrary horizon data, so it
   can also gate the joint-copula vertical-correlation depth kernel (see the
-  [GP Depth Modeling & Multivariate Adjustment](architecture-gp-modeling-multivariate-adjustment.html)
-  module, `build_depth_correlation_kernel()`) - previously `bound_sd` was
-  computed and consumed only inside `simulate_and_perturb_soil_profiles()`,
-  as `aqp::perturb()`'s `boundary.attr` for horizon-*depth* perturbation, and
+  GP Depth Modeling & Multivariate Adjustment module,
+  `build_depth_correlation_kernel()`) - previously `bound_sd` was computed
+  and consumed only inside `simulate_and_perturb_soil_profiles()`, as
+  `aqp::perturb()`'s `boundary.attr` for horizon-*depth* perturbation, and
   never reached the property-*value* Monte Carlo simulation pipeline. Calls
   `query_osd_distinctness()`, then reuses the identical
   `dplyr::group_by(id, genhz) |> dplyr::summarise(bound_sd = mean(bound_sd, na.rm = TRUE))`

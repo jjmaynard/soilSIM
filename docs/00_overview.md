@@ -15,8 +15,7 @@ today, supplying the prior and likelihood sides (respectively) of the raster fus
 architecture is deliberately split this way so that future data sources (e.g. HWSD, SoilGrids) can
 plug in as new adapters alongside SSURGO/SOLUS, reusing the same simulation/fusion core rather than
 duplicating it. See `soilSIM/R/soilSIM-package.R` (rendered as `?soilSIM`) for the package-level
-roxygen summary of this framing, and [[project-soilsim-package]] in project memory for the decision
-history behind it.
+roxygen summary of this framing.
 
 This directory's 10 documents go one level deeper than that package doc or the per-function
 `.Rd`/roxygen reference: each covers a functional group's full function signatures, internal call

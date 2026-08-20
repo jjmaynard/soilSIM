@@ -25,7 +25,7 @@ graphs, cross-file dependencies, data flow, and known limitations.
 
 ## Core vs. adapters
 
-```
+```Shell
                       ┌─────────────────────────────────────────┐
                       │              GENERIC CORE                │
                       │  (data-source-agnostic; works on any     │
@@ -140,7 +140,7 @@ on, but as standalone building blocks, not yet called from `04`'s tabular pipeli
 | 05 | [GP Depth Modeling & Multivariate Adjustment](architecture-gp-modeling-multivariate-adjustment.html) | GP depth-trend modeling + MC/GP integration (core)              | `gp-modeling.R`, `multivariate-adjustment.R`                                                                            |
 | 06 | [Profile, Component & Depth Simulation](architecture-profile-component-depth-simulation.html)   | Component composition + horizon depth/thickness simulation      | `property-simulation.R`, `depth-simulation.R`                                                                           |
 | 07 | [AWS / Van Genuchten Modeling](architecture-aws-van-genuchten-modeling.html)                   | Available water storage / Van Genuchten modeling                | `aws-simulation.R`                                                                                                        |
-| 08 | [Bayesian Updating (Scalar)](architecture-bayesian-updating.html)                     | Scalar Bayesian updating/fusion (core)                          | `bayesian-updating.R`                                                                                                     |
+| 08 | [Bayesian Updating (Scalar)](architecture-bayesian-updating.html)                                     | Scalar Bayesian updating/fusion (core)                          | `bayesian-updating.R`                                                                                                     |
 | 09 | [Multi-Source Raster Fusion Pipeline](architecture-multi-source-raster-fusion-pipeline.html) | Raster-native fusion core + SSURGO/SOLUS100 adapters            | `distribution-fitting-raster.R`, `raster-fusion.R`, `raster-cache.R`, `ssurgo-simulation.R`, `solus-simulation.R` |
 | 10 | [Utilities](architecture-utilities.html)                                                     | Shared validation, logging, config, I/O (leaf module)           | `utils.R`                                                                                                                 |
 

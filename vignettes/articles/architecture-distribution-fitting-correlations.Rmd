@@ -1,5 +1,5 @@
 ---
-title: "Distribution Fitting & Correlation Matrices - Function Summary and Connections"
+title: "Distribution Fitting & Correlation Matrices"
 ---
 
 ## Overview
