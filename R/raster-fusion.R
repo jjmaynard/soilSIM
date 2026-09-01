@@ -192,7 +192,14 @@ closed_form_percentiles_raster <- function(param1, param2, qfun, posterior_probs
 #' @param mukey_raster Categorical mukey SpatRaster, aligned to the target grid.
 #' @param mukey_draws A `mukey_draws_lookup()` result - named list keyed by mukey (character), each
 #'   element a numeric vector of real simulated draws for that mukey.
-#' @param family One of "normal", "beta", "gamma".
+#' @param family One of "normal", "beta", "gamma", "lognormal". `"lognormal"` (added
+#'   `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.12) fits `mu`/`sigma` directly from
+#'   `log(draws)` - the same LOG-SPACE parameterization `fuse_lognormal_adaptive()`'s large-AOI
+#'   branch already uses internally (`normal_to_lognormal_params()`'s output shape), so the merge
+#'   there is a drop-in replacement of the percentile-triplet-derived log-space fit, not a new
+#'   shape. Non-positive draws are dropped before taking `log()` (a real lognormal draw is always
+#'   positive; any non-positive value reflects upstream noise, not signal) - a mukey left with fewer
+#'   than 2 positive draws falls back to `NA` like every other family here.
 #' @param bounds Required for `family = "beta"` - draws are scaled to `[0,1]` before fitting, to
 #'   match `fit_beta_mle_newton_raster()`'s own scaled-space convention (see that function's docs) -
 #'   `qfun`/downstream percentile code already expects `alpha`/`beta` in that scaled space.
@@ -202,7 +209,8 @@ closed_form_percentiles_raster <- function(param1, param2, qfun, posterior_probs
 #'   branch's per-cell degrade-to-percentile-reconstruction convention).
 #' @keywords internal
 mukey_draws_closed_form_fit_raster <- function(mukey_raster, mukey_draws, family, bounds = NULL) {
-  param_names <- switch(family, normal = c("mu", "sigma"), beta = c("alpha", "beta"), gamma = c("shape", "rate"))
+  param_names <- switch(family, normal = c("mu", "sigma"), beta = c("alpha", "beta"),
+                         gamma = c("shape", "rate"), lognormal = c("mu", "sigma"))
 
   mukey_codes <- suppressWarnings(as.numeric(names(mukey_draws)))
   valid <- !is.na(mukey_codes) & vapply(mukey_draws, length, integer(1)) > 0
@@ -221,6 +229,11 @@ mukey_draws_closed_form_fit_raster <- function(mukey_raster, mukey_draws, family
     switch(family,
       normal = list(mu = mean(draws), sigma = stats::sd(draws)),
       gamma = moments_to_gamma(mean(draws), stats::var(draws)),
+      lognormal = {
+        pos <- draws[draws > 0]
+        if (length(pos) < 2) list(mu = NA_real_, sigma = NA_real_)
+        else list(mu = mean(log(pos)), sigma = stats::sd(log(pos)))
+      },
       beta = {
         scaled <- pmin(pmax((draws - bounds[1]) / (bounds[2] - bounds[1]), 1e-6), 1 - 1e-6)
         fit <- tryCatch(fitdistrplus::fitdist(scaled, "beta"), error = function(e) NULL)
@@ -241,6 +254,57 @@ mukey_draws_closed_form_fit_raster <- function(mukey_raster, mukey_draws, family
     # prior (mu=602, sigma=602) instead of correctly falling back to the percentile-based fit.
     terra::subst(mukey_raster_plain, from = mukey_codes, to = to, others = NA_real_)
   }), param_names)
+}
+
+#' Per-unique-mukey empirical percentiles from real Monte Carlo draws, broadcast to a raster
+#'
+#' Companion to `mukey_draws_closed_form_fit_raster()` for routes that consume percentile VALUES
+#' directly rather than a family parameter fit - `fuse_metalog_adapter()` (P2.12), whose metalog fit
+#' is an exact linear interpolation through fixed percentile knots (`solve()` on a basis matrix), not
+#' a moment/density fit. There is no "metalog fit to raw draws" analogous to
+#' `mukey_draws_closed_form_fit_raster()`'s normal/beta/gamma/lognormal cases - the real extension
+#' for a percentile-interpolation method is to interpolate through REAL empirical percentiles
+#' (`stats::quantile()` on the actual draws) instead of the percentile-reconstruction values. Same
+#' per-unique-mukey precompute + `terra::subst()` broadcast pattern as its sibling - cheap, scales
+#' with mukey cardinality, not cell count.
+#'
+#' @param mukey_raster Categorical mukey SpatRaster, aligned to the target grid.
+#' @param mukey_draws A `mukey_draws_lookup()` result - named list keyed by mukey (character), each
+#'   element a numeric vector of real simulated draws for that mukey.
+#' @param probs Numeric probabilities (0-1) at which to compute each mukey's empirical quantile -
+#'   pass the same knot probabilities the caller's `fit_metalog_linear_raster()` call will use.
+#' @return A named list of `SpatRaster`s, one per `probs` entry (named `paste0("P", round(probs *
+#'   100))`, matching this file's other percentile-list conventions) - `NA` at any cell whose mukey
+#'   has no `mukey_draws` entry. No fallback is applied here; the caller merges this against the
+#'   percentile-reconstruction values for such cells, same convention as every other raw_draws branch.
+#' @keywords internal
+mukey_draws_percentiles_raster <- function(mukey_raster, mukey_draws, probs) {
+  mukey_codes <- suppressWarnings(as.numeric(names(mukey_draws)))
+  valid <- !is.na(mukey_codes) & vapply(mukey_draws, length, integer(1)) > 0
+  mukey_codes <- mukey_codes[valid]
+  draws_list <- mukey_draws[valid]
+
+  mukey_raster_plain <- mukey_raster
+  levels(mukey_raster_plain) <- NULL
+  layer_names <- paste0("P", round(probs * 100))
+
+  if (length(mukey_codes) == 0) {
+    na_r <- mukey_raster_plain * NA_real_
+    return(stats::setNames(lapply(layer_names, function(nm) na_r), layer_names))
+  }
+
+  quantile_mat <- vapply(draws_list, function(draws) as.numeric(stats::quantile(draws, probs, names = FALSE)),
+                          numeric(length(probs)))
+  # quantile_mat: probs (rows) x mukeys (cols) when length(probs) > 1; vapply drops to a plain
+  # vector when length(probs) == 1, so re-matrix defensively either way.
+  quantile_mat <- matrix(quantile_mat, nrow = length(probs), ncol = length(draws_list))
+
+  stats::setNames(lapply(seq_along(probs), function(i) {
+    to <- quantile_mat[i, ]
+    # others = NA_real_ - see mukey_draws_closed_form_fit_raster()'s identical note; without it an
+    # uncovered mukey's cell would silently take on its own mukey code as a "percentile value".
+    terra::subst(mukey_raster_plain, from = mukey_codes, to = to, others = NA_real_)
+  }), layer_names)
 }
 
 #' Closed-form same-family fusion path for `fuse_adaptive()`, with a
@@ -718,10 +782,12 @@ fuse_adaptive <- function(prior_value_rasters, lik_value_rasters, percentile_pro
 #'   captured before the moment-match-back-to-raw-space step below) - more faithful to the assumed
 #'   lognormal family than deriving percentiles from the raw-space Normal-moment approximation
 #'   (`posterior$mu`/`sigma`) would be.
-#' @param mukey_raster,mukey_draws Optional raw-draws inputs (see `fuse_adaptive()`'s docs).
-#'   Forwarded to `fuse_adaptive()`'s general route on the small-AOI branch only - the large-AOI
-#'   closed-form branch has no per-mukey raw-draws fit implemented for the lognormal family and
-#'   ignores both if supplied.
+#' @param mukey_raster,mukey_draws Optional raw-draws inputs (see `fuse_adaptive()`'s docs). Small-AOI
+#'   branch: forwarded to `fuse_adaptive()`'s general route unchanged. Large-AOI closed-form branch
+#'   (added `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.12): each mukey's real draws are fit
+#'   directly in log-space (`mukey_draws_closed_form_fit_raster(..., family = "lognormal")`) and
+#'   merged over the percentile-triplet-derived log-space fit wherever a mukey has draws coverage -
+#'   the same merge pattern P2.6 established for normal/beta/gamma on the closed-form route.
 fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_rasters, lik_probs,
                                      ncell, threshold_cells, n_samples = 500, grid_resolution = NULL, verbose = TRUE,
                                      posterior_probs = NULL, mukey_raster = NULL, mukey_draws = NULL) {
@@ -747,6 +813,18 @@ fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_
   fit_lik <- fit_normal_raster(lik_value_rasters[[idx$lo_idx]], lik_value_rasters[[idx$p50_idx]], lik_value_rasters[[idx$hi_idx]], idx$p_lo, idx$p_hi)
   prior_log <- normal_to_lognormal_params(fit_prior$mu, fit_prior$sigma)
   lik_log <- normal_to_lognormal_params(fit_lik$mu, fit_lik$sigma)
+  # Raw-draws extension (P2.12): fit each mukey's real draws' log() directly (a more faithful
+  # log-space fit than the percentile-triplet-derived approximation above), broadcast via
+  # terra::subst(), and merge over prior_log wherever a mukey has draws coverage - the exact
+  # merge_raw_fit() pattern fuse_closed_form() already uses for normal/beta/gamma (P2.6). The
+  # LIKELIHOOD (SOLUS) side has no raw-draws equivalent, same as every other route.
+  if (!is.null(mukey_raster) && !is.null(mukey_draws)) {
+    raw_prior_log <- mukey_draws_closed_form_fit_raster(mukey_raster, mukey_draws, "lognormal")
+    prior_log <- list(
+      mu = terra::ifel(is.na(raw_prior_log$mu), prior_log$mu, raw_prior_log$mu),
+      sigma = terra::ifel(is.na(raw_prior_log$sigma), prior_log$sigma, raw_prior_log$sigma)
+    )
+  }
   posterior_log <- bayes_update_normal_normal(prior_log$mu, prior_log$sigma, lik_log$mu, lik_log$sigma)
   posterior <- lognormal_to_normal_params(posterior_log$mu, posterior_log$sigma)
   posterior$percentiles <- closed_form_percentiles_raster(posterior_log$mu, posterior_log$sigma, stats::qlnorm, effective_posterior_probs)
@@ -810,11 +888,19 @@ metalog_moments_raster <- function(fit, infeasible_r, full_value_rasters, full_p
 #'   percentiles from beyond that Normal approximation; carries forward this route's existing
 #'   "less-validated glue code" caveat (see `metalog_moments_raster()`'s own docs) to its
 #'   percentile output too, not a new limitation introduced here.
+#' @param mukey_raster,mukey_draws Optional raw-draws inputs (added `MUKEY_DRAWS_FUSION_
+#'   IMPROVEMENT_PLAN.md` task P2.12). Metalog has no moment/density fit analogous to
+#'   `fuse_closed_form()`'s normal/beta/gamma/lognormal routes (its fit is an exact linear
+#'   interpolation through fixed percentile knots) - the real extension is interpolating through
+#'   each mukey's REAL empirical percentiles (`mukey_draws_percentiles_raster()`) instead of the
+#'   percentile-reconstruction values, wherever a mukey has draws coverage. `NULL` (default, or
+#'   absorbed via `...` if passed positionally-incompatible) preserves the original
+#'   percentile-reconstruction behavior exactly.
 #' @param ... Absorbed and ignored - lets this function sit behind `fuse_property_adaptive()`'s
-#'   `...` passthrough (which also forwards `n_samples`/`grid_resolution`/`mukey_raster`/
-#'   `mukey_draws` meant for other routes) without erroring on arguments this route doesn't use.
+#'   `...` passthrough (which also forwards `n_samples`/`grid_resolution` meant for other routes)
+#'   without erroring on arguments this route doesn't use.
 fuse_metalog_adapter <- function(prior_value_rasters, prior_probs, lik_value_rasters, lik_probs, property_config,
-                                  verbose = TRUE, posterior_probs = NULL, ...) {
+                                  verbose = TRUE, posterior_probs = NULL, mukey_raster = NULL, mukey_draws = NULL, ...) {
   interior <- percentile_interior(prior_probs)
   bounds <- property_config$bounds
   boundedness <- property_config$boundedness %||% "b"
@@ -825,7 +911,14 @@ fuse_metalog_adapter <- function(prior_value_rasters, prior_probs, lik_value_ras
 
   effective_posterior_probs <- if (is.null(posterior_probs)) FUSE_POSTERIOR_DEFAULT_PROBS else posterior_probs
 
-  fit_prior <- fit_metalog_linear_raster(prior_value_rasters[interior$idx], interior$probs, bounds, boundedness)
+  prior_interior_rasters <- prior_value_rasters[interior$idx]
+  if (!is.null(mukey_raster) && !is.null(mukey_draws)) {
+    raw_prior_percentiles <- mukey_draws_percentiles_raster(mukey_raster, mukey_draws, interior$probs)
+    prior_interior_rasters <- Map(function(default_r, raw_r) terra::ifel(is.na(raw_r), default_r, raw_r),
+                                   prior_interior_rasters, raw_prior_percentiles)
+  }
+
+  fit_prior <- fit_metalog_linear_raster(prior_interior_rasters, interior$probs, bounds, boundedness)
   fit_lik <- fit_metalog_linear_raster(lik_value_rasters[interior$idx], interior$probs, bounds, boundedness)
 
   infeasible_prior <- check_metalog_feasibility_raster(fit_prior, bounds, boundedness)
@@ -914,9 +1007,14 @@ resolve_property_dist <- function(property_config, prior_value_rasters, prior_pr
 #'   `mukey_raster`/`mukey_draws` (opting into `prior_fusion_method = "raw_draws"`, see
 #'   `fuse_general_kde()`'s docs) reach the underlying routes: both the general-KDE and
 #'   closed-form routes support it for `dist %in% c("normal","beta","gamma")` (P2.6), and it
-#'   reaches `fuse_lognormal_adaptive()`'s small-AOI general branch the same way (its large-AOI
-#'   closed-form branch has no raw-draws fit and ignores both if supplied). `fuse_metalog_adapter()`
-#'   does not support it (see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`).
+#'   reaches `fuse_lognormal_adaptive()`'s small-AOI general branch AND large-AOI closed-form
+#'   branch (P2.12) the same way. `fuse_metalog_adapter()` also has a raw-draws fit as of P2.12
+#'   (empirical per-mukey percentiles feed the same interpolation machinery) - but
+#'   `resolve_want_raw_draws()`'s default still excludes `dist = "metalog"`, mirroring the
+#'   texture-group route's P2.11 treatment: a fit existing is not the same as its cost/benefit
+#'   being benchmarked, and that default-flip decision is deliberately kept separate (see
+#'   `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`). Explicitly passing `mukey_raster`/`mukey_draws`
+#'   for `dist = "metalog"` still works.
 #' @return `list(posterior=, route=, route_detail=, n_fallback_cells=, dist=,
 #'   dist_source=, skew_proxy=)`.
 #' @export
@@ -1402,14 +1500,14 @@ fuse_texture_group <- function(fetched, mukey_raster = NULL, mukey_texture_draws
 #'
 #' Unset now defaults to raw_draws for any `dist` whose fusion route actually has a raw-draws fit
 #' implemented: `"normal"`/`"beta"`/`"gamma"` (both AOI-size routes, as of P2.6) and `"lognormal"`
-#' (its small-AOI general branch, as of P2.6 - its large-AOI closed-form branch silently ignores the
-#' extra draws if supplied, so requesting them there costs a wasted-but-harmless simulation, not a
-#' wrong answer). `"auto"` is included too: `resolve_property_dist()`'s auto-selection only ever
-#' resolves to `"beta"`/`"normal"`/`"lognormal"` (see its own code) - **never** `"metalog"` - so it's
-#' safe to default in as well. Only an explicit `dist = "metalog"` (`fuse_metalog_adapter()` has no
-#' raw-draws fit, see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`) keeps the original
-#' percentile-reconstruction default, avoiding an always-wasted mukey-draws simulation for a route
-#' that can never use it.
+#' (both its small-AOI general branch and large-AOI closed-form branch, as of P2.6/P2.12). `"auto"`
+#' is included too: `resolve_property_dist()`'s auto-selection only ever resolves to
+#' `"beta"`/`"normal"`/`"lognormal"` (see its own code) - **never** `"metalog"` - so it's safe to
+#' default in as well. Only an explicit `dist = "metalog"` keeps the original percentile-
+#' reconstruction default - **not** because no raw-draws fit exists for it (P2.12 added one, an
+#' empirical-percentile variant of `fuse_metalog_adapter()`'s own interpolation), but because its
+#' cost/benefit hasn't been benchmarked, exactly mirroring the texture-group route's P2.11
+#' treatment: that default-flip decision is deliberately kept separate from "does a fit exist."
 #'
 #' This default was set only after confirming the added cost is modest at any AOI size: raw_draws
 #' costs 16-25% more than the default on the general-KDE route (P2.9) and ~0.18s of overhead on top
@@ -1470,12 +1568,13 @@ resolve_want_raw_draws <- function(prior_fusion_method, dist) {
 #' P2.2/P2.3/P2.6/P2.10. **As of P2.10, leaving `property_config$prior_fusion_method` unset
 #' defaults to `"raw_draws"`** for `dist %in% c("auto","normal","beta","gamma","lognormal")` - see
 #' `resolve_want_raw_draws()` for the exact rule and the benchmark numbers behind it. Only an
-#' explicit `dist = "metalog"` keeps the pre-P2.10 default (`fuse_metalog_adapter()` has no
-#' raw-draws fit; forcing a mukey-draws simulation for it would be pure waste). Set
+#' explicit `dist = "metalog"` keeps the pre-P2.10 default - `fuse_metalog_adapter()` does have a
+#' raw-draws fit as of P2.12, but its cost/benefit is unbenchmarked (mirroring the texture-group
+#' route's P2.11 treatment), so the default stays conservative until that's measured. Set
 #' `property_config$prior_fusion_method = "percentile"` explicitly to opt back into the original
 #' behavior for any `dist` (e.g. to match older cached/tested output, or avoid the live simulation
-#' dependency); `"raw_draws"` explicitly forces it on even for `dist = "metalog"` (accepted but
-#' silently unused there, per `fuse_metalog_adapter()`'s docs).
+#' dependency); `"raw_draws"` explicitly forces it on even for `dist = "metalog"`, now genuinely
+#' used there (P2.12), not just accepted-and-ignored.
 #'
 #' The real draws are held in memory only for the duration of this one call, never disk-cached
 #' (see `simulate_ssurgo_mapunit_draws()`'s docs for why) - so raw_draws fusion (whether defaulted

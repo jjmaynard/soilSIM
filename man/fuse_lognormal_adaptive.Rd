@@ -15,7 +15,9 @@ fuse_lognormal_adaptive(
   n_samples = 500,
   grid_resolution = NULL,
   verbose = TRUE,
-  posterior_probs = NULL
+  posterior_probs = NULL,
+  mukey_raster = NULL,
+  mukey_draws = NULL
 )
 }
 \arguments{
@@ -26,6 +28,13 @@ branch: computed via \code{qlnorm()} on the LOG-SPACE fused parameters (\code{po
 captured before the moment-match-back-to-raw-space step below) - more faithful to the assumed
 lognormal family than deriving percentiles from the raw-space Normal-moment approximation
 (\code{posterior$mu}/\code{sigma}) would be.}
+
+\item{mukey_raster, mukey_draws}{Optional raw-draws inputs (see \code{fuse_adaptive()}'s docs). Small-AOI
+branch: forwarded to \code{fuse_adaptive()}'s general route unchanged. Large-AOI closed-form branch
+(added \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.12): each mukey's real draws are fit
+directly in log-space (\code{mukey_draws_closed_form_fit_raster(..., family = "lognormal")}) and
+merged over the percentile-triplet-derived log-space fit wherever a mukey has draws coverage -
+the same merge pattern P2.6 established for normal/beta/gamma on the closed-form route.}
 }
 \description{
 Lognormal adapter for \code{fuse_property_adaptive()}: size-adaptive general/closed-form route on

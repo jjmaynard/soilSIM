@@ -1061,3 +1061,95 @@ test_that("run_stage1_fusion() defaults to raw_draws for dist='normal' and to pe
   run_with_mocks("normal", TRUE)
   run_with_mocks("metalog", FALSE)
 })
+
+test_that("fuse_lognormal_adaptive()'s large-AOI closed-form branch fits raw_draws directly in log-space and falls back exactly for uncovered mukeys - MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P2.12", {
+  probs <- c(0.05, 0.25, 0.5, 0.75, 0.95)
+  make_pct <- function(mu, sd, n) {
+    stats::setNames(lapply(probs, function(p) terra::rast(nrows = 1, ncols = n, vals = rep(stats::qnorm(p, mu, sd), n))),
+                     paste0("P", round(probs * 100)))
+  }
+  mukey_raster <- terra::rast(nrows = 1, ncols = 2, vals = c(501, 502))
+  names(mukey_raster) <- "mukey"
+  mukey_raster <- terra::as.factor(mukey_raster)
+  set.seed(2026)
+  mukey_draws <- list("501" = stats::rlnorm(2000, meanlog = log(20), sdlog = 0.3))  # 502: no draws
+
+  prior_r <- make_pct(25, 4, n = 2)
+  lik_r <- make_pct(25, 4, n = 2)
+
+  baseline <- fuse_lognormal_adaptive(prior_r, probs, lik_r, probs, ncell = 2, threshold_cells = 0, verbose = FALSE)
+  raw <- fuse_lognormal_adaptive(prior_r, probs, lik_r, probs, ncell = 2, threshold_cells = 0, verbose = FALSE,
+                                  mukey_raster = mukey_raster, mukey_draws = mukey_draws)
+  expect_equal(raw$route, "closed_form_lognormal")
+
+  mu_base <- terra::values(baseline$posterior$mu)[, 1]
+  mu_raw <- terra::values(raw$posterior$mu)[, 1]
+  expect_true(all(is.finite(mu_raw)))
+  # Cell 1 (mukey 501, has draws): raw_draws fit differs from the percentile-reconstruction baseline.
+  expect_false(isTRUE(all.equal(unname(mu_base[1]), unname(mu_raw[1]))))
+  # Cell 2 (mukey 502, no draws): falls back to the exact baseline value.
+  expect_equal(unname(mu_raw[2]), unname(mu_base[2]), tolerance = 1e-8)
+})
+
+test_that("fuse_lognormal_adaptive()'s large-AOI branch with NULL mukey_raster/mukey_draws is bit-identical to baseline (backward compatibility)", {
+  probs <- c(0.05, 0.25, 0.5, 0.75, 0.95)
+  make_pct <- function() {
+    stats::setNames(lapply(probs, function(p) terra::rast(nrows = 1, ncols = 1, vals = stats::qnorm(p, 25, 4))),
+                     paste0("P", round(probs * 100)))
+  }
+  prior_r <- make_pct(); lik_r <- make_pct()
+  a <- fuse_lognormal_adaptive(prior_r, probs, lik_r, probs, ncell = 1, threshold_cells = 0, verbose = FALSE)
+  b <- fuse_lognormal_adaptive(prior_r, probs, lik_r, probs, ncell = 1, threshold_cells = 0, verbose = FALSE,
+                                mukey_raster = NULL, mukey_draws = NULL)
+  expect_identical(terra::values(a$posterior$mu), terra::values(b$posterior$mu))
+  expect_identical(terra::values(a$posterior$sigma), terra::values(b$posterior$sigma))
+})
+
+test_that("fuse_metalog_adapter() interpolates through real per-mukey empirical percentiles when raw_draws is supplied - MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P2.12", {
+  # Known-working metalog fixture (P3.5 investigation): a symmetric 5-point Normal percentile set
+  # triggers a pre-existing solve()-singularity in fit_metalog_linear_raster() unrelated to
+  # raw_draws - reuse the 3-point asymmetric fixture already established as safe (see the
+  # "percentiles exactly match analytic qnorm" test above).
+  probs <- c(0.1, 0.5, 0.9)
+  mk <- function(v) terra::rast(nrows = 1, ncols = 1, vals = v)
+  prior_list <- stats::setNames(list(mk(20), mk(40), mk(65)), paste0("P", round(probs * 100)))
+  lik_list <- stats::setNames(list(mk(30), mk(50), mk(70)), paste0("P", round(probs * 100)))
+  property_config <- list(bounds = c(0, 100), boundedness = "b")
+
+  mukey_raster <- terra::rast(nrows = 1, ncols = 1, vals = 900)
+  names(mukey_raster) <- "mukey"
+  mukey_raster <- terra::as.factor(mukey_raster)
+  set.seed(11)
+  mukey_draws <- list("900" = pmin(pmax(stats::rnorm(2000, mean = 55, sd = 8), 1), 99))
+
+  baseline <- fuse_metalog_adapter(prior_list, probs, lik_list, probs, property_config, verbose = FALSE)
+  raw <- fuse_metalog_adapter(prior_list, probs, lik_list, probs, property_config, verbose = FALSE,
+                               mukey_raster = mukey_raster, mukey_draws = mukey_draws)
+  mu_base <- terra::values(baseline$posterior$mu)[1, 1]
+  mu_raw <- terra::values(raw$posterior$mu)[1, 1]
+  expect_true(is.finite(mu_raw))
+  expect_false(isTRUE(all.equal(mu_base, mu_raw)))
+
+  # Backward compatibility: NULL mukey_raster/mukey_draws (default) is bit-identical to baseline.
+  explicit_null <- fuse_metalog_adapter(prior_list, probs, lik_list, probs, property_config, verbose = FALSE,
+                                         mukey_raster = NULL, mukey_draws = NULL)
+  expect_identical(terra::values(baseline$posterior$mu), terra::values(explicit_null$posterior$mu))
+
+  # End-to-end dispatch through fuse_property_adaptive() with dist="metalog".
+  property_config2 <- list(dist = "metalog", bounds = c(0, 100), boundedness = "b")
+  e2e <- fuse_property_adaptive(prior_list, probs, lik_list, probs, property_config2, verbose = FALSE,
+                                 mukey_raster = mukey_raster, mukey_draws = mukey_draws)
+  expect_true(is.finite(terra::values(e2e$posterior$mu)[1, 1]))
+})
+
+test_that("mukey_draws_percentiles_raster() degrades an uncovered mukey to NA instead of leaking its raw mukey code", {
+  mukey_raster <- terra::rast(nrows = 1, ncols = 2, vals = c(601, 602))
+  names(mukey_raster) <- "mukey"
+  mukey_raster <- terra::as.factor(mukey_raster)
+  mukey_draws <- list("601" = stats::rnorm(1000, 10, 2))  # 602: no entry
+
+  result <- mukey_draws_percentiles_raster(mukey_raster, mukey_draws, c(0.5))
+  vals <- terra::values(result$P50)[, 1]
+  expect_true(is.finite(vals[1]))
+  expect_true(is.na(vals[2]))
+})

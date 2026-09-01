@@ -12,7 +12,9 @@ fuse_closed_form(
   percentile_probs,
   family,
   bounds,
-  posterior_probs = NULL
+  posterior_probs = NULL,
+  mukey_raster = NULL,
+  mukey_draws = NULL
 )
 }
 \arguments{
@@ -28,6 +30,16 @@ fuse_closed_form(
 \code{NULL} (default) resolves to \link{FUSE_POSTERIOR_DEFAULT_PROBS}. Computed analytically
 (\code{qnorm}/\code{qbeta}/\code{qgamma} at the fused family parameters) - exact regardless of how extreme
 the requested probability is, unlike \code{fuse_general_kde()}'s sample/grid-based route.}
+
+\item{mukey_raster, mukey_draws}{Optional - opts into \code{prior_fusion_method = "raw_draws"} for
+this (closed-form) route, added \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.6. Fits the
+PRIOR side's family parameters directly from each cell's mukey's real Monte Carlo draws (via
+\code{mukey_draws_closed_form_fit_raster()}) instead of \code{fit_normal_raster()}/
+\code{fit_beta_mle_newton_raster()}/\code{fit_gamma_mom_raster()}'s percentile-triplet formulas - cells
+whose mukey has no draws entry fall back to the percentile-based fit for that cell only, same
+convention as \code{fuse_general_kde()}'s raw_draws branch. The LIKELIHOOD (SOLUS) side is
+unaffected either way - no raw-draws equivalent exists for it. \code{NULL} (default) for either
+parameter preserves the original percentile-only behavior exactly.}
 }
 \value{
 \code{list(posterior=, route_detail=, n_fallback_cells=)}. \code{posterior} carries a new

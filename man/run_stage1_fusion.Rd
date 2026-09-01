@@ -54,21 +54,27 @@ SSURGO grid onto the SOLUS grid via \code{terra::resample()}, then fuses via
 Compositional properties (\code{property_config$composition_group} set) are detected up front and
 delegated to \code{run_stage1_fusion_group()} instead, since they must be fetched/fit jointly.
 }
-\section{Higher-fidelity fusion (opt-in)}{
+\section{Fusion fidelity - \code{prior_fusion_method} (default changed at P2.10)}{
 
-Set \code{property_config$prior_fusion_method = "raw_draws"} to fuse against each mukey's real
-Monte Carlo draws instead of a percentile-reconstructed approximation - see
-\code{fuse_general_kde()}'s docs and \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.2/P2.3. Only
-affects the \code{dist \%in\% c("normal","beta","gamma")} general-KDE route (small AOIs, at or below
-\code{fuse_adaptive()}'s \code{threshold_cells}) - the closed-form route, \code{"lognormal"}, and \code{"metalog"}
-are unaffected regardless of this setting (not yet implemented for those routes). Unset/any
-other value (default) preserves the original percentile-reconstruction behavior exactly.
+Controls whether fusion runs against each mukey's real per-cell Monte Carlo draws
+(\code{"raw_draws"}) or a percentile-reconstructed approximation (\code{"percentile"}) - see
+\code{fuse_general_kde()}'s docs and \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} tasks
+P2.2/P2.3/P2.6/P2.10. \strong{As of P2.10, leaving \code{property_config$prior_fusion_method} unset
+defaults to \code{"raw_draws"}} for \code{dist \%in\% c("auto","normal","beta","gamma","lognormal")} - see
+\code{resolve_want_raw_draws()} for the exact rule and the benchmark numbers behind it. Only an
+explicit \code{dist = "metalog"} keeps the pre-P2.10 default - \code{fuse_metalog_adapter()} does have a
+raw-draws fit as of P2.12, but its cost/benefit is unbenchmarked (mirroring the texture-group
+route's P2.11 treatment), so the default stays conservative until that's measured. Set
+\code{property_config$prior_fusion_method = "percentile"} explicitly to opt back into the original
+behavior for any \code{dist} (e.g. to match older cached/tested output, or avoid the live simulation
+dependency); \code{"raw_draws"} explicitly forces it on even for \code{dist = "metalog"}, now genuinely
+used there (P2.12), not just accepted-and-ignored.
 
 The real draws are held in memory only for the duration of this one call, never disk-cached
-(see \code{simulate_ssurgo_mapunit_draws()}'s docs for why) - so requesting \code{"raw_draws"} forces a
-fresh simulation even when this AOI/property/depth-window's \code{"ssurgo"} percentile cache is
-already warm (the draws that produced that cached percentile summary weren't kept). That
-simulation still runs at most once per call regardless of cache state - it is shared with the
-percentile-cache-population step when both are needed in the same call.
+(see \code{simulate_ssurgo_mapunit_draws()}'s docs for why) - so raw_draws fusion (whether defaulted
+or explicit) forces a fresh simulation even when this AOI/property/depth-window's \code{"ssurgo"}
+percentile cache is already warm (the draws that produced that cached percentile summary weren't
+kept). That simulation still runs at most once per call regardless of cache state - it is shared
+with the percentile-cache-population step when both are needed in the same call.
 }
 

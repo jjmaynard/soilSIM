@@ -13,6 +13,8 @@ fuse_metalog_adapter(
   property_config,
   verbose = TRUE,
   posterior_probs = NULL,
+  mukey_raster = NULL,
+  mukey_draws = NULL,
   ...
 )
 }
@@ -26,9 +28,17 @@ percentiles from beyond that Normal approximation; carries forward this route's 
 "less-validated glue code" caveat (see \code{metalog_moments_raster()}'s own docs) to its
 percentile output too, not a new limitation introduced here.}
 
+\item{mukey_raster, mukey_draws}{Optional raw-draws inputs (added \verb{MUKEY_DRAWS_FUSION_ IMPROVEMENT_PLAN.md} task P2.12). Metalog has no moment/density fit analogous to
+\code{fuse_closed_form()}'s normal/beta/gamma/lognormal routes (its fit is an exact linear
+interpolation through fixed percentile knots) - the real extension is interpolating through
+each mukey's REAL empirical percentiles (\code{mukey_draws_percentiles_raster()}) instead of the
+percentile-reconstruction values, wherever a mukey has draws coverage. \code{NULL} (default, or
+absorbed via \code{...} if passed positionally-incompatible) preserves the original
+percentile-reconstruction behavior exactly.}
+
 \item{...}{Absorbed and ignored - lets this function sit behind \code{fuse_property_adaptive()}'s
-\code{...} passthrough (which also forwards \code{n_samples}/\code{grid_resolution}/\code{mukey_raster}/
-\code{mukey_draws} meant for other routes) without erroring on arguments this route doesn't use.}
+\code{...} passthrough (which also forwards \code{n_samples}/\code{grid_resolution} meant for other routes)
+without erroring on arguments this route doesn't use.}
 }
 \description{
 Metalog adapter for \code{fuse_property_adaptive()}: closed-form route via metalog-fitted

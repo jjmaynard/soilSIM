@@ -47,11 +47,12 @@ standalone default of \code{0.01}.}
 
 \item{verbose}{If TRUE (default), print the chosen route and why.}
 
-\item{mukey_raster, mukey_draws}{Optional - passed through to \code{fuse_general_kde()} to opt into
-\code{prior_fusion_method = "raw_draws"} (see its docs and
-\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.2/P2.3). Ignored on the closed-form route
-(Phase 2b, not yet implemented - see that task's tracker entry). \code{NULL} (default) preserves
-original behavior exactly.}
+\item{mukey_raster, mukey_draws}{Optional - opts into \code{prior_fusion_method = "raw_draws"} on
+whichever route runs (\code{fuse_general_kde()} for the general route - task P2.2/P2.3;
+\code{fuse_closed_form()} for the closed-form route - task P2.6, added at negligible cost since
+that route's raw_draws fit is a per-mukey precompute + \code{terra::subst()} broadcast, not a
+per-cell computation - see \code{mukey_draws_closed_form_fit_raster()}'s docs). \code{NULL} (default)
+preserves original behavior exactly on both routes.}
 
 \item{posterior_probs}{Passed through to whichever route runs (\code{fuse_general_kde()} for the
 general route, \code{fuse_closed_form()} for the closed-form route - see \link{FUSE_POSTERIOR_DEFAULT_PROBS}).

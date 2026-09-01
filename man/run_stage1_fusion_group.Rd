@@ -68,6 +68,10 @@ setting. Like \code{run_stage1_fusion()}'s equivalent section, this forces the s
 run even when every member's own \code{"ssurgo"} percentile cache is already warm (the draws that
 produced those cached percentiles weren't kept - see \code{simulate_ssurgo_mapunit_draws()}'s docs).
 Unset on every member (default) preserves the original percentile-reconstruction behavior
-exactly.
+exactly. \strong{Unlike \code{run_stage1_fusion()}'s P2.10 default flip, this default is intentionally
+unchanged} - the joint texture-group raw-draws route
+(\code{fuse_texture_group_batch_core()}'s per-cell Cholesky/MC sampler) has no equivalent
+\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} P2.9-style cost benchmark yet, so flipping its default
+too would be an unverified assumption, not a data-driven decision.
 }
 
