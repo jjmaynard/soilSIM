@@ -353,6 +353,89 @@ benchmark_fuse_general_kde_raw_draws <- function(ncell = 2000, n_unique_mukeys =
   invisible(list(default = t_default, raw_draws = t_raw, ratio = ratio))
 }
 
+# ---------------------------------------------------------------------------
+# 11. fuse_texture_group() default vs raw_draws (RASTER_STATISTICS_INTEGRATION_PLAN.md-adjacent -
+#    MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P2.11). Mirrors benchmark_fuse_general_kde_raw_
+#    draws() above, but for the joint texture-group route (fuse_texture_group_batch_core()'s
+#    per-cell Cholesky/MC sampler), which P2.9 never benchmarked - only the single-property
+#    general-KDE route was measured there.
+# ---------------------------------------------------------------------------
+make_synthetic_texture_percentile_rasters <- function(ncell, seed = 42) {
+  nr <- max(1, floor(sqrt(ncell)))
+  nc <- ceiling(ncell / nr)
+  n <- nr * nc
+  set.seed(seed)
+  clay <- pmax(pmin(stats::rnorm(n, 20, 3), 55), 1)
+  sand <- pmax(pmin(45 - 0.6 * (clay - 20) + stats::rnorm(n, 0, 2), 90), 1)
+  silt <- pmax(100 - clay - sand, 1)
+  mk_layer <- function(v) terra::rast(nrows = nr, ncols = nc, vals = v)
+  list(clay = clay, sand = sand, silt = silt, nr = nr, nc = nc,
+       template = mk_layer(clay))
+}
+
+benchmark_fuse_texture_group_batch_raw_draws <- function(ncell = 2000, n_unique_mukeys = 8, draws_per_mukey = 1500) {
+  base <- make_synthetic_texture_percentile_rasters(ncell, seed = 42)
+  actual_ncell <- length(base$clay)
+  probs <- c(0.05, 0.5, 0.95)
+
+  jitter_rasters <- function(v, spread, seed) {
+    set.seed(seed)
+    list(
+      lo = terra::rast(nrows = base$nr, ncols = base$nc, vals = v - spread + stats::runif(length(v), -0.5, 0.5)),
+      p50 = terra::rast(nrows = base$nr, ncols = base$nc, vals = v + stats::runif(length(v), -0.5, 0.5)),
+      hi = terra::rast(nrows = base$nr, ncols = base$nc, vals = v + spread + stats::runif(length(v), -0.5, 0.5))
+    )
+  }
+  clay_prior <- jitter_rasters(base$clay, 5, 1); clay_lik <- jitter_rasters(base$clay + 2, 5, 2)
+  sand_prior <- jitter_rasters(base$sand, 6, 3); sand_lik <- jitter_rasters(base$sand + 2, 6, 4)
+  silt_prior <- jitter_rasters(base$silt, 4, 5); silt_lik <- jitter_rasters(base$silt - 4, 4, 6)
+
+  fetched <- list(
+    list(id = "claytotal", prior = list(clay_prior$lo, clay_prior$p50, clay_prior$hi), prior_probs = probs,
+         lik = list(clay_lik$lo, clay_lik$p50, clay_lik$hi), lik_probs = probs),
+    list(id = "sandtotal", prior = list(sand_prior$lo, sand_prior$p50, sand_prior$hi), prior_probs = probs,
+         lik = list(sand_lik$lo, sand_lik$p50, sand_lik$hi), lik_probs = probs),
+    list(id = "silttotal", prior = list(silt_prior$lo, silt_prior$p50, silt_prior$hi), prior_probs = probs,
+         lik = list(silt_lik$lo, silt_lik$p50, silt_lik$hi), lik_probs = probs)
+  )
+
+  # Same "far fewer unique mukeys than cells" realism convention as benchmark_fuse_general_kde_raw_
+  # draws() above - mukey cardinality, not cell count, is what should drive raw_draws' extra cost.
+  set.seed(7)
+  mukey_codes <- sample(seq_len(n_unique_mukeys), actual_ncell, replace = TRUE)
+  mukey_raster <- base$template
+  terra::values(mukey_raster) <- mukey_codes
+  names(mukey_raster) <- "mukey"
+  mukey_raster <- terra::as.factor(mukey_raster)
+
+  mukey_texture_draws <- stats::setNames(
+    lapply(seq_len(n_unique_mukeys), function(i) {
+      set.seed(200 + i)
+      n <- draws_per_mukey
+      c_d <- pmax(stats::rnorm(n, 20 + i, 3), 1)
+      s_d <- pmax(45 - 0.6 * (c_d - 20) + stats::rnorm(n, 0, 2), 1)
+      si_d <- pmax(100 - c_d - s_d, 1)
+      cbind(clay_total = c_d, sand_total = s_d, silt_total = si_d)
+    }),
+    as.character(seq_len(n_unique_mukeys))
+  )
+
+  cat("== [11] fuse_texture_group() default vs raw_draws (", actual_ncell, "cells,",
+      n_unique_mukeys, "unique mukeys, synthetic) ==\n")
+
+  t_default <- system.time(result_default <- fuse_texture_group(fetched))
+  cat("default route:\n"); print(t_default)
+
+  t_raw <- system.time(
+    result_raw <- fuse_texture_group(fetched, mukey_raster = mukey_raster, mukey_texture_draws = mukey_texture_draws)
+  )
+  cat("raw_draws route:\n"); print(t_raw)
+
+  ratio <- unname(t_raw[["elapsed"]] / t_default[["elapsed"]])
+  cat(sprintf("raw_draws / default elapsed ratio: %.2fx\n\n", ratio))
+  invisible(list(default = t_default, raw_draws = t_raw, ratio = ratio))
+}
+
 if (identical(environment(), globalenv())) {
   benchmark_ssurgo_simulation()
   benchmark_texture_group_fusion()
@@ -364,5 +447,6 @@ if (identical(environment(), globalenv())) {
   benchmark_merge_adjusted_data()
   benchmark_apply_cross_property_constraints()
   benchmark_check_property_data_availability()
+  benchmark_fuse_texture_group_batch_raw_draws()
   cat("All benchmarks done.\n")
 }
