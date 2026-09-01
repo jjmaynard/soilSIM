@@ -1153,3 +1153,60 @@ test_that("mukey_draws_percentiles_raster() degrades an uncovered mukey to NA in
   expect_true(is.finite(vals[1]))
   expect_true(is.na(vals[2]))
 })
+
+test_that("fuse_general_kde(raw_draws)'s batched likelihood sampling produces finite, sane results across multiple mukeys and cells - MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P2.13", {
+  probs <- c(0.05, 0.25, 0.5, 0.75, 0.95)
+  n_cells <- 6
+  make_uniform_raster <- function(v, n) terra::rast(nrows = 1, ncols = n, vals = rep(v, n))
+
+  lik_value_rasters <- stats::setNames(
+    lapply(stats::qnorm(probs, 25, 5), make_uniform_raster, n = n_cells), paste0("P", round(probs * 100))
+  )
+  prior_value_rasters <- stats::setNames(
+    lapply(stats::qnorm(probs, 22, 4), make_uniform_raster, n = n_cells), paste0("P", round(probs * 100))
+  )
+  mukey_raster <- terra::rast(nrows = 1, ncols = n_cells, vals = rep(c(900, 901, 902), length.out = n_cells))
+  names(mukey_raster) <- "mukey"
+  mukey_raster <- terra::as.factor(mukey_raster)
+  set.seed(2026)
+  mukey_draws <- list(
+    "900" = stats::rlnorm(2000, meanlog = log(20), sdlog = 0.4),
+    "901" = stats::rlnorm(2000, meanlog = log(22), sdlog = 0.4),
+    "902" = stats::rlnorm(2000, meanlog = log(24), sdlog = 0.4)
+  )
+
+  result <- fuse_general_kde(prior_value_rasters, lik_value_rasters, probs, family = "normal",
+                              bounds = NULL, n_samples = 500, grid_resolution = NULL,
+                              mukey_raster = mukey_raster, mukey_draws = mukey_draws)
+  mu <- terra::values(result$posterior$mu)[, 1]
+  sigma <- terra::values(result$posterior$sigma)[, 1]
+  expect_true(all(is.finite(mu)))
+  expect_true(all(is.finite(sigma)))
+  expect_true(all(sigma > 0))
+  # Cells sharing a mukey should see broadly similar (not necessarily identical, since the
+  # likelihood side still differs per raster cell/chunk boundary) posterior means - a basic sanity
+  # check that the batched lookup is wiring the right mukey's draws to the right cells, not
+  # scrambling them across the chunk.
+  expect_true(sd(mu) < 3)
+})
+
+test_that("fuse_general_kde(raw_draws) degrades a cell with no matching mukey draws to the percentile-reconstruction fallback, unaffected by P2.13's batching", {
+  probs <- c(0.05, 0.25, 0.5, 0.75, 0.95)
+  mukey_raster <- terra::rast(nrows = 1, ncols = 2, vals = c(900, 901))  # 901 has no draws entry
+  names(mukey_raster) <- "mukey"
+  mukey_raster <- terra::as.factor(mukey_raster)
+  mukey_draws <- list("900" = stats::rlnorm(2000, meanlog = log(20), sdlog = 0.4))
+
+  make_pct <- function(mu, sd) {
+    stats::setNames(lapply(probs, function(p) terra::rast(nrows = 1, ncols = 2, vals = rep(stats::qnorm(p, mu, sd), 2))),
+                     paste0("P", round(probs * 100)))
+  }
+  prior_r <- make_pct(22, 4)
+  lik_r <- make_pct(25, 5)
+
+  result <- fuse_general_kde(prior_r, lik_r, probs, family = "normal", bounds = NULL,
+                              n_samples = 500, grid_resolution = NULL,
+                              mukey_raster = mukey_raster, mukey_draws = mukey_draws)
+  mu <- terra::values(result$posterior$mu)[, 1]
+  expect_true(all(is.finite(mu)))  # cell 2 (no draws) must still degrade to a finite fallback, not NA/error
+})

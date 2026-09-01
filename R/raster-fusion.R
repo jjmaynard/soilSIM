@@ -573,8 +573,14 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
   # The raw_draws path (mukey_prior_samples lookup) is deliberately NOT merged into the
   # fast/slow-path vectorized split above - it's a separate, simpler row-by-row branch so the
   # already-tuned default path (still the only path any existing caller reaches, since
-  # mukey_raster/mukey_draws default to NULL) is untouched. Further vectorizing the raw_draws path
-  # is a documented follow-up once it's validated (P2.7-P2.9), not a Phase A concern.
+  # mukey_raster/mukey_draws default to NULL) is untouched. `bayesian_update()`'s density() call
+  # still runs per cell either way (no vectorized form exists in base R) - but as of P2.13, the
+  # LIKELIHOOD-side sampling (sim_linear_cdf_batch()) is now batched once across every
+  # lik_no_na cell in the chunk up front, the same technique the fast path above already proves
+  # out, instead of one row-by-row call per cell inside the loop
+  # (MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P2.13). The PRIOR-side fallback sampling (for a
+  # cell whose mukey has no draws coverage) stays row-by-row - it's the rarer path and out of this
+  # task's scope, though the same batching technique would apply there too.
   fun <- function(row_mat) {
     row_mat <- if (is.matrix(row_mat)) row_mat else matrix(row_mat, nrow = 1)
     n_cells <- nrow(row_mat)
@@ -590,6 +596,17 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
       # coverage (NA) or an unknown/empty mukey fall back to the percentile-reconstruction route
       # for that cell only, preserving the existing degrade-to-something-reasonable behavior.
       lik_no_na <- stats::complete.cases(lik_mat) & rowSums(lik_mat == -1, na.rm = TRUE) == 0
+      # P2.13: batch the likelihood-side sampling once across every lik_no_na cell in the chunk,
+      # instead of one sim_linear_cdf_batch() call per cell inside the loop below - lik_row_pos[i]
+      # is cell i's row within lik_samples_mat (only meaningful where lik_no_na[i] is TRUE).
+      lik_samples_mat <- NULL
+      lik_row_pos <- cumsum(lik_no_na)
+      if (any(lik_no_na)) {
+        lik_samples_mat <- tryCatch(
+          sim_linear_cdf_batch(percentile_probs, lik_mat[which(lik_no_na), , drop = FALSE], n_samples),
+          error = function(e) NULL
+        )
+      }
       for (i in seq_len(n_cells)) {
         mk <- mukey_col[i]
         prior_samples <- if (!is.na(mk)) mukey_prior_samples[[as.character(mk)]] else NULL
@@ -604,12 +621,8 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
           )
           if (is.null(prior_samples)) next
         }
-        if (!lik_no_na[i]) next
-        lik_samples <- tryCatch(
-          sim_linear_cdf_batch(percentile_probs, lik_mat[i, , drop = FALSE], n_samples)[1, ],
-          error = function(e) NULL
-        )
-        if (is.null(lik_samples)) next
+        if (!lik_no_na[i] || is.null(lik_samples_mat)) next
+        lik_samples <- lik_samples_mat[lik_row_pos[i], ]
         post <- tryCatch(
           bayesian_update(prior_samples, lik_samples, grid_resolution = effective_grid_resolution,
                            winsorize_probs = FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS,
