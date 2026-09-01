@@ -19,3 +19,16 @@ Area validation results
 \description{
 Validate geometry area against specified limits
 }
+\section{Usage note}{
+
+Fully implemented and exported, but not currently called from anywhere
+else in the package (confirmed by source grep) - standalone public API,
+not dead/broken code. \code{\link{validate_wkt_geometry}} (the package's
+live WKT validation entry point) does its own area check inline rather
+than delegating here, since its area calculation intentionally differs
+from this function's bounding-box approximation for geographic
+coordinates (see \code{\link{parse_wkt_geometry}}'s Usage note for the
+same distinction) and its \code{area_limits$max_action} semantics (warn vs.
+error) predate this function.
+}
+

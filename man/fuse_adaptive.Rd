@@ -14,7 +14,10 @@ fuse_adaptive(
   threshold_cells = 80000,
   n_samples = 500,
   grid_resolution = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  mukey_raster = NULL,
+  mukey_draws = NULL,
+  posterior_probs = NULL
 )
 }
 \arguments{
@@ -43,13 +46,29 @@ the profiling/accuracy justification for why this differs from \code{bayesian_up
 standalone default of \code{0.01}.}
 
 \item{verbose}{If TRUE (default), print the chosen route and why.}
+
+\item{mukey_raster, mukey_draws}{Optional - passed through to \code{fuse_general_kde()} to opt into
+\code{prior_fusion_method = "raw_draws"} (see its docs and
+\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.2/P2.3). Ignored on the closed-form route
+(Phase 2b, not yet implemented - see that task's tracker entry). \code{NULL} (default) preserves
+original behavior exactly.}
+
+\item{posterior_probs}{Passed through to whichever route runs (\code{fuse_general_kde()} for the
+general route, \code{fuse_closed_form()} for the closed-form route - see \link{FUSE_POSTERIOR_DEFAULT_PROBS}).
+\code{NULL} (default) resolves to the same rich default on both routes. The general route computes
+percentiles from \code{bayesian_update()}'s discretized posterior (exact relative to
+\code{grid_resolution}, but tail percentiles are limited by how well the KDE approximates the tails
+from a finite sample); the closed-form route computes them analytically (\code{qnorm}/\code{qbeta}/
+\code{qgamma} at the fused family parameters - exact regardless of how extreme the probability).}
 }
 \value{
 A list:
 \itemize{
 \item \code{posterior}: family-native parameter list (\code{mu}/\code{sigma} for "normal",
 \code{alpha}/\code{beta} for "beta", \code{shape}/\code{rate} for "gamma") - always this
-shape regardless of which route ran.
+shape regardless of which route ran. Also carries \code{percentiles}: a named list of
+\code{SpatRaster}s (\code{"P01"}..\code{"P99"} by default), one per \code{posterior_probs} entry, on both
+routes (as of P3.3).
 \item \code{route}: one of \code{"bayesian_update_general"}, \code{"closed_form_normal"},
 \code{"closed_form_beta"}, \code{"closed_form_gamma"}.
 \item \code{route_detail}: for \code{family \%in\% c("beta","gamma")} on the

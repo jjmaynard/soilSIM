@@ -135,6 +135,46 @@ test_that("fetch_ssurgo_all_components_working() requires the live SDA service",
   testthat::skip("Live NRCS Soil Data Access queries are not exercised in automated tests.")
 })
 
+## The two tests below mock soilDB::mukey.wcs() with a trivial synthetic raster - unlike the
+## skipped tests above, these do NOT attempt to fixture-maintain a realistic SDA response shape
+## (the concern the file-header comment flags). They exist solely to verify our OWN control flow:
+## that process_aoi_and_get_mukeys_working() actually reuses a pre-fetched mukey_raster instead of
+## calling mukey.wcs() a second time - see MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P1.4. This
+## is exactly the network-fetch-count regression protection that didn't exist before.
+
+test_that("process_aoi_and_get_mukeys_working() reuses a pre-fetched mukey_raster instead of calling mukey.wcs() again", {
+  synthetic_mu <- terra::rast(nrows = 2, ncols = 2, vals = c(101, 101, 202, 202))
+  names(synthetic_mu) <- "mukey"
+
+  testthat::local_mocked_bindings(
+    mukey.wcs = function(...) stop("mukey.wcs() should not be called when a pre-fetched mukey_raster is supplied"),
+    .package = "soilDB"
+  )
+
+  result <- process_aoi_and_get_mukeys_working(sample_wkt, mukey_raster = synthetic_mu)
+
+  expect_setequal(result$mukey_list, c(101, 202))
+})
+
+test_that("process_aoi_and_get_mukeys_working() still calls mukey.wcs() itself when mukey_raster is NULL (default, unchanged behavior)", {
+  synthetic_mu <- terra::rast(nrows = 2, ncols = 2, vals = c(303, 303, 404, 404))
+  names(synthetic_mu) <- "mukey"
+
+  wcs_calls <- 0
+  testthat::local_mocked_bindings(
+    mukey.wcs = function(...) {
+      wcs_calls <<- wcs_calls + 1
+      synthetic_mu
+    },
+    .package = "soilDB"
+  )
+
+  result <- process_aoi_and_get_mukeys_working(sample_wkt)
+
+  expect_equal(wcs_calls, 1)
+  expect_setequal(result$mukey_list, c(303, 404))
+})
+
 test_that("synthesize_component_horizons_from_siblings() averages numeric properties per genhz group across siblings", {
   fx <- make_component_recovery_fixture()
   target <- fx$all_components[fx$all_components$cokey == "20", , drop = FALSE]

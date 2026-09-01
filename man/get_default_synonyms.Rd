@@ -15,3 +15,13 @@ Named list of synonyms
 \description{
 Returns common synonym mappings for different property sources
 }
+\section{Usage note}{
+
+Fully implemented and exported, but not currently called from anywhere
+else in the package (confirmed by source grep) - standalone public API
+for callers who need it, not dead/broken code. Its \code{"ssurgo"} branch
+shares the same canonical synonym data as \code{get_default_property_mapping()}
+(internal) and \code{\link{validate_properties_with_synonyms}} (see
+\code{.ssurgo_property_synonyms()}), so it can no longer drift from them.
+}
+

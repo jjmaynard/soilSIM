@@ -21,7 +21,7 @@
 #'   written; see `bayes_update_normal_normal()`'s own doc comment upstream,
 #'   which claims exactly this property).
 #'
-#' @section Deliberately out of scope:
+#' @section Formerly out of scope, now implemented:
 #' `run_stage1_fusion()`/`run_stage1_fusion_group()` (the original top-level
 #' orchestrators) were initially **not** ported, since at that point their
 #' dependencies - `build_cache_key()`, `cache_get()`/`cache_set()`,
@@ -33,14 +33,15 @@
 #' functions listed as unresolved integration gaps for that project. Those
 #' gaps have since been closed (`R/raster-cache.R`, `R/ssurgo-simulation.R`,
 #' `R/solus-simulation.R`), and `run_stage1_fusion()`/
-#' `run_stage1_fusion_group()` are now fully implemented below, wiring
-#' everything together. `fuse_property_adaptive()` remains the lower-level
-#' entry point for callers who already have their own pre-fetched
-#' `prior_value_rasters`/`lik_value_rasters` and want to skip the
-#' fetch-and-cache wrapper.
+#' `run_stage1_fusion_group()` are now fully implemented below (this is a
+#' historical note, not a current limitation), wiring everything together.
+#' `fuse_property_adaptive()` remains the lower-level entry point for callers
+#' who already have their own pre-fetched `prior_value_rasters`/
+#' `lik_value_rasters` and want to skip the fetch-and-cache wrapper.
 #'
-#' Also not ported: the global `PROPERTIES` config-list registry from the
-#' source bundle's `config.R`. `group_members()`/`fuse_property_adaptive()`
+#' @section Deliberately out of scope:
+#' The global `PROPERTIES` config-list registry from the source bundle's
+#' `config.R` was not ported. `group_members()`/`fuse_property_adaptive()`
 #' below take a per-call config list/member vector directly instead,
 #' reusing soilSIM's own existing `config$monte_carlo$composition_groups`
 #' convention (see `R/distributions.R`'s `resolve_composition_groups()`)
@@ -131,6 +132,117 @@ align_percentile_probs <- function(prior_value_rasters, prior_probs, lik_value_r
 # Size-adaptive fusion for normal/beta/gamma
 # ---------------------------------------------------------------------------
 
+#' Analytic Normal percentiles, raster-native (`mu + sigma * qnorm(p)`)
+#'
+#' Pure raster arithmetic - `qnorm(p)` is a single scalar per requested probability (unlike
+#' `qbeta()`/`qgamma()`, whose quantile depends on the shape parameters too, not just `p`), so no
+#' per-cell dispatch (`terra::app()`) is needed at all; exact, and effectively free.
+#' @param mu,sigma Normal parameter SpatRasters.
+#' @param posterior_probs Numeric probabilities (0-1).
+#' @return Named list of percentile `SpatRaster`s (names `"P1"`, `"P50"`, ... matching `posterior_probs`).
+#' @keywords internal
+qnorm_percentiles_raster <- function(mu, sigma, posterior_probs) {
+  z <- stats::qnorm(posterior_probs)
+  stats::setNames(
+    lapply(z, function(zi) mu + sigma * zi),
+    paste0("P", round(posterior_probs * 100))
+  )
+}
+
+#' Analytic Beta/Gamma percentiles, raster-native, via per-cell `terra::app()`
+#'
+#' Unlike the Normal case, `qbeta()`/`qgamma()`'s quantile is a genuinely nonlinear function of
+#' both the target probability AND the shape parameters, so there is no scalar-arithmetic
+#' shortcut - this dispatches per cell via `terra::app()`, but still computes every requested
+#' probability for a cell in one `vapply()` call (R's `qbeta()`/`qgamma()` are already vectorized
+#' over their shape-parameter arguments), not one `terra::app()` pass per probability.
+#' @param param1,param2 The two shape-parameter SpatRasters (`alpha`/`beta` or `shape`/`rate`).
+#' @param qfun `stats::qbeta` or `stats::qgamma` (or any `function(p, param1, param2)`).
+#' @param posterior_probs Numeric probabilities (0-1).
+#' @return Named list of percentile `SpatRaster`s.
+#' @keywords internal
+closed_form_percentiles_raster <- function(param1, param2, qfun, posterior_probs) {
+  combined <- c(param1, param2)
+  np <- length(posterior_probs)
+  fun <- function(row_mat) {
+    row_mat <- if (is.matrix(row_mat)) row_mat else matrix(row_mat, nrow = 1)
+    p1 <- row_mat[, 1]; p2 <- row_mat[, 2]
+    vapply(posterior_probs, function(p) qfun(p, p1, p2), numeric(length(p1)))
+  }
+  res <- terra::app(combined, fun)
+  stats::setNames(
+    lapply(seq_len(np), function(i) res[[i]]),
+    paste0("P", round(posterior_probs * 100))
+  )
+}
+
+#' Per-unique-mukey closed-form family fit from real Monte Carlo draws, broadcast to a raster
+#'
+#' Precomputes a family-native parameter fit (Normal `mu`/`sigma`, Beta `alpha`/`beta`, or Gamma
+#' `shape`/`rate`) once per UNIQUE mukey directly from that mukey's real simulated draws, then
+#' broadcasts the result onto every cell sharing that mukey via one vectorized categorical lookup
+#' (`terra::subst()`) - not a per-cell computation, unlike `fuse_general_kde()`'s raw_draws branch
+#' (which needs a per-cell `density()` call and so is meaningfully slower). Verified cheap
+#' (`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` tasks P2.6/P2.10): at 100,172 synthetic cells and 150
+#' unique mukeys, the whole precompute+broadcast pipeline measured ~0.18s total - negligible next
+#' to the existing family-specific fit costs it complements (beta's Newton-Raphson fit alone
+#' measured ~20s at the same cell count), because cost here scales with mukey CARDINALITY, not
+#' cell count.
+#'
+#' @param mukey_raster Categorical mukey SpatRaster, aligned to the target grid.
+#' @param mukey_draws A `mukey_draws_lookup()` result - named list keyed by mukey (character), each
+#'   element a numeric vector of real simulated draws for that mukey.
+#' @param family One of "normal", "beta", "gamma".
+#' @param bounds Required for `family = "beta"` - draws are scaled to `[0,1]` before fitting, to
+#'   match `fit_beta_mle_newton_raster()`'s own scaled-space convention (see that function's docs) -
+#'   `qfun`/downstream percentile code already expects `alpha`/`beta` in that scaled space.
+#' @return A named list of `SpatRaster`s (`mu`/`sigma`, `alpha`/`beta`, or `shape`/`rate`) - `NA`
+#'   at any cell whose mukey has no `mukey_draws` entry. No fallback is applied here; the caller
+#'   merges this against the percentile-based fit for such cells (matching every other raw_draws
+#'   branch's per-cell degrade-to-percentile-reconstruction convention).
+#' @keywords internal
+mukey_draws_closed_form_fit_raster <- function(mukey_raster, mukey_draws, family, bounds = NULL) {
+  param_names <- switch(family, normal = c("mu", "sigma"), beta = c("alpha", "beta"), gamma = c("shape", "rate"))
+
+  mukey_codes <- suppressWarnings(as.numeric(names(mukey_draws)))
+  valid <- !is.na(mukey_codes) & vapply(mukey_draws, length, integer(1)) > 0
+  mukey_codes <- mukey_codes[valid]
+  draws_list <- mukey_draws[valid]
+
+  mukey_raster_plain <- mukey_raster
+  levels(mukey_raster_plain) <- NULL
+
+  if (length(mukey_codes) == 0) {
+    na_r <- mukey_raster_plain * NA_real_
+    return(stats::setNames(lapply(param_names, function(p) na_r), param_names))
+  }
+
+  fits <- lapply(draws_list, function(draws) {
+    switch(family,
+      normal = list(mu = mean(draws), sigma = stats::sd(draws)),
+      gamma = moments_to_gamma(mean(draws), stats::var(draws)),
+      beta = {
+        scaled <- pmin(pmax((draws - bounds[1]) / (bounds[2] - bounds[1]), 1e-6), 1 - 1e-6)
+        fit <- tryCatch(fitdistrplus::fitdist(scaled, "beta"), error = function(e) NULL)
+        if (is.null(fit)) list(alpha = NA_real_, beta = NA_real_)
+        else list(alpha = unname(fit$estimate[1]), beta = unname(fit$estimate[2]))
+      }
+    )
+  })
+
+  stats::setNames(lapply(param_names, function(p) {
+    to <- vapply(fits, function(f) f[[p]], numeric(1))
+    # others = NA_real_ is required: terra::subst()'s default behavior for a mukey code with no
+    # match in `from` is to leave the cell's ORIGINAL value unchanged (the raw mukey code number
+    # itself), not NA - silently corrupting fuse_closed_form()'s merge_raw_fit() fallback (which
+    # relies on is.na() to detect "no raw-draws coverage, use the percentile fit instead") into
+    # treating a mukey code like 602 as a fitted mu/alpha/shape of 602. Confirmed via a live repro
+    # during P2.6 testing: without this, an uncovered cell's Normal-Normal update saw an absurd
+    # prior (mu=602, sigma=602) instead of correctly falling back to the percentile-based fit.
+    terra::subst(mukey_raster_plain, from = mukey_codes, to = to, others = NA_real_)
+  }), param_names)
+}
+
 #' Closed-form same-family fusion path for `fuse_adaptive()`, with a
 #' per-cell fallback to Normal-moment fusion (re-expressed back into the
 #' requested family) where the naive same-family fusion is infeasible.
@@ -138,19 +250,53 @@ align_percentile_probs <- function(prior_value_rasters, prior_probs, lik_value_r
 #' @param percentile_probs Numeric probabilities matching the value-raster list order.
 #' @param family One of "normal", "beta", "gamma".
 #' @param bounds Required for `family = "beta"`.
-#' @return `list(posterior=, route_detail=, n_fallback_cells=)`.
+#' @param posterior_probs Numeric probabilities (0-1) at which to report posterior percentiles.
+#'   `NULL` (default) resolves to [FUSE_POSTERIOR_DEFAULT_PROBS]. Computed analytically
+#'   (`qnorm`/`qbeta`/`qgamma` at the fused family parameters) - exact regardless of how extreme
+#'   the requested probability is, unlike `fuse_general_kde()`'s sample/grid-based route.
+#' @param mukey_raster,mukey_draws Optional - opts into `prior_fusion_method = "raw_draws"` for
+#'   this (closed-form) route, added `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.6. Fits the
+#'   PRIOR side's family parameters directly from each cell's mukey's real Monte Carlo draws (via
+#'   `mukey_draws_closed_form_fit_raster()`) instead of `fit_normal_raster()`/
+#'   `fit_beta_mle_newton_raster()`/`fit_gamma_mom_raster()`'s percentile-triplet formulas - cells
+#'   whose mukey has no draws entry fall back to the percentile-based fit for that cell only, same
+#'   convention as `fuse_general_kde()`'s raw_draws branch. The LIKELIHOOD (SOLUS) side is
+#'   unaffected either way - no raw-draws equivalent exists for it. `NULL` (default) for either
+#'   parameter preserves the original percentile-only behavior exactly.
+#' @return `list(posterior=, route_detail=, n_fallback_cells=)`. `posterior` carries a new
+#'   `percentiles` field (named list of `SpatRaster`s) alongside the existing family-native
+#'   parameters.
 #' @keywords internal
-fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_probs, family, bounds) {
+fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_probs, family, bounds,
+                              posterior_probs = NULL, mukey_raster = NULL, mukey_draws = NULL) {
+  effective_posterior_probs <- if (is.null(posterior_probs)) FUSE_POSTERIOR_DEFAULT_PROBS else posterior_probs
+  use_raw_draws <- !is.null(mukey_raster) && !is.null(mukey_draws)
+
+  # Merges a raw-draws-based fit onto the percentile-based fit, cell-by-cell - a cell whose mukey
+  # has no mukey_draws entry (raw_fit == NA there) keeps its percentile-based value instead.
+  merge_raw_fit <- function(percentile_fit, raw_fit) {
+    stats::setNames(lapply(names(percentile_fit), function(p) {
+      terra::ifel(is.na(raw_fit[[p]]), percentile_fit[[p]], raw_fit[[p]])
+    }), names(percentile_fit))
+  }
+
   if (family == "normal") {
     idx <- percentile_index(percentile_probs)
     fit_prior <- fit_normal_raster(prior_value_rasters[[idx$lo_idx]], prior_value_rasters[[idx$p50_idx]], prior_value_rasters[[idx$hi_idx]], idx$p_lo, idx$p_hi)
+    if (use_raw_draws) {
+      fit_prior <- merge_raw_fit(fit_prior, mukey_draws_closed_form_fit_raster(mukey_raster, mukey_draws, "normal"))
+    }
     fit_lik <- fit_normal_raster(lik_value_rasters[[idx$lo_idx]], lik_value_rasters[[idx$p50_idx]], lik_value_rasters[[idx$hi_idx]], idx$p_lo, idx$p_hi)
     posterior <- bayes_update_normal_normal(fit_prior$mu, fit_prior$sigma, fit_lik$mu, fit_lik$sigma)
+    posterior$percentiles <- qnorm_percentiles_raster(posterior$mu, posterior$sigma, effective_posterior_probs)
     return(list(posterior = posterior, route_detail = NULL, n_fallback_cells = 0))
   }
 
   if (family == "beta") {
     fit_prior <- fit_beta_mle_newton_raster(prior_value_rasters, bounds)
+    if (use_raw_draws) {
+      fit_prior <- merge_raw_fit(fit_prior, mukey_draws_closed_form_fit_raster(mukey_raster, mukey_draws, "beta", bounds = bounds))
+    }
     fit_lik <- fit_beta_mle_newton_raster(lik_value_rasters, bounds)
     fused <- fuse_beta(fit_prior$alpha, fit_prior$beta, fit_lik$alpha, fit_lik$beta)
 
@@ -170,11 +316,20 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
     route_detail <- terra::ifel(fused$feasible, 1, 0)
     n_fallback <- sum(!terra::values(fused$feasible), na.rm = TRUE)
 
-    return(list(posterior = list(alpha = alpha_final, beta = beta_final), route_detail = route_detail, n_fallback_cells = n_fallback))
+    # alpha_final/beta_final fit Beta(alpha,beta) on the BOUNDS-SCALED [0,1] space (see
+    # fit_beta_mle_newton_raster()) - qbeta() output must be rescaled back to raw units.
+    scaled_percentiles <- closed_form_percentiles_raster(alpha_final, beta_final, stats::qbeta, effective_posterior_probs)
+    percentiles <- lapply(scaled_percentiles, function(r) bounds[1] + r * span)
+
+    posterior <- list(alpha = alpha_final, beta = beta_final, percentiles = percentiles)
+    return(list(posterior = posterior, route_detail = route_detail, n_fallback_cells = n_fallback))
   }
 
   if (family == "gamma") {
     fit_prior <- fit_gamma_mom_raster(prior_value_rasters)
+    if (use_raw_draws) {
+      fit_prior <- merge_raw_fit(fit_prior, mukey_draws_closed_form_fit_raster(mukey_raster, mukey_draws, "gamma"))
+    }
     fit_lik <- fit_gamma_mom_raster(lik_value_rasters)
     fused <- fuse_gamma(fit_prior$shape, fit_prior$rate, fit_lik$shape, fit_lik$rate)
 
@@ -188,7 +343,9 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
     route_detail <- terra::ifel(fused$feasible, 1, 0)
     n_fallback <- sum(!terra::values(fused$feasible), na.rm = TRUE)
 
-    return(list(posterior = list(shape = shape_final, rate = rate_final), route_detail = route_detail, n_fallback_cells = n_fallback))
+    percentiles <- closed_form_percentiles_raster(shape_final, rate_final, stats::qgamma, effective_posterior_probs)
+    posterior <- list(shape = shape_final, rate = rate_final, percentiles = percentiles)
+    return(list(posterior = posterior, route_detail = route_detail, n_fallback_cells = n_fallback))
   }
 }
 
@@ -218,6 +375,54 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
 #' @keywords internal
 FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION <- 0.1
 
+#' Default `winsorize_probs` `fuse_general_kde()` passes to `bayesian_update()` on its `raw_draws`
+#' branch only (see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P3.1).
+#'
+#' @section Why this exists:
+#' `bayesian_update()`'s `stats::density(bw = "nrd0")` bandwidth choice is sensitive to outliers a
+#' raw-draws resample can genuinely contain - confirmed via a dedicated adversarial test (P2.7): a
+#' right-skewed synthetic prior's raw resample (realized range ~4-195) produced a measurably wider
+#' KDE bandwidth, and a *less* accurate fused posterior mean on average across 8 seeds, than the
+#' percentile-reconstruction route's resample (confined to ~7-64, the same data's P5-P95 range).
+#' Clipping each side to its own P01-P99 range before density estimation directly counters that
+#' outlier-driven inflation while retaining the bulk of the real distribution's shape - only the
+#' most extreme 1% on each tail is affected, which is exactly the region a KDE-based fused mean is
+#' most vulnerable to.
+#'
+#' `bayesian_update()`'s own standalone default is deliberately left `NULL` (unclipped) - this
+#' constant only affects `fuse_general_kde()`'s `raw_draws` branch, which is the one path
+#' confirmed to need it; the default percentile-reconstruction branch is already structurally
+#' bounded near its own P5-P95 input range and is left untouched.
+#' @keywords internal
+FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS <- c(0.01, 0.99)
+
+#' Default posterior percentile set computed by `fuse_general_kde()` (and, as later routes adopt
+#' it, every other fusion route - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P3.2+).
+#'
+#' @section Why 9 points, not the 5-point SSURGO/SOLUS input convention:
+#' The 5-point set (`c(0.05, 0.25, 0.5, 0.75, 0.95)`) is what SSURGO/SOLUS happen to provide as raw
+#' *input* percentile data - a real external constraint on the prior/likelihood side. The
+#' *posterior* has no such constraint, since this package computes it, and 5 points under-resolves
+#' exactly the tail behavior risk/cost-assessment use cases need (exceedance probabilities,
+#' asymmetric credible intervals). This set covers a 98% interval (P01/P99, standard for tail-risk
+#' work), a 90% interval (P05/P95), and an 80% interval (P10/P90), alongside the existing
+#' median/IQR.
+#'
+#' @section Reliability note:
+#' For the closed-form analytic routes (`qnorm`/`qbeta`/`qgamma`, not yet on this constant as of
+#' P3.2 - see P3.3), extra percentiles are free and exact regardless of how extreme they are. For
+#' `fuse_general_kde()`'s sample/grid-based route, percentiles are read directly off
+#' `bayesian_update()`'s discretized `posterior_prob` (see that function's own "Grid-based
+#' percentiles" section) - exact relative to `grid_resolution` and NOT resampling-noise-limited,
+#' but still subject to how well the underlying KDE itself approximates the tails from a finite
+#' `n_samples`-sized input resample; the extreme percentiles here (P01/P99) are inherently noisier
+#' than the inner ones (P10-P90) for that reason, not because of resampling.
+#'
+#' A caller needing even more extreme tail resolution (e.g. P0.1/P99.9) can pass its own
+#' `posterior_probs` instead of relying on this default.
+#' @keywords internal
+FUSE_POSTERIOR_DEFAULT_PROBS <- c(0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99)
+
 #' Fully general fusion path for `fuse_adaptive()`: per cell, draw samples
 #' from both sides' percentiles (via `simulate_from_percentiles(method=
 #' "linear_cdf")`), fuse via `bayesian_update()`, and moment-match the
@@ -228,9 +433,30 @@ FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION <- 0.1
 #' @param grid_resolution Passed to `bayesian_update()`. `NULL` (the caller-facing default from
 #'   `fuse_adaptive()`) resolves to [FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION], not
 #'   `bayesian_update()`'s own standalone default of `0.01` - see that constant's docs for why.
+#' @param mukey_raster,mukey_draws Optional - opts into `prior_fusion_method = "raw_draws"` (see
+#'   `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.2/P2.3). `mukey_raster` must already be
+#'   aligned to the same grid as `prior_value_rasters`/`lik_value_rasters` (nearest-neighbor
+#'   resampled, since it's categorical - bilinear would fabricate nonsensical mukey codes).
+#'   `mukey_draws` is a `mukey_draws_lookup()` result. When both are supplied, the PRIOR side's
+#'   samples for a cell are drawn from that cell's mukey's real Monte Carlo draws (computed
+#'   once per unique mukey, not once per cell) instead of `sim_linear_cdf_batch()`'s
+#'   percentile-reconstructed approximation - a genuine fidelity improvement, not just a speed one,
+#'   since the real draws carry information the 5-percentile summary lost. The LIKELIHOOD (SOLUS)
+#'   side is unaffected either way, since it has no raw-draws equivalent (see that function's own
+#'   docs). `NULL` (default) for either parameter preserves the original percentile-reconstruction
+#'   behavior for the prior side exactly - bit-identical output to before this parameter existed.
+#' @param posterior_probs Numeric vector of probabilities (0-1) at which to report posterior
+#'   percentiles, computed via `bayesian_update()`'s grid-based exact percentile machinery (see
+#'   that function's docs). `NULL` (default) resolves to [FUSE_POSTERIOR_DEFAULT_PROBS] - unlike
+#'   `bayesian_update()`'s own `NULL` default (which means "no percentiles, preserve the original
+#'   plain-vector return"), this is an internal orchestration parameter with no external
+#'   plain-vector consumers, so its `NULL` means "use the standard rich default" instead. Also used
+#'   to compute `mu`/`sigma` (via the exact grid-based mean/var, not `mean()`/`var()` on a resampled
+#'   vector - a strictly more accurate replacement for the pre-P3.2 computation, at no extra cost).
 #' @keywords internal
 fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_probs,
-                              family, bounds, n_samples, grid_resolution) {
+                              family, bounds, n_samples, grid_resolution,
+                              mukey_raster = NULL, mukey_draws = NULL, posterior_probs = NULL) {
   percentile_cols <- paste0("P", round(percentile_probs * 100))
   k <- length(percentile_probs)
   prior_stack <- terra::rast(prior_value_rasters); names(prior_stack) <- paste0("prior_", percentile_cols)
@@ -238,6 +464,28 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
   combined <- c(prior_stack, lik_stack)
 
   effective_grid_resolution <- if (is.null(grid_resolution)) FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION else grid_resolution
+  effective_posterior_probs <- if (is.null(posterior_probs)) FUSE_POSTERIOR_DEFAULT_PROBS else posterior_probs
+  np <- length(effective_posterior_probs)
+  posterior_col_names <- paste0("P", round(effective_posterior_probs * 100))
+
+  use_raw_draws <- !is.null(mukey_raster) && !is.null(mukey_draws)
+  if (use_raw_draws) {
+    # Precompute, once per unique mukey (not once per cell), a fixed n_samples-sized resample of
+    # that mukey's real Monte Carlo draws. Reused via a per-cell mukey lookup below, rather
+    # than reconstructing an approximation from percentiles for every cell that happens to share
+    # the same mukey.
+    mukey_prior_samples <- lapply(mukey_draws, function(vals) {
+      if (length(vals) == 0) return(NULL)
+      sample(vals, n_samples, replace = TRUE)
+    })
+    # Strip factor status before stacking - terra::c() silently coerces a categorical layer to
+    # numeric anyway (with a warning), and the raw numeric codes are exactly the mukey values this
+    # function needs to look up in mukey_prior_samples/mukey_draws; dropping the levels explicitly
+    # gets the same numeric codes without the warning.
+    mukey_raster_plain <- mukey_raster
+    levels(mukey_raster_plain) <- NULL
+    combined <- c(combined, mukey_raster_plain)
+  }
 
   # terra::app() calls fun with a plain matrix (cells x layers) for a
   # chunk, and makes an initial probe call with a bare vector (not a
@@ -257,17 +505,61 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
   # Tier 4). bayesian_update()'s density() call still runs per cell (no vectorized form exists in
   # base R), and any cell with a missing value falls back to the original per-cell
   # simulate_from_percentiles() path unchanged, preserving the exact NA-degradation contract above.
+  #
+  # The raw_draws path (mukey_prior_samples lookup) is deliberately NOT merged into the
+  # fast/slow-path vectorized split above - it's a separate, simpler row-by-row branch so the
+  # already-tuned default path (still the only path any existing caller reaches, since
+  # mukey_raster/mukey_draws default to NULL) is untouched. Further vectorizing the raw_draws path
+  # is a documented follow-up once it's validated (P2.7-P2.9), not a Phase A concern.
   fun <- function(row_mat) {
     row_mat <- if (is.matrix(row_mat)) row_mat else matrix(row_mat, nrow = 1)
     n_cells <- nrow(row_mat)
     prior_mat <- row_mat[, 1:k, drop = FALSE]
     lik_mat <- row_mat[, (k + 1):(2 * k), drop = FALSE]
+    mukey_col <- if (use_raw_draws) row_mat[, 2 * k + 1] else NULL
+
+    # Columns: mean, var, then one column per `effective_posterior_probs` entry (in that order).
+    result <- matrix(NA_real_, nrow = n_cells, ncol = 2 + np)
+
+    if (use_raw_draws) {
+      # Row-by-row: look up each cell's mukey's precomputed prior samples; cells with no mukey
+      # coverage (NA) or an unknown/empty mukey fall back to the percentile-reconstruction route
+      # for that cell only, preserving the existing degrade-to-something-reasonable behavior.
+      lik_no_na <- stats::complete.cases(lik_mat) & rowSums(lik_mat == -1, na.rm = TRUE) == 0
+      for (i in seq_len(n_cells)) {
+        mk <- mukey_col[i]
+        prior_samples <- if (!is.na(mk)) mukey_prior_samples[[as.character(mk)]] else NULL
+        if (is.null(prior_samples)) {
+          # Fallback: no real draws for this cell's mukey - reconstruct from its own percentiles,
+          # same as the default (non-raw_draws) path would.
+          row <- prior_mat[i, ]
+          if (anyNA(row) || any(row == -1, na.rm = TRUE)) next
+          prior_samples <- tryCatch(
+            sim_linear_cdf_batch(percentile_probs, matrix(row, nrow = 1), n_samples)[1, ],
+            error = function(e) NULL
+          )
+          if (is.null(prior_samples)) next
+        }
+        if (!lik_no_na[i]) next
+        lik_samples <- tryCatch(
+          sim_linear_cdf_batch(percentile_probs, lik_mat[i, , drop = FALSE], n_samples)[1, ],
+          error = function(e) NULL
+        )
+        if (is.null(lik_samples)) next
+        post <- tryCatch(
+          bayesian_update(prior_samples, lik_samples, grid_resolution = effective_grid_resolution,
+                           winsorize_probs = FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS,
+                           posterior_probs = effective_posterior_probs),
+          error = function(e) NULL
+        )
+        if (!is.null(post)) result[i, ] <- c(post$mean, post$var, post$percentiles)
+      }
+      return(result)
+    }
 
     no_na <- stats::complete.cases(prior_mat) & stats::complete.cases(lik_mat)
     no_sentinel <- rowSums(prior_mat == -1, na.rm = TRUE) == 0 & rowSums(lik_mat == -1, na.rm = TRUE) == 0
     fast_path <- no_na & no_sentinel
-
-    result <- matrix(NA_real_, nrow = n_cells, ncol = 2)
 
     if (any(fast_path)) {
       fast_idx <- which(fast_path)
@@ -275,10 +567,11 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
       lik_samples_mat <- sim_linear_cdf_batch(percentile_probs, lik_mat[fast_idx, , drop = FALSE], n_samples)
       for (j in seq_along(fast_idx)) {
         post <- tryCatch(
-          bayesian_update(prior_samples_mat[j, ], lik_samples_mat[j, ], grid_resolution = effective_grid_resolution),
+          bayesian_update(prior_samples_mat[j, ], lik_samples_mat[j, ], grid_resolution = effective_grid_resolution,
+                           posterior_probs = effective_posterior_probs),
           error = function(e) NULL
         )
-        if (!is.null(post)) result[fast_idx[j], ] <- c(mean(post), stats::var(post))
+        if (!is.null(post)) result[fast_idx[j], ] <- c(post$mean, post$var, post$percentiles)
       }
     }
 
@@ -290,9 +583,10 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
           lik_row <- as.data.frame(stats::setNames(as.list(row[(k + 1):(2 * k)]), percentile_cols))
           prior_samples <- simulate_from_percentiles(prior_row, method = "linear_cdf", percentile_cols = percentile_cols, n = n_samples)
           lik_samples <- simulate_from_percentiles(lik_row, method = "linear_cdf", percentile_cols = percentile_cols, n = n_samples)
-          post <- bayesian_update(prior_samples, lik_samples, grid_resolution = effective_grid_resolution)
-          c(mean(post), stats::var(post))
-        }, error = function(e) c(NA_real_, NA_real_))
+          post <- bayesian_update(prior_samples, lik_samples, grid_resolution = effective_grid_resolution,
+                                   posterior_probs = effective_posterior_probs)
+          c(post$mean, post$var, post$percentiles)
+        }, error = function(e) rep(NA_real_, 2 + np))
         result[i, ] <- res
       }
     }
@@ -300,12 +594,17 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
   }
   moments_r <- terra::app(combined, fun)
   mean_r <- moments_r[[1]]; var_r <- moments_r[[2]]
+  percentile_rs <- stats::setNames(
+    lapply(seq_len(np), function(i) moments_r[[2 + i]]),
+    posterior_col_names
+  )
 
   posterior <- switch(family,
     normal = list(mu = mean_r, sigma = sqrt(var_r)),
     beta = { span <- bounds[2] - bounds[1]; moments_to_beta((mean_r - bounds[1]) / span, var_r / span^2) },
     gamma = moments_to_gamma(mean_r, var_r)
   )
+  posterior$percentiles <- percentile_rs
   list(posterior = posterior, route_detail = NULL, n_fallback_cells = 0)
 }
 
@@ -330,10 +629,25 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
 #'   the profiling/accuracy justification for why this differs from `bayesian_update()`'s own
 #'   standalone default of `0.01`.
 #' @param verbose If TRUE (default), print the chosen route and why.
+#' @param mukey_raster,mukey_draws Optional - opts into `prior_fusion_method = "raw_draws"` on
+#'   whichever route runs (`fuse_general_kde()` for the general route - task P2.2/P2.3;
+#'   `fuse_closed_form()` for the closed-form route - task P2.6, added at negligible cost since
+#'   that route's raw_draws fit is a per-mukey precompute + `terra::subst()` broadcast, not a
+#'   per-cell computation - see `mukey_draws_closed_form_fit_raster()`'s docs). `NULL` (default)
+#'   preserves original behavior exactly on both routes.
+#' @param posterior_probs Passed through to whichever route runs (`fuse_general_kde()` for the
+#'   general route, `fuse_closed_form()` for the closed-form route - see [FUSE_POSTERIOR_DEFAULT_PROBS]).
+#'   `NULL` (default) resolves to the same rich default on both routes. The general route computes
+#'   percentiles from `bayesian_update()`'s discretized posterior (exact relative to
+#'   `grid_resolution`, but tail percentiles are limited by how well the KDE approximates the tails
+#'   from a finite sample); the closed-form route computes them analytically (`qnorm`/`qbeta`/
+#'   `qgamma` at the fused family parameters - exact regardless of how extreme the probability).
 #' @return A list:
 #'   - `posterior`: family-native parameter list (`mu`/`sigma` for "normal",
 #'     `alpha`/`beta` for "beta", `shape`/`rate` for "gamma") - always this
-#'     shape regardless of which route ran.
+#'     shape regardless of which route ran. Also carries `percentiles`: a named list of
+#'     `SpatRaster`s (`"P01"`..`"P99"` by default), one per `posterior_probs` entry, on both
+#'     routes (as of P3.3).
 #'   - `route`: one of `"bayesian_update_general"`, `"closed_form_normal"`,
 #'     `"closed_form_beta"`, `"closed_form_gamma"`.
 #'   - `route_detail`: for `family %in% c("beta","gamma")` on the
@@ -345,7 +659,8 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
 fuse_adaptive <- function(prior_value_rasters, lik_value_rasters, percentile_probs,
                            family = c("normal", "beta", "gamma"), bounds = NULL,
                            threshold_cells = 80000, n_samples = 500,
-                           grid_resolution = NULL, verbose = TRUE) {
+                           grid_resolution = NULL, verbose = TRUE,
+                           mukey_raster = NULL, mukey_draws = NULL, posterior_probs = NULL) {
   family <- match.arg(family)
   if (family == "beta" && is.null(bounds)) stop("bounds = c(lower, upper) is required for family = 'beta'.")
 
@@ -363,9 +678,13 @@ fuse_adaptive <- function(prior_value_rasters, lik_value_rasters, percentile_pro
   t0 <- proc.time()[["elapsed"]]
   result <- if (use_general) {
     fuse_general_kde(prior_value_rasters, lik_value_rasters, percentile_probs,
-                      family, bounds, n_samples, grid_resolution)
+                      family, bounds, n_samples, grid_resolution,
+                      mukey_raster = mukey_raster, mukey_draws = mukey_draws,
+                      posterior_probs = posterior_probs)
   } else {
-    fuse_closed_form(prior_value_rasters, lik_value_rasters, percentile_probs, family, bounds)
+    fuse_closed_form(prior_value_rasters, lik_value_rasters, percentile_probs, family, bounds,
+                      posterior_probs = posterior_probs,
+                      mukey_raster = mukey_raster, mukey_draws = mukey_draws)
   }
   elapsed <- proc.time()[["elapsed"]] - t0
 
@@ -389,9 +708,23 @@ fuse_adaptive <- function(prior_value_rasters, lik_value_rasters, percentile_pro
 # Lognormal and metalog adapters (fuse_adaptive() has no native route for these)
 # ---------------------------------------------------------------------------
 
+#' Lognormal adapter for `fuse_property_adaptive()`: size-adaptive general/closed-form route on
+#' log-transformed values.
 #' @keywords internal
+#' @param posterior_probs Numeric probabilities (0-1) at which to report posterior percentiles.
+#'   `NULL` (default) resolves to [FUSE_POSTERIOR_DEFAULT_PROBS]. Small-AOI branch: forwarded to
+#'   `fuse_adaptive()`'s general route unchanged (see that function's docs). Large-AOI closed-form
+#'   branch: computed via `qlnorm()` on the LOG-SPACE fused parameters (`posterior_log$mu`/`sigma`,
+#'   captured before the moment-match-back-to-raw-space step below) - more faithful to the assumed
+#'   lognormal family than deriving percentiles from the raw-space Normal-moment approximation
+#'   (`posterior$mu`/`sigma`) would be.
+#' @param mukey_raster,mukey_draws Optional raw-draws inputs (see `fuse_adaptive()`'s docs).
+#'   Forwarded to `fuse_adaptive()`'s general route on the small-AOI branch only - the large-AOI
+#'   closed-form branch has no per-mukey raw-draws fit implemented for the lognormal family and
+#'   ignores both if supplied.
 fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_rasters, lik_probs,
-                                     ncell, threshold_cells, n_samples = 500, grid_resolution = NULL, verbose = TRUE) {
+                                     ncell, threshold_cells, n_samples = 500, grid_resolution = NULL, verbose = TRUE,
+                                     posterior_probs = NULL, mukey_raster = NULL, mukey_draws = NULL) {
   if (ncell <= threshold_cells) {
     # bayesian_update()'s general route makes no distributional assumption
     # at all, so it needs no log-space detour - force fuse_adaptive() into
@@ -399,13 +732,16 @@ fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_
     # family="normal" only selects the (mu,sigma) OUTPUT shape.
     r <- fuse_adaptive(prior_value_rasters, lik_value_rasters, prior_probs,
                         family = "normal", threshold_cells = Inf,
-                        n_samples = n_samples, grid_resolution = grid_resolution, verbose = verbose)
+                        n_samples = n_samples, grid_resolution = grid_resolution, verbose = verbose,
+                        posterior_probs = posterior_probs,
+                        mukey_raster = mukey_raster, mukey_draws = mukey_draws)
     return(list(posterior = r$posterior, route = r$route, route_detail = r$route_detail, n_fallback_cells = r$n_fallback_cells))
   }
 
   if (verbose) {
     cat(sprintf("[fuse_property_adaptive] AOI: %d cells (threshold: %d) -> route: closed_form_lognormal\n", ncell, threshold_cells))
   }
+  effective_posterior_probs <- if (is.null(posterior_probs)) FUSE_POSTERIOR_DEFAULT_PROBS else posterior_probs
   idx <- percentile_index(prior_probs)
   fit_prior <- fit_normal_raster(prior_value_rasters[[idx$lo_idx]], prior_value_rasters[[idx$p50_idx]], prior_value_rasters[[idx$hi_idx]], idx$p_lo, idx$p_hi)
   fit_lik <- fit_normal_raster(lik_value_rasters[[idx$lo_idx]], lik_value_rasters[[idx$p50_idx]], lik_value_rasters[[idx$hi_idx]], idx$p_lo, idx$p_hi)
@@ -413,6 +749,7 @@ fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_
   lik_log <- normal_to_lognormal_params(fit_lik$mu, fit_lik$sigma)
   posterior_log <- bayes_update_normal_normal(prior_log$mu, prior_log$sigma, lik_log$mu, lik_log$sigma)
   posterior <- lognormal_to_normal_params(posterior_log$mu, posterior_log$sigma)
+  posterior$percentiles <- closed_form_percentiles_raster(posterior_log$mu, posterior_log$sigma, stats::qlnorm, effective_posterior_probs)
   list(posterior = posterior, route = "closed_form_lognormal", route_detail = NULL, n_fallback_cells = 0)
 }
 
@@ -462,8 +799,22 @@ metalog_moments_raster <- function(fit, infeasible_r, full_value_rasters, full_p
   )
 }
 
+#' Metalog adapter for `fuse_property_adaptive()`: closed-form route via metalog-fitted
+#' Normal-equivalent moments, used regardless of AOI size.
 #' @keywords internal
-fuse_metalog_adapter <- function(prior_value_rasters, prior_probs, lik_value_rasters, lik_probs, property_config, verbose = TRUE) {
+#' @param posterior_probs Numeric probabilities (0-1) at which to report posterior percentiles.
+#'   `NULL` (default) resolves to [FUSE_POSTERIOR_DEFAULT_PROBS]. Computed via
+#'   `qnorm_percentiles_raster()` on the final fused `(mu, sigma)` - this route already reduces
+#'   both sides to Normal-equivalent moments (`metalog_moments_raster()`'s quadrature) before the
+#'   final `bayes_update_normal_normal()` step, so there is no richer distributional shape to draw
+#'   percentiles from beyond that Normal approximation; carries forward this route's existing
+#'   "less-validated glue code" caveat (see `metalog_moments_raster()`'s own docs) to its
+#'   percentile output too, not a new limitation introduced here.
+#' @param ... Absorbed and ignored - lets this function sit behind `fuse_property_adaptive()`'s
+#'   `...` passthrough (which also forwards `n_samples`/`grid_resolution`/`mukey_raster`/
+#'   `mukey_draws` meant for other routes) without erroring on arguments this route doesn't use.
+fuse_metalog_adapter <- function(prior_value_rasters, prior_probs, lik_value_rasters, lik_probs, property_config,
+                                  verbose = TRUE, posterior_probs = NULL, ...) {
   interior <- percentile_interior(prior_probs)
   bounds <- property_config$bounds
   boundedness <- property_config$boundedness %||% "b"
@@ -471,6 +822,8 @@ fuse_metalog_adapter <- function(prior_value_rasters, prior_probs, lik_value_ras
   if (verbose) {
     cat("[fuse_property_adaptive] -> route: closed_form_metalog_adapter (always used regardless of AOI size)\n")
   }
+
+  effective_posterior_probs <- if (is.null(posterior_probs)) FUSE_POSTERIOR_DEFAULT_PROBS else posterior_probs
 
   fit_prior <- fit_metalog_linear_raster(prior_value_rasters[interior$idx], interior$probs, bounds, boundedness)
   fit_lik <- fit_metalog_linear_raster(lik_value_rasters[interior$idx], interior$probs, bounds, boundedness)
@@ -482,6 +835,7 @@ fuse_metalog_adapter <- function(prior_value_rasters, prior_probs, lik_value_ras
   lik_m <- metalog_moments_raster(fit_lik, infeasible_lik, lik_value_rasters, lik_probs, bounds, boundedness)
 
   posterior <- bayes_update_normal_normal(prior_m$mu, prior_m$sigma, lik_m$mu, lik_m$sigma)
+  posterior$percentiles <- qnorm_percentiles_raster(posterior$mu, posterior$sigma, effective_posterior_probs)
   n_fallback <- sum(terra::values(infeasible_prior) | terra::values(infeasible_lik), na.rm = TRUE)
 
   list(
@@ -553,8 +907,16 @@ resolve_property_dist <- function(property_config, prior_value_rasters, prior_pr
 #'   `auto_skew_threshold`.
 #' @param threshold_cells AOI cell count at or below which `fuse_adaptive()`
 #'   uses its general route.
-#' @param ... Additional arguments passed to `fuse_adaptive()`/
-#'   `fuse_lognormal_adaptive()` (e.g. `n_samples`, `grid_resolution`, `verbose`).
+#' @param ... Additional arguments passed to `fuse_adaptive()`/`fuse_lognormal_adaptive()`/
+#'   `fuse_metalog_adapter()` (e.g. `n_samples`, `grid_resolution`, `verbose`, `posterior_probs` -
+#'   see [FUSE_POSTERIOR_DEFAULT_PROBS]; reaches every route as of P3.5 - `fuse_metalog_adapter()`
+#'   absorbs and ignores the arguments it doesn't use, e.g. `n_samples`). Also how
+#'   `mukey_raster`/`mukey_draws` (opting into `prior_fusion_method = "raw_draws"`, see
+#'   `fuse_general_kde()`'s docs) reach the underlying routes: both the general-KDE and
+#'   closed-form routes support it for `dist %in% c("normal","beta","gamma")` (P2.6), and it
+#'   reaches `fuse_lognormal_adaptive()`'s small-AOI general branch the same way (its large-AOI
+#'   closed-form branch has no raw-draws fit and ignores both if supplied). `fuse_metalog_adapter()`
+#'   does not support it (see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`).
 #' @return `list(posterior=, route=, route_detail=, n_fallback_cells=, dist=,
 #'   dist_source=, skew_proxy=)`.
 #' @export
@@ -578,7 +940,7 @@ fuse_property_adaptive <- function(prior_value_rasters, prior_probs,
   } else if (dist == "lognormal") {
     fuse_lognormal_adaptive(prior_value_rasters, prior_probs, lik_value_rasters, lik_probs, ncell, threshold_cells, ...)
   } else if (dist == "metalog") {
-    fuse_metalog_adapter(prior_value_rasters, prior_probs, lik_value_rasters, lik_probs, property_config)
+    fuse_metalog_adapter(prior_value_rasters, prior_probs, lik_value_rasters, lik_probs, property_config, ...)
   } else {
     stop(sprintf("Unknown dist '%s'.", dist))
   }
@@ -637,7 +999,8 @@ group_members <- function(group, composition_groups) {
 #' otherwise the identical linear algebra.
 #'
 #' @param row_mat A matrix with one row per cell and the 18
-#'   `<id>_<prior|lik>_<lo|p50|hi>` columns `fuse_texture_group()` builds.
+#'   `<id>_<prior|lik>_<lo|p50|hi>` columns `fuse_texture_group()` builds (plus one trailing
+#'   `mukey_code` column when `mukey_prior_texture_samples` is supplied).
 #' @param clay_id,sand_id,silt_id The three members' `id`s, in ILR order.
 #' @param prior_z,lik_z Standard-normal quantiles for the prior/likelihood
 #'   low-high intervals (as in `estimate_ilr_moments_mc()`'s `z` argument).
@@ -652,19 +1015,28 @@ group_members <- function(group, composition_groups) {
 #'   chunk failed with "cannot allocate vector of size 4.5 Gb". Sub-chunking
 #'   here, in cell order, doesn't change the RNG stream order (still
 #'   cell-major) so results are unaffected.
+#' @param mukey_prior_texture_samples Optional - opts into `prior_fusion_method = "raw_draws"`
+#'   (see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4). A named list, keyed by mukey (as
+#'   character), each element an `n_mc x 3` matrix (columns `clay_total`/`sand_total`/
+#'   `silt_total`) of real joint texture draws for that mukey - see
+#'   `mukey_texture_draws_lookup()`. When supplied, `row_mat`'s last column must be the per-cell
+#'   mukey code. `NULL` (default) preserves original behavior exactly.
 #' @return A `nrow(row_mat) x 5` matrix, columns `mu1, mu2, S11, S12, S22`.
 #' @keywords internal
 fuse_texture_group_batch <- function(row_mat, clay_id, sand_id, silt_id, prior_z, lik_z, n_mc = 2000,
-                                      max_cells_per_subchunk = 2000) {
+                                      max_cells_per_subchunk = 2000,
+                                      mukey_prior_texture_samples = NULL) {
   ncell_total <- nrow(row_mat)
   if (ncell_total <= max_cells_per_subchunk) {
-    return(fuse_texture_group_batch_core(row_mat, clay_id, sand_id, silt_id, prior_z, lik_z, n_mc))
+    return(fuse_texture_group_batch_core(row_mat, clay_id, sand_id, silt_id, prior_z, lik_z, n_mc,
+                                          mukey_prior_texture_samples = mukey_prior_texture_samples))
   }
   out <- matrix(NA_real_, nrow = ncell_total, ncol = 5, dimnames = list(NULL, c("mu1", "mu2", "S11", "S12", "S22")))
   for (start in seq(1, ncell_total, by = max_cells_per_subchunk)) {
     end <- min(start + max_cells_per_subchunk - 1, ncell_total)
     out[start:end, ] <- fuse_texture_group_batch_core(
-      row_mat[start:end, , drop = FALSE], clay_id, sand_id, silt_id, prior_z, lik_z, n_mc
+      row_mat[start:end, , drop = FALSE], clay_id, sand_id, silt_id, prior_z, lik_z, n_mc,
+      mukey_prior_texture_samples = mukey_prior_texture_samples
     )
   }
   out
@@ -672,7 +1044,12 @@ fuse_texture_group_batch <- function(row_mat, clay_id, sand_id, silt_id, prior_z
 
 #' @rdname fuse_texture_group_batch
 #' @keywords internal
-fuse_texture_group_batch_core <- function(row_mat, clay_id, sand_id, silt_id, prior_z, lik_z, n_mc = 2000) {
+fuse_texture_group_batch_core <- function(row_mat, clay_id, sand_id, silt_id, prior_z, lik_z, n_mc = 2000,
+                                           mukey_prior_texture_samples = NULL) {
+  use_raw_draws <- !is.null(mukey_prior_texture_samples)
+  mukey_col <- if (use_raw_draws) row_mat[, ncol(row_mat)] else NULL
+  if (use_raw_draws) row_mat <- row_mat[, -ncol(row_mat), drop = FALSE]
+
   ncell <- nrow(row_mat)
   col <- function(nm) row_mat[, nm]
 
@@ -686,7 +1063,6 @@ fuse_texture_group_batch_core <- function(row_mat, clay_id, sand_id, silt_id, pr
                   sd = (col(paste0(silt_id, "_", side, "_hi")) - col(paste0(silt_id, "_", side, "_lo"))) / (2 * z))
     )
   }
-  prior <- side_mean_sd("prior", prior_z)
   lik <- side_mean_sd("lik", lik_z)
 
   # Cell-major block: n_mc rows x ncell cols, column c filled with v[c] (rep(v, each=n_mc),
@@ -699,13 +1075,60 @@ fuse_texture_group_batch_core <- function(row_mat, clay_id, sand_id, silt_id, pr
   # allocation for no benefit; colMeans()/colSums() over this orientation do the same reduction
   # without it.
   block <- function(v) matrix(rep(v, each = n_mc), nrow = n_mc, ncol = ncell)
-  ordered_props <- list(prior$clay, prior$sand, prior$silt, lik$clay, lik$sand, lik$silt)
-  mean_stack <- do.call(rbind, lapply(ordered_props, function(p) block(p$mean)))
-  sd_stack <- do.call(rbind, lapply(ordered_props, function(p) block(p$sd)))
 
-  draws <- stats::rnorm(length(mean_stack), mean = as.vector(mean_stack), sd = as.vector(sd_stack))
-  draws_mat <- matrix(draws, nrow = 6 * n_mc, ncol = ncell)
-  side_block <- function(i) pmax(draws_mat[((i - 1) * n_mc + 1):(i * n_mc), , drop = FALSE], 0.01)
+  if (use_raw_draws) {
+    # PRIOR side: look up each cell's mukey in the precomputed (once-per-unique-mukey) real
+    # joint-texture-draws sample instead of reconstructing independent per-fraction normals from
+    # percentiles - preserves the real clay/sand/silt cross-correlation those normals discard.
+    # Cells with no real-draws entry for their mukey (NA mukey, or a mukey missing from the
+    # lookup) fall back to the percentile-reconstruction approach for that cell only.
+    prior_clay_s <- matrix(NA_real_, nrow = n_mc, ncol = ncell)
+    prior_sand_s <- matrix(NA_real_, nrow = n_mc, ncol = ncell)
+    prior_silt_s <- matrix(NA_real_, nrow = n_mc, ncol = ncell)
+    fallback_cells <- logical(ncell)
+    for (j in seq_len(ncell)) {
+      mk <- mukey_col[j]
+      samp <- if (!is.na(mk)) mukey_prior_texture_samples[[as.character(mk)]] else NULL
+      if (is.null(samp)) {
+        fallback_cells[j] <- TRUE
+        next
+      }
+      prior_clay_s[, j] <- samp[, "clay_total"]
+      prior_sand_s[, j] <- samp[, "sand_total"]
+      prior_silt_s[, j] <- samp[, "silt_total"]
+    }
+    if (any(fallback_cells)) {
+      prior_fb <- side_mean_sd("prior", prior_z)
+      for (j in which(fallback_cells)) {
+        prior_clay_s[, j] <- stats::rnorm(n_mc, prior_fb$clay$mean[j], prior_fb$clay$sd[j])
+        prior_sand_s[, j] <- stats::rnorm(n_mc, prior_fb$sand$mean[j], prior_fb$sand$sd[j])
+        prior_silt_s[, j] <- stats::rnorm(n_mc, prior_fb$silt$mean[j], prior_fb$silt$sd[j])
+      }
+    }
+    prior_clay_s <- pmax(prior_clay_s, 0.01)
+    prior_sand_s <- pmax(prior_sand_s, 0.01)
+    prior_silt_s <- pmax(prior_silt_s, 0.01)
+
+    lik_ordered_props <- list(lik$clay, lik$sand, lik$silt)
+    lik_mean_stack <- do.call(rbind, lapply(lik_ordered_props, function(p) block(p$mean)))
+    lik_sd_stack <- do.call(rbind, lapply(lik_ordered_props, function(p) block(p$sd)))
+    lik_draws <- stats::rnorm(length(lik_mean_stack), mean = as.vector(lik_mean_stack), sd = as.vector(lik_sd_stack))
+    lik_draws_mat <- matrix(lik_draws, nrow = 3 * n_mc, ncol = ncell)
+    lik_side_block <- function(i) pmax(lik_draws_mat[((i - 1) * n_mc + 1):(i * n_mc), , drop = FALSE], 0.01)
+
+    side_block_list <- list(prior_clay_s, prior_sand_s, prior_silt_s,
+                             lik_side_block(1), lik_side_block(2), lik_side_block(3))
+    side_block <- function(i) side_block_list[[i]]
+  } else {
+    prior <- side_mean_sd("prior", prior_z)
+    ordered_props <- list(prior$clay, prior$sand, prior$silt, lik$clay, lik$sand, lik$silt)
+    mean_stack <- do.call(rbind, lapply(ordered_props, function(p) block(p$mean)))
+    sd_stack <- do.call(rbind, lapply(ordered_props, function(p) block(p$sd)))
+
+    draws <- stats::rnorm(length(mean_stack), mean = as.vector(mean_stack), sd = as.vector(sd_stack))
+    draws_mat <- matrix(draws, nrow = 6 * n_mc, ncol = ncell)
+    side_block <- function(i) pmax(draws_mat[((i - 1) * n_mc + 1):(i * n_mc), , drop = FALSE], 0.01)
+  }
 
   moments <- function(clay_s, sand_s, silt_s) {
     total <- clay_s + sand_s + silt_s
@@ -741,6 +1164,99 @@ fuse_texture_group_batch_core <- function(row_mat, clay_id, sand_id, silt_id, pr
   cbind(mu1 = mu1, mu2 = mu2, S11 = S11, S12 = S12, S22 = S22)
 }
 
+#' Raster-native ILR-posterior percentile sampler for `fuse_texture_group()`
+#'
+#' Draws `n_mc` bivariate-Normal ILR-space samples per cell from the fused `(mu1, mu2, S11, S12,
+#' S22)` posterior - the same distribution `R/distributions.R`'s `sample_ilr_posterior()` draws
+#' from in the scalar case, here vectorized raster-wide via `terra::app()` - applies each cell's
+#' own 2x2 Cholesky factor (closed-form: `u11 = sqrt(S11)`, `u12 = S12/u11`, `u22 = sqrt(S22 -
+#' u12^2)`, matching base R's `chol()` upper-triangular convention exactly), `ilr_inverse()`s the
+#' result to `(clay, sand, silt)` triples, then computes `quantile()` across draws per cell per
+#' fraction. Unlike `bayesian_update()`'s grid-based routes, this posterior has no discretized-grid
+#' shortcut - it's a genuine bivariate Monte Carlo sampler, so `n_mc` is the only lever on
+#' percentile reliability here.
+#'
+#' @section Sum-to-100 caveat (expected, not a bug):
+#' The point estimate (`posterior$value`, via `ilr_inverse()` on the fused mean) sums to 100 by
+#' construction for every cell. Per-fraction PERCENTILES do **not** generally sum to 100 -
+#' percentiles of correlated marginals don't add linearly (e.g. clay's P95 and sand's P95 can both
+#' be simultaneously "high" draws from different tail regions of the joint distribution, so their
+#' sum can exceed - or their P5s' sum can fall short of - 100). This is an expected mathematical
+#' property of taking marginal percentiles of a compositional joint distribution, not a defect.
+#' @param ilr_mu_r 2-layer SpatRaster (`mu1`, `mu2`) - `fuse_texture_group_batch()`'s `ilr_mu` output.
+#' @param ilr_Sigma_r 3-layer SpatRaster (`S11`, `S12`, `S22`) - that function's `ilr_Sigma` output.
+#' @param posterior_probs Numeric probabilities (0-1) at which to report posterior percentiles.
+#' @param n_mc Monte Carlo draw count per cell. Default 2000 matches this file's existing
+#'   `texture_n_mc` convention (the separate MC sample size `fuse_texture_group_batch_core()` uses
+#'   to ESTIMATE the `(mu1,mu2,S11,S12,S22)` moments in the first place) - a coincidentally shared
+#'   default, not the same computation; this parameter controls a distinct, later sampling step
+#'   that draws FROM the already-fused posterior distribution.
+#' @param max_cells_per_subchunk Same memory rationale as `fuse_texture_group_batch()`'s own
+#'   parameter - each cell needs `2*n_mc` standard-normal draws plus a `3*n_mc`-row ILR-inverse
+#'   composition matrix, so large `terra::app()` chunks can exhaust memory.
+#' @return `list(clay=, sand=, silt=)`, each a named list of percentile `SpatRaster`s (names
+#'   `"P1"`, `"P50"`, ... matching `posterior_probs`).
+#' @keywords internal
+texture_group_percentiles_raster <- function(ilr_mu_r, ilr_Sigma_r, posterior_probs, n_mc = 2000,
+                                              max_cells_per_subchunk = 2000) {
+  np <- length(posterior_probs)
+  percentile_names <- paste0("P", round(posterior_probs * 100))
+  combined <- c(ilr_mu_r, ilr_Sigma_r)
+
+  fun <- function(row_mat) {
+    row_mat <- if (is.matrix(row_mat)) row_mat else matrix(row_mat, nrow = 1)
+    ncell_total <- nrow(row_mat)
+    result <- matrix(NA_real_, nrow = ncell_total, ncol = 3 * np)
+
+    for (start in seq(1, ncell_total, by = max_cells_per_subchunk)) {
+      end <- min(start + max_cells_per_subchunk - 1, ncell_total)
+      chunk <- row_mat[start:end, , drop = FALSE]
+      ncell <- nrow(chunk)
+      mu1 <- chunk[, 1]; mu2 <- chunk[, 2]
+      S11 <- chunk[, 3]; S12 <- chunk[, 4]; S22 <- chunk[, 5]
+
+      u11 <- sqrt(S11); u12 <- S12 / u11; u22 <- sqrt(pmax(S22 - u12^2, 0))
+
+      e1 <- matrix(stats::rnorm(n_mc * ncell), nrow = n_mc, ncol = ncell)
+      e2 <- matrix(stats::rnorm(n_mc * ncell), nrow = n_mc, ncol = ncell)
+      z1 <- e1 * rep(u11, each = n_mc) + rep(mu1, each = n_mc)
+      z2 <- e1 * rep(u12, each = n_mc) + e2 * rep(u22, each = n_mc) + rep(mu2, each = n_mc)
+
+      comp <- ilr_inverse(as.vector(z1), as.vector(z2))
+      clay_s <- matrix(comp[, "clay"], nrow = n_mc, ncol = ncell)
+      sand_s <- matrix(comp[, "sand"], nrow = n_mc, ncol = ncell)
+      silt_s <- matrix(comp[, "silt"], nrow = n_mc, ncol = ncell)
+
+      # Cells outside real SSURGO/SOLUS coverage (a documented, common occurrence - e.g. P2.5/P2.8's
+      # live-AOI validation found 401/598 NA cells for one real AOI) arrive here with NA
+      # mu1/mu2/S11/S12/S22, which propagates to an all-NA draws column for that cell. quantile()'s
+      # default na.rm = FALSE hard-errors on an all-NA input, which - unlike every other per-cell
+      # fallback in this file (fuse_general_kde()'s tryCatch-wrapped loop, etc.) - would crash the
+      # ENTIRE terra::app() call for the whole raster over one missing-coverage cell. Found live via
+      # MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P3.9's real-AOI validation (exactly the class of
+      # bug synthetic unit tests, which never included an NA cell, couldn't catch). Degrade that one
+      # cell to NA percentiles instead, matching this file's established NA-cell convention.
+      col_quantile <- function(col) {
+        if (!any(is.finite(col))) return(rep(NA_real_, np))
+        stats::quantile(col, probs = posterior_probs, names = FALSE, na.rm = TRUE)
+      }
+      # apply(..., FUN = col_quantile) returns an np x ncell matrix (one column per cell) -
+      # transpose each fraction's block into the ncell x np shape `result` expects.
+      clay_q <- t(apply(clay_s, 2, col_quantile))
+      sand_q <- t(apply(sand_s, 2, col_quantile))
+      silt_q <- t(apply(silt_s, 2, col_quantile))
+      result[start:end, ] <- cbind(clay_q, sand_q, silt_q)
+    }
+    result
+  }
+
+  res <- terra::app(combined, fun)
+  fraction_percentiles <- function(offset) {
+    stats::setNames(lapply(seq_len(np), function(i) res[[offset + i]]), percentile_names)
+  }
+  list(clay = fraction_percentiles(0), sand = fraction_percentiles(np), silt = fraction_percentiles(2 * np))
+}
+
 #' Fuse a compositional group's members JOINTLY via ILR fusion
 #' (`R/distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`,
 #' `R/bayesian-updating.R`'s `fuse_bivariate_normal()`), rather than
@@ -752,16 +1268,32 @@ fuse_texture_group_batch_core <- function(row_mat, clay_id, sand_id, silt_id, pr
 #' @param fetched A list (one entry per group member, in `group_members()`'s
 #'   order) of `list(id=, prior=<named list of ALIGNED percentile-value
 #'   rasters>, prior_probs=, lik=<value rasters>, lik_probs=)`.
+#' @param mukey_raster,mukey_texture_draws Optional - opts into `prior_fusion_method =
+#'   "raw_draws"` (see `fuse_texture_group_batch_core()`'s docs and
+#'   `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4). `mukey_raster` must already be aligned
+#'   to the same grid as `fetched`'s percentile rasters (nearest-neighbor resampled - it's
+#'   categorical). `mukey_texture_draws` is a `mukey_texture_draws_lookup()` result. `NULL`
+#'   (default) for either preserves the original percentile-reconstruction behavior exactly -
+#'   bit-identical output to before these parameters existed.
+#' @param posterior_probs Numeric probabilities (0-1) at which to report each fraction's posterior
+#'   percentiles. `NULL` (default) resolves to [FUSE_POSTERIOR_DEFAULT_PROBS]. Computed via
+#'   `texture_group_percentiles_raster()` - see that function's `@section Sum-to-100 caveat` for
+#'   why, unlike `value`, these do NOT generally sum to 100 across the group's three members.
+#' @param posterior_n_mc Monte Carlo draw count per cell for the percentile sampler (default 2000).
+#'   See `texture_group_percentiles_raster()`'s docs for why this is a separate lever from the
+#'   moment-estimation MC sample size used elsewhere in this function.
 #' @return A named list keyed by each member's `id`:
 #'   `list(posterior = list(value = <inverse-ILR point-estimate raster for
 #'   that fraction>, ilr_mu = <2-layer raster, shared across the group>,
-#'   ilr_Sigma = <3-layer raster (S11,S12,S22), shared>), dist =
+#'   ilr_Sigma = <3-layer raster (S11,S12,S22), shared>, percentiles = <named list of percentile
+#'   SpatRasters for THIS member's own fraction - see the sum-to-100 caveat above>), dist =
 #'   "texture_ilr", route = "closed_form_ilr_group", route_detail = NULL,
 #'   n_fallback_cells = 0)`. To draw posterior samples for a specific
-#'   fraction/cell, extract that cell's `ilr_mu`/`ilr_Sigma` and pass to
+#'   fraction/cell directly, extract that cell's `ilr_mu`/`ilr_Sigma` and pass to
 #'   `sample_ilr_posterior()`.
 #' @export
-fuse_texture_group <- function(fetched) {
+fuse_texture_group <- function(fetched, mukey_raster = NULL, mukey_texture_draws = NULL,
+                                posterior_probs = NULL, posterior_n_mc = 2000) {
   stopifnot(length(fetched) == 3)
   ids <- vapply(fetched, function(f) f$id, character(1))
 
@@ -783,6 +1315,29 @@ fuse_texture_group <- function(fetched) {
   col_names <- names(stack_list)
   clay_id <- ids[1]; sand_id <- ids[2]; silt_id <- ids[3]
 
+  # n_mc matches fuse_texture_group_batch()/fuse_texture_group_batch_core()'s own default - kept
+  # as a local constant here (not a new exposed parameter) since fuse_texture_group() itself never
+  # exposed n_mc before this either.
+  texture_n_mc <- 2000
+
+  use_raw_draws <- !is.null(mukey_raster) && !is.null(mukey_texture_draws)
+  mukey_prior_texture_samples <- NULL
+  if (use_raw_draws) {
+    # Precompute, once per unique mukey (not once per cell), a fixed texture_n_mc-row resample of
+    # that mukey's real JOINT (clay, sand, silt) draws - preserves real cross-fraction correlation
+    # a per-fraction percentile reconstruction can't. Row-sampled (not per-column independently),
+    # so each resampled row stays a genuine (clay, sand, silt) triple from one real simulated
+    # cokey/replicate.
+    mukey_prior_texture_samples <- lapply(mukey_texture_draws, function(mat) {
+      if (is.null(mat) || nrow(mat) == 0) return(NULL)
+      mat[sample(nrow(mat), texture_n_mc, replace = TRUE), , drop = FALSE]
+    })
+    mukey_raster_plain <- mukey_raster
+    levels(mukey_raster_plain) <- NULL
+    combined <- c(combined, mukey_raster_plain)
+    col_names <- c(col_names, "mukey_code")
+  }
+
   # PERF: previously called estimate_ilr_moments_mc() (3x rnorm(n_mc=2000) + an ILR
   # transform + cov()) twice per raster cell via terra::app()+apply(), an R-level scalar
   # closure dispatched once per cell - the dominant cost for any non-trivial AOI (see
@@ -791,10 +1346,12 @@ fuse_texture_group <- function(fetched) {
   # rnorm() draws ordered to consume the RNG stream in EXACTLY the same
   # cell-then-(prior/lik)-then-(clay/sand/silt)-then-mc-draw order the old per-cell loop did,
   # so results are bit-for-bit identical (see test-raster-fusion.R's regression test), not just
-  # statistically similar.
+  # statistically similar. (This guarantee only applies to the default, non-raw_draws path.)
   fun <- function(row_mat) {
     row_mat <- if (is.matrix(row_mat)) row_mat else matrix(row_mat, nrow = 1, dimnames = list(NULL, col_names))
-    fuse_texture_group_batch(row_mat, clay_id, sand_id, silt_id, prior_z, lik_z)
+    fuse_texture_group_batch(row_mat, clay_id, sand_id, silt_id, prior_z, lik_z,
+                              n_mc = texture_n_mc,
+                              mukey_prior_texture_samples = mukey_prior_texture_samples)
   }
   result_r <- terra::app(combined, fun)
   names(result_r) <- c("mu1", "mu2", "S11", "S12", "S22")
@@ -802,6 +1359,16 @@ fuse_texture_group <- function(fetched) {
   mu1_vals <- terra::values(result_r[["mu1"]])[, 1]
   mu2_vals <- terra::values(result_r[["mu2"]])[, 1]
   point_est <- ilr_inverse(mu1_vals, mu2_vals)
+
+  effective_posterior_probs <- if (is.null(posterior_probs)) FUSE_POSTERIOR_DEFAULT_PROBS else posterior_probs
+  fraction_percentiles <- texture_group_percentiles_raster(
+    result_r[[c("mu1", "mu2")]], result_r[[c("S11", "S12", "S22")]],
+    effective_posterior_probs, n_mc = posterior_n_mc
+  )
+  # Positional roles (fraction_percentiles$clay/sand/silt) match ilr_inverse()'s fixed column
+  # order, which in turn matches how clay_id/sand_id/silt_id (= ids[1]/ids[2]/ids[3]) were assigned
+  # above - so member i's own percentiles are fraction_percentiles at that same position.
+  member_percentiles <- list(fraction_percentiles$clay, fraction_percentiles$sand, fraction_percentiles$silt)
 
   template <- fetched[[1]]$prior[[1]]
   make_layer <- function(v) { r <- template; terra::values(r) <- v; r }
@@ -811,7 +1378,8 @@ fuse_texture_group <- function(fetched) {
       posterior = list(
         value = make_layer(point_est[, i]),
         ilr_mu = result_r[[c("mu1", "mu2")]],
-        ilr_Sigma = result_r[[c("S11", "S12", "S22")]]
+        ilr_Sigma = result_r[[c("S11", "S12", "S22")]],
+        percentiles = member_percentiles[[i]]
       ),
       dist = "texture_ilr",
       route = "closed_form_ilr_group",
@@ -824,6 +1392,44 @@ fuse_texture_group <- function(fetched) {
 # ---------------------------------------------------------------------------
 # Top-level orchestrators: fetch (cached) SSURGO prior + SOLUS likelihood, align, fuse
 # ---------------------------------------------------------------------------
+
+#' Resolve whether a `run_stage1_fusion()` call should fuse against real per-mukey Monte Carlo
+#' draws (`prior_fusion_method = "raw_draws"`) or the percentile-reconstructed approximation.
+#'
+#' `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.10: scope-aware default flip. An explicit
+#' `prior_fusion_method` value ("raw_draws" or "percentile") always wins and is honored exactly as
+#' before - this function only changes what happens when it is unset (`NULL`, the common case).
+#'
+#' Unset now defaults to raw_draws for any `dist` whose fusion route actually has a raw-draws fit
+#' implemented: `"normal"`/`"beta"`/`"gamma"` (both AOI-size routes, as of P2.6) and `"lognormal"`
+#' (its small-AOI general branch, as of P2.6 - its large-AOI closed-form branch silently ignores the
+#' extra draws if supplied, so requesting them there costs a wasted-but-harmless simulation, not a
+#' wrong answer). `"auto"` is included too: `resolve_property_dist()`'s auto-selection only ever
+#' resolves to `"beta"`/`"normal"`/`"lognormal"` (see its own code) - **never** `"metalog"` - so it's
+#' safe to default in as well. Only an explicit `dist = "metalog"` (`fuse_metalog_adapter()` has no
+#' raw-draws fit, see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`) keeps the original
+#' percentile-reconstruction default, avoiding an always-wasted mukey-draws simulation for a route
+#' that can never use it.
+#'
+#' This default was set only after confirming the added cost is modest at any AOI size: raw_draws
+#' costs 16-25% more than the default on the general-KDE route (P2.9) and ~0.18s of overhead on top
+#' of the closed-form route's own ~19.73s fit cost at 100,172 cells/150 mukeys (P2.6/P2.10
+#' investigation) - i.e. this flip trades a small, bounded cost increase for fusing against real
+#' simulated data instead of a 5-9 point percentile reconstruction, for every property that can use
+#' it, without the caller having to know to ask for it.
+#'
+#' @param prior_fusion_method `property_config$prior_fusion_method` - `NULL`/unset resolves per
+#'   `dist` (see above); `"raw_draws"`/`"percentile"` are explicit overrides, always honored.
+#' @param dist `property_config$dist` - the value as configured, BEFORE `resolve_property_dist()`
+#'   resolves `"auto"` to a concrete family (this function runs earlier, before the mukey draws
+#'   simulation that resolution would otherwise duplicate the cost of triggering).
+#' @return `TRUE`/`FALSE`.
+#' @keywords internal
+resolve_want_raw_draws <- function(prior_fusion_method, dist) {
+  if (identical(prior_fusion_method, "raw_draws")) return(TRUE)
+  if (identical(prior_fusion_method, "percentile")) return(FALSE)
+  isTRUE(dist %in% c("auto", "normal", "beta", "gamma", "lognormal"))
+}
 
 #' Run Stage 1 Fusion for One Property/Depth over an AOI
 #'
@@ -850,7 +1456,33 @@ fuse_texture_group <- function(fetched) {
 #'   prior behavior exactly.
 #' @return `list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=,
 #'   route_detail=, n_fallback_cells=)`, or `NULL` if the SSURGO or SOLUS side failed.
-#'   `posterior`'s shape depends on `dist` - see `fuse_property_adaptive()`'s docs.
+#'   `posterior`'s shape depends on `dist` - see `fuse_property_adaptive()`'s docs. As of
+#'   `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` tasks P3.2-P3.5, `posterior` also carries a
+#'   `percentiles` field (a named list of `SpatRaster`s, `"P01"`..`"P99"` by default - see
+#'   [FUSE_POSTERIOR_DEFAULT_PROBS]) regardless of `dist`, for every non-compositional property -
+#'   this function doesn't expose its own `posterior_probs` parameter (matching the existing
+#'   convention that `n_samples`/`grid_resolution` also aren't threaded this far down; the
+#'   underlying `fuse_*()` route's own default applies).
+#' @section Fusion fidelity - `prior_fusion_method` (default changed at P2.10):
+#' Controls whether fusion runs against each mukey's real per-cell Monte Carlo draws
+#' (`"raw_draws"`) or a percentile-reconstructed approximation (`"percentile"`) - see
+#' `fuse_general_kde()`'s docs and `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` tasks
+#' P2.2/P2.3/P2.6/P2.10. **As of P2.10, leaving `property_config$prior_fusion_method` unset
+#' defaults to `"raw_draws"`** for `dist %in% c("auto","normal","beta","gamma","lognormal")` - see
+#' `resolve_want_raw_draws()` for the exact rule and the benchmark numbers behind it. Only an
+#' explicit `dist = "metalog"` keeps the pre-P2.10 default (`fuse_metalog_adapter()` has no
+#' raw-draws fit; forcing a mukey-draws simulation for it would be pure waste). Set
+#' `property_config$prior_fusion_method = "percentile"` explicitly to opt back into the original
+#' behavior for any `dist` (e.g. to match older cached/tested output, or avoid the live simulation
+#' dependency); `"raw_draws"` explicitly forces it on even for `dist = "metalog"` (accepted but
+#' silently unused there, per `fuse_metalog_adapter()`'s docs).
+#'
+#' The real draws are held in memory only for the duration of this one call, never disk-cached
+#' (see `simulate_ssurgo_mapunit_draws()`'s docs for why) - so raw_draws fusion (whether defaulted
+#' or explicit) forces a fresh simulation even when this AOI/property/depth-window's `"ssurgo"`
+#' percentile cache is already warm (the draws that produced that cached percentile summary weren't
+#' kept). That simulation still runs at most once per call regardless of cache state - it is shared
+#' with the percentile-cache-population step when both are needed in the same call.
 #' @export
 run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth,
                                composition_groups = NULL, property_configs = NULL,
@@ -863,12 +1495,31 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
     return(if (is.null(group_result)) NULL else group_result[[property_config$id]])
   }
 
+  ssurgo_property_id <- if (!is.null(property_config$solus_variable)) property_config$solus_variable else property_config$id
+  want_raw_draws <- resolve_want_raw_draws(property_config$prior_fusion_method, property_config$dist)
+
   ssurgo_key <- build_cache_key(aoi_vect, property_config$id, top_depth, bottom_depth, "ssurgo")
   prior <- cache_get_valid_percentiles(ssurgo_key)
+
+  # The mukey grid/draws are computed AT MOST ONCE and reused in-memory for both the percentile
+  # cache (below) and the raw-draws lookup (further down) - needed whenever the percentile cache
+  # is cold (have to simulate anyway) OR raw-draws fusion was explicitly requested (needs the real
+  # draws regardless of whether percentiles are already cached). This avoids literally re-running
+  # the expensive simulation twice in one call, which an earlier version of this function did.
+  # simulate_ssurgo_mapunit_draws() itself is deliberately NOT disk-cached - see its own docs.
+  mukey_raster_native <- NULL
+  draws <- NULL
+  if (is.null(prior) || want_raw_draws) {
+    mukey_raster_native <- fetch_ssurgo_mukey_raster(aoi_vect)
+    if (is.null(mukey_raster_native)) return(NULL)
+    draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth,
+                                            parallel = parallel, n_cores = n_cores,
+                                            mukey_raster = mukey_raster_native)
+    if (is.null(draws)) return(NULL)
+  }
+
   if (is.null(prior)) {
-    ssurgo_property_id <- if (!is.null(property_config$solus_variable)) property_config$solus_variable else property_config$id
-    prior <- fetch_ssurgo_percentiles(aoi_vect, ssurgo_property_id, top_depth, bottom_depth,
-                                       parallel = parallel, n_cores = n_cores)
+    prior <- percentiles_from_draws(mukey_raster_native, draws, ssurgo_property_id)
     if (is.null(prior)) return(NULL)
     cache_set(ssurgo_key, "ssurgo", wrap_percentile_list(prior))
   }
@@ -887,11 +1538,28 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
   reference_grid <- solus$values[[1]]
   prior_aligned <- lapply(prior$values, terra::resample, y = reference_grid, method = "bilinear")
 
-  fused <- fuse_property_adaptive(
-    prior_value_rasters = prior_aligned, prior_probs = prior$probs,
-    lik_value_rasters = solus$values, lik_probs = solus$probs,
-    property_config = property_config
-  )
+  # Opt-in raw-draws fusion (see @section above): `draws` is already in memory from above whenever
+  # want_raw_draws is TRUE (it's part of the is.null(prior) || want_raw_draws condition), so this
+  # never triggers a further simulation. Align the mukey raster to the SOLUS grid via
+  # NEAREST-NEIGHBOR resampling (not bilinear, which would fabricate nonsensical interpolated
+  # mukey codes between categories).
+  extra_fusion_args <- list()
+  if (want_raw_draws && !is.null(draws)) {
+    mukey_draws <- mukey_draws_lookup(draws, ssurgo_property_id)
+    if (!is.null(mukey_draws)) {
+      extra_fusion_args$mukey_raster <- terra::resample(mukey_raster_native, reference_grid, method = "near")
+      extra_fusion_args$mukey_draws <- mukey_draws
+    }
+  }
+
+  fused <- do.call(fuse_property_adaptive, c(
+    list(
+      prior_value_rasters = prior_aligned, prior_probs = prior$probs,
+      lik_value_rasters = solus$values, lik_probs = solus$probs,
+      property_config = property_config
+    ),
+    extra_fusion_args
+  ))
 
   list(
     prior = list(values = prior_aligned, probs = prior$probs),
@@ -909,9 +1577,11 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
 #' independent fusion measurably breaks sum-to-100. Each member's SSURGO/SOLUS percentiles are
 #' still fetched/cached per-property (so a later request for just one member's raw percentiles
 #' still hits cache), but the fusion itself runs once for the whole group, under a `"texture_group"`
-#' cache kind, with each member's resulting posterior also seeded into a per-property `"posterior"`
-#' cache kind - so three sequential `run_stage1_fusion()` calls for clay, then sand, then silt
-#' trigger the joint fetch+fusion exactly once, not three times.
+#' cache kind (`"texture_group_raw_draws"` when `prior_fusion_method = "raw_draws"` was requested -
+#' see the section below for why these must be distinct kinds), with each member's resulting
+#' posterior also seeded into a per-property `"posterior"`/`"posterior_raw_draws"` cache kind - so
+#' three sequential `run_stage1_fusion()` calls for clay, then sand, then silt trigger the joint
+#' fetch+fusion exactly once, not three times.
 #'
 #' @param aoi_vect A `terra::SpatVector` AOI.
 #' @param group A composition group name (e.g. `"texture"`).
@@ -925,20 +1595,50 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
 #'   `parallel`/`n_cores` for the shared draws computation below (only relevant when at least one
 #'   member isn't already disk-cached). Default `parallel = FALSE` matches prior behavior exactly.
 #' @return The full group result: a named list keyed by member id, each element
-#'   `list(posterior = list(value=, ilr_mu=, ilr_Sigma=), dist = "texture_ilr", route =
+#'   `list(posterior = list(value=, ilr_mu=, ilr_Sigma=, percentiles=), dist = "texture_ilr", route =
 #'   "closed_form_ilr_group", route_detail = NULL, n_fallback_cells = 0)` (see
 #'   `fuse_texture_group()`'s docs - NOT the uniform `(mu,sigma)`/`(alpha,beta)` contract
 #'   non-compositional properties get) - or `NULL` if any member's SSURGO/SOLUS fetch failed.
 #'   `run_stage1_fusion()`'s own dispatch slices this down to the single requested member
 #'   (`group_result[[property_config$id]]`) to keep its own per-property return contract
-#'   consistent regardless of `dist`.
+#'   consistent regardless of `dist`. `percentiles` (added
+#'   `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P3.6) is THIS member's own fraction's
+#'   percentiles (a named list of `SpatRaster`s) - see `fuse_texture_group()`'s `@section
+#'   Sum-to-100 caveat`: unlike `value`, these do NOT generally sum to 100 across the group's three
+#'   members.
+#' @section Higher-fidelity fusion (opt-in):
+#' Set `prior_fusion_method = "raw_draws"` on ANY member's `property_configs` entry to fuse the
+#' whole group against the real joint (clay, sand, silt) Monte Carlo draws instead of independent
+#' percentile-reconstructed marginals - see `fuse_texture_group()`'s docs and
+#' `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4/P2.5. Checked across all members (not just
+#' one) since the group is always fused jointly regardless of which member's config carries the
+#' setting. Like `run_stage1_fusion()`'s equivalent section, this forces the shared simulation to
+#' run even when every member's own `"ssurgo"` percentile cache is already warm (the draws that
+#' produced those cached percentiles weren't kept - see `simulate_ssurgo_mapunit_draws()`'s docs).
+#' Unset on every member (default) preserves the original percentile-reconstruction behavior
+#' exactly. **Unlike `run_stage1_fusion()`'s P2.10 default flip, this default is intentionally
+#' unchanged** - the joint texture-group raw-draws route
+#' (`fuse_texture_group_batch_core()`'s per-cell Cholesky/MC sampler) has no equivalent
+#' `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` P2.9-style cost benchmark yet, so flipping its default
+#' too would be an unverified assumption, not a data-driven decision.
 #' @export
 run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, property_configs,
                                      top_depth, bottom_depth, parallel = FALSE, n_cores = NULL) {
   member_ids <- group_members(group, composition_groups)
   members <- property_configs[member_ids]
+  want_raw_draws <- any(vapply(members, function(m) identical(m$prior_fusion_method, "raw_draws"), logical(1)))
 
-  group_key <- build_cache_key(aoi_vect, group, top_depth, bottom_depth, "texture_group")
+  # The "kind" strings below encode want_raw_draws (e.g. "texture_group" vs
+  # "texture_group_raw_draws") so a cached FUSED result from one prior_fusion_method is never
+  # silently served back to a caller requesting the other - found live while testing P2.5: without
+  # this, switching prior_fusion_method for the same AOI/depth-window returned a stale,
+  # method-mismatched cached group result (the group-level cache stores the fused POSTERIOR, unlike
+  # run_stage1_fusion()'s own "ssurgo" cache, which only stores the pre-fusion PRIOR - re-fused
+  # fresh every call - so this staleness risk is specific to the group path).
+  group_kind <- if (want_raw_draws) "texture_group_raw_draws" else "texture_group"
+  member_kind <- if (want_raw_draws) "posterior_raw_draws" else "posterior"
+
+  group_key <- build_cache_key(aoi_vect, group, top_depth, bottom_depth, group_kind)
   # cache_set()'s own docs flag that SpatRasters must be wrap()/unwrap()ed around a cache
   # round-trip - group_result nests them inside each member's $posterior$value/ilr_mu/ilr_Sigma,
   # not the simple list(values=, probs=) shape wrap_percentile_list() handles, so the generic
@@ -963,11 +1663,12 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
 
     shared_mukey_raster <- NULL
     shared_draws <- NULL
-    if (any(vapply(ssurgo_cached, is.null, logical(1)))) {
+    if (want_raw_draws || any(vapply(ssurgo_cached, is.null, logical(1)))) {
       shared_mukey_raster <- fetch_ssurgo_mukey_raster(aoi_vect)
       if (!is.null(shared_mukey_raster)) {
         shared_draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth,
-                                                        parallel = parallel, n_cores = n_cores)
+                                                        parallel = parallel, n_cores = n_cores,
+                                                        mukey_raster = shared_mukey_raster)
       }
     }
 
@@ -998,12 +1699,27 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
     })
     if (any(vapply(fetched, is.null, logical(1)))) return(NULL)
 
-    group_result <- fuse_texture_group(fetched)
-    cache_set(group_key, "texture_group", wrap_nested_rasters(group_result))
+    # Opt-in raw-draws fusion (see @section above): `shared_draws` is already in memory from above
+    # whenever want_raw_draws is TRUE, so this never triggers a further simulation. Align the
+    # mukey raster to the same reference grid every member's own prior was already resampled onto
+    # (the first member's likelihood raster, `fetched[[1]]$lik[[1]]`) via NEAREST-NEIGHBOR
+    # resampling (not bilinear, which would fabricate nonsensical interpolated mukey codes).
+    mukey_texture_draws <- NULL
+    mukey_raster_aligned <- NULL
+    if (want_raw_draws && !is.null(shared_draws) && !is.null(shared_mukey_raster)) {
+      mukey_texture_draws <- mukey_texture_draws_lookup(shared_draws)
+      if (!is.null(mukey_texture_draws)) {
+        mukey_raster_aligned <- terra::resample(shared_mukey_raster, fetched[[1]]$lik[[1]], method = "near")
+      }
+    }
+
+    group_result <- fuse_texture_group(fetched, mukey_raster = mukey_raster_aligned,
+                                        mukey_texture_draws = mukey_texture_draws)
+    cache_set(group_key, group_kind, wrap_nested_rasters(group_result))
 
     for (id in member_ids) {
-      member_key <- build_cache_key(aoi_vect, id, top_depth, bottom_depth, "posterior")
-      cache_set(member_key, "posterior", wrap_nested_rasters(group_result[[id]]))
+      member_key <- build_cache_key(aoi_vect, id, top_depth, bottom_depth, member_kind)
+      cache_set(member_key, member_kind, wrap_nested_rasters(group_result[[id]]))
     }
   }
 

@@ -208,10 +208,71 @@ bayes_fuse <- function(prior_params, lik_params, family = c("normal", "beta", "g
 #'   `NULL`, derived from the combined range of both inputs, padded by 1.
 #' @param grid_resolution Step size of the evaluation grid.
 #' @param n Number of posterior samples to draw.
-#' @return A numeric vector of `n` samples drawn from the posterior distribution.
+#' @param winsorize_probs Optional length-2 vector `c(lower, upper)` (e.g. `c(0.01, 0.99)`). When
+#'   supplied, each side's sample is independently clipped to its OWN `quantile()` range at these
+#'   probabilities before the `stats::density(bw = "nrd0")` call. `NULL` (default) preserves this
+#'   function's original behavior exactly.
+#' @param posterior_probs Optional numeric vector of probabilities (0-1) at which to report
+#'   posterior percentiles (e.g. `c(0.05, 0.5, 0.95)`). `NULL` (default) preserves this function's
+#'   original return shape EXACTLY - a plain numeric vector of `n` posterior samples - so every
+#'   existing caller (`fuse_property()`, `R/monte-carlo.R`'s `fuse_observed_data_into_priors()`,
+#'   this file's own tests) is completely unaffected. When supplied, the return shape changes to
+#'   the richer list described below (see `@return`); see `@section Grid-based percentiles` for why
+#'   this is the primary use case for `posterior_probs`, not `quantile()` on the resampled vector.
+#' @return When `posterior_probs` is `NULL` (default): a numeric vector of `n` samples drawn from
+#'   the posterior distribution (unchanged from this function's original contract). When
+#'   `posterior_probs` is supplied: a list with -
+#'   - `samples`: the same `n`-length resampled vector as the `NULL` case (still available for
+#'     callers that want actual posterior draws, e.g. downstream Monte Carlo propagation).
+#'   - `mean`, `var`: the posterior mean/variance computed EXACTLY from the discretized
+#'     `posterior_prob`/`value_grid` distribution (`sum(value_grid * posterior_prob)` and its
+#'     variance analogue) - zero resampling noise, strictly at least as accurate as `mean(samples)`/
+#'     `var(samples)` for any `n`.
+#'   - `percentiles`: a named numeric vector (names `"P5"`, `"P50"`, ... matching `posterior_probs`),
+#'     read directly off `cumsum(posterior_prob)` - also zero resampling noise, accurate to within
+#'     `grid_resolution`.
+#'   - `value_grid`, `posterior_prob`: the underlying discretized distribution itself, for callers
+#'     that want to compute something these three summaries don't cover.
+#'
+#' @section Grid-based percentiles have zero resampling noise:
+#' This function already computes the FULL discretized posterior distribution
+#' (`posterior_prob` over `value_grid`) before its final step, which historically only existed to
+#' hand back a plain vector (`sample(value_grid, size = n, prob = posterior_prob, replace = TRUE)`).
+#' Reading percentiles/moments directly off `posterior_prob`'s cumulative distribution - finding
+#' where `cumsum(posterior_prob)` crosses each target probability - is exact relative to
+#' `grid_resolution` and has no resampling noise at all, unlike `quantile(samples, probs = ...)`
+#' would have. No amount of increasing `n` improves on reading percentiles directly off an
+#' already-fully-known discrete distribution, so this is `posterior_probs`' primary computation
+#' path, not a convenience wrapper around the resampled `samples` vector.
+#'
+#' @section Known limitation (raw-draws fusion vs. percentile-reconstruction fusion):
+#' A dedicated adversarial test (`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.7) found that for
+#' a skewed prior fused against a weak/wide likelihood, `soilSIM`'s `prior_fusion_method =
+#' "raw_draws"` route (a genuine empirical resample as the prior side) can produce a fused posterior
+#' mean measurably *less* close to the prior population's true mean than the default
+#' percentile-reconstruction route, in a way that first looked like a bandwidth-selection bug. Task
+#' P3.1's follow-up investigation ruled that out directly (forcing both routes onto the exact same
+#' `stats::density()` bandwidth left the gap essentially unchanged) and traced the real mechanism to
+#' `R/percentile-sampling.R`'s `sim_linear_cdf_batch()`: reconstructing a distribution from only 5
+#' percentile knots is an inherent information-loss approximation for skewed shapes (confirmed
+#' method-agnostic - `linear_cdf`/`spline`/`kde` reconstruction all show a comparable P75-P95
+#' overshoot on the same synthetic scenario), not a defect in this function or in raw_draws. See
+#' that task's write-up for the full investigation; `winsorize_probs` remains available below as a
+#' harmless, independently-useful safety net for genuine extreme-outlier inputs, not as a fix for
+#' this finding (there was nothing here to fix).
 #' @export
 bayesian_update <- function(prior_distribution, likelihood_distribution, grid_range = NULL,
-                             grid_resolution = 0.01, n = 1000) {
+                             grid_resolution = 0.01, n = 1000, winsorize_probs = NULL,
+                             posterior_probs = NULL) {
+  if (!is.null(winsorize_probs)) {
+    clip <- function(x) {
+      bounds <- stats::quantile(x, probs = winsorize_probs, na.rm = TRUE, names = FALSE)
+      pmin(pmax(x, bounds[1]), bounds[2])
+    }
+    prior_distribution <- clip(prior_distribution)
+    likelihood_distribution <- clip(likelihood_distribution)
+  }
+
   if (is.null(grid_range)) {
     grid_min <- min(c(prior_distribution, likelihood_distribution)) - 1
     grid_max <- max(c(prior_distribution, likelihood_distribution)) + 1
@@ -234,7 +295,29 @@ bayesian_update <- function(prior_distribution, likelihood_distribution, grid_ra
   posterior_prob <- prior_prob * likelihood_prob
   posterior_prob <- posterior_prob / sum(posterior_prob)
 
-  sample(value_grid, size = n, prob = posterior_prob, replace = TRUE)
+  samples <- sample(value_grid, size = n, prob = posterior_prob, replace = TRUE)
+
+  if (is.null(posterior_probs)) {
+    return(samples)
+  }
+
+  # Grid-based exact percentiles/moments - see @section Grid-based percentiles above for why this
+  # is preferred over quantile()/mean()/var() on `samples`.
+  cdf <- cumsum(posterior_prob)
+  idx <- pmin(findInterval(posterior_probs, cdf) + 1L, length(value_grid))
+  percentiles <- stats::setNames(value_grid[idx], paste0("P", round(posterior_probs * 100)))
+
+  mean_exact <- sum(value_grid * posterior_prob)
+  var_exact <- sum((value_grid - mean_exact)^2 * posterior_prob)
+
+  list(
+    samples = samples,
+    mean = mean_exact,
+    var = var_exact,
+    percentiles = percentiles,
+    value_grid = value_grid,
+    posterior_prob = posterior_prob
+  )
 }
 
 # ==============================================================================

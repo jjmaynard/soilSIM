@@ -12,6 +12,7 @@ download_ssurgo_tabular(
   cache_dir = NULL,
   force_download = FALSE,
   validate_data = TRUE,
+  mukey_raster = NULL,
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 }
@@ -29,6 +30,14 @@ unsuitable horizon detection (default: TRUE)}
 \item{force_download}{Logical. If TRUE, bypass cache and download fresh data (default: FALSE)}
 
 \item{validate_data}{Logical. Perform comprehensive data validation (default: TRUE)}
+
+\item{mukey_raster}{Optional, already-fetched \code{terra::SpatRaster} of mukey codes for this same
+AOI (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}) - passed through to
+\code{\link{process_aoi_and_get_mukeys_working}} so it can skip its own independent
+\code{soilDB::mukey.wcs()} call. \code{NULL} (default) preserves this function's original
+behavior exactly (it fetches its own grid) - see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md}
+task P1.2 for why this exists (raster-fusion callers that already fetched a mukey grid for
+the same AOI can now reuse it instead of triggering a second network call).}
 
 \item{verbose}{Logical. Provide detailed progress messages (default: FALSE)}
 }

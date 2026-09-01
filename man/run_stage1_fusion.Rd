@@ -36,7 +36,13 @@ prior behavior exactly.}
 }
 \value{
 \code{list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=, route_detail=, n_fallback_cells=)}, or \code{NULL} if the SSURGO or SOLUS side failed.
-\code{posterior}'s shape depends on \code{dist} - see \code{fuse_property_adaptive()}'s docs.
+\code{posterior}'s shape depends on \code{dist} - see \code{fuse_property_adaptive()}'s docs. As of
+\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} tasks P3.2-P3.5, \code{posterior} also carries a
+\code{percentiles} field (a named list of \code{SpatRaster}s, \code{"P01"}..\code{"P99"} by default - see
+\link{FUSE_POSTERIOR_DEFAULT_PROBS}) regardless of \code{dist}, for every non-compositional property -
+this function doesn't expose its own \code{posterior_probs} parameter (matching the existing
+convention that \code{n_samples}/\code{grid_resolution} also aren't threaded this far down; the
+underlying \verb{fuse_*()} route's own default applies).
 }
 \description{
 Fetches the (cached) SSURGO prior (\code{R/ssurgo-simulation.R}'s \code{fetch_ssurgo_percentiles()}) and
@@ -48,3 +54,21 @@ SSURGO grid onto the SOLUS grid via \code{terra::resample()}, then fuses via
 Compositional properties (\code{property_config$composition_group} set) are detected up front and
 delegated to \code{run_stage1_fusion_group()} instead, since they must be fetched/fit jointly.
 }
+\section{Higher-fidelity fusion (opt-in)}{
+
+Set \code{property_config$prior_fusion_method = "raw_draws"} to fuse against each mukey's real
+Monte Carlo draws instead of a percentile-reconstructed approximation - see
+\code{fuse_general_kde()}'s docs and \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.2/P2.3. Only
+affects the \code{dist \%in\% c("normal","beta","gamma")} general-KDE route (small AOIs, at or below
+\code{fuse_adaptive()}'s \code{threshold_cells}) - the closed-form route, \code{"lognormal"}, and \code{"metalog"}
+are unaffected regardless of this setting (not yet implemented for those routes). Unset/any
+other value (default) preserves the original percentile-reconstruction behavior exactly.
+
+The real draws are held in memory only for the duration of this one call, never disk-cached
+(see \code{simulate_ssurgo_mapunit_draws()}'s docs for why) - so requesting \code{"raw_draws"} forces a
+fresh simulation even when this AOI/property/depth-window's \code{"ssurgo"} percentile cache is
+already warm (the draws that produced that cached percentile summary weren't kept). That
+simulation still runs at most once per call regardless of cache state - it is shared with the
+percentile-cache-population step when both are needed in the same call.
+}
+

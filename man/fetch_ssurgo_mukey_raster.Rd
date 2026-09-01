@@ -10,15 +10,27 @@ fetch_ssurgo_mukey_raster(aoi_vect)
 \item{aoi_vect}{A \code{terra::SpatVector} (projected, e.g. EPSG:5070) - the AOI footprint itself,
 not widened to its bounding box (unlike \code{R/ssurgo-acquisition.R}'s
 \code{process_aoi_and_get_mukeys_working()}, which bbox-widens for its tabular by-mukey-list
-query - inappropriate here, where over-fetching/over-rasterizing the AOI's full bbox would
-waste both a \code{mukey.wcs()} grid and a \code{SDA_spatialQuery()} polygon fetch).}
+query - \code{soilDB::mukey.wcs()} bbox-clips internally regardless of input polygon shape, so
+both resolve to the same extent; passing the footprint here avoids widening the \emph{cached}
+grid's extent unnecessarily for callers that only need the AOI itself covered).}
 }
 \value{
 A single-layer, categorical (factor) \code{terra::SpatRaster} named \code{"mukey"}, or \code{NULL} if
-either the grid or the polygon fetch returns nothing (including when \code{soilDB::SDA_spatialQuery()}
-errors outright, e.g. because its \code{sf} dependency isn't loadable in this session - a real,
-encountered failure mode, not hypothetical).
+the grid fetch returns nothing.
 }
 \description{
 Fetch a Raster of SSURGO Map Unit Keys for an AOI
 }
+\section{Implementation note}{
+
+Previously this function \emph{also} issued a separate \code{soilDB::SDA_spatialQuery(what="mupolygon")}
+vector fetch and rasterized it onto \code{mukey.wcs()}'s own grid purely as a template, discarding
+that grid's own cell values - \code{soilDB::mukey.wcs()}'s own documented example
+(\code{?soilDB::mukey.wcs}) reads mukey codes directly off its returned raster's values
+(\code{unique(values(res))}), confirming no separate polygon fetch/rasterize step is needed. Dropped
+that redundant fetch (see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md}, task P1.1) - this function
+now issues exactly one network call per cache miss instead of two. Also disk-cached
+(\code{raster-cache.R}, kind \code{"mukey_grid"}, depth-agnostic key via \code{mukey_grid_cache_key()}) so
+repeated calls for the same AOI across separate top-level user calls hit zero network calls.
+}
+

@@ -298,12 +298,68 @@ benchmark_check_property_data_availability <- function(n_rows = 20000) {
   invisible(t)
 }
 
+# ---------------------------------------------------------------------------
+# 10. fuse_general_kde()'s raw_draws route vs the default percentile-reconstruction route
+#     (MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P2.9) - raw_draws does a per-cell mukey lookup
+#     against real Monte Carlo draws instead of reconstructing from a 5-percentile summary, so
+#     it's expected to cost more; this quantifies by how much, at a representative cell count and
+#     mukey cardinality, using the same synthetic-raster style as benchmark #5 (no live network).
+# ---------------------------------------------------------------------------
+benchmark_fuse_general_kde_raw_draws <- function(ncell = 2000, n_unique_mukeys = 8, draws_per_mukey = 1500) {
+  prior_r <- make_synthetic_percentile_rasters(ncell, 20, 30, 45, seed = 42)
+  lik_r   <- make_synthetic_percentile_rasters(ncell, 22, 32, 48, seed = 99)
+  actual_ncell <- terra::ncell(prior_r[[1]])
+
+  # Assign each cell one of n_unique_mukeys codes (a realistic AOI has far fewer unique mukeys
+  # than cells - mukey_prior_samples is precomputed once per unique mukey, not once per cell, so
+  # mukey cardinality - not cell count - is what should drive any extra cost here).
+  set.seed(7)
+  mukey_codes <- sample(seq_len(n_unique_mukeys), actual_ncell, replace = TRUE)
+  mukey_raster <- prior_r[[1]]
+  terra::values(mukey_raster) <- mukey_codes
+  names(mukey_raster) <- "mukey"
+  mukey_raster <- terra::as.factor(mukey_raster)
+
+  mukey_draws <- stats::setNames(
+    lapply(seq_len(n_unique_mukeys), function(i) {
+      set.seed(100 + i)
+      stats::rlnorm(draws_per_mukey, meanlog = log(25 + i), sdlog = 0.3)
+    }),
+    as.character(seq_len(n_unique_mukeys))
+  )
+
+  cat("== [10] fuse_general_kde() default vs raw_draws (", actual_ncell, "cells,",
+      n_unique_mukeys, "unique mukeys, synthetic) ==\n")
+
+  t_default <- system.time(
+    result_default <- fuse_adaptive(
+      prior_r, lik_r, percentile_probs = c(0.05, 0.5, 0.95),
+      family = "normal", threshold_cells = actual_ncell + 1, verbose = FALSE
+    )
+  )
+  cat("default route:\n"); print(t_default)
+
+  t_raw <- system.time(
+    result_raw <- fuse_adaptive(
+      prior_r, lik_r, percentile_probs = c(0.05, 0.5, 0.95),
+      family = "normal", threshold_cells = actual_ncell + 1, verbose = FALSE,
+      mukey_raster = mukey_raster, mukey_draws = mukey_draws
+    )
+  )
+  cat("raw_draws route:\n"); print(t_raw)
+
+  ratio <- unname(t_raw[["elapsed"]] / t_default[["elapsed"]])
+  cat(sprintf("raw_draws / default elapsed ratio: %.2fx\n\n", ratio))
+  invisible(list(default = t_default, raw_draws = t_raw, ratio = ratio))
+}
+
 if (identical(environment(), globalenv())) {
   benchmark_ssurgo_simulation()
   benchmark_texture_group_fusion()
   benchmark_monte_carlo_integration()
   benchmark_gp_hyperparameter_optimization()
   benchmark_fuse_general_kde()
+  benchmark_fuse_general_kde_raw_draws()
   benchmark_simulate_cokey_generalized()
   benchmark_merge_adjusted_data()
   benchmark_apply_cross_property_constraints()

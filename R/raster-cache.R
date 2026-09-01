@@ -47,6 +47,21 @@ build_cache_key <- function(aoi_vect, id, top_depth, bottom_depth, kind) {
   gsub("[^A-Za-z0-9_-]", "_", key)
 }
 
+#' Build a cache key for one AOI's SSURGO mukey grid (depth-independent)
+#'
+#' A mukey raster/list depends only on the AOI, not on any depth window - unlike
+#' `build_cache_key()`'s other callers (percentile-value rasters, tabular horizon data), which are
+#' genuinely depth-window-specific. Rather than changing `build_cache_key()`'s signature (every
+#' other call site would need a depth argument that means nothing there), this calls it with a
+#' fixed sentinel depth so every mukey-grid request for the same AOI maps to the same key
+#' regardless of what depth window the caller happens to be working with.
+#' @param aoi_vect A `terra::SpatVector` (single-feature AOI).
+#' @return A character string, safe for use as a filename.
+#' @keywords internal
+mukey_grid_cache_key <- function(aoi_vect) {
+  build_cache_key(aoi_vect, "mukey", 0, 0, "mukey_grid")
+}
+
 #' Retrieve a cached value if present and not older than `ttl_seconds`
 #'
 #' @param key A cache key from `build_cache_key()`.

@@ -13,7 +13,8 @@ fuse_texture_group_batch(
   prior_z,
   lik_z,
   n_mc = 2000,
-  max_cells_per_subchunk = 2000
+  max_cells_per_subchunk = 2000,
+  mukey_prior_texture_samples = NULL
 )
 
 fuse_texture_group_batch_core(
@@ -23,12 +24,14 @@ fuse_texture_group_batch_core(
   silt_id,
   prior_z,
   lik_z,
-  n_mc = 2000
+  n_mc = 2000,
+  mukey_prior_texture_samples = NULL
 )
 }
 \arguments{
 \item{row_mat}{A matrix with one row per cell and the 18
-\verb{<id>_<prior|lik>_<lo|p50|hi>} columns \code{fuse_texture_group()} builds.}
+\verb{<id>_<prior|lik>_<lo|p50|hi>} columns \code{fuse_texture_group()} builds (plus one trailing
+\code{mukey_code} column when \code{mukey_prior_texture_samples} is supplied).}
 
 \item{clay_id, sand_id, silt_id}{The three members' \code{id}s, in ILR order.}
 
@@ -47,6 +50,13 @@ large enough to exhaust memory - confirmed empirically: a 50,000-cell
 chunk failed with "cannot allocate vector of size 4.5 Gb". Sub-chunking
 here, in cell order, doesn't change the RNG stream order (still
 cell-major) so results are unaffected.}
+
+\item{mukey_prior_texture_samples}{Optional - opts into \code{prior_fusion_method = "raw_draws"}
+(see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.4). A named list, keyed by mukey (as
+character), each element an \verb{n_mc x 3} matrix (columns \code{clay_total}/\code{sand_total}/
+\code{silt_total}) of real joint texture draws for that mukey - see
+\code{mukey_texture_draws_lookup()}. When supplied, \code{row_mat}'s last column must be the per-cell
+mukey code. \code{NULL} (default) preserves original behavior exactly.}
 }
 \value{
 A \verb{nrow(row_mat) x 5} matrix, columns \verb{mu1, mu2, S11, S12, S22}.

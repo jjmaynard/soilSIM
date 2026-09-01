@@ -16,7 +16,8 @@ simulate_ssurgo_mapunit_draws(
   n_mc = 1000,
   parallel = FALSE,
   n_cores = NULL,
-  config = NULL
+  config = NULL,
+  mukey_raster = NULL
 )
 
 SSURGO_SIM_PROPERTY_COLUMNS
@@ -40,6 +41,13 @@ Default \code{parallel = FALSE} matches prior behavior exactly.}
 \code{"gp_quantile_retrofit"} to opt back into the original algorithm) selects this top-level
 entry point's vertical-correlation method; \code{NULL} (default) resolves to \code{"joint_copula"},
 matching \code{get_monte_carlo_defaults()}'s own default.}
+
+\item{mukey_raster}{Optional, already-fetched \code{terra::SpatRaster} of mukey codes for this same
+\code{aoi_vect} (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}), passed through to
+\code{download_ssurgo_tabular()} so its tabular fetch reuses it instead of issuing a second,
+independent \code{soilDB::mukey.wcs()} call - see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task
+P1.2/P1.3. Only consulted on a \code{"ssurgo_tabular"} cache miss. \code{NULL} (default) preserves
+original behavior exactly.}
 }
 \value{
 A data frame, one row per \code{mukey}/\code{cokey}/\code{simulation_number} replicate, with simulated
@@ -64,6 +72,18 @@ This function's own disk cache (\code{build_cache_key()}/\code{cache_get()}/\cod
 parameter (always \code{NULL} here). A cache entry for a given AOI/depth-window combination written
 before component recovery shipped predates it entirely - clear that cache entry (or the whole
 cache directory) to pick up recovered components.
+
+This function's own SIMULATED output (as opposed to the raw tabular SSURGO input it's cached
+from) is deliberately NOT disk-cached - every call re-simulates fresh random draws, matching
+the original contract exactly. An earlier version of \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md}
+task P2.1 added an unconditional disk cache here so raster-fusion's raw-draws opt-in
+(\code{R/raster-fusion.R}'s \code{fuse_general_kde()}) could reuse draws across calls - reverted after
+review: it silently froze repeat output for EVERY caller of this function (including ones with
+nothing to do with raw-draws fusion, e.g. direct \code{fetch_ssurgo_percentiles()} use), which broke
+this project's own "default unchanged until opted in" convention. Raw-draws fusion instead
+reuses draws purely in-memory within one \code{run_stage1_fusion()} call (compute once, use for both
+the percentile cache and \code{mukey_draws_lookup()}) - see that function's implementation and
+\code{run_stage1_fusion_group()}'s pre-existing \code{shared_draws} pattern, which already did this.
 }
 
 \keyword{datasets}

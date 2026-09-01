@@ -26,3 +26,10 @@ Success status
 \description{
 Exports comprehensive metadata about the workflow execution.
 }
+\section{Usage note}{
+
+Fully implemented and exported, but not currently called from anywhere
+else in the package (confirmed by source grep) - standalone public API
+for callers who need it, not dead/broken code.
+}
+

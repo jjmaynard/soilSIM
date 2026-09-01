@@ -32,3 +32,11 @@ Success status
 \description{
 Standardized soil data writing with metadata and backup options.
 }
+\section{Usage note}{
+
+Fully implemented and exported, but not currently called from anywhere
+else in the package outside a \code{@seealso} doc link (confirmed by
+source grep) - standalone public API for callers who need it, not
+dead/broken code. See also \code{\link{read_soil_data}}.
+}
+

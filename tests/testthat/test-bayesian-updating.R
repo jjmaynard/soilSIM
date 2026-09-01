@@ -235,3 +235,56 @@ test_that("structural boundary: fuse_observed_data_into_priors()/fuse_one_proper
   expect_true(grepl("fuse_texture_group_from_triplets\\(", bridge_src))
   expect_true(grepl("bayes_update_normal_normal\\(", bridge_src))
 })
+
+test_that("bayesian_update()'s posterior_probs parameter doesn't change the underlying sample() draw, and NULL preserves the original plain-vector return exactly", {
+  # MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P3.8. bit-for-bit regression: the code path up to
+  # and including the sample() call must be byte-identical whether or not posterior_probs is later
+  # requested - `identical()`, not `expect_equal()` with a tolerance, is the right check here since
+  # the same RNG state should produce the exact same draws.
+  set.seed(101)
+  prior <- rnorm(500, 20, 5)
+  lik <- rnorm(500, 22, 4)
+
+  set.seed(202)
+  without_probs <- bayesian_update(prior, lik, grid_resolution = 0.1)
+  set.seed(202)
+  with_probs <- bayesian_update(prior, lik, grid_resolution = 0.1, posterior_probs = c(0.5))
+
+  expect_true(is.numeric(without_probs) && is.null(dim(without_probs)))
+  expect_identical(without_probs, with_probs$samples)
+})
+
+test_that("bayesian_update()'s posterior_probs percentiles are monotonic and centered near the exact grid-based mean", {
+  set.seed(103)
+  prior <- rnorm(1000, 20, 5)
+  lik <- rnorm(1000, 22, 4)
+  probs <- c(0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99)
+
+  post <- bayesian_update(prior, lik, grid_resolution = 0.05, posterior_probs = probs)
+  expect_named(post, c("samples", "mean", "var", "percentiles", "value_grid", "posterior_prob"))
+  expect_named(post$percentiles, paste0("P", round(probs * 100)))
+  expect_true(all(diff(post$percentiles) >= 0))
+  # The median (P50) should sit close to the exact grid-based mean for this roughly symmetric case.
+  expect_equal(unname(post$percentiles["P50"]), post$mean, tolerance = 1)
+})
+
+test_that("bayesian_update()'s grid-based percentiles don't visibly change as n (resample size) varies - confirms resampling noise is not in the percentile computation path", {
+  # MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P3.2's own verification note: for a fixed
+  # grid_resolution, grid-based percentiles/mean/var should be identical regardless of n, since
+  # they're read directly off the discretized posterior_prob/value_grid, not off the resampled
+  # `samples` vector (which n only controls the length of).
+  set.seed(107)
+  prior <- rnorm(800, 20, 5)
+  lik <- rnorm(800, 22, 4)
+  probs <- c(0.05, 0.5, 0.95)
+
+  post_small_n <- bayesian_update(prior, lik, grid_resolution = 0.05, n = 10, posterior_probs = probs)
+  post_large_n <- bayesian_update(prior, lik, grid_resolution = 0.05, n = 5000, posterior_probs = probs)
+
+  expect_identical(post_small_n$percentiles, post_large_n$percentiles)
+  expect_identical(post_small_n$mean, post_large_n$mean)
+  expect_identical(post_small_n$var, post_large_n$var)
+  # Only the resampled `samples` vector's length differs with n.
+  expect_length(post_small_n$samples, 10)
+  expect_length(post_large_n$samples, 5000)
+})

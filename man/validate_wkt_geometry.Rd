@@ -39,3 +39,28 @@ Comprehensive geometry validation results
 Comprehensive WKT geometry validation using terra package.
 Supports multiple coordinate systems, validation contexts, and customizable thresholds.
 }
+\section{Implementation note}{
+
+This is the package's single live WKT validation entry point. It delegates
+to the granular validators below (\code{validate_wkt_string()},
+\code{validate_geometry_validity()}, \code{validate_geometry_complexity()},
+\code{validate_geographic_context()}/\code{validate_projected_context()}) rather than
+duplicating their logic inline, so \code{validation_context}, \code{complexity_limits},
+and \code{strict_mode} are now all actually read (previously accepted but
+silently ignored). \code{ssurgo-acquisition.R}'s own downstream code already
+expected the nested \code{geometry_stats$complexity_validation$complexity_stats}
+shape this now produces (see its \code{complexity_score \%||\% NA} fallback,
+previously always hitting the \code{NA} branch).
+
+Fixed a real, previously-silent bug while doing this: the old
+implementation's outer \code{tryCatch(..., error = function(e) {...})} never
+assigned the \code{tryCatch()} call's own result back to \code{validation_result} -
+assignments inside the \verb{error =} handler only modified a local copy inside
+that handler's own function scope, discarded when it returned. This meant
+a WKT string that failed to parse (e.g. malformed syntax) still made this
+function return \code{valid = TRUE} with placeholder geometry stats, silently
+passing invalid input through as valid. Fixed by capturing \code{tryCatch()}'s
+return value directly instead of relying on \verb{<-} inside the error handler
+to reach the outer scope.
+}
+

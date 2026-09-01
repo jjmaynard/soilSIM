@@ -17,3 +17,14 @@ Default validation parameters
 \description{
 Get appropriate default validation parameters for different contexts
 }
+\section{Usage note}{
+
+Fully implemented and exported, but not currently called from anywhere
+else in the package (confirmed by source grep) - standalone public API,
+not dead/broken code. \code{\link{validate_wkt_geometry}} (the package's
+live WKT validation entry point) hardcodes its own context-appropriate
+defaults directly in its function signature rather than calling this at
+runtime, so the two default sets should be kept in sync by hand if either
+changes.
+}
+

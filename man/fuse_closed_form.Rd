@@ -11,7 +11,8 @@ fuse_closed_form(
   lik_value_rasters,
   percentile_probs,
   family,
-  bounds
+  bounds,
+  posterior_probs = NULL
 )
 }
 \arguments{
@@ -22,9 +23,16 @@ fuse_closed_form(
 \item{family}{One of "normal", "beta", "gamma".}
 
 \item{bounds}{Required for \code{family = "beta"}.}
+
+\item{posterior_probs}{Numeric probabilities (0-1) at which to report posterior percentiles.
+\code{NULL} (default) resolves to \link{FUSE_POSTERIOR_DEFAULT_PROBS}. Computed analytically
+(\code{qnorm}/\code{qbeta}/\code{qgamma} at the fused family parameters) - exact regardless of how extreme
+the requested probability is, unlike \code{fuse_general_kde()}'s sample/grid-based route.}
 }
 \value{
-\code{list(posterior=, route_detail=, n_fallback_cells=)}.
+\code{list(posterior=, route_detail=, n_fallback_cells=)}. \code{posterior} carries a new
+\code{percentiles} field (named list of \code{SpatRaster}s) alongside the existing family-native
+parameters.
 }
 \description{
 Closed-form same-family fusion path for \code{fuse_adaptive()}, with a

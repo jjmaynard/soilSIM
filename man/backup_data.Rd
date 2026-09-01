@@ -19,3 +19,12 @@ Backup file path
 \description{
 Creates versioned backups of important data files.
 }
+\section{Usage note}{
+
+Fully implemented and exported, but not currently called from anywhere
+else in the package (confirmed by source grep) - standalone public API
+for callers who need standalone/versioned backups (as opposed to
+\code{\link{write_soil_data}}'s single-backup-on-overwrite behavior), not
+dead/broken code.
+}
+

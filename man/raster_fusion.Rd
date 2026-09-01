@@ -24,7 +24,7 @@ inputs (confirmed by a dedicated smoke test before this file was
 written; see \code{bayes_update_normal_normal()}'s own doc comment upstream,
 which claims exactly this property).
 }
-\section{Deliberately out of scope}{
+\section{Formerly out of scope, now implemented}{
 
 \code{run_stage1_fusion()}/\code{run_stage1_fusion_group()} (the original top-level
 orchestrators) were initially \strong{not} ported, since at that point their
@@ -37,14 +37,17 @@ built as a handoff package for a \emph{different, sibling project}
 functions listed as unresolved integration gaps for that project. Those
 gaps have since been closed (\code{R/raster-cache.R}, \code{R/ssurgo-simulation.R},
 \code{R/solus-simulation.R}), and \code{run_stage1_fusion()}/
-\code{run_stage1_fusion_group()} are now fully implemented below, wiring
-everything together. \code{fuse_property_adaptive()} remains the lower-level
-entry point for callers who already have their own pre-fetched
-\code{prior_value_rasters}/\code{lik_value_rasters} and want to skip the
-fetch-and-cache wrapper.
+\code{run_stage1_fusion_group()} are now fully implemented below (this is a
+historical note, not a current limitation), wiring everything together.
+\code{fuse_property_adaptive()} remains the lower-level entry point for callers
+who already have their own pre-fetched \code{prior_value_rasters}/
+\code{lik_value_rasters} and want to skip the fetch-and-cache wrapper.
+}
 
-Also not ported: the global \code{PROPERTIES} config-list registry from the
-source bundle's \code{config.R}. \code{group_members()}/\code{fuse_property_adaptive()}
+\section{Deliberately out of scope}{
+
+The global \code{PROPERTIES} config-list registry from the source bundle's
+\code{config.R} was not ported. \code{group_members()}/\code{fuse_property_adaptive()}
 below take a per-call config list/member vector directly instead,
 reusing soilSIM's own existing \code{config$monte_carlo$composition_groups}
 convention (see \code{R/distributions.R}'s \code{resolve_composition_groups()})

@@ -32,30 +32,39 @@ NULL
 #' @param aoi_vect A `terra::SpatVector` (projected, e.g. EPSG:5070) - the AOI footprint itself,
 #'   not widened to its bounding box (unlike `R/ssurgo-acquisition.R`'s
 #'   `process_aoi_and_get_mukeys_working()`, which bbox-widens for its tabular by-mukey-list
-#'   query - inappropriate here, where over-fetching/over-rasterizing the AOI's full bbox would
-#'   waste both a `mukey.wcs()` grid and a `SDA_spatialQuery()` polygon fetch).
+#'   query - `soilDB::mukey.wcs()` bbox-clips internally regardless of input polygon shape, so
+#'   both resolve to the same extent; passing the footprint here avoids widening the *cached*
+#'   grid's extent unnecessarily for callers that only need the AOI itself covered).
 #' @return A single-layer, categorical (factor) `terra::SpatRaster` named `"mukey"`, or `NULL` if
-#'   either the grid or the polygon fetch returns nothing (including when `soilDB::SDA_spatialQuery()`
-#'   errors outright, e.g. because its `sf` dependency isn't loadable in this session - a real,
-#'   encountered failure mode, not hypothetical).
+#'   the grid fetch returns nothing.
+#'
+#' @section Implementation note:
+#' Previously this function *also* issued a separate `soilDB::SDA_spatialQuery(what="mupolygon")`
+#' vector fetch and rasterized it onto `mukey.wcs()`'s own grid purely as a template, discarding
+#' that grid's own cell values - `soilDB::mukey.wcs()`'s own documented example
+#' (`?soilDB::mukey.wcs`) reads mukey codes directly off its returned raster's values
+#' (`unique(values(res))`), confirming no separate polygon fetch/rasterize step is needed. Dropped
+#' that redundant fetch (see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`, task P1.1) - this function
+#' now issues exactly one network call per cache miss instead of two. Also disk-cached
+#' (`raster-cache.R`, kind `"mukey_grid"`, depth-agnostic key via `mukey_grid_cache_key()`) so
+#' repeated calls for the same AOI across separate top-level user calls hit zero network calls.
 #' @export
 fetch_ssurgo_mukey_raster <- function(aoi_vect) {
+  cache_key <- mukey_grid_cache_key(aoi_vect)
+  cached <- cache_get(cache_key)
+  if (!is.null(cached)) {
+    cached_raster <- tryCatch(terra::unwrap(cached), error = function(e) NULL)
+    if (inherits(cached_raster, "SpatRaster")) return(cached_raster)
+  }
+
   mu <- soilDB::mukey.wcs(aoi = aoi_vect, db = "gssurgo")
   if (is.null(mu)) return(NULL)
 
-  ssurgo_p <- tryCatch(
-    soilDB::SDA_spatialQuery(aoi_vect, what = "mupolygon", db = "SSURGO", geomIntersection = TRUE),
-    error = function(e) {
-      warning(sprintf("fetch_ssurgo_mukey_raster(): SDA_spatialQuery() failed: %s", conditionMessage(e)))
-      NULL
-    }
-  )
-  if (is.null(ssurgo_p) || nrow(ssurgo_p) == 0) return(NULL)
-  ssurgo_p <- terra::project(ssurgo_p, terra::crs(mu))
+  names(mu) <- "mukey"
+  mukey_raster <- terra::as.factor(mu)
 
-  mukey_raster <- terra::rasterize(ssurgo_p, mu, field = "mukey")
-  names(mukey_raster) <- "mukey"
-  terra::as.factor(mukey_raster)
+  cache_set(cache_key, "mukey_grid", terra::wrap(mukey_raster))
+  mukey_raster
 }
 
 #' Infill Missing Soil Property Values
@@ -261,6 +270,12 @@ property_to_sim_column <- function(property_id) {
 #'   `"gp_quantile_retrofit"` to opt back into the original algorithm) selects this top-level
 #'   entry point's vertical-correlation method; `NULL` (default) resolves to `"joint_copula"`,
 #'   matching `get_monte_carlo_defaults()`'s own default.
+#' @param mukey_raster Optional, already-fetched `terra::SpatRaster` of mukey codes for this same
+#'   `aoi_vect` (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}), passed through to
+#'   `download_ssurgo_tabular()` so its tabular fetch reuses it instead of issuing a second,
+#'   independent `soilDB::mukey.wcs()` call - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task
+#'   P1.2/P1.3. Only consulted on a `"ssurgo_tabular"` cache miss. `NULL` (default) preserves
+#'   original behavior exactly.
 #' @return A data frame, one row per `mukey`/`cokey`/`simulation_number` replicate, with simulated
 #'   property columns aggregated over the depth window - or `NULL` if the tabular fetch fails.
 #'   Minor components that `download_ssurgo_tabular()`'s underlying query would otherwise drop
@@ -273,9 +288,22 @@ property_to_sim_column <- function(property_id) {
 #' parameter (always `NULL` here). A cache entry for a given AOI/depth-window combination written
 #' before component recovery shipped predates it entirely - clear that cache entry (or the whole
 #' cache directory) to pick up recovered components.
+#'
+#' This function's own SIMULATED output (as opposed to the raw tabular SSURGO input it's cached
+#' from) is deliberately NOT disk-cached - every call re-simulates fresh random draws, matching
+#' the original contract exactly. An earlier version of `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`
+#' task P2.1 added an unconditional disk cache here so raster-fusion's raw-draws opt-in
+#' (`R/raster-fusion.R`'s `fuse_general_kde()`) could reuse draws across calls - reverted after
+#' review: it silently froze repeat output for EVERY caller of this function (including ones with
+#' nothing to do with raw-draws fusion, e.g. direct `fetch_ssurgo_percentiles()` use), which broke
+#' this project's own "default unchanged until opted in" convention. Raw-draws fusion instead
+#' reuses draws purely in-memory within one `run_stage1_fusion()` call (compute once, use for both
+#' the percentile cache and `mukey_draws_lookup()`) - see that function's implementation and
+#' `run_stage1_fusion_group()`'s pre-existing `shared_draws` pattern, which already did this.
 #' @export
 simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
-                                           parallel = FALSE, n_cores = NULL, config = NULL) {
+                                           parallel = FALSE, n_cores = NULL, config = NULL,
+                                           mukey_raster = NULL) {
   # download_ssurgo_tabular()/process_aoi_and_get_mukeys_working() (R/ssurgo-acquisition.R)
   # always assume their aoi_wkt argument is lon/lat EPSG:4326 (hardcoded there), regardless of
   # aoi_vect's actual CRS - extracting WKT directly from an already-projected aoi_vect (e.g.
@@ -290,7 +318,7 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
     # download_ssurgo_tabular() returns list(ssurgo_data=, mu=, metadata=, ...), not a bare
     # data frame - unwrap it here.
     download_result <- tryCatch(
-      download_ssurgo_tabular(aoi_wkt, cache_dir = NULL, verbose = FALSE),
+      download_ssurgo_tabular(aoi_wkt, cache_dir = NULL, verbose = FALSE, mukey_raster = mukey_raster),
       error = function(e) NULL
     )
     if (is.null(download_result) || is.null(download_result$ssurgo_data) || nrow(download_result$ssurgo_data) == 0) {
@@ -429,6 +457,69 @@ percentiles_from_draws <- function(mukey_raster, draws, property_id,
   list(values = values, probs = probs)
 }
 
+#' Raw Per-Mukey Monte Carlo Draws, Keyed by Mukey (Not Collapsed to Percentiles)
+#'
+#' The raw-draws analogue of \code{\link{percentiles_from_draws}}: groups `draws` by `mukey` the
+#' same way, but keeps each mukey's full vector of simulated values instead of collapsing it to a
+#' handful of quantiles. This is what lets raster-fusion routes (`R/raster-fusion.R`'s
+#' `fuse_general_kde()`/`fuse_texture_group_batch_core()`, once they opt into
+#' `prior_fusion_method = "raw_draws"`) fuse directly against the real empirical distribution
+#' computed once per unique mukey, rather than resampling a lower-fidelity reconstruction from
+#' just a few percentile values - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.1.
+#'
+#' @param draws A data frame from \code{\link{simulate_ssurgo_mapunit_draws}}, for the same
+#'   AOI/depth window the caller's mukey raster covers.
+#' @param property_id One of \code{\link{property_to_sim_column}}'s recognized ids.
+#' @return A named list keyed by mukey (as character), each element a numeric vector of that
+#'   mukey's simulated values (across every cokey/replicate) - or `NULL` if `property_id`'s
+#'   simulated column isn't present in `draws`.
+#' @export
+mukey_draws_lookup <- function(draws, property_id) {
+  sim_col <- property_to_sim_column(property_id)
+  if (!sim_col %in% names(draws)) return(NULL)
+
+  by_mukey <- draws |>
+    dplyr::group_by(mukey) |>
+    dplyr::summarise(values = list(.data[[sim_col]][is.finite(.data[[sim_col]])]), .groups = "drop")
+
+  stats::setNames(by_mukey$values, as.character(by_mukey$mukey))
+}
+
+#' Raw Per-Mukey JOINT Texture Draws, Keyed by Mukey (clay/sand/silt Row-Aligned)
+#'
+#' The texture-group counterpart of \code{\link{mukey_draws_lookup}}: instead of one property's
+#' values, returns the row-aligned `(clay_total, sand_total, silt_total)` TRIPLES simulated
+#' together for the same cokey/replicate. This preserves the real cross-property correlation
+#' between the three fractions (from `simulate_cokey_generalized()`'s KSSL texture correlation
+#' matrix) - something `fuse_texture_group()`'s current percentile-reconstruction fusion discards
+#' entirely, since it draws each fraction independently from its own marginal
+#' percentile-derived normal. Used by `fuse_texture_group_batch_core()`'s `prior_fusion_method =
+#' "raw_draws"` opt-in - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4.
+#'
+#' @param draws A data frame from \code{\link{simulate_ssurgo_mapunit_draws}}, for the same
+#'   AOI/depth window the caller's mukey raster covers.
+#' @return A named list keyed by mukey (as character), each element a matrix with columns
+#'   `clay_total`/`sand_total`/`silt_total` (one row per cokey/replicate with a complete texture
+#'   triplet for that row - rows with any missing fraction, e.g. a cokey where texture simulation
+#'   failed for that replicate, are dropped rather than kept partially). `NULL` if `draws` doesn't
+#'   carry all three texture columns at all (e.g. no member of the AOI's data had texture data).
+#' @export
+mukey_texture_draws_lookup <- function(draws) {
+  texture_cols <- c("clay_total", "sand_total", "silt_total")
+  if (!all(texture_cols %in% names(draws))) return(NULL)
+
+  complete <- stats::complete.cases(draws[, texture_cols])
+  draws <- draws[complete, , drop = FALSE]
+  if (nrow(draws) == 0) return(NULL)
+
+  by_mukey <- split(draws[, texture_cols], draws$mukey)
+  lapply(by_mukey, function(d) {
+    m <- as.matrix(d)
+    rownames(m) <- NULL
+    m
+  })
+}
+
 #' Fetch SSURGO Percentile-Value Rasters for an AOI
 #'
 #' The top-level SSURGO "prior" entry point for `R/raster-fusion.R`'s `fuse_property_adaptive()`:
@@ -454,7 +545,8 @@ fetch_ssurgo_percentiles <- function(aoi_vect, property_id, top_depth, bottom_de
   if (is.null(mukey_raster)) return(NULL)
 
   draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc,
-                                          parallel = parallel, n_cores = n_cores)
+                                          parallel = parallel, n_cores = n_cores,
+                                          mukey_raster = mukey_raster)
   if (is.null(draws) || nrow(draws) == 0) return(NULL)
 
   percentiles_from_draws(mukey_raster, draws, property_id, probs)

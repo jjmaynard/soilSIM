@@ -421,7 +421,7 @@ validate_data_quality <- function(data,
     validation_result$overall_quality <- list(
       score = overall_score,
       grade = quality_grade,
-      validation_passed = overall_score >= (quality_thresholds$min_completeness %||% 0.7),
+      validation_passed = overall_score >= (quality_thresholds$min_completeness %||% 0.8),
       component_scores = list(
         missing_data = missing_score,
         numeric_data = numeric_score,
@@ -456,6 +456,10 @@ validate_data_quality <- function(data,
 #' @param column_specifications List of column specifications
 #' @param strict_mode Whether to enforce strict type checking
 #' @return Column validation results
+#' @section Usage note:
+#' Fully implemented and exported, but not currently called from anywhere
+#' else in the package (confirmed by source grep) - standalone public API
+#' for callers who need it, not dead/broken code.
 #' @export
 check_required_columns <- function(data, column_specifications, strict_mode = TRUE) {
 
@@ -782,6 +786,11 @@ handle_missing_values <- function(data,
 #' @param sheet_name Sheet name for Excel files
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Loaded soil data
+#' @section Usage note:
+#' Fully implemented and exported, but not currently called from anywhere
+#' else in the package outside a \code{@seealso} doc link (confirmed by
+#' source grep) - standalone public API for callers who need it, not
+#' dead/broken code. See also \code{\link{write_soil_data}}.
 #' @export
 read_soil_data <- function(file_path,
                            file_type = "auto",
@@ -848,6 +857,11 @@ read_soil_data <- function(file_path,
 #' @param create_backup Whether to create backup
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Success status
+#' @section Usage note:
+#' Fully implemented and exported, but not currently called from anywhere
+#' else in the package outside a \code{@seealso} doc link (confirmed by
+#' source grep) - standalone public API for callers who need it, not
+#' dead/broken code. See also \code{\link{read_soil_data}}.
 #' @export
 write_soil_data <- function(data,
                             file_path,
@@ -897,6 +911,12 @@ write_soil_data <- function(data,
 #' @param backup_dir Backup directory (NULL = same directory)
 #' @param max_backups Maximum number of backups to keep
 #' @return Backup file path
+#' @section Usage note:
+#' Fully implemented and exported, but not currently called from anywhere
+#' else in the package (confirmed by source grep) - standalone public API
+#' for callers who need standalone/versioned backups (as opposed to
+#' \code{\link{write_soil_data}}'s single-backup-on-overwrite behavior), not
+#' dead/broken code.
 #' @export
 backup_data <- function(source_path, backup_dir = NULL, max_backups = 5) {
 
@@ -910,13 +930,9 @@ backup_data <- function(source_path, backup_dir = NULL, max_backups = 5) {
 
   dir.create(backup_dir, recursive = TRUE, showWarnings = FALSE)
 
-  # Create timestamped backup filename
+  # Create timestamped backup filename (shared with write_soil_data())
   base_name <- tools::file_path_sans_ext(basename(source_path))
-  file_ext <- tools::file_ext(source_path)
-  timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-
-  backup_filename <- paste0(base_name, "_backup_", timestamp, ".", file_ext)
-  backup_path <- file.path(backup_dir, backup_filename)
+  backup_path <- create_backup_filename(source_path, backup_dir)
 
   # Copy file
   if (file.copy(source_path, backup_path)) {
@@ -1113,8 +1129,9 @@ calculate_confidence_intervals <- function(data,
                                            n_bootstrap = 1000) {
 
   if (any(is.na(data))) {
+    n_missing <- sum(is.na(data))
     data <- data[!is.na(data)]
-    log_message("WARN", paste("Removed", sum(is.na(data)), "missing values"), category = "Statistics")
+    log_message("WARN", paste("Removed", n_missing, "missing values"), category = "Statistics")
   }
 
   if (length(data) == 0) {
@@ -1182,6 +1199,10 @@ calculate_confidence_intervals <- function(data,
 #' @param center Center values (for zscore and robust)
 #' @param scale Scale values (for zscore and robust)
 #' @return Normalized values
+#' @section Usage note:
+#' Fully implemented and exported, but not currently called from anywhere
+#' else in the package (confirmed by source grep) - standalone public API
+#' for callers who need it, not dead/broken code.
 #' @export
 normalize_values <- function(x, method = "minmax", center = TRUE, scale = TRUE) {
 
@@ -1784,6 +1805,10 @@ merge_configurations <- function(default_config, user_config, deep_merge = TRUE)
 #' @param include_data_summary Whether to include data summaries
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Success status
+#' @section Usage note:
+#' Fully implemented and exported, but not currently called from anywhere
+#' else in the package (confirmed by source grep) - standalone public API
+#' for callers who need it, not dead/broken code.
 #' @export
 export_workflow_metadata <- function(workflow_results,
                                      output_path,
@@ -1906,18 +1931,43 @@ write_excel_with_metadata <- function(data, file_path, include_metadata) {
   openxlsx::saveWorkbook(wb, file_path, overwrite = TRUE)
 }
 
+# Canonical SSURGO property synonym table (single source of truth).
+#
+# Keyed by the canonical `_r`-suffixed SSURGO column name; each entry lists
+# every known alias/synonym for that property (including common short forms
+# and the non-suffixed base name). `get_default_property_mapping("ssurgo")`,
+# `get_default_synonyms("ssurgo")`, and `validate_properties_with_synonyms()`
+# all previously maintained independent, overlapping copies of this
+# knowledge that could silently drift out of sync - they now all derive from
+# this one table instead. Each function's own entry vector here is the union
+# of what all three previously listed for that property, so no existing
+# alias/synonym recognized by any of them is lost.
+.ssurgo_property_synonyms <- function() {
+  list(
+    "claytotal_r"   = c("claytotal", "clay_total", "clay_r", "clay", "clay_pct"),
+    "sandtotal_r"   = c("sandtotal", "sand_total", "sand_r", "sand", "sand_pct"),
+    "silttotal_r"   = c("silttotal", "silt_total", "silt_r", "silt", "silt_pct"),
+    "dbovendry_r"   = c("dbovendry", "bulk_density", "db_r", "db", "bd", "bulk_density_third_bar"),
+    "dbthirdbar_r"  = c("dbthirdbar"),
+    "ph1to1h2o_r"   = c("ph1to1h2o", "ph", "pH", "ph_r", "pH_r", "ph_water"),
+    "cec7_r"        = c("cec7", "cec", "cec_r", "cation_exchange", "cation_exchange_capacity"),
+    "om_r"          = c("om", "organic_matter", "organic_matter_r", "som"),
+    "wthirdbar_r"   = c("wthirdbar", "water_33", "fc"),
+    "wfifteenbar_r" = c("wfifteenbar", "water_1500", "pwp"),
+    "awc_r"         = c("awc", "available_water"),
+    "rfv_r"         = c("rfv", "rock_fragments", "fragvol"),
+    "ksat_r"        = c("ksat", "sat_hydraulic_cond"),
+    "ec_r"          = c("ec", "electrical_conductivity")
+  )
+}
+
 # Configuration helpers
 get_default_property_mapping <- function(standard) {
+  ssurgo_synonyms <- .ssurgo_property_synonyms()
+
   switch(standard,
-         "ssurgo" = list(
-           "claytotal_r" = c("clay_total", "clay_r", "clay", "claytotal"),
-           "sandtotal_r" = c("sand_total", "sand_r", "sand", "sandtotal"),
-           "silttotal_r" = c("silt_total", "silt_r", "silt", "silttotal"),
-           "dbovendry_r" = c("bulk_density", "db_r", "db", "bulk_density_third_bar"),
-           "ph1to1h2o_r" = c("ph", "pH", "ph_r", "pH_r"),
-           "om_r" = c("om", "organic_matter", "organic_matter_r"),
-           "cec7_r" = c("cec", "cec_r")
-         ),
+         "ssurgo" = ssurgo_synonyms[c("claytotal_r", "sandtotal_r", "silttotal_r",
+                                      "dbovendry_r", "ph1to1h2o_r", "om_r", "cec7_r")],
          "nrcs" = list(
            "clay_pct" = c("claytotal_r", "clay_total", "clay"),
            "sand_pct" = c("sandtotal_r", "sand_total", "sand"),
@@ -2067,12 +2117,17 @@ detect_outliers_modified_zscore <- function(x, threshold = 3.5) {
 }
 
 # Backup and logging helpers
-create_backup_filename <- function(file_path) {
-  base_name <- tools::file_path_sans_ext(file_path)
+create_backup_filename <- function(file_path, backup_dir = NULL) {
+  base_name <- tools::file_path_sans_ext(basename(file_path))
   file_ext <- tools::file_ext(file_path)
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  backup_filename <- paste0(base_name, "_backup_", timestamp, ".", file_ext)
 
-  paste0(base_name, "_backup_", timestamp, ".", file_ext)
+  if (is.null(backup_dir)) {
+    backup_dir <- dirname(file_path)
+  }
+
+  file.path(backup_dir, backup_filename)
 }
 
 cleanup_old_backups <- function(backup_dir, base_name, max_backups) {
@@ -2536,31 +2591,16 @@ validate_properties_with_synonyms <- function(properties,
     property_stats = list()
   )
 
-  # Define known SSURGO properties and their synonyms
-  ssurgo_properties <- list(
-    # Texture properties
-    "sandtotal" = c("sandtotal", "sand_total", "sand", "sandtotal_r"),
-    "claytotal" = c("claytotal", "clay_total", "clay", "claytotal_r"),
-    "silttotal" = c("silttotal", "silt_total", "silt", "silttotal_r"),
-
-    # Physical properties
-    "dbovendry" = c("dbovendry", "bulk_density", "bd", "dbovendry_r"),
-    "dbthirdbar" = c("dbthirdbar", "dbthirdbar_r"),
-
-    # Chemical properties
-    "ph1to1h2o" = c("ph1to1h2o", "ph", "ph_water", "ph1to1h2o_r"),
-    "cec7" = c("cec7", "cec", "cation_exchange", "cec7_r"),
-    "om" = c("om", "organic_matter", "som", "om_r"),
-
-    # Water retention
-    "wthirdbar" = c("wthirdbar", "water_33", "fc", "wthirdbar_r"),
-    "wfifteenbar" = c("wfifteenbar", "water_1500", "pwp", "wfifteenbar_r"),
-    "awc" = c("awc", "available_water", "awc_r"),
-
-    # Other properties
-    "rfv" = c("rfv", "rock_fragments", "fragvol", "rfv_r"),
-    "ksat" = c("ksat", "sat_hydraulic_cond", "ksat_r"),
-    "ec" = c("ec", "electrical_conductivity", "ec_r")
+  # Known SSURGO properties and their synonyms, derived from the shared
+  # canonical table (see .ssurgo_property_synonyms()) so this list can't
+  # drift out of sync with get_default_property_mapping()/get_default_synonyms().
+  ssurgo_canonical <- .ssurgo_property_synonyms()
+  ssurgo_properties <- stats::setNames(
+    lapply(names(ssurgo_canonical), function(canonical_name) {
+      base_name <- sub("_r$", "", canonical_name)
+      unique(c(base_name, canonical_name, ssurgo_canonical[[canonical_name]]))
+    }),
+    sub("_r$", "", names(ssurgo_canonical))
   )
 
   # Validate against known properties
@@ -2657,6 +2697,14 @@ validate_properties_with_synonyms <- function(properties,
 #'
 #' @return Named list of synonyms
 #'
+#' @section Usage note:
+#' Fully implemented and exported, but not currently called from anywhere
+#' else in the package (confirmed by source grep) - standalone public API
+#' for callers who need it, not dead/broken code. Its `"ssurgo"` branch
+#' shares the same canonical synonym data as \code{get_default_property_mapping()}
+#' (internal) and \code{\link{validate_properties_with_synonyms}} (see
+#' `.ssurgo_property_synonyms()`), so it can no longer drift from them.
+#'
 #' @export
 get_default_synonyms <- function(property_lookup) {
 
@@ -2668,15 +2716,8 @@ get_default_synonyms <- function(property_lookup) {
 
   switch(source_name,
 
-         "ssurgo" = list(
-           "claytotal_r" = c("clay", "clay_total", "clay_pct"),
-           "sandtotal_r" = c("sand", "sand_total", "sand_pct"),
-           "silttotal_r" = c("silt", "silt_total", "silt_pct"),
-           "dbovendry_r" = c("bulk_density", "bd", "bulk_density_third_bar"),
-           "ph1to1h2o_r" = c("ph", "pH", "ph_water"),
-           "om_r" = c("om", "organic_matter"),
-           "cec7_r" = c("cec", "cation_exchange_capacity")
-         ),
+         "ssurgo" = .ssurgo_property_synonyms()[c("claytotal_r", "sandtotal_r", "silttotal_r",
+                                                   "dbovendry_r", "ph1to1h2o_r", "om_r", "cec7_r")],
 
          "nrcs" = list(
            "clay_pct" = c("clay", "claytotal_r"),
@@ -2711,6 +2752,11 @@ get_default_synonyms <- function(property_lookup) {
 #' @param metadata Optional metadata list
 #'
 #' @return Property lookup object
+#'
+#' @section Usage note:
+#' Fully implemented and exported, but not currently called from anywhere
+#' else in the package (confirmed by source grep) - standalone public API
+#' for callers who need it, not dead/broken code.
 #'
 #' @export
 create_property_lookup <- function(properties, synonyms = NULL, metadata = NULL) {
@@ -2764,6 +2810,29 @@ create_property_lookup <- function(properties, synonyms = NULL, metadata = NULL)
 #'
 #' @return Comprehensive geometry validation results
 #'
+#' @section Implementation note:
+#' This is the package's single live WKT validation entry point. It delegates
+#' to the granular validators below (`validate_wkt_string()`,
+#' `validate_geometry_validity()`, `validate_geometry_complexity()`,
+#' `validate_geographic_context()`/`validate_projected_context()`) rather than
+#' duplicating their logic inline, so `validation_context`, `complexity_limits`,
+#' and `strict_mode` are now all actually read (previously accepted but
+#' silently ignored). `ssurgo-acquisition.R`'s own downstream code already
+#' expected the nested `geometry_stats$complexity_validation$complexity_stats`
+#' shape this now produces (see its `complexity_score %||% NA` fallback,
+#' previously always hitting the `NA` branch).
+#'
+#' Fixed a real, previously-silent bug while doing this: the old
+#' implementation's outer `tryCatch(..., error = function(e) {...})` never
+#' assigned the `tryCatch()` call's own result back to `validation_result` -
+#' assignments inside the `error =` handler only modified a local copy inside
+#' that handler's own function scope, discarded when it returned. This meant
+#' a WKT string that failed to parse (e.g. malformed syntax) still made this
+#' function return `valid = TRUE` with placeholder geometry stats, silently
+#' passing invalid input through as valid. Fixed by capturing `tryCatch()`'s
+#' return value directly instead of relying on `<-` inside the error handler
+#' to reach the outer scope.
+#'
 #' @export
 validate_wkt_geometry <- function(wkt_string,
                                   crs = "epsg:4326",
@@ -2774,7 +2843,7 @@ validate_wkt_geometry <- function(wkt_string,
                                   strict_mode = TRUE,
                                   return_geometry = FALSE) {
 
-  log_message("DEBUG", "Starting WKT validation in geographic context", category = "GeometryValidation")
+  log_message("DEBUG", paste("Starting WKT validation in", validation_context, "context"), category = "GeometryValidation")
 
   validation_result <- list(
     valid = TRUE,
@@ -2783,7 +2852,19 @@ validate_wkt_geometry <- function(wkt_string,
     geometry_stats = list()
   )
 
-  tryCatch({
+  # Basic string-format checks before attempting to parse - catches empty,
+  # non-character, or unbalanced-parenthesis WKT with a clear message
+  # instead of a raw terra/GDAL error. Reuses validate_wkt_string() rather
+  # than duplicating this logic.
+  string_check <- validate_wkt_string(wkt_string)
+  validation_result$warnings <- c(validation_result$warnings, string_check$warnings)
+  if (!string_check$valid) {
+    validation_result$valid <- FALSE
+    validation_result$errors <- c(validation_result$errors, string_check$errors)
+    return(validation_result)
+  }
+
+  result <- tryCatch({
     log_message("DEBUG", paste("Parsing WKT geometry with CRS:", crs), category = "GeometryValidation")
 
     # Parse WKT with proper error handling
@@ -2794,9 +2875,12 @@ validate_wkt_geometry <- function(wkt_string,
     # Create geometry object
     geom <- terra::vect(wkt_string, crs = crs)
 
-    # Check if geometry is valid
-    if (!terra::is.valid(geom)) {
-      validation_result$errors <- c(validation_result$errors, "Invalid WKT geometry")
+    # Check geometric validity - reuses validate_geometry_validity() so
+    # `strict_mode` is honored consistently with the rest of this family.
+    validity_check <- validate_geometry_validity(geom, strict_mode = strict_mode)
+    validation_result$warnings <- c(validation_result$warnings, validity_check$warnings)
+    if (!validity_check$valid) {
+      validation_result$errors <- c(validation_result$errors, validity_check$errors)
       validation_result$valid <- FALSE
       return(validation_result)
     }
@@ -2850,6 +2934,29 @@ validate_wkt_geometry <- function(wkt_string,
       )
     }
 
+    # Complexity check - wires the previously-unused `complexity_limits`
+    # parameter through to validate_geometry_complexity(). Warning-only, so
+    # this can never flip an otherwise-valid geometry to invalid.
+    complexity_check <- validate_geometry_complexity(geom, complexity_limits)
+    validation_result$geometry_stats$complexity_validation <- complexity_check
+    validation_result$warnings <- c(validation_result$warnings, complexity_check$warnings)
+
+    # Context-specific checks - wires the previously-unused
+    # `validation_context` parameter through to
+    # validate_geographic_context()/validate_projected_context().
+    context_check <- switch(validation_context,
+      "geographic" = validate_geographic_context(geom, strict_mode = strict_mode),
+      "projected" = validate_projected_context(geom, crs, strict_mode = strict_mode),
+      NULL
+    )
+    if (!is.null(context_check)) {
+      validation_result$warnings <- c(validation_result$warnings, context_check$warnings)
+      if (!is.null(context_check$errors) && length(context_check$errors) > 0) {
+        validation_result$errors <- c(validation_result$errors, context_check$errors)
+        validation_result$valid <- FALSE
+      }
+    }
+
     # Bounds checking
     if (!is.null(validation_result$geometry_stats$bbox) && length(validation_result$geometry_stats$bbox) == 4) {
       bbox <- validation_result$geometry_stats$bbox
@@ -2875,9 +2982,16 @@ validate_wkt_geometry <- function(wkt_string,
       }
     }
 
+    if (return_geometry) {
+      validation_result$geometry <- geom
+    }
+
+    validation_result
+
   }, error = function(e) {
     log_message("ERROR", paste("WKT parsing error:", e$message), category = "GeometryValidation")
-    validation_result$warnings <- c(validation_result$warnings, paste("Geometry validation error:", e$message))
+    validation_result$valid <- FALSE
+    validation_result$errors <- c(validation_result$errors, paste("Geometry validation error:", e$message))
 
     # Provide default geometry stats to prevent downstream errors
     validation_result$geometry_stats <- list(
@@ -2887,14 +3001,15 @@ validate_wkt_geometry <- function(wkt_string,
       geometry_type = "POLYGON",
       n_vertices = 4
     )
+    validation_result
   })
 
-  log_message("DEBUG", paste("WKT validation complete - Valid:", validation_result$valid,
-                             "Errors:", length(validation_result$errors),
-                             "Warnings:", length(validation_result$warnings)),
+  log_message("DEBUG", paste("WKT validation complete - Valid:", result$valid,
+                             "Errors:", length(result$errors),
+                             "Warnings:", length(result$warnings)),
               category = "GeometryValidation")
 
-  return(validation_result)
+  return(result)
 }
 
 #' Validate WKT String Format
@@ -2978,6 +3093,17 @@ validate_wkt_string <- function(wkt_string) {
 #' @param crs Coordinate reference system
 #'
 #' @return Parsing results with geometry object and statistics
+#'
+#' @section Usage note:
+#' Fully implemented and exported, but not currently called from anywhere
+#' else in the package (confirmed by source grep) - standalone public API,
+#' not dead/broken code. \code{\link{validate_wkt_geometry}} (the package's
+#' live WKT validation entry point) parses independently rather than
+#' delegating here, since its area-statistics calculation intentionally
+#' differs from this function's bounding-box approximation for geographic
+#' coordinates (it always computes true polygon area via
+#' \code{terra::expanse()}, then converts to degrees^2 - see that
+#' function's own comments).
 #'
 #' @export
 parse_wkt_geometry <- function(wkt_string, crs) {
@@ -3105,6 +3231,17 @@ validate_geometry_validity <- function(geom, strict_mode = TRUE) {
 #'
 #' @return Area validation results
 #'
+#' @section Usage note:
+#' Fully implemented and exported, but not currently called from anywhere
+#' else in the package (confirmed by source grep) - standalone public API,
+#' not dead/broken code. \code{\link{validate_wkt_geometry}} (the package's
+#' live WKT validation entry point) does its own area check inline rather
+#' than delegating here, since its area calculation intentionally differs
+#' from this function's bounding-box approximation for geographic
+#' coordinates (see \code{\link{parse_wkt_geometry}}'s Usage note for the
+#' same distinction) and its `area_limits$max_action` semantics (warn vs.
+#' error) predate this function.
+#'
 #' @export
 validate_geometry_area <- function(geom, area_limits, context = "general") {
 
@@ -3213,6 +3350,17 @@ validate_geometry_complexity <- function(geom, complexity_limits) {
 #'
 #' @return Bounds validation results
 #'
+#' @section Usage note:
+#' Fully implemented and exported, but not currently called from anywhere
+#' else in the package (confirmed by source grep) - standalone public API,
+#' not dead/broken code. \code{\link{validate_wkt_geometry}} (the package's
+#' live WKT validation entry point) does its own bounds check inline rather
+#' than delegating here: this function treats an out-of-bounds geometry as
+#' an error (`valid = FALSE`), while the live path treats it as a
+#' warning-only condition - adopting this function's stricter behavior
+#' there would be a real behavior change for existing callers, not a pure
+#' cleanup.
+#'
 #' @export
 validate_coordinate_bounds <- function(geom, bounds_check, context = "general") {
 
@@ -3253,6 +3401,15 @@ validate_coordinate_bounds <- function(geom, bounds_check, context = "general") 
 #' @param crs Coordinate reference system
 #'
 #' @return Default validation parameters
+#'
+#' @section Usage note:
+#' Fully implemented and exported, but not currently called from anywhere
+#' else in the package (confirmed by source grep) - standalone public API,
+#' not dead/broken code. \code{\link{validate_wkt_geometry}} (the package's
+#' live WKT validation entry point) hardcodes its own context-appropriate
+#' defaults directly in its function signature rather than calling this at
+#' runtime, so the two default sets should be kept in sync by hand if either
+#' changes.
 #'
 #' @export
 get_validation_defaults <- function(context, crs) {

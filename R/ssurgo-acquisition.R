@@ -21,6 +21,13 @@ NULL
 #' @param cache_dir Character. Directory for caching downloaded data (default: NULL for no caching)
 #' @param force_download Logical. If TRUE, bypass cache and download fresh data (default: FALSE)
 #' @param validate_data Logical. Perform comprehensive data validation (default: TRUE)
+#' @param mukey_raster Optional, already-fetched `terra::SpatRaster` of mukey codes for this same
+#'   AOI (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}) - passed through to
+#'   \code{\link{process_aoi_and_get_mukeys_working}} so it can skip its own independent
+#'   \code{soilDB::mukey.wcs()} call. `NULL` (default) preserves this function's original
+#'   behavior exactly (it fetches its own grid) - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`
+#'   task P1.2 for why this exists (raster-fusion callers that already fetched a mukey grid for
+#'   the same AOI can now reuse it instead of triggering a second network call).
 #' @param verbose Logical. Provide detailed progress messages (default: FALSE)
 #'
 #' @return List containing:
@@ -68,6 +75,7 @@ download_ssurgo_tabular <- function(aoi_wkt,
                                     cache_dir = NULL,
                                     force_download = FALSE,
                                     validate_data = TRUE,
+                                    mukey_raster = NULL,
                                     verbose = getOption("ssurgo.verbose", FALSE)) {
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -177,7 +185,7 @@ download_ssurgo_tabular <- function(aoi_wkt,
   # Step 4: Process AOI and get map unit keys
   if (verbose) log_message("INFO", "Processing area of interest", category = "Download")
 
-  spatial_result <- process_aoi_and_get_mukeys_working(aoi_wkt, verbose = verbose)
+  spatial_result <- process_aoi_and_get_mukeys_working(aoi_wkt, verbose = verbose, mukey_raster = mukey_raster)
   aoi <- spatial_result$aoi
   mu <- spatial_result$mu
   mukey_list <- spatial_result$mukey_list
@@ -328,9 +336,14 @@ create_ssurgo_property_lookup_working <- function() {
 #'
 #' @param aoi_wkt Well-Known Text representation of area of interest
 #' @param verbose Logical; provide progress messages
+#' @param mukey_raster Optional, already-fetched `terra::SpatRaster` of mukey codes for this same
+#'   AOI (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}). When supplied, this function skips
+#'   its own \code{soilDB::mukey.wcs()} call entirely and derives `mu`/`mukey_list` directly from
+#'   it - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P1.2. `NULL` (default) preserves the
+#'   original behavior exactly.
 #'
 #' @return List with processed AOI, map units, and mukey list
-process_aoi_and_get_mukeys_working <- function(aoi_wkt, verbose = FALSE) {
+process_aoi_and_get_mukeys_working <- function(aoi_wkt, verbose = FALSE, mukey_raster = NULL) {
 
   # Convert AOI WKT to spatial object and reproject (exact working logic)
   tryCatch({
@@ -350,19 +363,28 @@ process_aoi_and_get_mukeys_working <- function(aoi_wkt, verbose = FALSE) {
     stop(paste("Error processing AOI WKT:", e$message))
   })
 
-  # Fetch SSURGO map unit keys (exact working logic)
-  tryCatch({
-    if (verbose) log_message("DEBUG", "Fetching SSURGO map unit keys", category = "Spatial")
-
-    mu <- soilDB::mukey.wcs(aoi = aoi, db = "gssurgo")
+  # Fetch SSURGO map unit keys (exact working logic) - unless a caller already fetched the same
+  # AOI's mukey grid (e.g. fetch_ssurgo_mukey_raster()), in which case reuse it instead of issuing
+  # a second, independent soilDB::mukey.wcs() call for the same information.
+  if (!is.null(mukey_raster)) {
+    if (verbose) log_message("DEBUG", "Reusing pre-fetched mukey grid", category = "Spatial")
+    mu <- mukey_raster
     mukey_list <- unique(terra::values(mu))
     mukey_list <- mukey_list[!is.na(mukey_list)]
+  } else {
+    tryCatch({
+      if (verbose) log_message("DEBUG", "Fetching SSURGO map unit keys", category = "Spatial")
 
-    if (verbose) log_message("DEBUG", paste("Retrieved", length(mukey_list), "unique map unit keys"), category = "Spatial")
+      mu <- soilDB::mukey.wcs(aoi = aoi, db = "gssurgo")
+      mukey_list <- unique(terra::values(mu))
+      mukey_list <- mukey_list[!is.na(mukey_list)]
 
-  }, error = function(e) {
-    stop(paste("Error fetching mukeys:", e$message))
-  })
+      if (verbose) log_message("DEBUG", paste("Retrieved", length(mukey_list), "unique map unit keys"), category = "Spatial")
+
+    }, error = function(e) {
+      stop(paste("Error fetching mukeys:", e$message))
+    })
+  }
 
   return(list(
     aoi = aoi,

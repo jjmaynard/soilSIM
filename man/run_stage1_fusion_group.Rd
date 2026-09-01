@@ -35,12 +35,15 @@ member isn't already disk-cached). Default \code{parallel = FALSE} matches prior
 }
 \value{
 The full group result: a named list keyed by member id, each element
-\code{list(posterior = list(value=, ilr_mu=, ilr_Sigma=), dist = "texture_ilr", route = "closed_form_ilr_group", route_detail = NULL, n_fallback_cells = 0)} (see
+\code{list(posterior = list(value=, ilr_mu=, ilr_Sigma=, percentiles=), dist = "texture_ilr", route = "closed_form_ilr_group", route_detail = NULL, n_fallback_cells = 0)} (see
 \code{fuse_texture_group()}'s docs - NOT the uniform \verb{(mu,sigma)}/\verb{(alpha,beta)} contract
 non-compositional properties get) - or \code{NULL} if any member's SSURGO/SOLUS fetch failed.
 \code{run_stage1_fusion()}'s own dispatch slices this down to the single requested member
 (\code{group_result[[property_config$id]]}) to keep its own per-property return contract
-consistent regardless of \code{dist}.
+consistent regardless of \code{dist}. \code{percentiles} (added
+\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P3.6) is THIS member's own fraction's
+percentiles (a named list of \code{SpatRaster}s) - see \code{fuse_texture_group()}'s \verb{@section Sum-to-100 caveat}: unlike \code{value}, these do NOT generally sum to 100 across the group's three
+members.
 }
 \description{
 Fuses a compositional group's members (currently only \code{"texture"}: clay/sand/silt) jointly via
@@ -48,7 +51,23 @@ Fuses a compositional group's members (currently only \code{"texture"}: clay/san
 independent fusion measurably breaks sum-to-100. Each member's SSURGO/SOLUS percentiles are
 still fetched/cached per-property (so a later request for just one member's raw percentiles
 still hits cache), but the fusion itself runs once for the whole group, under a \code{"texture_group"}
-cache kind, with each member's resulting posterior also seeded into a per-property \code{"posterior"}
-cache kind - so three sequential \code{run_stage1_fusion()} calls for clay, then sand, then silt
-trigger the joint fetch+fusion exactly once, not three times.
+cache kind (\code{"texture_group_raw_draws"} when \code{prior_fusion_method = "raw_draws"} was requested -
+see the section below for why these must be distinct kinds), with each member's resulting
+posterior also seeded into a per-property \code{"posterior"}/\code{"posterior_raw_draws"} cache kind - so
+three sequential \code{run_stage1_fusion()} calls for clay, then sand, then silt trigger the joint
+fetch+fusion exactly once, not three times.
 }
+\section{Higher-fidelity fusion (opt-in)}{
+
+Set \code{prior_fusion_method = "raw_draws"} on ANY member's \code{property_configs} entry to fuse the
+whole group against the real joint (clay, sand, silt) Monte Carlo draws instead of independent
+percentile-reconstructed marginals - see \code{fuse_texture_group()}'s docs and
+\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.4/P2.5. Checked across all members (not just
+one) since the group is always fused jointly regardless of which member's config carries the
+setting. Like \code{run_stage1_fusion()}'s equivalent section, this forces the shared simulation to
+run even when every member's own \code{"ssurgo"} percentile cache is already warm (the draws that
+produced those cached percentiles weren't kept - see \code{simulate_ssurgo_mapunit_draws()}'s docs).
+Unset on every member (default) preserves the original percentile-reconstruction behavior
+exactly.
+}
+

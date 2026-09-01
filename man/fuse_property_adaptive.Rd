@@ -28,8 +28,14 @@ fuse_property_adaptive(
 \item{threshold_cells}{AOI cell count at or below which \code{fuse_adaptive()}
 uses its general route.}
 
-\item{...}{Additional arguments passed to \code{fuse_adaptive()}/
-\code{fuse_lognormal_adaptive()} (e.g. \code{n_samples}, \code{grid_resolution}, \code{verbose}).}
+\item{...}{Additional arguments passed to \code{fuse_adaptive()}/\code{fuse_lognormal_adaptive()}/
+\code{fuse_metalog_adapter()} (e.g. \code{n_samples}, \code{grid_resolution}, \code{verbose}, \code{posterior_probs} -
+see \link{FUSE_POSTERIOR_DEFAULT_PROBS}; reaches every route as of P3.5 - \code{fuse_metalog_adapter()}
+absorbs and ignores the arguments it doesn't use, e.g. \code{n_samples}). Also how
+\code{mukey_raster}/\code{mukey_draws} (opting into \code{prior_fusion_method = "raw_draws"}, see
+\code{fuse_general_kde()}'s docs) reach the general-KDE route for \code{dist \%in\% c("normal","beta","gamma")} - only that route currently supports it (not
+\code{fuse_lognormal_adaptive()}'s general branch or \code{fuse_metalog_adapter()}; see
+\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md}).}
 }
 \value{
 \code{list(posterior=, route=, route_detail=, n_fallback_cells=, dist=, dist_source=, skew_proxy=)}.

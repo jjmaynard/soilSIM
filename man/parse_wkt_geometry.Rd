@@ -17,3 +17,16 @@ Parsing results with geometry object and statistics
 \description{
 Parse WKT string into terra geometry object with error handling
 }
+\section{Usage note}{
+
+Fully implemented and exported, but not currently called from anywhere
+else in the package (confirmed by source grep) - standalone public API,
+not dead/broken code. \code{\link{validate_wkt_geometry}} (the package's
+live WKT validation entry point) parses independently rather than
+delegating here, since its area-statistics calculation intentionally
+differs from this function's bounding-box approximation for geographic
+coordinates (it always computes true polygon area via
+\code{terra::expanse()}, then converts to degrees^2 - see that
+function's own comments).
+}
+

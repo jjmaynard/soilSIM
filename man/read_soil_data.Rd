@@ -29,3 +29,11 @@ Loaded soil data
 \description{
 Robust soil data reading with automatic format detection and validation.
 }
+\section{Usage note}{
+
+Fully implemented and exported, but not currently called from anywhere
+else in the package outside a \code{@seealso} doc link (confirmed by
+source grep) - standalone public API for callers who need it, not
+dead/broken code. See also \code{\link{write_soil_data}}.
+}
+

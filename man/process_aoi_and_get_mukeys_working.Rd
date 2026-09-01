@@ -4,12 +4,22 @@
 \alias{process_aoi_and_get_mukeys_working}
 \title{Process AOI and Get Map Unit Keys (Working Version)}
 \usage{
-process_aoi_and_get_mukeys_working(aoi_wkt, verbose = FALSE)
+process_aoi_and_get_mukeys_working(
+  aoi_wkt,
+  verbose = FALSE,
+  mukey_raster = NULL
+)
 }
 \arguments{
 \item{aoi_wkt}{Well-Known Text representation of area of interest}
 
 \item{verbose}{Logical; provide progress messages}
+
+\item{mukey_raster}{Optional, already-fetched \code{terra::SpatRaster} of mukey codes for this same
+AOI (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}). When supplied, this function skips
+its own \code{soilDB::mukey.wcs()} call entirely and derives \code{mu}/\code{mukey_list} directly from
+it - see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P1.2. \code{NULL} (default) preserves the
+original behavior exactly.}
 }
 \value{
 List with processed AOI, map units, and mukey list

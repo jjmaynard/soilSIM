@@ -137,6 +137,56 @@ test_that("maybe_adjust_soil_data_depth_trend() warns and passes through when GP
   expect_equal(result, sim_long)
 })
 
+test_that("mukey_draws_lookup() groups a property's simulated values by mukey without collapsing to percentiles", {
+  draws <- data.frame(
+    mukey = c("1", "1", "1", "2", "2"),
+    cokey = c("a", "a", "b", "c", "c"),
+    simulation_number = c(1, 2, 1, 1, 2),
+    db = c(1.1, 1.2, 1.3, 2.1, 2.2)
+  )
+  lookup <- mukey_draws_lookup(draws, "bulk_density")
+  expect_setequal(names(lookup), c("1", "2"))
+  expect_equal(sort(lookup[["1"]]), c(1.1, 1.2, 1.3))
+  expect_equal(sort(lookup[["2"]]), c(2.1, 2.2))
+})
+
+test_that("mukey_draws_lookup() drops non-finite values and returns NULL for a column absent from draws", {
+  draws <- data.frame(mukey = c("1", "1"), db = c(1.5, NA))
+  lookup <- mukey_draws_lookup(draws, "bulk_density")
+  expect_equal(lookup[["1"]], 1.5)
+
+  draws_no_ph <- data.frame(mukey = "1", db = 1.4)
+  expect_null(mukey_draws_lookup(draws_no_ph, "ph"))
+})
+
+test_that("mukey_draws_lookup() errors on an unrecognized property id, matching percentiles_from_draws()'s convention", {
+  draws <- data.frame(mukey = "1", db = 1.4)
+  expect_error(mukey_draws_lookup(draws, "not_a_real_property"), "no simulated column mapping")
+})
+
+test_that("mukey_texture_draws_lookup() returns row-aligned clay/sand/silt triples per mukey, dropping incomplete rows", {
+  draws <- data.frame(
+    mukey = c("1", "1", "1", "2"),
+    clay_total = c(20, 22, NA, 15),
+    sand_total = c(40, 38, 41, 45),
+    silt_total = c(40, 40, 41, 40)
+  )
+  lookup <- mukey_texture_draws_lookup(draws)
+  expect_setequal(names(lookup), c("1", "2"))
+  # Mukey 1's third row (clay_total = NA) is dropped - only 2 complete rows survive.
+  expect_equal(nrow(lookup[["1"]]), 2)
+  expect_equal(nrow(lookup[["2"]]), 1)
+  expect_setequal(colnames(lookup[["1"]]), c("clay_total", "sand_total", "silt_total"))
+  # Row alignment preserved (not independently shuffled per column).
+  expect_equal(lookup[["1"]][, "clay_total"], c(20, 22))
+  expect_equal(lookup[["1"]][, "sand_total"], c(40, 38))
+})
+
+test_that("mukey_texture_draws_lookup() returns NULL when texture columns are absent", {
+  draws <- data.frame(mukey = "1", db = 1.4)
+  expect_null(mukey_texture_draws_lookup(draws))
+})
+
 test_that("rasterize_mukey_percentiles() correctly attaches per-mukey percentile values to each cell", {
   mukey_raster <- terra::rast(nrows = 3, ncols = 3, vals = c(101, 101, 102, 101, 102, 102, 103, 103, 103))
   names(mukey_raster) <- "mukey"
@@ -166,4 +216,39 @@ test_that("rasterize_mukey_percentiles() handles multiple percentile columns", {
 test_that("fetch_ssurgo_mukey_raster()/simulate_ssurgo_mapunit_draws()/fetch_ssurgo_percentiles() require the live SDA service", {
   testthat::skip_if_offline()
   testthat::skip("Live NRCS Soil Data Access queries are not exercised in automated tests - see test-ssurgo-acquisition.R for the established precedent.")
+})
+
+## Narrow, control-flow-only mocking (not a fixture-maintained SDA response) - see
+## test-ssurgo-acquisition.R's identical note and MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task
+## P1.4. Verifies fetch_ssurgo_mukey_raster() no longer issues the redundant
+## soilDB::SDA_spatialQuery() fetch, and that its new disk cache actually avoids a second
+## soilDB::mukey.wcs() call for the same AOI.
+test_that("fetch_ssurgo_mukey_raster() calls mukey.wcs() exactly once, never calls SDA_spatialQuery(), and caches the result", {
+  aoi <- terra::vect("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))")
+  on.exit(unlink(file.path(tools::R_user_dir("soilSIM", "cache"), paste0(mukey_grid_cache_key(aoi), ".rds"))), add = TRUE)
+
+  synthetic_mu <- terra::rast(nrows = 2, ncols = 2, vals = c(101, 101, 202, 202))
+  names(synthetic_mu) <- "mukey"
+
+  wcs_calls <- 0
+  testthat::local_mocked_bindings(
+    mukey.wcs = function(...) {
+      wcs_calls <<- wcs_calls + 1
+      synthetic_mu
+    },
+    SDA_spatialQuery = function(...) {
+      stop("SDA_spatialQuery() should not be called - fetch_ssurgo_mukey_raster() must use mukey.wcs()'s own values directly")
+    },
+    .package = "soilDB"
+  )
+
+  result <- fetch_ssurgo_mukey_raster(aoi)
+  expect_s4_class(result, "SpatRaster")
+  expect_equal(wcs_calls, 1)
+  expect_setequal(unique(terra::values(result))[, 1], c(101, 202))
+
+  # Warm cache: a second call for the same AOI must not touch mukey.wcs()/SDA_spatialQuery() again.
+  result2 <- fetch_ssurgo_mukey_raster(aoi)
+  expect_equal(wcs_calls, 1)
+  expect_setequal(unique(terra::values(result2))[, 1], c(101, 202))
 })

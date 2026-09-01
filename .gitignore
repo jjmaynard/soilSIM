@@ -5,3 +5,4 @@
 *.Rcheck/
 pkgdown_site/
 inst/doc
+planning-docs/
