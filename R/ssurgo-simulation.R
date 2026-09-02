@@ -339,7 +339,10 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
   # Attach OSD-derived boundary distinctness (bound_sd) so the vertical-correlation depth kernel
   # can gate against genuine horizon discontinuities (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md
   # Phase 1b/1c) - degrades to bound_sd = NA (no gating) on OSD lookup failure, never blocks the
-  # rest of this pipeline.
+  # rest of this pipeline. Genhz-generic (per soil-series x generalized-horizon-group), not
+  # cokey-specific - SSURGO's chorizon table has no per-cokey boundary-distinctness field
+  # (confirmed against the official SSURGO 2.2.6 schema), so this is the only real data source
+  # available (Decision #3, accepted limitation).
   hz_data <- attach_osd_boundary_distinctness(hz_data)
 
   component_data <- sim_component_comp(hz_data, n_simulations = n_mc)
