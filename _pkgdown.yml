@@ -531,3 +531,13 @@ reference:
   - vectorized_type_conversion
   - within_component_property_interpolation
   - wrap_percentile_list
+  - apply_copula_to_marginals
+  - attach_osd_boundary_distinctness
+  - build_depth_correlation_kernel
+  - extract_depth_length_scale
+  - mukey_draws_lookup
+  - mukey_texture_draws_lookup
+  - preserve_correlation_structure_joint
+  - raster_fusion_bridge
+  - sample_joint_depth_property_copula
+  - validate_joint_correlation_structure
