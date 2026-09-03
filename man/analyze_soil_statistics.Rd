@@ -11,6 +11,7 @@ analyze_soil_statistics(
   distribution_fitting = TRUE,
   outlier_detection = TRUE,
   validate_results = TRUE,
+  use_enhanced_chain = FALSE,
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 }
@@ -26,6 +27,18 @@ analyze_soil_statistics(
 \item{outlier_detection}{Logical; perform statistical outlier detection}
 
 \item{validate_results}{Logical; validate statistical results (default: TRUE)}
+
+\item{use_enhanced_chain}{Logical (default \code{FALSE}). \code{FALSE} runs the \verb{_safe} chain -
+\code{run_comprehensive_correlation_analysis_safe()} / \code{analyze_property_distributions_safe()} /
+\code{detect_comprehensive_outliers_safe()} / \code{validate_statistical_results_safe()} /
+\code{generate_statistical_quality_report_safe()} - preserving today's output shape exactly
+(pinned by an \code{identical()} regression test). \code{TRUE} routes through the richer enhanced
+functions instead (parametric distribution fits with AIC/BIC/convergence, per-method outlier
+detection, multivariate Mahalanobis outliers, stratified + ILR texture correlations). The two
+return \strong{different, non-interchangeable shapes} - notably \code{distribution_analysis$fitted_distributions[[prop]]}
+is a flat stats list under \verb{_safe} and a family-name-keyed list of fit objects under enhanced.
+Both chains stay public API. Whether the default should ever flip is a separate, later,
+benchmark-driven decision (see \code{RASTER_STATISTICS_INTEGRATION_PLAN.md} Problem B).}
 
 \item{verbose}{Logical; provide detailed progress messages}
 }

@@ -9,7 +9,9 @@ property_to_sim_column(property_id)
 \arguments{
 \item{property_id}{One of \code{"ph"}, \code{"ph1to1h2o"}, \code{"bulk_density"}, \code{"dbovendry"},
 \code{"soc"}, \code{"om"}, \code{"cec"}, \code{"cec7"}, \code{"clay"}, \code{"claytotal"}, \code{"sand"},
-\code{"sandtotal"}, \code{"silt"}, \code{"silttotal"}, \code{"rock_fragments"}, or \code{"rfv"}.}
+\code{"sandtotal"}, \code{"silt"}, \code{"silttotal"}, \code{"rock_fragments"}/\code{"rfv"}/\code{"fragvol"},
+\code{"wthirdbar"}/\code{"water_retention_third_bar"}/\code{"wr_3b"}, or
+\code{"wfifteenbar"}/\code{"water_retention_15_bar"}/\code{"wr_15b"}.}
 }
 \value{
 The corresponding column name in \code{simulate_cokey_generalized()}'s output.

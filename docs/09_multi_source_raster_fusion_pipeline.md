@@ -588,13 +588,17 @@ by that overlap.
 ```r
 property_to_sim_column(property_id)
 # property_id - one of "ph", "bulk_density", "soc", "cec", "clay", "sand", "silt",
-#               "rock_fragments"
+#               "rock_fragments", "wthirdbar", "wfifteenbar" (+ synonyms)
 ```
 **Returns**: The corresponding column name (e.g. `"clay"` -> `"clay_total"`); `stop()`s on an
 unrecognized id.
 
 **Behavior**: A fixed lookup table (`ph`, `bulk_density -> db`, `soc`, `cec`, `clay -> clay_total`,
-`sand -> sand_total`, `silt -> silt_total`, `rock_fragments -> rfv`).
+`sand -> sand_total`, `silt -> silt_total`, `rock_fragments -> rfv`,
+`wthirdbar/water_retention_third_bar -> wr_3b`, `wfifteenbar/water_retention_15_bar -> wr_15b`). The
+water-retention rows were added 2026-09-02 - `simulate_cokey_generalized()` already emitted those
+columns (`SSURGO_SIM_PROPERTY_COLUMNS` lists them) but the id map was incomplete, blocking
+water-retention `run_stage1_fusion()` (needed by `remarginalized_awc()`).
 
 #### 24. `simulate_ssurgo_mapunit_draws()`
 **Purpose**: Orchestrate the full SSURGO Monte Carlo pipeline for one AOI/depth window — fetch
@@ -699,6 +703,18 @@ closest_solus_depth_slice(top_depth, bottom_depth, available_slices = c(0, 5, 15
 **Behavior**: Computes the window midpoint `(top_depth + bottom_depth) / 2` and returns whichever
 `available_slices` value minimizes `abs(available_slices - midpoint)`.
 
+**Superseded for the fusion pipeline** (2026-09-02): `fetch_solus_low_pred_high()` no longer uses
+this — a midpoint point-value only equals the window depth-average for a linear profile, and it left
+the SOLUS likelihood as a different estimand than the SSURGO prior's window mean. Replaced by
+`solus_depth_window_weights()`. Kept as public API for back-compat.
+
+#### 28b. `solus_depth_window_weights()`
+Trapezoidal depth-average weights over the native SOLUS slices spanning a window: `f(d)`
+piecewise-linear between slices (`rule = 2` clamp outside `[0, 150]`), trapezoidal integration over
+window ends + interior slices, normalized by window thickness. Returns a named numeric vector
+summing to 1. Exact for a linear profile (== midpoint value); reduces SOLUS point predictions to the
+same estimand the SSURGO prior side computes via `aggregate_depth_window_by_replicate()`.
+
 #### 29. `fetch_solus_low_pred_high()`
 **Purpose**: Fetch SOLUS100's low/prediction/high rasters for one variable and depth window — the
 raw three-way fetch underlying `fetch_solus_percentiles()`.
@@ -714,13 +730,14 @@ fetch_solus_low_pred_high(aoi_vect, solus_variable, top_depth, bottom_depth)
 **Returns**: `list(pred=, low=, high=)`, each a single-layer `terra::SpatRaster` or `NULL` if that
 output type wasn't returned.
 
-**Behavior**: Snaps the depth window via `closest_solus_depth_slice()`, then calls
-`soilDB::fetchSOLUS()` three times (once each for `output_type` `"prediction"`, `"95% low
-prediction interval"`, `"95% high prediction interval"`, each wrapped in `tryCatch` with a warning
-on failure), extracting the layer named `paste0(solus_variable, "_", depth_slice, "_cm_", suffix)`
-(suffixes `p`/`l`/`h` respectively) from each result. This exact output-layer-naming assumption was
-verified against a live, network-connected `fetchSOLUS()` call before porting, not assumed from
-source comments alone.
+**Behavior**: Computes `solus_depth_window_weights(top_depth, bottom_depth)`, then calls
+`soilDB::fetchSOLUS()` once per `output_type` (`"prediction"`, `"95% low prediction interval"`,
+`"95% high prediction interval"`, each wrapped in `tryCatch` with a warning on failure) requesting
+every contributing native slice, then reduces the returned layers
+(`paste0(solus_variable, "_", <slice>, "_cm_", suffix)`, suffixes `p`/`l`/`h`) to one raster per
+output type via `terra::app(stack * weights, "sum")` — the trapezoidal depth-average. `NULL` for an
+output type if any required slice layer is missing. The output-layer-naming assumption was verified
+against a live, network-connected `fetchSOLUS()` call before porting.
 
 #### 30. `fetch_solus_percentiles()` — SOLUS likelihood entry point
 **Purpose**: The top-level SOLUS "likelihood" entry point for `fuse_property_adaptive()`.
@@ -739,6 +756,105 @@ probs = c(0.025, 0.5, 0.975))`, or `NULL` if any of low/pred/high is unavailable
 is missing; otherwise packages the three rasters directly as the `P025`/`P50`/`P975` percentile
 triplet (SOLUS100's published 95% prediction interval bounds plus its point prediction), matching
 the `list(values=, probs=)` shape every fusion route expects.
+
+### Per-pixel ensemble bridge (raster-fusion-bridge.R)
+
+Wires the fused posterior back into the modelling framework as a **per-pixel** product, without
+touching either existing pipeline. See `planning-docs/RASTER_FUSION_PERPIXEL_ENSEMBLE_DESIGN.md` and
+`RASTER_STATISTICS_INTEGRATION_PLAN.md` Problem A.
+
+#### 31. `extract_mukey_joint_ensemble()` *(ssurgo-simulation.R)*
+Runs `simulate_ssurgo_mapunit_draws(depth_windows=)` once and returns, per mukey, the retained bag
+of **joint** multivariate realizations as `[n_replicate x n_property]` matrices, one per depth
+window, row-aligned on `(cokey, simulation_number)` so cross-property and cross-window rank
+structure is preserved. The multi-property / multi-window analogue of `mukey_draws_lookup()`.
+
+#### 32. `remarginalize_ensemble_to_posterior()`
+Rank-preserving marginal transform: for each property x window, `v_new = F_post^-1(F_prior(v_r))`
+where `F_prior` is the mukey ensemble's empirical CDF and `F_post` the pixel's fused posterior
+(piecewise-linear on its 9 percentile knots, `rule = 2`). One `terra::subst()` builds the
+`n_kept`-layer per-cell `u` stack; one `invert_posterior_cdf_raster()` call inverts it in a fixed
+`~4*(k-1)` terra ops regardless of `n_out`. Each realization keeps its rank in every property and
+window, so the ensemble's empirical copula carries over; only the marginals become the posterior.
+`summarize = TRUE` -> per-pixel percentile rasters; `FALSE` -> the raw realization stacks.
+
+**Approximations**: copula stays mukey-level; within-window vertical shape from the source
+realization; comppct weighting stays mukey-level.
+
+#### 33. `zonal_distribution_from_posterior()` *(internal)*
+Percentile-only `terra::zonal()` reduction of a posterior to per-mukey `low/rep/high` (the shape
+`fuse_observed_data_into_priors(observed_data_by_mukey=)` accepts). No point-estimate path. The
+mukey-collapsed comparison arm for the benchmark; gated `internal` pending
+`compare_perpixel_vs_zonal_awc()` numbers.
+
+#### 34. `remarginalized_awc()`
+Per-pixel available water capacity from the re-marginalized stacks, per realization, then per-pixel
+percentiles, clamped at 0. Does **not** use `calculate_aws_df()` (ROSETTA network POST + own MC -
+can't run per pixel).
+
+- `method = "saxton_rawls"` (**default**): `fetchSOLUS()` publishes no water-retention variable, so
+  `wr_3b`/`wr_15b` are not fusable. Instead the fusable `sand_total`/`silt_total`/`clay_total`/`db`
+  (+ optional `soc`, `rfv`) are re-marginalized, then `saxton_rawls_raster()` (a `terra`-native
+  vectorized port of `calculate_saxton_rawls_single()`) derives field capacity / wilting point per
+  (pixel, realization). `AWC = sum_windows (fc - wp)/100 * thickness`.
+- `method = "direct"`: the original `(wr_3b - wr_15b)/100 * thickness * (1 - rfv/100)` path, for a
+  caller with a non-SOLUS water-retention likelihood.
+
+`tile_rows =` processes the AOI in row-strips for bounded memory, numerically identical to the
+whole-grid run.
+
+#### 35. `saxton_rawls_raster()` *(internal)*
+The vectorized `terra`-native counterpart of `calculate_saxton_rawls_single()` (`R/data-infilling.R`)
+- identical equations and clamps (including the `|sand+silt+clay-100| > 5` texture renormalization),
+but every operation is a `terra` `Arith`/`Math`/`clamp`/`ifel`, so it runs on a whole multi-layer
+realization stack in one pass. Returns `list(fc =, wp =)` volumetric % rasters.
+
+### Statistical structure of the per-pixel bridge — and how to read the uncertainty
+
+The bridge is a **rank-preserving re-marginalization** of a single joint Monte Carlo ensemble, not
+an independent per-property resample. Understanding that is what makes the per-pixel AWC (or
+per-pixel property percentiles) interpretable as a genuine probability distribution.
+
+**1. One joint source ensemble.** `extract_mukey_joint_ensemble()` runs the SSURGO Monte Carlo
+**once**. `simulate_cokey_generalized()` draws every property jointly under the KSSL correlation
+matrices; the joint-copula vertical-correlation step runs down each simulated profile; the result is
+aggregated to the requested depth windows **row-aligned** - realization `r` in window `0-5` and
+realization `r` in window `5-15` are the *same* simulated profile. So the source ensemble carries
+(a) cross-property correlation within each window and (b) vertical correlation of each property
+across windows.
+
+**2. A single realization index threads through the transform.**
+`remarginalize_ensemble_to_posterior()` computes, for realization `r`, property `p`, window `w`:
+`u = (rank of r in the source ensemble for (p, w) - 0.5) / n`, then `v_new = F_posterior^-1(u)` at
+each pixel. The **same index `r`** is used for every property and every window (`n_kept` is one
+count across all mukeys and windows). Realization `r` therefore keeps its rank position everywhere,
+so the transformed ensemble preserves the source's **Spearman** cross-property correlation *within*
+a window and vertical correlation *across* windows. Only the marginals change - each becomes that
+pixel's SSURGO x SOLUS fused posterior. (Pinned by a unit test: transformed-ensemble Spearman `cor`
+between two properties equals the source's to `1e-6`.)
+
+**3. Derived quantities are computed per realization, then combined.**
+`remarginalized_awc(method = "saxton_rawls")` takes, for realization `r` / pixel `c` / window `w`,
+the jointly-consistent `(sand_r, clay_r, silt_r, db_r, om_r, rfv_r)` -> `saxton_rawls_raster()` ->
+`(fc_r, wp_r)`, then `AWC_r = sum_windows (fc_r - wp_r)/100 * thickness_w` (summed over windows for
+the **same** realization, so shallow and deep contributions are vertically consistent). The result
+is an `n_kept`-layer AWC raster; `terra::quantile()` per pixel gives the AWC probability distribution
+(P5..P95) -> the per-pixel uncertainty band.
+
+**What the uncertainty band does and does not include:**
+
+| Aspect | Treatment |
+|---|---|
+| Cross-property & cross-depth **dependence** | The SSURGO tabular copula (KSSL + joint-copula vertical correlation), **held fixed**. SOLUS carries no joint information - only independent per-property, per-depth point predictions - so there is no fused joint structure to use. |
+| Correlation type preserved | **Rank (Spearman)**, not linear (Pearson). "Wet stays wet", "high-clay stays high-clay" is exact; Pearson structure is approximate if a marginal shifts substantially under fusion. |
+| **Marginal** uncertainty of each input property | The full SSURGO x SOLUS fused posterior spread, per pixel, propagated through Saxton-Rawls. |
+| Pedotransfer-function error | **Not propagated.** Saxton-Rawls is applied deterministically per realization; the +/-15% `_l`/`_h` band `calculate_saxton_rawls_single()` returns is not used. |
+| Sub-mukey variation in the **dependence** structure | None - every pixel in a mukey shares the source ensemble (same copula, same rank ordering); only the fused marginals vary pixel-to-pixel. |
+| Texture compositional closure | Independent re-marginalization can leave `sand + silt + clay != 100`; `saxton_rawls_raster()` renormalizes to 100 when off by more than 5 (the equations use only the sand and clay fractions). |
+
+In short: the per-pixel AWC distribution reflects **SOLUS-fused marginal uncertainty threaded
+through the SSURGO tabular copula**, not a fully re-estimated joint posterior and not
+pedotransfer-model error.
 
 ## Internal Connections
 
@@ -803,6 +919,36 @@ the `list(values=, probs=)` shape every fusion route expects.
   disk-caching SSURGO tabular data, SSURGO/SOLUS percentile rasters, and texture-group/per-
   property posterior results under tools::R_user_dir("soilSIM", "cache"), keyed by
   AOI + property/group id + depth window + kind.
+
+
+  PER-PIXEL ENSEMBLE BRIDGE (raster-fusion-bridge.R) - optional, purely additive layer on top:
+
+  extract_mukey_joint_ensemble(aoi, depth_windows)          run_stage1_fusion() per property
+    -> simulate_ssurgo_mapunit_draws(depth_windows=)          per depth window (as above)
+         (ONE joint Monte Carlo; KSSL + joint-copula                    |
+          vertical correlation; row-aligned across windows)             v
+    -> per mukey: list(windows = [n_replicate x n_property]     posterior$percentiles rasters
+                       matrices, replicate_key)                  (marginal, per property x window)
+                    \                                           /
+                     \                                         /
+                      v                                       v
+              remarginalize_ensemble_to_posterior(ensemble, posterior_by_property_window)
+                - u[r] = rank(r in source ensemble)/n         (ONE realization index r for
+                - v_new[cell, r] = F_post^-1(u[r])             every property AND window)
+                - terra::subst() -> n_kept-layer u stack; invert_posterior_cdf_raster()
+                => transformed ensemble: fused marginals, SOURCE Spearman copula preserved
+                                                  |
+                    +-----------------------------+------------------------------+
+                    v                                                            v
+        summarize = TRUE:                                        remarginalized_awc(method=)
+        per-pixel percentile rasters                               "saxton_rawls" (default):
+        [[property]][[window]]                                       re-marg sand/silt/clay/db
+                                                                     -> saxton_rawls_raster()
+        zonal_distribution_from_posterior()  (internal)              -> fc/wp per (pixel, realization)
+        cheap mukey-collapsed comparison arm ->                     "direct": wr_3b/wr_15b path
+        fuse_observed_data_into_priors(observed_data_by_mukey=)      => AWC_r = sum_w (fc-wp)/100*thk
+                                                                     => terra::quantile() per pixel
+                                                                        = per-pixel AWC distribution
 ```
 
 ## Dependencies
@@ -847,7 +993,11 @@ the `list(values=, probs=)` shape every fusion route expects.
 - `R/multivariate-adjustment.R` — `apply_local_gp_adjustments()` is called by
   `maybe_adjust_soil_data_depth_trend()`.
 - `R/monte-carlo.R` — `simulate_from_percentiles()` is called (per cell, inside `terra::app()`) by
-  `fuse_general_kde()`.
+  `fuse_general_kde()`. The per-pixel bridge additionally reuses `fuse_observed_data_into_priors()`'s
+  `observed_data_by_mukey=` parameter (the A.1 opt-in) as the sink for `zonal_distribution_from_posterior()`.
+- `R/data-infilling.R` — the per-pixel bridge's `saxton_rawls_raster()` is a `terra`-native port of
+  this file's `calculate_saxton_rawls_single()` (the equations are duplicated, not called, because
+  the scalar function's `max()`/`min()`/`if` do not vectorize over a raster stack).
 
 `run_stage1_fusion()`/`run_stage1_fusion_group()` (`R/raster-fusion.R`) are the top-level AOI
 orchestrators tying all of the above together — the single entry points a caller (e.g. a Shiny app
@@ -895,6 +1045,22 @@ per compositional group) per AOI/depth window.
    `list(values=<SpatRasters>, probs=)` percentile shape, and what `run_stage1_fusion()`/
    `run_stage1_fusion_group()` call around every SSURGO/SOLUS cache read and write.
 
+3. **Per-pixel bridge — dependence structure is not re-estimated from SOLUS.** The bridge fuses only
+   the *marginals*; the cross-property and cross-depth dependence carried into the per-pixel product
+   is the SSURGO tabular copula (KSSL + joint-copula vertical correlation), held fixed. SOLUS
+   provides independent per-property, per-depth point predictions with no joint information, so
+   there is nothing fused to use. See "Statistical structure of the per-pixel bridge" above.
+
+4. **Per-pixel bridge — Saxton-Rawls pedotransfer error is not propagated.** In
+   `remarginalized_awc(method = "saxton_rawls")` the pedotransfer is applied deterministically per
+   realization; the +/-15% band `calculate_saxton_rawls_single()` returns is unused. The per-pixel
+   AWC distribution reflects fused-posterior *input* uncertainty only.
+
+5. **`remarginalized_awc()` cannot fuse water retention directly.** `fetchSOLUS()` publishes no
+   water-retention variable, so `wr_3b`/`wr_15b` have no SOLUS likelihood. `method = "saxton_rawls"`
+   (default) derives them from the fusable sand/silt/clay/`dbovendry`/`soc`/`fragvol`;
+   `method = "direct"` is only usable with a non-SOLUS water-retention likelihood.
+
 ## Usage Example
 
 ```r
@@ -930,4 +1096,27 @@ fused <- fuse_property_adaptive(
 
 cat("route:", fused$route, "\n")
 plot(fused$posterior$alpha)
+
+# --- Per-pixel joint ensemble + per-pixel AWC (raster-fusion-bridge.R) ---
+windows <- list(c(0, 5), c(5, 15), c(15, 30))
+
+# 1. one joint SSURGO Monte Carlo, retained per mukey, aligned across windows
+ens <- extract_mukey_joint_ensemble(aoi_vect, windows)
+
+# 2. a SOLUS-fused posterior for each Saxton-Rawls input, per property x window
+sr_solus <- c(sand_total = "sandtotal", silt_total = "silttotal",
+              clay_total = "claytotal", db = "dbovendry", soc = "soc")
+pbpw <- lapply(names(sr_solus), function(nm) {
+  setNames(lapply(windows, function(w) {
+    r <- run_stage1_fusion(aoi_vect, list(id = nm, solus_variable = sr_solus[[nm]], dist = "auto"),
+                           w[1], w[2])
+    list(percentiles = r$posterior$percentiles)
+  }), vapply(windows, function(w) paste0(w[1], "-", w[2]), ""))
+})
+names(pbpw) <- names(sr_solus)
+
+# 3. per-pixel AWC probability distribution (P5..P95 rasters), clamped at 0
+awc <- remarginalized_awc(ens, pbpw, n_out = 250)         # method = "saxton_rawls" by default
+plot(awc$awc_cm$P50)                                       # median AWC (cm) over 0-30 cm
+plot(awc$awc_cm$P95 - awc$awc_cm$P5)                       # 90% credible-interval width = uncertainty
 ```

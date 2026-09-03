@@ -28,6 +28,12 @@ NULL
 #'   SSURGO-derived prior before simulating - see `fuse_observed_data_into_priors()`
 #'   for the accepted shapes and behavior. `NULL` (default) skips fusion
 #'   entirely, preserving today's prior-only behavior exactly.
+#' @param observed_data_by_mukey Optional named list keyed by `mukey` code,
+#'   each element an `observed_data`-shaped list, fusing each horizon against
+#'   its own map unit's likelihood instead of one shared value - see
+#'   `fuse_observed_data_into_priors()`. Requires `soil_data` to carry a
+#'   `mukey` column. Mutually exclusive with `observed_data`. `NULL`
+#'   (default) preserves current behavior exactly.
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's
 #'   log level so \code{INFO}-level progress messages print for the duration
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
@@ -69,7 +75,16 @@ generate_monte_carlo_realizations <- function(soil_data,
                                               parallel = FALSE,
                                               seed = NULL,
                                               observed_data = NULL,
+                                              observed_data_by_mukey = NULL,
                                               verbose = getOption("ssurgo.verbose", FALSE)) {
+
+  if (!is.null(observed_data) && !is.null(observed_data_by_mukey)) {
+    handle_workflow_error(
+      list(message = "Supply only one of `observed_data` or `observed_data_by_mukey`, not both."),
+      context = "Observed Data Fusion",
+      recovery_action = "stop"
+    )
+  }
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -226,7 +241,7 @@ generate_monte_carlo_realizations <- function(soil_data,
   # (not immediately after Step 4) - that recompute replaces simulation_params
   # wholesale, so fusing before it would have the fused posteriors silently
   # discarded and overwritten with fresh unfused priors.
-  if (!is.null(observed_data)) {
+  if (!is.null(observed_data) || !is.null(observed_data_by_mukey)) {
     log_message("INFO", "Step 4.5: Fusing observed data into priors", category = "MonteCarlo")
     simulation_params <- fuse_observed_data_into_priors(
       simulation_params = simulation_params,
@@ -234,6 +249,7 @@ generate_monte_carlo_realizations <- function(soil_data,
       sim_properties = sim_properties,
       properties = properties,
       observed_data = observed_data,
+      observed_data_by_mukey = observed_data_by_mukey,
       composition_plan = composition_plan,
       config = config
     )
@@ -863,6 +879,18 @@ prepare_simulation_parameters <- function(simulation_data, properties, config, c
 #'   directly (fusion is keyed by `sim_properties`/`observed_data` names);
 #'   kept for interface symmetry with sibling pipeline functions.
 #' @param observed_data Named list keyed by property name (see shapes above).
+#'   The single shared likelihood applied to every horizon. Supply this OR
+#'   `observed_data_by_mukey`, never both.
+#' @param observed_data_by_mukey Optional named list keyed by `mukey` code
+#'   (character), each element an `observed_data`-shaped named list. When
+#'   supplied, each horizon is fused against its OWN mukey's likelihood
+#'   (looked up via `simulation_data$mukey`) instead of one shared value;
+#'   this is the shape a mukey-keyed zonal reduction of a raster-fusion
+#'   posterior takes, but the source is deliberately arbitrary (field
+#'   observations, lab summaries, or expert priors aggregated by map unit
+#'   all fit). Horizons whose `mukey` has no entry keep their unfused prior
+#'   (logged at DEBUG). Requires a `mukey` column in `simulation_data`.
+#'   `NULL` (default) preserves the single-`observed_data` behavior exactly.
 #' @param composition_plan Result of `resolve_composition_groups()`.
 #' @param config Simulation configuration.
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's
@@ -871,11 +899,49 @@ prepare_simulation_parameters <- function(simulation_data, properties, config, c
 #' @return `simulation_params`, with fused entries replaced in place.
 #' @export
 fuse_observed_data_into_priors <- function(simulation_params, simulation_data, sim_properties,
-                                            properties, observed_data, composition_plan, config,
+                                            properties, observed_data = NULL, composition_plan, config,
+                                            observed_data_by_mukey = NULL,
                                             verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
+
+  # --- per-mukey dispatch --------------------------------------------------
+  # When observed_data_by_mukey is supplied, fuse each mukey's horizons
+  # against that mukey's own likelihood by recursing on the horizon subset -
+  # this reuses every downstream behavior (texture/closed-form/skip-WARN)
+  # unchanged, keeping the single-observed_data path below byte-identical.
+  if (!is.null(observed_data_by_mukey)) {
+    if (!is.null(observed_data)) {
+      stop("fuse_observed_data_into_priors(): supply only one of `observed_data` or `observed_data_by_mukey`, not both.")
+    }
+    if (!"mukey" %in% names(simulation_data)) {
+      stop("fuse_observed_data_into_priors(): `observed_data_by_mukey` requires a `mukey` column in `simulation_data`.")
+    }
+    horizon_mukey <- as.character(simulation_data[["mukey"]])
+    for (mk in unique(horizon_mukey)) {
+      od <- observed_data_by_mukey[[mk]]
+      idx <- which(horizon_mukey == mk)
+      if (is.null(od)) {
+        log_message("DEBUG", paste0("No observed_data_by_mukey entry for mukey ", mk,
+                                    " (", length(idx), " horizons) - keeping unfused priors."),
+                    category = "MonteCarlo")
+        next
+      }
+      simulation_params[idx] <- fuse_observed_data_into_priors(
+        simulation_params = simulation_params[idx],
+        simulation_data = simulation_data[idx, , drop = FALSE],
+        sim_properties = sim_properties, properties = properties,
+        observed_data = od, composition_plan = composition_plan,
+        config = config, verbose = verbose
+      )
+    }
+    return(simulation_params)
+  }
+
+  if (is.null(observed_data)) {
+    return(simulation_params)
+  }
 
   n_horizons <- length(simulation_params)
   lh_probs <- config$monte_carlo$lh_percentile %||% c(0.05, 0.95)

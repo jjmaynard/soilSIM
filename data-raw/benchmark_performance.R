@@ -436,6 +436,120 @@ benchmark_fuse_texture_group_batch_raw_draws <- function(ncell = 2000, n_unique_
   invisible(list(default = t_default, raw_draws = t_raw, ratio = ratio))
 }
 
+# ---------------------------------------------------------------------------
+# A.6 - per-pixel ensemble re-marginalization (raster-fusion-bridge.R). Live: SDA + SOLUS.
+#   `benchmark_perpixel_remarginalization()` - times the ensemble build, per-window fusion of the
+#     Saxton-Rawls inputs (sand/silt/clay/db - SOLUS100 has NO water-retention variable), and
+#     remarginalized_awc() whole-grid vs tiled (asserts they agree).
+#   `compare_perpixel_vs_zonal(prop_id, solus_var)` - the "does sub-mukey spatial structure
+#     matter?" number: within-mukey SD of the per-pixel re-marginalized P50 vs. between-mukey SD.
+#     ratio << 1 => a mukey-collapsed (zonal) feed loses little => promote
+#     `zonal_distribution_from_posterior()`. Default property: claytotal.
+# ---------------------------------------------------------------------------
+.awc_windows <- list(c(0, 5), c(5, 15), c(15, 30))
+
+# Per-window run_stage1_fusion() posteriors for a set of {sim-column id -> SOLUS variable} configs.
+.perpixel_posteriors <- function(aoi, windows, cfgs) {
+  out <- list()
+  for (nm in names(cfgs)) {
+    per_w <- list()
+    for (w in windows) {
+      r <- tryCatch(run_stage1_fusion(aoi, list(id = nm, solus_variable = cfgs[[nm]], dist = "auto"),
+                                      top_depth = w[1], bottom_depth = w[2]),
+                    error = function(e) NULL)
+      if (!is.null(r)) per_w[[paste0(w[1], "-", w[2])]] <- list(percentiles = r$posterior$percentiles)
+    }
+    if (length(per_w) > 0) out[[nm]] <- per_w
+  }
+  out
+}
+
+# Saxton-Rawls AWC inputs: sim-column name -> fetchSOLUS variable.
+.awc_cfgs <- c(sand_total = "sandtotal", silt_total = "silttotal",
+               clay_total = "claytotal", db = "dbovendry")
+
+benchmark_perpixel_remarginalization <- function() {
+  cat("== [A.6] extract_mukey_joint_ensemble() + run_stage1_fusion() + remarginalized_awc() ==\n")
+  aoi <- small_aoi()
+  windows <- .awc_windows
+
+  t_ens <- system.time(ens <- extract_mukey_joint_ensemble(aoi, windows))
+  cat("extract_mukey_joint_ensemble():\n"); print(t_ens)
+  if (is.null(ens)) { cat("ensemble NULL (live data unavailable) - skipping.\n\n"); return(invisible(NULL)) }
+  cat("ensemble properties present:", paste(ens$properties, collapse = ", "), "\n")
+
+  t_post <- system.time(pbpw <- .perpixel_posteriors(aoi, windows, .awc_cfgs))
+  cat("run_stage1_fusion() x (", length(.awc_cfgs), "props x", length(windows), "windows):\n"); print(t_post)
+  if (!all(names(.awc_cfgs) %in% names(pbpw))) {
+    cat("SOLUS fusion unavailable for", paste(setdiff(names(.awc_cfgs), names(pbpw)), collapse = ", "),
+        "- skipping.\n\n"); return(invisible(NULL))
+  }
+
+  t_whole <- system.time(res_whole <- remarginalized_awc(ens, pbpw, n_out = 250))
+  cat("remarginalized_awc() whole-grid (n_kept =", res_whole$n_kept, "):\n"); print(t_whole)
+  t_tiled <- system.time(res_tiled <- remarginalized_awc(ens, pbpw, n_out = 250, tile_rows = 64))
+  cat("remarginalized_awc() tiled (n_tiles =", res_tiled$n_tiles, "):\n"); print(t_tiled)
+  d <- as.numeric(terra::global(abs(res_whole$awc_cm$P50 - res_tiled$awc_cm$P50), "max", na.rm = TRUE))
+  cat(sprintf("max |whole - tiled| P50 AWC: %.3g (should be ~0)\n", d))
+  m <- as.numeric(terra::global(res_whole$awc_cm$P50, "mean", na.rm = TRUE))
+  cat(sprintf("mean P50 AWC over 0-30 cm: %.2f cm\n\n", m))
+  invisible(list(ens = t_ens, post = t_post, whole = t_whole, tiled = t_tiled))
+}
+
+compare_perpixel_vs_zonal <- function(prop_id = "clay_total", solus_var = "claytotal",
+                                      windows = .awc_windows) {
+  cat(sprintf("== [A.6] within-mukey vs between-mukey spread of per-pixel %s (P50) ==\n", prop_id))
+  aoi <- small_aoi()
+  ens <- extract_mukey_joint_ensemble(aoi, windows)
+  if (is.null(ens)) { cat("ensemble NULL - skipping.\n\n"); return(invisible(NULL)) }
+  pbpw <- .perpixel_posteriors(aoi, windows, stats::setNames(solus_var, prop_id))
+  if (is.null(pbpw[[prop_id]])) { cat("no fused posterior for", prop_id, "- skipping.\n\n"); return(invisible(NULL)) }
+
+  rm_res <- remarginalize_ensemble_to_posterior(ens, pbpw, n_out = 250, summarize = TRUE,
+                                                probs = c(0.5))
+  ratios <- c()
+  for (w in names(rm_res$percentiles[[prop_id]])) {
+    p50 <- rm_res$percentiles[[prop_id]][[w]]$P50
+    mk <- terra::resample(ens$mukey_raster, p50, method = "near")
+    within  <- terra::zonal(p50, mk, fun = "sd",   na.rm = TRUE)
+    between <- terra::zonal(p50, mk, fun = "mean", na.rm = TRUE)
+    mw <- mean(within[[2]], na.rm = TRUE); sb <- stats::sd(between[[2]], na.rm = TRUE)
+    ratios[w] <- mw / sb
+    cat(sprintf("  window %-7s  mean within-mukey SD %.3f | between-mukey SD %.3f | ratio %.2f\n",
+                w, mw, sb, mw / sb))
+  }
+  cat(sprintf("=> mean ratio across windows: %.2f  (<< 1 => zonal/mukey-collapsed feed loses little)\n\n",
+              mean(ratios, na.rm = TRUE)))
+  invisible(ratios)
+}
+
+# ---------------------------------------------------------------------------
+# B.5 - analyze_soil_statistics() `_safe` chain vs the (now fixed) enhanced chain, on the same
+#   cached Amador SSURGO data as benchmark #3. `fitdistrplus::fitdist()` parametric fitting cost
+#   in the enhanced chain is undocumented and this measures it.
+# ---------------------------------------------------------------------------
+benchmark_statistics_chains <- function() {
+  cat("== [B.5] analyze_soil_statistics(): _safe chain vs enhanced chain ==\n")
+  cached_path <- system.file("extdata", "ssurgo_amador.rds", package = "soilSIM")
+  if (!nzchar(cached_path)) { cat("Cached Amador data not found - skipping.\n\n"); return(invisible(NULL)) }
+
+  ssurgo_amador <- readRDS(cached_path)
+  processed <- process_ssurgo_data(ssurgo_amador$ssurgo_data, max_depth = 150, verbose = FALSE)$processed_data
+
+  t_safe <- system.time(r_safe <- analyze_soil_statistics(processed, use_enhanced_chain = FALSE, verbose = FALSE))
+  cat("_safe chain:\n"); print(t_safe)
+
+  t_enh <- system.time(r_enh <- analyze_soil_statistics(processed, use_enhanced_chain = TRUE, verbose = FALSE))
+  cat("enhanced chain:\n"); print(t_enh)
+
+  ratio <- unname(t_enh[["elapsed"]] / max(t_safe[["elapsed"]], 1e-6))
+  cat(sprintf("enhanced / _safe elapsed ratio: %.2fx | properties: %d/%d fitted\n\n",
+              ratio,
+              length(r_enh$distribution_analysis$fitted_distributions %||% list()),
+              length(r_safe$distribution_analysis$fitted_distributions %||% list())))
+  invisible(list(safe = t_safe, enhanced = t_enh, ratio = ratio))
+}
+
 if (identical(environment(), globalenv())) {
   benchmark_ssurgo_simulation()
   benchmark_texture_group_fusion()
@@ -448,5 +562,8 @@ if (identical(environment(), globalenv())) {
   benchmark_apply_cross_property_constraints()
   benchmark_check_property_data_availability()
   benchmark_fuse_texture_group_batch_raw_draws()
+  benchmark_perpixel_remarginalization()
+  compare_perpixel_vs_zonal()
+  benchmark_statistics_chains()
   cat("All benchmarks done.\n")
 }

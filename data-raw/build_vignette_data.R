@@ -160,4 +160,70 @@ fusion_texture <- save_step(
   ))
 )
 
+# ---------------------------------------------------------------------------
+# 7. Per-pixel fused ensemble + Saxton-Rawls AWC inputs, Salinas Valley
+#    (vignette: raster-fusion-perpixel-awc.Rmd). The bridge's re-marginalization + AWC steps
+#    themselves are deterministic and offline, so only the network-dependent parts are cached:
+#    (a) the joint SSURGO Monte Carlo ensemble, (b) one SOLUS x SSURGO fused posterior per
+#    Saxton-Rawls input property per depth window.
+# ---------------------------------------------------------------------------
+pp_windows <- list(c(0, 5), c(5, 15), c(15, 30))
+
+# sim-column id -> fetchSOLUS() variable, for the Saxton-Rawls AWC inputs (the ensemble cache is
+# trimmed to just these columns since this data set is for the AWC vignette only).
+pp_solus <- c(sand_total = "sandtotal", silt_total = "silttotal", clay_total = "claytotal",
+              db = "dbovendry", soc = "soc", rfv = "fragvol")
+
+pp_ensemble <- save_step(
+  "perpixel_ensemble_salinas",
+  file.path(extdata_dir, "perpixel_ensemble_salinas.rds"),
+  {
+    ens <- extract_mukey_joint_ensemble(aoi, pp_windows)
+    if (!is.null(ens)) {
+      keep_cols <- intersect(names(pp_solus), ens$properties)
+      # Drop tiny map units (< 100 replicates - a component barely overlapping the AOI): with one
+      # such mukey `n_kept` = min(...) collapses to a handful of realizations for the whole product.
+      keep <- vapply(ens$by_mukey, function(e) nrow(e$windows[[1]]) >= 100L, logical(1))
+      ens$by_mukey <- ens$by_mukey[keep]
+      # The vignette caps at n_out = 200, so trim each mukey to <= 250 replicates (evenly spaced,
+      # row-aligned across windows + replicate_key), and to just the Saxton-Rawls input columns -
+      # keeps the cached .rds ~0.3 MB instead of ~3 MB.
+      cap <- 250L
+      ens$by_mukey <- lapply(ens$by_mukey, function(e) {
+        n <- nrow(e$windows[[1]])
+        idx <- if (n <= cap) seq_len(n) else unique(round(seq(1, n, length.out = cap)))
+        e$windows <- lapply(e$windows, function(m) m[idx, keep_cols, drop = FALSE])
+        e$replicate_key <- e$replicate_key[idx, , drop = FALSE]
+        e
+      })
+      ens$properties <- keep_cols
+      ens$mukey_raster <- terra::wrap(ens$mukey_raster)  # only the raster field
+    }
+    ens
+  }
+)
+
+pp_posteriors <- save_step(
+  "perpixel_posteriors_salinas",
+  file.path(extdata_dir, "perpixel_posteriors_salinas.rds"),
+  {
+    out <- list()
+    for (nm in names(pp_solus)) {
+      per_w <- list()
+      for (w in pp_windows) {
+        r <- tryCatch(
+          run_stage1_fusion(aoi, list(id = nm, solus_variable = pp_solus[[nm]], dist = "auto"),
+                            top_depth = w[1], bottom_depth = w[2]),
+          error = function(e) { cat(sprintf("  [%s %d-%d] %s\n", nm, w[1], w[2], conditionMessage(e))); NULL }
+        )
+        if (!is.null(r)) {
+          per_w[[paste0(w[1], "-", w[2])]] <- list(percentiles = r$posterior$percentiles)
+        }
+      }
+      if (length(per_w) > 0) out[[nm]] <- per_w
+    }
+    if (length(out) == 0) NULL else wrap_nested_rasters(out)
+  }
+)
+
 cat("\nAll vignette data prep steps complete. Check messages above for any FAILED steps.\n")

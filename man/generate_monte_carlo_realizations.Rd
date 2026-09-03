@@ -14,6 +14,7 @@ generate_monte_carlo_realizations(
   parallel = FALSE,
   seed = NULL,
   observed_data = NULL,
+  observed_data_by_mukey = NULL,
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 }
@@ -40,6 +41,13 @@ providing a Bayesian-updating likelihood to fuse against each property's
 SSURGO-derived prior before simulating - see \code{fuse_observed_data_into_priors()}
 for the accepted shapes and behavior. \code{NULL} (default) skips fusion
 entirely, preserving today's prior-only behavior exactly.}
+
+\item{observed_data_by_mukey}{Optional named list keyed by \code{mukey} code,
+each element an \code{observed_data}-shaped list, fusing each horizon against
+its own map unit's likelihood instead of one shared value - see
+\code{fuse_observed_data_into_priors()}. Requires \code{soil_data} to carry a
+\code{mukey} column. Mutually exclusive with \code{observed_data}. \code{NULL}
+(default) preserves current behavior exactly.}
 
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's
 log level so \code{INFO}-level progress messages print for the duration

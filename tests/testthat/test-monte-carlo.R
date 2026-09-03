@@ -544,6 +544,88 @@ test_that("generate_monte_carlo_realizations() with observed_data=NULL is unchan
   expect_equal(res_omitted$simulation_data, res_explicit_null$simulation_data)
 })
 
+# ---------------------------------------------------------------------------
+# observed_data_by_mukey (A.1 - per-map-unit likelihood lookup)
+# ---------------------------------------------------------------------------
+
+test_that("observed_data_by_mukey = NULL is byte-identical to omitting it (A.1 regression)", {
+  soil_data <- make_soil_data(9, properties = c("dbovendry"))
+  soil_data$mukey <- rep(c("1", "2", "3"), length.out = nrow(soil_data))
+  res_omitted <- generate_monte_carlo_realizations(soil_data, properties = c("dbovendry"), n_realizations = 40, seed = 7)
+  res_null <- generate_monte_carlo_realizations(soil_data, properties = c("dbovendry"), n_realizations = 40, seed = 7,
+                                                observed_data_by_mukey = NULL)
+  expect_identical(res_omitted$parameters, res_null$parameters)
+  expect_identical(res_omitted$simulation_data, res_null$simulation_data)
+})
+
+test_that("observed_data_by_mukey fuses each horizon against its own mukey's likelihood", {
+  soil_data <- make_soil_data(12, properties = c("dbovendry"))
+  soil_data$mukey <- rep(c("1", "2"), length.out = nrow(soil_data))
+
+  res <- generate_monte_carlo_realizations(
+    soil_data, properties = c("dbovendry"), n_realizations = 60, seed = 1,
+    simulation_config = list(distribution_type = "normal"),
+    observed_data_by_mukey = list(
+      "1" = list(dbovendry = list(mean = 1.15, sd = 0.02)),
+      "2" = list(dbovendry = list(mean = 1.65, sd = 0.02))
+    )
+  )
+
+  mk <- as.character(res$original_data$mukey)
+  post_mean <- vapply(res$parameters, function(p) p$dbovendry$fit$mean, numeric(1))
+  post_src <- vapply(res$parameters, function(p) p$dbovendry$source, character(1))
+
+  expect_true(all(post_src == "bayesian_fusion_normal"))
+  expect_true(all(abs(post_mean[mk == "1"] - 1.15) < 0.05))
+  expect_true(all(abs(post_mean[mk == "2"] - 1.65) < 0.05))
+})
+
+test_that("observed_data_by_mukey leaves horizons of an unlisted mukey with their unfused prior", {
+  soil_data <- make_soil_data(9, properties = c("dbovendry"))
+  soil_data$mukey <- rep(c("1", "2", "3"), length.out = nrow(soil_data))
+
+  res_prior_only <- generate_monte_carlo_realizations(
+    soil_data, properties = c("dbovendry"), n_realizations = 40, seed = 4,
+    simulation_config = list(distribution_type = "normal")
+  )
+  res <- generate_monte_carlo_realizations(
+    soil_data, properties = c("dbovendry"), n_realizations = 40, seed = 4,
+    simulation_config = list(distribution_type = "normal"),
+    observed_data_by_mukey = list("1" = list(dbovendry = list(mean = 1.15, sd = 0.02)))
+  )
+
+  mk <- as.character(res$original_data$mukey)
+  # mukey 2 / 3 untouched -> identical prior params to the prior-only run
+  expect_identical(res$parameters[mk != "1"], res_prior_only$parameters[mk != "1"])
+  # mukey 1 fused
+  expect_true(all(vapply(res$parameters[mk == "1"], function(p) p$dbovendry$source, character(1)) == "bayesian_fusion_normal"))
+})
+
+test_that("observed_data and observed_data_by_mukey are mutually exclusive", {
+  soil_data <- make_soil_data(6, properties = c("dbovendry"))
+  soil_data$mukey <- rep(c("1", "2"), length.out = nrow(soil_data))
+  expect_error(
+    generate_monte_carlo_realizations(
+      soil_data, properties = c("dbovendry"), n_realizations = 20, seed = 1,
+      observed_data = list(dbovendry = list(mean = 1.35, sd = 0.02)),
+      observed_data_by_mukey = list("1" = list(dbovendry = list(mean = 1.15, sd = 0.02)))
+    ),
+    "only one of"
+  )
+})
+
+test_that("fuse_observed_data_into_priors() errors when observed_data_by_mukey is given without a mukey column", {
+  soil_data <- make_soil_data(6, properties = c("dbovendry"))
+  soil_data$mukey <- NULL
+  expect_error(
+    generate_monte_carlo_realizations(
+      soil_data, properties = c("dbovendry"), n_realizations = 20, seed = 1,
+      observed_data_by_mukey = list("1" = list(dbovendry = list(mean = 1.15, sd = 0.02)))
+    ),
+    "requires a `mukey` column"
+  )
+})
+
 ## ----------------------------------------------------------------------
 ## Component composition helper functions (previously untagged placeholders)
 ## ----------------------------------------------------------------------

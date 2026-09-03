@@ -17,7 +17,8 @@ simulate_ssurgo_mapunit_draws(
   parallel = FALSE,
   n_cores = NULL,
   config = NULL,
-  mukey_raster = NULL
+  mukey_raster = NULL,
+  depth_windows = NULL
 )
 
 SSURGO_SIM_PROPERTY_COLUMNS
@@ -48,14 +49,22 @@ matching \code{get_monte_carlo_defaults()}'s own default.}
 independent \code{soilDB::mukey.wcs()} call - see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task
 P1.2/P1.3. Only consulted on a \code{"ssurgo_tabular"} cache miss. \code{NULL} (default) preserves
 original behavior exactly.}
+
+\item{depth_windows}{Optional list of \code{c(top, bottom)} numeric pairs. \code{NULL} (default) - one
+aggregation over \verb{[top_depth, bottom_depth]}, returning a single data frame exactly as before
+(bit-identical). When supplied, the (expensive) per-horizon simulation runs once and is then
+aggregated once per window, returning a \strong{named list} of data frames (names \code{"top-bottom"}).
+\code{top_depth}/\code{bottom_depth} are ignored in this mode - pass the overall span for them. Built for
+\code{extract_mukey_joint_ensemble()}, which needs the SOLUS depth windows from one simulation.}
 }
 \value{
-A data frame, one row per \code{mukey}/\code{cokey}/\code{simulation_number} replicate, with simulated
-property columns aggregated over the depth window - or \code{NULL} if the tabular fetch fails.
-Minor components that \code{download_ssurgo_tabular()}'s underlying query would otherwise drop
-entirely (real \code{comppct}, zero \code{chorizon} rows in SDA) are included transparently here
-whenever an AOI sibling let them be recovered - see \code{download_ssurgo_tabular()}'s "Component
-recovery" section.
+With \code{depth_windows = NULL}: a data frame, one row per \code{mukey}/\code{cokey}/\code{simulation_number}
+replicate, with simulated property columns aggregated over the depth window - or \code{NULL} if the
+tabular fetch fails. With \code{depth_windows} supplied: a named list of such data frames, one per
+window (or \code{NULL} on fetch failure). Minor components that \code{download_ssurgo_tabular()}'s
+underlying query would otherwise drop entirely (real \code{comppct}, zero \code{chorizon} rows in SDA)
+are included transparently here whenever an AOI sibling let them be recovered - see
+\code{download_ssurgo_tabular()}'s "Component recovery" section.
 }
 \description{
 Orchestrates the full SSURGO percentile-prior pipeline for one AOI/depth-window: fetch (cached)

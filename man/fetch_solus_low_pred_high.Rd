@@ -15,9 +15,19 @@ fetch_solus_low_pred_high(aoi_vect, solus_variable, top_depth, bottom_depth)
 \item{top_depth, bottom_depth}{Numeric depth window bounds in cm.}
 }
 \value{
-\code{list(pred=, low=, high=)}, each a single-layer \code{terra::SpatRaster} or \code{NULL} if that
-output type wasn't returned.
+\code{list(pred=, low=, high=)}, each a single-layer \code{terra::SpatRaster} (the window
+depth-average) or \code{NULL} if that output type wasn't returned for every required slice.
 }
 \description{
-Fetch SOLUS100 Low/Prediction/High Rasters for One Variable and Depth Window
+Fetches every native SOLUS depth slice spanning \verb{[top_depth, bottom_depth]} and reduces them to
+a single \strong{depth-average} raster per output type via \code{solus_depth_window_weights()} - a
+trapezoidal integral of SOLUS's point predictions over the window. See
+\code{solus_depth_window_weights()} for why this replaces the previous single-nearest-slice snap
+(\code{closest_solus_depth_slice()}): a point value only represents a window average for a linear
+depth profile, and the SSURGO prior side is a genuine thickness-weighted window mean.
+}
+\details{
+The same window weights are applied to the \code{prediction} raster and both \verb{95\% ... prediction interval} rasters. Averaging the interval bounds treats the prediction interval as perfectly
+depth-correlated (comonotone) - a mildly conservative (wider) choice for a likelihood, and the
+opposite assumption (depth-independence, narrow by ~sqrt(n)) is equally wrong the other way.
 }

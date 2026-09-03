@@ -18,6 +18,17 @@ NULL
 #' @param distribution_fitting Logical; perform distribution fitting analysis
 #' @param outlier_detection Logical; perform statistical outlier detection
 #' @param validate_results Logical; validate statistical results (default: TRUE)
+#' @param use_enhanced_chain Logical (default `FALSE`). `FALSE` runs the `_safe` chain -
+#'   `run_comprehensive_correlation_analysis_safe()` / `analyze_property_distributions_safe()` /
+#'   `detect_comprehensive_outliers_safe()` / `validate_statistical_results_safe()` /
+#'   `generate_statistical_quality_report_safe()` - preserving today's output shape exactly
+#'   (pinned by an `identical()` regression test). `TRUE` routes through the richer enhanced
+#'   functions instead (parametric distribution fits with AIC/BIC/convergence, per-method outlier
+#'   detection, multivariate Mahalanobis outliers, stratified + ILR texture correlations). The two
+#'   return **different, non-interchangeable shapes** - notably `distribution_analysis$fitted_distributions[[prop]]`
+#'   is a flat stats list under `_safe` and a family-name-keyed list of fit objects under enhanced.
+#'   Both chains stay public API. Whether the default should ever flip is a separate, later,
+#'   benchmark-driven decision (see `RASTER_STATISTICS_INTEGRATION_PLAN.md` Problem B).
 #' @param verbose Logical; provide detailed progress messages
 #'
 #' @return List containing comprehensive statistical analysis results
@@ -42,6 +53,7 @@ analyze_soil_statistics <- function(processed_data,
                                     distribution_fitting = TRUE,
                                     outlier_detection = TRUE,
                                     validate_results = TRUE,
+                                    use_enhanced_chain = FALSE,
                                     verbose = getOption("ssurgo.verbose", FALSE)) {
   # NOTE: this used to call setup_logging(log_level = if(verbose) "DEBUG" else "INFO")
   # unconditionally on first use, which permanently changed the global log level for
@@ -148,13 +160,17 @@ analyze_soil_statistics <- function(processed_data,
   log_message("INFO", "Step 4: Running correlation analysis", category = "Statistics")
 
   correlation_analysis <- tryCatch({
-    run_comprehensive_correlation_analysis_safe(
-      data = processed_data_clean,
-      methods = correlation_methods,
-      config = config,
-      available_properties = available_properties,
-      verbose = verbose
-    )
+    if (use_enhanced_chain) {
+      run_comprehensive_correlation_analysis(
+        data = processed_data_clean, methods = correlation_methods,
+        config = config, available_properties = available_properties
+      )
+    } else {
+      run_comprehensive_correlation_analysis_safe(
+        data = processed_data_clean, methods = correlation_methods,
+        config = config, available_properties = available_properties, verbose = verbose
+      )
+    }
   }, error = function(e) {
     handle_workflow_error(e, "Correlation Analysis", "warn")
     return(list(matrices = list(), summary = list(), validation = list()))
@@ -166,12 +182,16 @@ analyze_soil_statistics <- function(processed_data,
     log_message("INFO", "Step 5: Analyzing property distributions", category = "Statistics")
 
     distribution_analysis <- tryCatch({
-      analyze_property_distributions_safe(
-        data = processed_data_clean,
-        properties = available_properties,
-        config = config,
-        verbose = verbose
-      )
+      if (use_enhanced_chain) {
+        analyze_property_distributions(
+          data = processed_data_clean, properties = available_properties, config = config
+        )
+      } else {
+        analyze_property_distributions_safe(
+          data = processed_data_clean, properties = available_properties,
+          config = config, verbose = verbose
+        )
+      }
     }, error = function(e) {
       handle_workflow_error(e, "Distribution Analysis", "warn")
       return(NULL)
@@ -184,12 +204,16 @@ analyze_soil_statistics <- function(processed_data,
     log_message("INFO", "Step 6: Detecting outliers", category = "Statistics")
 
     outlier_analysis <- tryCatch({
-      detect_comprehensive_outliers_safe(
-        data = processed_data_clean,
-        properties = available_properties,
-        config = config,
-        verbose = verbose
-      )
+      if (use_enhanced_chain) {
+        detect_comprehensive_outliers(
+          data = processed_data_clean, properties = available_properties, config = config
+        )
+      } else {
+        detect_comprehensive_outliers_safe(
+          data = processed_data_clean, properties = available_properties,
+          config = config, verbose = verbose
+        )
+      }
     }, error = function(e) {
       handle_workflow_error(e, "Outlier Detection", "warn")
       return(NULL)
@@ -210,7 +234,7 @@ analyze_soil_statistics <- function(processed_data,
   if (validate_results) {
     log_message("INFO", "Step 8: Validating results", category = "Statistics")
 
-    validation_results <- validate_statistical_results_safe(
+    validation_results <- (if (use_enhanced_chain) validate_statistical_results else validate_statistical_results_safe)(
       correlation_analysis = correlation_analysis,
       distribution_analysis = distribution_analysis,
       outlier_analysis = outlier_analysis,
@@ -222,7 +246,7 @@ analyze_soil_statistics <- function(processed_data,
   # Step 9: Generate quality report
   log_message("INFO", "Step 9: Generating quality report", category = "Statistics")
 
-  quality_report <- generate_statistical_quality_report_safe(
+  quality_report <- (if (use_enhanced_chain) generate_statistical_quality_report else generate_statistical_quality_report_safe)(
     original_data = processed_data,
     processed_data = processed_data_clean,
     correlation_analysis = correlation_analysis,
@@ -610,6 +634,27 @@ generate_statistical_quality_report_safe <- function(original_data, processed_da
 # ENHANCED CORRELATION ANALYSIS (LEVERAGING Module 0)
 # ==============================================================================
 
+#' Resolve a statistical-analysis config value: nested location, then flat, then default
+#'
+#' `get_statistical_analysis_defaults()` nests every statistical parameter under
+#' `config$statistical_analysis$...`, but the enhanced-chain functions
+#' (`analyze_property_distributions()`, `detect_comprehensive_outliers()`,
+#' `run_comprehensive_correlation_analysis()`) were written reading them flat off `config$...` with
+#' no fallback - under the package's own documented default usage
+#' (`analyze_soil_statistics(horizon_data)`, no `analysis_config`) that made
+#' `config$minimum_observations` `NULL` and hard-errored the enhanced chain. This mirrors
+#' `analyze_soil_statistics()`'s own `config$statistical_analysis$X %||% config$X %||% <default>`
+#' pattern (see its `min_quality_score` line). Defaults here match the `_safe` chain's hardcoded
+#' values and `get_statistical_analysis_defaults()`.
+#'
+#' @param config The (merged) analysis configuration.
+#' @param key Parameter name.
+#' @param default Fallback when the key is absent in both locations.
+#' @keywords internal
+.stat_cfg <- function(config, key, default) {
+  config[["statistical_analysis"]][[key]] %||% config[[key]] %||% default
+}
+
 #' Run Comprehensive Correlation Analysis
 #'
 #' Enhanced correlation analysis using Module 0 statistical utilities
@@ -642,7 +687,7 @@ run_comprehensive_correlation_analysis <- function(data, methods, config, availa
     correlation_matrix <- safe_correlation(
       correlation_data,
       method = method,
-      handle_constant = config$handle_constant_variables
+      handle_constant = .stat_cfg(config, "handle_constant_variables", "warn")
     )
 
     # Enhanced correlation results
@@ -657,7 +702,7 @@ run_comprehensive_correlation_analysis <- function(data, methods, config, availa
   }
 
   # Stratified correlation analysis by horizon (if requested)
-  if (config$stratify_by_horizon && "genhz" %in% names(data)) {
+  if (.stat_cfg(config, "stratify_by_horizon", TRUE) && "genhz" %in% names(data)) {
     log_message("DEBUG", "Computing horizon-stratified correlations", category = "Correlation")
 
     correlation_results$stratified <- compute_stratified_correlations(
@@ -670,7 +715,7 @@ run_comprehensive_correlation_analysis <- function(data, methods, config, availa
   }
 
   # Texture analysis (if requested and texture data available)
-  if (config$include_texture_analysis) {
+  if (.stat_cfg(config, "include_texture_analysis", TRUE)) {
     texture_props <- c("sandtotal_r", "silttotal_r", "claytotal_r")
     available_texture <- intersect(texture_props, available_properties)
 
@@ -724,7 +769,7 @@ compute_stratified_correlations <- function(data, properties, stratify_by, metho
     group_data <- data[data[[stratify_by]] == group & !is.na(data[[stratify_by]]), properties, drop = FALSE]
 
     # Check minimum sample size using Module 0 validation
-    if (nrow(group_data) < config$minimum_observations) {
+    if (nrow(group_data) < .stat_cfg(config, "minimum_observations", 10)) {
       log_message("DEBUG", paste("Skipping group", group, "- insufficient observations:", nrow(group_data)), category = "Correlation")
       next
     }
@@ -734,7 +779,7 @@ compute_stratified_correlations <- function(data, properties, stratify_by, metho
       correlation_matrix <- safe_correlation(
         group_data,
         method = method,
-        handle_constant = config$handle_constant_variables
+        handle_constant = .stat_cfg(config, "handle_constant_variables", "warn")
       )
 
       group_correlations[[method]] <- list(
@@ -781,7 +826,7 @@ analyze_property_distributions <- function(data, properties, config) {
     property_data <- data[[property]]
     property_data <- property_data[!is.na(property_data) & is.finite(property_data)]
 
-    if (length(property_data) < config$minimum_observations) {
+    if (length(property_data) < .stat_cfg(config, "minimum_observations", 10)) {
       log_message("DEBUG", paste("Skipping", property, "- insufficient data"), category = "Distribution")
       next
     }
@@ -879,19 +924,21 @@ detect_comprehensive_outliers <- function(data, properties, config) {
   for (property in properties) {
     property_data <- data[[property]]
 
-    if (sum(!is.na(property_data)) < config$minimum_observations) {
+    if (sum(!is.na(property_data)) < .stat_cfg(config, "minimum_observations", 10)) {
       next
     }
 
     # Use Module 0's detect_outliers with multiple methods
-    outlier_methods <- config$outlier_methods
+    outlier_methods <- .stat_cfg(config, "outlier_methods", c("iqr", "zscore", "modified_zscore"))
+    outlier_thresholds <- .stat_cfg(config, "outlier_thresholds",
+                                    list(iqr = 1.5, zscore = 3, modified_zscore = 3.5))
     property_outlier_results <- list()
 
     for (method in outlier_methods) {
       outliers <- detect_outliers(
         property_data,
         method = method,
-        threshold = config$outlier_thresholds[[method]],
+        threshold = outlier_thresholds[[method]],
         return_indices = FALSE
       )
 
@@ -906,7 +953,7 @@ detect_comprehensive_outliers <- function(data, properties, config) {
   }
 
   # Multivariate outlier detection (if sufficient properties)
-  if (length(properties) >= 2 && config$detect_multivariate_outliers) {
+  if (length(properties) >= 2 && .stat_cfg(config, "detect_multivariate_outliers", TRUE)) {
     log_message("DEBUG", "Detecting multivariate outliers", category = "Outliers")
 
     outlier_results$multivariate_outliers <- detect_multivariate_outliers(
@@ -1022,7 +1069,14 @@ generate_statistical_quality_report <- function(original_data, processed_data,
 
     analysis_quality = list(
       correlation_quality = if(!is.null(correlation_analysis)) assess_correlation_quality(correlation_analysis) else NULL,
-      distribution_quality = if(!is.null(distribution_analysis)) assess_distribution_quality(distribution_analysis) else NULL,
+      # B.2 fix: assess_distribution_quality() expects a per-property-keyed list of fits directly
+      # (see its own body + test-statistics.R's input shape), not the whole distribution_analysis
+      # object (which has fitted_distributions/distribution_tests/summary keys). The `_safe` chain's
+      # distribution_analysis$fitted_distributions is a per-property flat-stats list; the enhanced
+      # chain's is a per-property family-keyed list of fit objects - both are the right shape here.
+      distribution_quality = if(!is.null(distribution_analysis)) {
+        assess_distribution_quality(distribution_analysis$fitted_distributions %||% distribution_analysis)
+      } else NULL,
       outlier_quality = if(!is.null(outlier_analysis)) assess_outlier_quality(outlier_analysis) else NULL
     ),
 
@@ -1307,7 +1361,7 @@ get_appropriate_distributions <- function(property_name, values, config = NULL) 
     c("normal", "lognormal", "gamma", "weibull")
   }
 
-  requested <- config$distribution_methods
+  requested <- config[["statistical_analysis"]][["distribution_methods"]] %||% config[["distribution_methods"]]
   if (is.null(requested)) {
     return(heuristic)
   }
@@ -1544,7 +1598,7 @@ detect_multivariate_outliers <- function(data, properties, config) {
     error = function(e) rep(NA_real_, nrow(complete_data))
   )
 
-  alpha <- config$mahalanobis_alpha %||% 0.975
+  alpha <- .stat_cfg(config, "mahalanobis_alpha", 0.975)
   threshold <- stats::qchisq(alpha, df = length(available_props))
   is_outlier_complete <- distances > threshold
 
@@ -1615,12 +1669,126 @@ validate_correlation_matrices <- function(matrices, config) {
   list(valid = TRUE, errors = character(0), warnings = warnings_out)
 }
 
-validate_distribution_analysis <- function(distribution_analysis, config) {
-  return(list(warnings = character(0)))
+# Per-property warnings for validate_distribution_analysis(); wrapped in tryCatch by the caller.
+.check_one_distribution <- function(prop, prop_fits) {
+  w <- character(0)
+  # enhanced shape: family-name-keyed list of fit objects (aic/bic/loglik/convergence/param_sd/...).
+  # _safe shape: one flat stats list (mean/sd/min/...).
+  is_enhanced <- is.list(prop_fits) && length(prop_fits) > 0 &&
+    all(vapply(prop_fits, function(f) is.list(f) && (!is.null(f$aic) || !is.null(f$convergence)), logical(1)))
+
+  if (!is_enhanced) {
+    stats_vals <- unlist(prop_fits[intersect(names(prop_fits), c("mean", "sd", "median"))])
+    if (length(stats_vals) > 0 && any(!is.finite(stats_vals))) {
+      w <- c(w, paste0(prop, ": non-finite summary statistic"))
+    }
+    return(w)
+  }
+
+  if (length(prop_fits) == 0) {
+    return(paste0(prop, ": no distribution family fit successfully"))
+  }
+
+  for (fam in names(prop_fits)) {
+    f <- prop_fits[[fam]]
+    if (is.null(f)) next
+    conv <- f$convergence
+    if (!is.null(conv) && length(conv) == 1 && !is.na(conv) && conv != 0) {
+      w <- c(w, paste0(prop, "/", fam, ": non-zero convergence code (", conv, ")"))
+    }
+    for (metric in c("aic", "bic", "loglik")) {
+      v <- f[[metric]]
+      if (!is.null(v) && length(v) == 1 && !is.finite(v)) {
+        w <- c(w, paste0(prop, "/", fam, ": non-finite ", metric))
+      }
+    }
+    psd <- f$param_sd
+    if (!is.null(psd) && length(psd) > 0 && any(!is.finite(unlist(psd)))) {
+      w <- c(w, paste0(prop, "/", fam, ": non-finite parameter SE"))
+    }
+  }
+  w
 }
 
+#' Validate an Enhanced Distribution Analysis Result
+#'
+#' Structural + fit-quality checks on `analyze_property_distributions()`'s output, in the
+#' `validate_correlation_matrix()` / `validate_distribution_fidelity()` per-item-`tryCatch` style.
+#' Flags: a property with no successful family fit; a nonzero `convergence` code; non-finite
+#' `aic`/`bic`/`loglik`/`param_sd`. Never errors - returns collected `warnings`. Also tolerates the
+#' `_safe` chain's flatter `fitted_distributions[[prop]]` shape (`mean`/`sd`/...): with no
+#' `aic`/`convergence` keys those checks are simply skipped.
+#'
+#' @param distribution_analysis Result of `analyze_property_distributions()` (or `_safe`).
+#' @param config Analysis configuration (unused today; kept for signature symmetry).
+#' @return `list(warnings = <character>)`.
+#' @keywords internal
+validate_distribution_analysis <- function(distribution_analysis, config) {
+  fits_by_prop <- distribution_analysis$fitted_distributions %||% list()
+  if (length(fits_by_prop) == 0) {
+    return(list(warnings = "distribution analysis fitted no properties"))
+  }
+
+  warnings_out <- character(0)
+  for (prop in names(fits_by_prop)) {
+    warnings_out <- c(warnings_out, tryCatch(
+      .check_one_distribution(prop, fits_by_prop[[prop]]),
+      error = function(e) paste0(prop, ": validation error - ", conditionMessage(e))
+    ))
+  }
+  list(warnings = warnings_out)
+}
+
+# Per-property warnings for validate_outlier_analysis(); wrapped in tryCatch by the caller.
+.check_one_outlier_property <- function(prop, entry, rate_threshold) {
+  w <- character(0)
+  # enhanced: per-method list(outlier_rate=, n_outliers=, ...). _safe: one flat list.
+  per_method <- if (!is.null(entry$outlier_rate)) list(single = entry) else entry
+  for (m in names(per_method)) {
+    rate <- per_method[[m]]$outlier_rate
+    if (!is.null(rate) && length(rate) == 1 && is.finite(rate) && rate > rate_threshold) {
+      label <- if (identical(m, "single")) prop else paste0(prop, "/", m)
+      w <- c(w, sprintf("%s: outlier rate %.1f%% exceeds %.1f%% threshold",
+                        label, rate * 100, rate_threshold * 100))
+    }
+  }
+  w
+}
+
+#' Validate an Enhanced Outlier Analysis Result
+#'
+#' Flags any property/method whose `outlier_rate` exceeds a config-defaulted threshold
+#' (`config$statistical_analysis$outlier_rate_warn_threshold`, default 0.15 - a placeholder that
+#' should be tuned against real fixture data, not treated as calibrated), and a multivariate step
+#' with a non-finite `threshold` or `n_outliers`. Never errors.
+#'
+#' @param outlier_analysis Result of `detect_comprehensive_outliers()` (or `_safe`).
+#' @param config Analysis configuration.
+#' @return `list(warnings = <character>)`.
+#' @keywords internal
 validate_outlier_analysis <- function(outlier_analysis, config) {
-  return(list(warnings = character(0)))
+  rate_threshold <- .stat_cfg(config, "outlier_rate_warn_threshold", 0.15)
+  warnings_out <- character(0)
+
+  prop_outliers <- outlier_analysis$property_outliers %||% list()
+  for (prop in names(prop_outliers)) {
+    warnings_out <- c(warnings_out, tryCatch(
+      .check_one_outlier_property(prop, prop_outliers[[prop]], rate_threshold),
+      error = function(e) paste0(prop, ": validation error - ", conditionMessage(e))
+    ))
+  }
+
+  mv <- outlier_analysis$multivariate_outliers
+  if (!is.null(mv) && length(mv) > 0) {
+    for (metric in c("threshold", "n_outliers")) {
+      v <- mv[[metric]]
+      if (!is.null(v) && length(v) == 1 && !is.finite(v)) {
+        warnings_out <- c(warnings_out, paste0("multivariate: non-finite ", metric))
+      }
+    }
+  }
+
+  list(warnings = warnings_out)
 }
 
 calculate_overall_validation_score <- function(validation_results) {

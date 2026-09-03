@@ -737,6 +737,21 @@ test_that("fuse_lognormal_adaptive() produces monotonic, strictly-positive perce
   expect_true(all(diff(pvals_small) >= 0))
 })
 
+test_that("fuse_lognormal_adaptive()'s verbose general-route log survives threshold_cells = Inf (was sprintf %d on Inf)", {
+  probs <- c(0.05, 0.25, 0.5, 0.75, 0.95)
+  prior_r <- stats::setNames(lapply(qlnorm(probs, log(20), 0.4), function(v) make_percentile_rasters(c(x = v))$x),
+                              paste0("P", round(probs * 100)))
+  lik_r <- stats::setNames(lapply(qlnorm(probs, log(22), 0.3), function(v) make_percentile_rasters(c(x = v))$x),
+                            paste0("P", round(probs * 100)))
+  # ncell = 1 <= threshold -> general route -> internally calls fuse_adaptive(threshold_cells = Inf).
+  # With verbose = TRUE that used to hit sprintf("%d", Inf) -> "invalid format '%d'" and abort.
+  expect_no_error(
+    r <- fuse_lognormal_adaptive(prior_r, probs, lik_r, probs, ncell = 1, threshold_cells = 1e9,
+                                 verbose = TRUE)
+  )
+  expect_equal(r$route, "bayesian_update_general")
+})
+
 test_that("fuse_metalog_adapter() percentiles exactly match analytic qnorm at the fused (mu, sigma), and pass through fuse_property_adaptive() unchanged", {
   # Uses the known-working 3-point metalog fixture (see fuse_property_adaptive() metalog dispatch
   # test above) - a symmetric 5-point Normal percentile set was found (P3.5 investigation) to

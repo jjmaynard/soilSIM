@@ -24,6 +24,8 @@ navbar:
         href: articles/aws-van-genuchten.html
       - text: "Multi-source raster fusion: SSURGO x SOLUS100"
         href: articles/raster-fusion-ssurgo-solus.html
+      - text: "Per-pixel fused ensemble & available water capacity"
+        href: articles/raster-fusion-perpixel-awc.html
     functions:
       text: Function-Level Guides
       menu:
@@ -315,8 +317,12 @@ reference:
   - fetch_ssurgo_percentiles
   - percentiles_from_draws
   - closest_solus_depth_slice
+  - solus_depth_window_weights
   - fetch_solus_low_pred_high
   - fetch_solus_percentiles
+  - extract_mukey_joint_ensemble
+  - remarginalize_ensemble_to_posterior
+  - remarginalized_awc
 
 - title: Utilities
   desc: Shared validation, logging, configuration, and I/O helpers.

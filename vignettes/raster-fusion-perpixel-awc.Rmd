@@ -1,0 +1,258 @@
+---
+title: "Per-Pixel Fused Ensemble & Available Water Capacity"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Per-Pixel Fused Ensemble & Available Water Capacity}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 5)
+```
+
+## Overview
+
+The `raster-fusion-ssurgo-solus` vignette shows how to fuse **one** SSURGO-derived prior against a
+**one** SOLUS100 likelihood into a per-cell posterior for a single property. This vignette takes the
+next step: it wires that fused posterior back into the tabular Monte Carlo framework as a
+**per-pixel joint ensemble**, so that a derived quantity - here plant-available water capacity (AWC)
+- can be computed per realization and summarised into a genuine per-pixel probability distribution.
+
+The bridge is a **rank-preserving re-marginalization** of a single joint Monte Carlo ensemble, not
+an independent per-property resample. Three functions:
+
+| Function | Role |
+|---|---|
+| `extract_mukey_joint_ensemble()` | one joint SSURGO Monte Carlo, retained per map unit, row-aligned across depth windows |
+| `remarginalize_ensemble_to_posterior()` | transform each realization's marginals to the SOLUS-fused posterior, per pixel, keeping the ensemble's rank copula |
+| `remarginalized_awc()` | AWC per realization from the re-marginalized inputs, then per-pixel percentiles |
+
+AWC needs special handling: **SOLUS100 publishes no water-retention variable**, so field capacity
+and wilting point cannot be fused directly. Instead the fusable drivers - sand, silt, clay, bulk
+density, organic carbon - are fused and re-marginalized, and water retention is derived from them
+per (pixel, realization) via the Saxton-Rawls pedotransfer function.
+
+See `docs/09_multi_source_raster_fusion_pipeline.md` -> "Statistical structure of the per-pixel
+bridge" for the full treatment of what the resulting uncertainty band does and does not capture;
+this vignette walks the mechanics with real data.
+
+```{r setup}
+library(soilSIM)
+```
+
+## The AOI
+
+The same ~2 km x 2 km Salinas Valley area of interest as the `raster-fusion-ssurgo-solus` vignette,
+chosen for confirmed real SOLUS100 coverage.
+
+```{r}
+salinas_wkt <- "POLYGON((-121.66 36.60, -121.64 36.60, -121.64 36.62, -121.66 36.62, -121.66 36.60))"
+aoi <- terra::vect(salinas_wkt, crs = "epsg:4326")
+aoi <- terra::project(aoi, "epsg:5070")
+```
+
+## Step 1: one joint SSURGO Monte Carlo ensemble
+
+`extract_mukey_joint_ensemble()` runs the SSURGO Monte Carlo **once** for the whole AOI over the
+requested depth windows. Internally, `simulate_cokey_generalized()` draws every property jointly
+under the KSSL reference correlation matrices, the joint-copula vertical-correlation step runs down
+each simulated profile, and the result is aggregated to each depth window **row-aligned**: the same
+row index in the `0-5` and `5-15` matrices is the *same simulated profile*.
+
+```{r, eval = FALSE}
+# The real call this vignette's cached data came from:
+windows <- list(c(0, 5), c(5, 15), c(15, 30))
+ens <- extract_mukey_joint_ensemble(aoi, windows)
+```
+
+```{r}
+ens <- readRDS(system.file("extdata", "perpixel_ensemble_salinas.rds", package = "soilSIM"))
+ens$mukey_raster <- terra::unwrap(ens$mukey_raster)   # cached wrapped; see "Where this data came from"
+
+ens$window_names
+ens$properties
+length(ens$by_mukey)                                  # one entry per map unit
+```
+
+Each map unit's entry is a set of `[realization x property]` matrices, one per depth window:
+
+```{r}
+round(head(ens$by_mukey[[1]]$windows[["0-5"]], 3), 1)
+```
+
+Rows are realizations (each a simulated profile draw), columns are properties drawn *jointly*.
+Because the windows are row-aligned, realization `r`'s clay content varies with depth but is still
+"realization `r`" at every depth - the vertical link that keeps a profile coherent:
+
+```{r}
+vapply(ens$window_names,
+       function(w) ens$by_mukey[[1]]$windows[[w]][1, "clay_total"],
+       numeric(1))
+```
+
+## Step 2: fuse each Saxton-Rawls input against SOLUS
+
+`run_stage1_fusion()` produces a per-cell SSURGO x SOLUS posterior for one property and one depth
+window. We need one for each Saxton-Rawls input. `dist = "auto"` lets the fusion core pick the
+distribution family per property.
+
+```{r, eval = FALSE}
+# The real calls this vignette's cached data came from (one per property x window):
+cfg <- function(id, solus_var) list(id = id, solus_variable = solus_var, dist = "auto")
+sr_inputs <- c(sand_total = "sandtotal", silt_total = "silttotal", clay_total = "claytotal",
+               db = "dbovendry", soc = "soc")
+post <- lapply(names(sr_inputs), function(nm) {
+  setNames(lapply(windows, function(w) {
+    r <- run_stage1_fusion(aoi, cfg(nm, sr_inputs[[nm]]), w[1], w[2])
+    list(percentiles = r$posterior$percentiles)
+  }), vapply(windows, function(w) paste0(w[1], "-", w[2]), ""))
+})
+names(post) <- names(sr_inputs)
+```
+
+```{r}
+post <- unwrap_nested_rasters(
+  readRDS(system.file("extdata", "perpixel_posteriors_salinas.rds", package = "soilSIM"))
+)
+names(post)
+names(post$clay_total)
+names(post$clay_total[["0-5"]]$percentiles)            # nine percentile-value rasters
+```
+
+```{r}
+terra::plot(post$clay_total[["0-5"]]$percentiles$P50,
+            main = "SOLUS-fused clay content, P50, 0-5 cm (%)")
+```
+
+## Step 3: re-marginalize the ensemble onto the grid
+
+`remarginalize_ensemble_to_posterior()` maps every retained source realization through
+`F_prior` (the map unit's empirical CDF) then `F_posterior^-1` (the pixel's fused posterior):
+`v_new = F_posterior^-1(F_prior(v_r))`. Crucially, **one realization index is used for every
+property and every window**, so each realization keeps its rank position everywhere - the
+transformed ensemble has the source's cross-property *and* cross-depth **rank** correlations, only
+the marginals become the fused posteriors.
+
+```{r}
+rm <- remarginalize_ensemble_to_posterior(ens, post, n_out = 150, summarize = FALSE)
+rm$n_kept
+names(rm$ensemble)
+terra::nlyr(rm$ensemble$clay_total[["0-5"]])           # one layer per retained realization
+```
+
+### The rank copula is preserved
+
+For any pixel, the transformed realizations of two properties keep exactly the Spearman correlation
+the source SSURGO ensemble has for that pixel's map unit. Sand and clay are strongly
+(negatively) correlated - they are compositional parts of the same texture triangle:
+
+```{r}
+w    <- "0-5"
+grid <- rm$ensemble$clay_total[[w]][[1]]
+
+# per-cell numeric map unit code on the transformed grid
+mkn <- terra::resample(ens$mukey_raster, grid, method = "near")
+levels(mkn) <- NULL
+mk_cell   <- as.character(terra::values(mkn)[, 1])
+grid_vals <- terra::values(grid)[, 1]
+
+# a map unit that has complete texture data AND at least one pixel in this AOI
+pick <- NULL
+for (m in names(ens$by_mukey)) {
+  cm <- which(mk_cell == m & is.finite(grid_vals))
+  if (!length(cm)) next
+  if (anyNA(ens$by_mukey[[m]]$windows[[w]][seq_len(rm$n_kept), c("sand_total", "clay_total")])) next
+  pick <- list(mk = m, cell = cm[1]); break
+}
+
+src     <- ens$by_mukey[[pick$mk]]$windows[[w]][seq_len(rm$n_kept), ]
+tr_sand <- as.numeric(terra::values(rm$ensemble$sand_total[[w]])[pick$cell, ])
+tr_clay <- as.numeric(terra::values(rm$ensemble$clay_total[[w]])[pick$cell, ])
+
+round(c(
+  source      = stats::cor(src[, "sand_total"], src[, "clay_total"], method = "spearman"),
+  transformed = stats::cor(tr_sand,             tr_clay,             method = "spearman")
+), 3)
+```
+
+The two values match: the re-marginalization changed each property's marginal distribution to the
+fused posterior but left every realization's *rank* essentially untouched (they can differ only in
+the 3rd-4th decimal, where a tie forms because the fused posterior's tail is clamped flat).
+
+## Step 4: per-pixel available water capacity
+
+`remarginalized_awc()` (default `method = "saxton_rawls"`) takes, for each realization / pixel /
+window, the jointly-consistent `(sand, clay, silt, db, om)` values, derives field capacity and
+wilting point via `saxton_rawls_raster()`, and accumulates
+`AWC = sum_windows (fc - wp)/100 * thickness` for that realization. `terra::quantile()` over the
+retained realizations then gives the per-pixel AWC distribution.
+
+```{r}
+awc <- remarginalized_awc(ens, post, n_out = 150)
+awc$n_kept
+awc$windows_used
+names(awc$awc_cm)
+```
+
+```{r}
+terra::plot(awc$awc_cm$P50,
+            main = "Median plant-available water capacity, 0-30 cm (cm)",
+            col = grDevices::hcl.colors(50, "Blues 3", rev = TRUE))
+```
+
+```{r}
+terra::plot(awc$awc_cm$P95 - awc$awc_cm$P5,
+            main = "90% credible-interval width for AWC (cm)",
+            col = grDevices::hcl.colors(50, "inferno", rev = TRUE))
+```
+
+`awc_cm$P95 - awc_cm$P5` is a genuine 90% credible interval because AWC is computed per source
+realization from vertically- and cross-property-consistent inputs, then combined per pixel.
+
+## Reading the uncertainty band
+
+| Aspect | Treatment |
+|---|---|
+| **Marginal** uncertainty of each input property | the full SSURGO x SOLUS fused posterior spread per pixel, propagated through Saxton-Rawls - **captured** |
+| Cross-property & cross-depth **dependence** | the SSURGO tabular copula (KSSL + joint-copula vertical correlation), **held fixed** - SOLUS carries no joint information, so nothing is re-estimated |
+| Correlation type preserved | **rank (Spearman)**, not linear (Pearson) |
+| Pedotransfer-function error | **not propagated** - Saxton-Rawls is applied deterministically per realization |
+| Sub-map-unit variation in the **dependence** structure | none - every pixel in a map unit shares the source ensemble; only the fused marginals vary pixel to pixel |
+| Texture compositional closure | independent re-marginalization can leave `sand + silt + clay != 100`; `saxton_rawls_raster()` renormalizes to 100 when off by more than 5 |
+
+In short, the per-pixel AWC distribution reflects **SOLUS-fused marginal uncertainty threaded
+through the SSURGO tabular copula**, not a fully re-estimated joint posterior and not
+pedotransfer-model error.
+
+## Per-pixel vs. map-unit-collapsed
+
+A cheaper alternative would collapse the fused posterior to one distribution per map unit (via
+`zonal_distribution_from_posterior()`) and feed that back through the tabular Monte Carlo. How much
+does that lose? Compare the within-map-unit spread of the per-pixel AWC to the between-map-unit
+spread:
+
+```{r}
+p50 <- awc$awc_cm$P50
+mkr <- terra::resample(ens$mukey_raster, p50, method = "near")
+within  <- terra::zonal(p50, mkr, fun = "sd",   na.rm = TRUE)
+between <- terra::zonal(p50, mkr, fun = "mean", na.rm = TRUE)
+
+c(mean_within_mapunit_sd = mean(within[[2]], na.rm = TRUE),
+  between_mapunit_sd     = stats::sd(between[[2]], na.rm = TRUE))
+```
+
+Whether the ratio is negligible is **property-dependent**: benchmarking on a comparable AOI found it
+around 0.01 for clay content and pH (a map-unit-collapsed feed loses almost nothing) but around
+0.42 for bulk density. Because AWC is strongly bulk-density-sensitive, the per-pixel path is the
+right default for it - `zonal_distribution_from_posterior()` is kept internal.
+
+## Where this data came from
+
+The cached objects this vignette loads (`inst/extdata/perpixel_ensemble_salinas.rds`,
+`inst/extdata/perpixel_posteriors_salinas.rds`) were produced once by
+`data-raw/build_vignette_data.R`, which runs `extract_mukey_joint_ensemble()` and
+`run_stage1_fusion()` live against NRCS Soil Data Access and SOLUS100 for the AOI above, trims each
+map unit's ensemble to 250 realizations, wraps the rasters via `terra::wrap()` /
+`wrap_nested_rasters()`, and saves. The re-marginalization and AWC steps shown above run live in
+this vignette - they are deterministic and need no network access.

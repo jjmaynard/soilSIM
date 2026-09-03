@@ -227,7 +227,9 @@ aggregate_depth_window_by_replicate <- function(sim_long, top_depth, bottom_dept
 #'
 #' @param property_id One of `"ph"`, `"ph1to1h2o"`, `"bulk_density"`, `"dbovendry"`,
 #'   `"soc"`, `"om"`, `"cec"`, `"cec7"`, `"clay"`, `"claytotal"`, `"sand"`,
-#'   `"sandtotal"`, `"silt"`, `"silttotal"`, `"rock_fragments"`, or `"rfv"`.
+#'   `"sandtotal"`, `"silt"`, `"silttotal"`, `"rock_fragments"`/`"rfv"`/`"fragvol"`,
+#'   `"wthirdbar"`/`"water_retention_third_bar"`/`"wr_3b"`, or
+#'   `"wfifteenbar"`/`"water_retention_15_bar"`/`"wr_15b"`.
 #' @return The corresponding column name in `simulate_cokey_generalized()`'s output.
 #' @export
 property_to_sim_column <- function(property_id) {
@@ -239,7 +241,14 @@ property_to_sim_column <- function(property_id) {
     clay = "clay_total", claytotal = "clay_total", clay_total = "clay_total",
     sand = "sand_total", sandtotal = "sand_total", sand_total = "sand_total",
     silt = "silt_total", silttotal = "silt_total", silt_total = "silt_total",
-    rock_fragments = "rfv", rfv = "rfv"
+    rock_fragments = "rfv", rfv = "rfv", fragvol = "rfv",  # `fragvol` = fetchSOLUS()'s rock-fragment id
+    # Water retention: simulate_cokey_generalized() already emits `wr_3b`/`wr_15b`
+    # (`.kssl_property_name_map` in R/kssl-reference-correlations.R maps wthirdbar/wfifteenbar to
+    # them) and SSURGO_SIM_PROPERTY_COLUMNS lists them, but this id->column map was missing the
+    # entries - added so run_stage1_fusion()/percentiles_from_draws() can produce water-retention
+    # posteriors (needed by remarginalized_awc()).
+    water_retention_third_bar = "wr_3b", wthirdbar = "wr_3b", wr_3b = "wr_3b",
+    water_retention_15_bar = "wr_15b", wfifteenbar = "wr_15b", wr_15b = "wr_15b"
   )
   if (!property_id %in% names(mapping)) {
     stop(sprintf("property_to_sim_column(): no simulated column mapping for property '%s'.", property_id))
@@ -276,12 +285,19 @@ property_to_sim_column <- function(property_id) {
 #'   independent `soilDB::mukey.wcs()` call - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task
 #'   P1.2/P1.3. Only consulted on a `"ssurgo_tabular"` cache miss. `NULL` (default) preserves
 #'   original behavior exactly.
-#' @return A data frame, one row per `mukey`/`cokey`/`simulation_number` replicate, with simulated
-#'   property columns aggregated over the depth window - or `NULL` if the tabular fetch fails.
-#'   Minor components that `download_ssurgo_tabular()`'s underlying query would otherwise drop
-#'   entirely (real `comppct`, zero `chorizon` rows in SDA) are included transparently here
-#'   whenever an AOI sibling let them be recovered - see `download_ssurgo_tabular()`'s "Component
-#'   recovery" section.
+#' @param depth_windows Optional list of `c(top, bottom)` numeric pairs. `NULL` (default) - one
+#'   aggregation over `[top_depth, bottom_depth]`, returning a single data frame exactly as before
+#'   (bit-identical). When supplied, the (expensive) per-horizon simulation runs once and is then
+#'   aggregated once per window, returning a **named list** of data frames (names `"top-bottom"`).
+#'   `top_depth`/`bottom_depth` are ignored in this mode - pass the overall span for them. Built for
+#'   `extract_mukey_joint_ensemble()`, which needs the SOLUS depth windows from one simulation.
+#' @return With `depth_windows = NULL`: a data frame, one row per `mukey`/`cokey`/`simulation_number`
+#'   replicate, with simulated property columns aggregated over the depth window - or `NULL` if the
+#'   tabular fetch fails. With `depth_windows` supplied: a named list of such data frames, one per
+#'   window (or `NULL` on fetch failure). Minor components that `download_ssurgo_tabular()`'s
+#'   underlying query would otherwise drop entirely (real `comppct`, zero `chorizon` rows in SDA)
+#'   are included transparently here whenever an AOI sibling let them be recovered - see
+#'   `download_ssurgo_tabular()`'s "Component recovery" section.
 #' @section Cache invalidation:
 #' This function's own disk cache (`build_cache_key()`/`cache_get()`/`cache_set()`, keyed by
 #' `aoi_vect`/depth window) is separate from `download_ssurgo_tabular()`'s own `cache_dir`
@@ -303,7 +319,7 @@ property_to_sim_column <- function(property_id) {
 #' @export
 simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
                                            parallel = FALSE, n_cores = NULL, config = NULL,
-                                           mukey_raster = NULL) {
+                                           mukey_raster = NULL, depth_windows = NULL) {
   # download_ssurgo_tabular()/process_aoi_and_get_mukeys_working() (R/ssurgo-acquisition.R)
   # always assume their aoi_wkt argument is lon/lat EPSG:4326 (hardcoded there), regardless of
   # aoi_vect's actual CRS - extracting WKT directly from an already-projected aoi_vect (e.g.
@@ -381,9 +397,21 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
                                                   parallel = parallel, n_cores = n_cores,
                                                   config = config)
 
-  aggregate_depth_window_by_replicate(
-    sim_long, top_depth, bottom_depth, property_cols,
-    replicate_cols = c("mukey", "cokey", "simulation_number")
+  if (is.null(depth_windows)) {
+    return(aggregate_depth_window_by_replicate(
+      sim_long, top_depth, bottom_depth, property_cols,
+      replicate_cols = c("mukey", "cokey", "simulation_number")
+    ))
+  }
+
+  stats::setNames(
+    lapply(depth_windows, function(w) {
+      aggregate_depth_window_by_replicate(
+        sim_long, w[[1]], w[[2]], property_cols,
+        replicate_cols = c("mukey", "cokey", "simulation_number")
+      )
+    }),
+    vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), character(1))
   )
 }
 
@@ -521,6 +549,109 @@ mukey_texture_draws_lookup <- function(draws) {
     rownames(m) <- NULL
     m
   })
+}
+
+#' Per-Mukey Joint Multivariate Profile Ensemble at Several Depth Windows
+#'
+#' The multi-property, multi-depth-window analogue of \code{\link{mukey_draws_lookup}} /
+#' \code{\link{mukey_texture_draws_lookup}}: runs the (expensive) SSURGO Monte Carlo once via
+#' \code{\link{simulate_ssurgo_mapunit_draws}} and returns, per mukey, the **retained bag of joint
+#' realizations** - every simulated property together, row-aligned across depth windows, so the
+#' KSSL cross-property and cross-depth rank structure is preserved. This is the input to
+#' `remarginalize_ensemble_to_posterior()` (`R/raster-fusion-bridge.R`), which transforms each
+#' pixel's marginals to a fused posterior while keeping this ensemble's empirical copula.
+#'
+#' Replicates are aligned across windows on `(cokey, simulation_number)`; a replicate that has no
+#' thickness overlap with some window (so no aggregate there) is dropped from that mukey entirely,
+#' keeping every window's matrix the same number of rows.
+#'
+#' @param aoi_vect A `terra::SpatVector` AOI.
+#' @param depth_windows Non-empty list of `c(top, bottom)` numeric pairs (cm, `bottom > top`).
+#' @param n_mc,parallel,n_cores,config Passed through to \code{\link{simulate_ssurgo_mapunit_draws}}.
+#' @param mukey_raster Optional already-fetched mukey raster for this AOI (cache hit otherwise).
+#' @param draws_by_window Optional pre-computed `simulate_ssurgo_mapunit_draws(..., depth_windows =)`
+#'   result (named list of per-window data frames) - supply to reuse an existing simulation or to
+#'   test offline; when given, `aoi_vect`/`n_mc`/`parallel`/`n_cores`/`config` are unused.
+#' @param properties Property columns to retain (default \code{SSURGO_SIM_PROPERTY_COLUMNS}); the
+#'   returned `properties` element is the subset actually present for this AOI.
+#' @return `list(by_mukey = <named list, keyed by mukey code>, properties = <character>,
+#'   depth_windows = , window_names = , mukey_raster = )`. Each `by_mukey` element is
+#'   `list(windows = <named list of [n_replicate x n_property] matrices, one per window>,
+#'   replicate_key = data.frame(cokey, simulation_number))`. `NULL` if the simulation fails or no
+#'   mukey has a replicate spanning every window.
+#' @seealso `remarginalize_ensemble_to_posterior()`, \code{\link{mukey_draws_lookup}}
+#' @export
+extract_mukey_joint_ensemble <- function(aoi_vect, depth_windows, n_mc = 1000,
+                                          parallel = FALSE, n_cores = NULL, config = NULL,
+                                          mukey_raster = NULL, draws_by_window = NULL,
+                                          properties = SSURGO_SIM_PROPERTY_COLUMNS) {
+  ok_pair <- function(w) length(w) == 2 && is.numeric(w) && is.finite(w[[1]]) &&
+    is.finite(w[[2]]) && w[[2]] > w[[1]]
+  if (!is.list(depth_windows) || length(depth_windows) == 0 ||
+      !all(vapply(depth_windows, ok_pair, logical(1)))) {
+    stop("extract_mukey_joint_ensemble(): `depth_windows` must be a non-empty list of c(top, bottom) numeric pairs with bottom > top.")
+  }
+
+  if (is.null(mukey_raster) && is.null(draws_by_window)) {
+    mukey_raster <- fetch_ssurgo_mukey_raster(aoi_vect)
+    if (is.null(mukey_raster)) return(NULL)
+  }
+
+  if (is.null(draws_by_window)) {
+    span <- range(unlist(depth_windows))
+    draws_by_window <- simulate_ssurgo_mapunit_draws(
+      aoi_vect, top_depth = span[1], bottom_depth = span[2],
+      n_mc = n_mc, parallel = parallel, n_cores = n_cores, config = config,
+      mukey_raster = mukey_raster, depth_windows = depth_windows
+    )
+  }
+  if (is.null(draws_by_window)) return(NULL)
+  if (is.null(names(draws_by_window))) {
+    names(draws_by_window) <- vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), character(1))
+  }
+
+  window_names <- names(draws_by_window)
+  present_props <- Reduce(intersect, lapply(draws_by_window, function(df) intersect(properties, names(df))))
+  if (length(present_props) == 0) return(NULL)
+
+  all_mukeys <- unique(unlist(lapply(draws_by_window, function(df) as.character(df$mukey))))
+  sep <- "::"
+
+  by_mukey <- stats::setNames(lapply(all_mukeys, function(mk) {
+    per_window <- lapply(draws_by_window, function(df) {
+      sub <- df[as.character(df$mukey) == mk, , drop = FALSE]
+      sub[order(sub$cokey, sub$simulation_number), , drop = FALSE]
+    })
+    keys <- lapply(per_window, function(sub) paste(sub$cokey, sub$simulation_number, sep = sep))
+    common <- Reduce(intersect, keys)
+    if (length(common) == 0) return(NULL)
+
+    windows <- stats::setNames(lapply(seq_along(per_window), function(i) {
+      sub <- per_window[[i]][match(common, keys[[i]]), , drop = FALSE]
+      m <- as.matrix(sub[, present_props, drop = FALSE])
+      rownames(m) <- NULL
+      m
+    }), window_names)
+
+    key_split <- do.call(rbind, strsplit(common, sep, fixed = TRUE))
+    list(
+      windows = windows,
+      replicate_key = data.frame(cokey = key_split[, 1],
+                                  simulation_number = as.integer(key_split[, 2]),
+                                  stringsAsFactors = FALSE)
+    )
+  }), all_mukeys)
+
+  by_mukey <- Filter(Negate(is.null), by_mukey)
+  if (length(by_mukey) == 0) return(NULL)
+
+  list(
+    by_mukey = by_mukey,
+    properties = present_props,
+    depth_windows = depth_windows,
+    window_names = window_names,
+    mukey_raster = mukey_raster
+  )
 }
 
 #' Fetch SSURGO Percentile-Value Rasters for an AOI

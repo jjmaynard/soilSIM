@@ -746,9 +746,13 @@ fuse_adaptive <- function(prior_value_rasters, lik_value_rasters, percentile_pro
   route <- if (use_general) "bayesian_update_general" else paste0("closed_form_", family)
 
   if (verbose) {
+    # %.0f / format(): `ncell` and `threshold_cells` are doubles, and `fuse_lognormal_adaptive()`
+    # passes threshold_cells = Inf to force the general route - sprintf("%d", Inf) errors
+    # ("invalid format '%d' ... use %f/%e/%g/%a"), which blocked every dist = "auto"/lognormal
+    # run_stage1_fusion() call whenever verbose = TRUE.
     cat(sprintf(
-      "[fuse_adaptive] AOI: %d cells (threshold: %d) -> route: %s\n",
-      ncell, threshold_cells, route
+      "[fuse_adaptive] AOI: %.0f cells (threshold: %s) -> route: %s\n",
+      ncell, format(threshold_cells), route
     ))
   }
 
@@ -818,7 +822,7 @@ fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_
   }
 
   if (verbose) {
-    cat(sprintf("[fuse_property_adaptive] AOI: %d cells (threshold: %d) -> route: closed_form_lognormal\n", ncell, threshold_cells))
+    cat(sprintf("[fuse_property_adaptive] AOI: %.0f cells (threshold: %s) -> route: closed_form_lognormal\n", ncell, format(threshold_cells)))
   }
   effective_posterior_probs <- if (is.null(posterior_probs)) FUSE_POSTERIOR_DEFAULT_PROBS else posterior_probs
   idx <- percentile_index(prior_probs)

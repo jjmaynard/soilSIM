@@ -9,9 +9,10 @@ fuse_observed_data_into_priors(
   simulation_data,
   sim_properties,
   properties,
-  observed_data,
+  observed_data = NULL,
   composition_plan,
   config,
+  observed_data_by_mukey = NULL,
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 }
@@ -29,11 +30,24 @@ order as \code{simulation_params}).}
 directly (fusion is keyed by \code{sim_properties}/\code{observed_data} names);
 kept for interface symmetry with sibling pipeline functions.}
 
-\item{observed_data}{Named list keyed by property name (see shapes above).}
+\item{observed_data}{Named list keyed by property name (see shapes above).
+The single shared likelihood applied to every horizon. Supply this OR
+\code{observed_data_by_mukey}, never both.}
 
 \item{composition_plan}{Result of \code{resolve_composition_groups()}.}
 
 \item{config}{Simulation configuration.}
+
+\item{observed_data_by_mukey}{Optional named list keyed by \code{mukey} code
+(character), each element an \code{observed_data}-shaped named list. When
+supplied, each horizon is fused against its OWN mukey's likelihood
+(looked up via \code{simulation_data$mukey}) instead of one shared value;
+this is the shape a mukey-keyed zonal reduction of a raster-fusion
+posterior takes, but the source is deliberately arbitrary (field
+observations, lab summaries, or expert priors aggregated by map unit
+all fit). Horizons whose \code{mukey} has no entry keep their unfused prior
+(logged at DEBUG). Requires a \code{mukey} column in \code{simulation_data}.
+\code{NULL} (default) preserves the single-\code{observed_data} behavior exactly.}
 
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's
 log level so \code{INFO}-level progress messages print for the duration

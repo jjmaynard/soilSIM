@@ -187,6 +187,75 @@ test_that("mukey_texture_draws_lookup() returns NULL when texture columns are ab
   expect_null(mukey_texture_draws_lookup(draws))
 })
 
+# ---------------------------------------------------------------------------
+# extract_mukey_joint_ensemble() (A.2) - offline via draws_by_window
+# ---------------------------------------------------------------------------
+
+# 2 mukeys ("1": cokeys 10/11, "2": cokeys 20/21), 2 replicates each cokey, 2 windows.
+.ensemble_draws_by_window <- function() {
+  one <- function(db) data.frame(
+    mukey = rep(c("1", "2"), each = 4),
+    cokey = c("10", "10", "11", "11", "20", "20", "21", "21"),
+    simulation_number = rep(c(1L, 2L), 4),
+    db = db,
+    ph = db + 5,
+    top = 0, bottom = 5
+  )
+  list(
+    "0-5"  = one(c(1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8)),
+    "5-15" = one(c(1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9))
+  )
+}
+
+test_that("extract_mukey_joint_ensemble() returns per-mukey, per-window row-aligned joint matrices", {
+  dbw <- .ensemble_draws_by_window()
+  ens <- extract_mukey_joint_ensemble(
+    aoi_vect = NULL, depth_windows = list(c(0, 5), c(5, 15)),
+    draws_by_window = dbw, properties = c("db", "ph", "soc")
+  )
+  expect_setequal(names(ens$by_mukey), c("1", "2"))
+  expect_equal(ens$properties, c("db", "ph"))            # "soc" absent -> dropped
+  expect_equal(ens$window_names, c("0-5", "5-15"))
+
+  m1 <- ens$by_mukey[["1"]]
+  expect_setequal(names(m1$windows), c("0-5", "5-15"))
+  expect_equal(dim(m1$windows[["0-5"]]), c(4, 2))
+  expect_equal(colnames(m1$windows[["0-5"]]), c("db", "ph"))
+  expect_equal(nrow(m1$replicate_key), 4)
+  # window matrices are row-aligned: ph == db + 5 within each, and 5-15 db == 0-5 db + 0.1
+  expect_equal(unname(m1$windows[["0-5"]][, "ph"]), unname(m1$windows[["0-5"]][, "db"]) + 5)
+  expect_equal(m1$windows[["5-15"]][, "db"], m1$windows[["0-5"]][, "db"] + 0.1, tolerance = 1e-9)
+})
+
+test_that("extract_mukey_joint_ensemble() drops a replicate missing from any window", {
+  dbw <- .ensemble_draws_by_window()
+  # remove mukey 1 / cokey 10 / sim 2 from the second window only
+  d2 <- dbw[["5-15"]]
+  dbw[["5-15"]] <- d2[!(d2$mukey == "1" & d2$cokey == "10" & d2$simulation_number == 2L), ]
+
+  ens <- extract_mukey_joint_ensemble(
+    aoi_vect = NULL, depth_windows = list(c(0, 5), c(5, 15)),
+    draws_by_window = dbw, properties = c("db", "ph")
+  )
+  m1 <- ens$by_mukey[["1"]]
+  expect_equal(nrow(m1$replicate_key), 3)                # 4 -> 3
+  expect_equal(nrow(m1$windows[["0-5"]]), 3)             # kept windows stay aligned
+  expect_false(any(m1$replicate_key$cokey == "10" & m1$replicate_key$simulation_number == 2L))
+  expect_equal(nrow(ens$by_mukey[["2"]]$replicate_key), 4)  # mukey 2 untouched
+})
+
+test_that("extract_mukey_joint_ensemble() rejects a malformed depth_windows", {
+  dbw <- .ensemble_draws_by_window()
+  expect_error(
+    extract_mukey_joint_ensemble(NULL, depth_windows = list(), draws_by_window = dbw),
+    "non-empty list"
+  )
+  expect_error(
+    extract_mukey_joint_ensemble(NULL, depth_windows = list(c(5, 5)), draws_by_window = dbw),
+    "bottom > top"
+  )
+})
+
 test_that("rasterize_mukey_percentiles() correctly attaches per-mukey percentile values to each cell", {
   mukey_raster <- terra::rast(nrows = 3, ncols = 3, vals = c(101, 101, 102, 101, 102, 102, 103, 103, 103))
   names(mukey_raster) <- "mukey"
