@@ -37,6 +37,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul>
 </li>
 <li class="nav-item dropdown">
@@ -537,7 +538,7 @@ working <code>dist</code>. Routing then branches on <code>dist</code>:
 <code>"normal"</code>/ <code>"beta"</code>/<code>"gamma"</code> go
 straight to <code>fuse_adaptive(family = dist)</code> (Function 10
 above, itself size-adaptive); <code>"lognormal"</code> goes to the
-internal <code>fuse_lognormal_adaptive()</code>, which — below
+internal <code><a href="../reference/fuse_lognormal_adaptive.html">fuse_lognormal_adaptive()</a></code>, which — below
 <code>threshold_cells</code> — forces <code><a href="../reference/fuse_adaptive.html">fuse_adaptive()</a></code> into
 its general route directly on raw (non-log) values (since
 <code><a href="../reference/bayesian_update.html">bayesian_update()</a></code>’s general route makes no distributional
@@ -546,7 +547,7 @@ both sides Normal, transforms to lognormal parameter space via
 <code><a href="../reference/normal_to_lognormal_params.html">normal_to_lognormal_params()</a></code>, fuses via
 <code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code>, and transforms back via
 <code><a href="../reference/lognormal_to_normal_params.html">lognormal_to_normal_params()</a></code>; <code>"metalog"</code> goes
-to the internal <code>fuse_metalog_adapter()</code>, which fits both
+to the internal <code><a href="../reference/fuse_metalog_adapter.html">fuse_metalog_adapter()</a></code>, which fits both
 sides via <code><a href="../reference/fit_metalog_linear_raster.html">fit_metalog_linear_raster()</a></code> on interior
 percentiles (always, regardless of AOI size), checks feasibility via
 <code><a href="../reference/check_metalog_feasibility_raster.html">check_metalog_feasibility_raster()</a></code>, computes each side’s
@@ -870,7 +871,7 @@ weighted by that overlap.</p>
 <div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/property_to_sim_column.html">property_to_sim_column</a></span><span class="op">(</span><span class="va">property_id</span><span class="op">)</span></span>
 <span><span class="co"># property_id - one of "ph", "bulk_density", "soc", "cec", "clay", "sand", "silt",</span></span>
-<span><span class="co">#               "rock_fragments"</span></span></code></pre></div>
+<span><span class="co">#               "rock_fragments", "wthirdbar", "wfifteenbar" (+ synonyms)</span></span></code></pre></div>
 <p><strong>Returns</strong>: The corresponding column name
 (e.g. <code>"clay"</code> -&gt; <code>"clay_total"</code>);
 <code><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop()</a></code>s on an unrecognized id.</p>
@@ -878,7 +879,14 @@ weighted by that overlap.</p>
 <code>bulk_density -&gt; db</code>, <code>soc</code>, <code>cec</code>,
 <code>clay -&gt; clay_total</code>, <code>sand -&gt; sand_total</code>,
 <code>silt -&gt; silt_total</code>,
-<code>rock_fragments -&gt; rfv</code>).</p>
+<code>rock_fragments -&gt; rfv</code>,
+<code>wthirdbar/water_retention_third_bar -&gt; wr_3b</code>,
+<code>wfifteenbar/water_retention_15_bar -&gt; wr_15b</code>). The
+water-retention rows were added 2026-09-02 -
+<code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code> already emitted those columns
+(<code>SSURGO_SIM_PROPERTY_COLUMNS</code> lists them) but the id map was
+incomplete, blocking water-retention <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>
+(needed by <code><a href="../reference/remarginalized_awc.html">remarginalized_awc()</a></code>).</p>
 </div>
 <div class="section level4">
 <h4 id="simulate_ssurgo_mapunit_draws">24. <code>simulate_ssurgo_mapunit_draws()</code><a class="anchor" aria-label="anchor" href="#simulate_ssurgo_mapunit_draws"></a>
@@ -1020,6 +1028,25 @@ point-based data source.</p>
 <code>(top_depth + bottom_depth) / 2</code> and returns whichever
 <code>available_slices</code> value minimizes
 <code>abs(available_slices - midpoint)</code>.</p>
+<p><strong>Superseded for the fusion pipeline</strong> (2026-09-02):
+<code><a href="../reference/fetch_solus_low_pred_high.html">fetch_solus_low_pred_high()</a></code> no longer uses this — a
+midpoint point-value only equals the window depth-average for a linear
+profile, and it left the SOLUS likelihood as a different estimand than
+the SSURGO prior’s window mean. Replaced by
+<code><a href="../reference/solus_depth_window_weights.html">solus_depth_window_weights()</a></code>. Kept as public API for
+back-compat.</p>
+</div>
+<div class="section level4">
+<h4 id="b--solus_depth_window_weights">28b. <code>solus_depth_window_weights()</code><a class="anchor" aria-label="anchor" href="#b--solus_depth_window_weights"></a>
+</h4>
+<p>Trapezoidal depth-average weights over the native SOLUS slices
+spanning a window: <code>f(d)</code> piecewise-linear between slices
+(<code>rule = 2</code> clamp outside <code>[0, 150]</code>), trapezoidal
+integration over window ends + interior slices, normalized by window
+thickness. Returns a named numeric vector summing to 1. Exact for a
+linear profile (== midpoint value); reduces SOLUS point predictions to
+the same estimand the SSURGO prior side computes via
+<code><a href="../reference/aggregate_depth_window_by_replicate.html">aggregate_depth_window_by_replicate()</a></code>.</p>
 </div>
 <div class="section level4">
 <h4 id="fetch_solus_low_pred_high">29. <code>fetch_solus_low_pred_high()</code><a class="anchor" aria-label="anchor" href="#fetch_solus_low_pred_high"></a>
@@ -1037,19 +1064,21 @@ underlying <code><a href="../reference/fetch_solus_percentiles.html">fetch_solus
 <p><strong>Returns</strong>: <code>list(pred=, low=, high=)</code>, each
 a single-layer <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code> or <code>NULL</code> if
 that output type wasn’t returned.</p>
-<p><strong>Behavior</strong>: Snaps the depth window via
-<code><a href="../reference/closest_solus_depth_slice.html">closest_solus_depth_slice()</a></code>, then calls
-<code><a href="http://ncss-tech.github.io/soilDB/reference/fetchSOLUS.html" class="external-link">soilDB::fetchSOLUS()</a></code> three times (once each for
-<code>output_type</code> <code>"prediction"</code>,
+<p><strong>Behavior</strong>: Computes
+<code>solus_depth_window_weights(top_depth, bottom_depth)</code>, then
+calls <code><a href="http://ncss-tech.github.io/soilDB/reference/fetchSOLUS.html" class="external-link">soilDB::fetchSOLUS()</a></code> once per
+<code>output_type</code> (<code>"prediction"</code>,
 <code>"95% low prediction interval"</code>,
 <code>"95% high prediction interval"</code>, each wrapped in
-<code>tryCatch</code> with a warning on failure), extracting the layer
-named
-<code>paste0(solus_variable, "_", depth_slice, "_cm_", suffix)</code>
-(suffixes <code>p</code>/<code>l</code>/<code>h</code> respectively)
-from each result. This exact output-layer-naming assumption was verified
-against a live, network-connected <code>fetchSOLUS()</code> call before
-porting, not assumed from source comments alone.</p>
+<code>tryCatch</code> with a warning on failure) requesting every
+contributing native slice, then reduces the returned layers
+(<code>paste0(solus_variable, "_", &lt;slice&gt;, "_cm_", suffix)</code>,
+suffixes <code>p</code>/<code>l</code>/<code>h</code>) to one raster per
+output type via <code>terra::app(stack * weights, "sum")</code> — the
+trapezoidal depth-average. <code>NULL</code> for an output type if any
+required slice layer is missing. The output-layer-naming assumption was
+verified against a live, network-connected <code>fetchSOLUS()</code>
+call before porting.</p>
 </div>
 <div class="section level4">
 <h4 id="fetch_solus_percentiles-solus-likelihood-entry-point">30. <code>fetch_solus_percentiles()</code> — SOLUS likelihood entry
@@ -1075,6 +1104,207 @@ missing; otherwise packages the three rasters directly as the
 prediction), matching the <code>list(values=, probs=)</code> shape every
 fusion route expects.</p>
 </div>
+</div>
+<div class="section level3">
+<h3 id="per-pixel-ensemble-bridge-raster-fusion-bridge-r">Per-pixel ensemble bridge (raster-fusion-bridge.R)<a class="anchor" aria-label="anchor" href="#per-pixel-ensemble-bridge-raster-fusion-bridge-r"></a>
+</h3>
+<p>Wires the fused posterior back into the modelling framework as a
+<strong>per-pixel</strong> product, without touching either existing
+pipeline. See
+<code>planning-docs/RASTER_FUSION_PERPIXEL_ENSEMBLE_DESIGN.md</code> and
+<code>RASTER_STATISTICS_INTEGRATION_PLAN.md</code> Problem A.</p>
+<div class="section level4">
+<h4 id="extract_mukey_joint_ensemble-ssurgo-simulation-r">31. <code>extract_mukey_joint_ensemble()</code>
+<em>(ssurgo-simulation.R)</em><a class="anchor" aria-label="anchor" href="#extract_mukey_joint_ensemble-ssurgo-simulation-r"></a>
+</h4>
+<p>Runs <code>simulate_ssurgo_mapunit_draws(depth_windows=)</code> once
+and returns, per mukey, the retained bag of <strong>joint</strong>
+multivariate realizations as <code>[n_replicate x n_property]</code>
+matrices, one per depth window, row-aligned on
+<code>(cokey, simulation_number)</code> so cross-property and
+cross-window rank structure is preserved. The multi-property /
+multi-window analogue of <code><a href="../reference/mukey_draws_lookup.html">mukey_draws_lookup()</a></code>.</p>
+</div>
+<div class="section level4">
+<h4 id="remarginalize_ensemble_to_posterior">32. <code>remarginalize_ensemble_to_posterior()</code><a class="anchor" aria-label="anchor" href="#remarginalize_ensemble_to_posterior"></a>
+</h4>
+<p>Rank-preserving marginal transform: for each property x window,
+<code>v_new = F_post^-1(F_prior(v_r))</code> where <code>F_prior</code>
+is the mukey ensemble’s empirical CDF and <code>F_post</code> the
+pixel’s fused posterior (piecewise-linear on its 9 percentile knots,
+<code>rule = 2</code>). One <code><a href="https://rspatial.github.io/terra/reference/subst.html" class="external-link">terra::subst()</a></code> builds the
+<code>n_kept</code>-layer per-cell <code>u</code> stack; one
+<code><a href="../reference/invert_posterior_cdf_raster.html">invert_posterior_cdf_raster()</a></code> call inverts it in a fixed
+<code>~4*(k-1)</code> terra ops regardless of <code>n_out</code>. Each
+realization keeps its rank in every property and window, so the
+ensemble’s empirical copula carries over; only the marginals become the
+posterior. <code>summarize = TRUE</code> -&gt; per-pixel percentile
+rasters; <code>FALSE</code> -&gt; the raw realization stacks.</p>
+<p><strong>Approximations</strong>: copula stays mukey-level;
+within-window vertical shape from the source realization; comppct
+weighting stays mukey-level.</p>
+</div>
+<div class="section level4">
+<h4 id="zonal_distribution_from_posterior-internal">33. <code>zonal_distribution_from_posterior()</code>
+<em>(internal)</em><a class="anchor" aria-label="anchor" href="#zonal_distribution_from_posterior-internal"></a>
+</h4>
+<p>Percentile-only <code><a href="https://rspatial.github.io/terra/reference/zonal.html" class="external-link">terra::zonal()</a></code> reduction of a posterior
+to per-mukey <code>low/rep/high</code> (the shape
+<code>fuse_observed_data_into_priors(observed_data_by_mukey=)</code>
+accepts). No point-estimate path. The mukey-collapsed comparison arm for
+the benchmark; gated <code>internal</code> pending
+<code>compare_perpixel_vs_zonal_awc()</code> numbers.</p>
+</div>
+<div class="section level4">
+<h4 id="remarginalized_awc">34. <code>remarginalized_awc()</code><a class="anchor" aria-label="anchor" href="#remarginalized_awc"></a>
+</h4>
+<p>Per-pixel available water capacity from the re-marginalized stacks,
+per realization, then per-pixel percentiles, clamped at 0. Does
+<strong>not</strong> use <code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code> (ROSETTA
+network POST + own MC - can’t run per pixel).</p>
+<ul>
+<li>
+<code>method = "saxton_rawls"</code> (<strong>default</strong>):
+<code>fetchSOLUS()</code> publishes no water-retention variable, so
+<code>wr_3b</code>/<code>wr_15b</code> are not fusable. Instead the
+fusable
+<code>sand_total</code>/<code>silt_total</code>/<code>clay_total</code>/<code>db</code>
+(+ optional <code>soc</code>, <code>rfv</code>) are re-marginalized,
+then <code><a href="../reference/saxton_rawls_raster.html">saxton_rawls_raster()</a></code> (a <code>terra</code>-native
+vectorized port of <code><a href="../reference/calculate_saxton_rawls_single.html">calculate_saxton_rawls_single()</a></code>) derives
+field capacity / wilting point per (pixel, realization).
+<code>AWC = sum_windows (fc - wp)/100 * thickness</code>.</li>
+<li>
+<code>method = "direct"</code>: the original
+<code>(wr_3b - wr_15b)/100 * thickness * (1 - rfv/100)</code> path, for
+a caller with a non-SOLUS water-retention likelihood.</li>
+</ul>
+<p><code>tile_rows =</code> processes the AOI in row-strips for bounded
+memory, numerically identical to the whole-grid run.</p>
+</div>
+<div class="section level4">
+<h4 id="saxton_rawls_raster-internal">35. <code>saxton_rawls_raster()</code> <em>(internal)</em><a class="anchor" aria-label="anchor" href="#saxton_rawls_raster-internal"></a>
+</h4>
+<p>The vectorized <code>terra</code>-native counterpart of
+<code><a href="../reference/calculate_saxton_rawls_single.html">calculate_saxton_rawls_single()</a></code>
+(<code>R/data-infilling.R</code>) - identical equations and clamps
+(including the <code>|sand+silt+clay-100| &gt; 5</code> texture
+renormalization), but every operation is a <code>terra</code>
+<code>Arith</code>/<code>Math</code>/<code>clamp</code>/<code>ifel</code>,
+so it runs on a whole multi-layer realization stack in one pass. Returns
+<code>list(fc =, wp =)</code> volumetric % rasters.</p>
+</div>
+</div>
+<div class="section level3">
+<h3 id="statistical-structure-of-the-per-pixel-bridge-and-how-to-read-the-uncertainty">Statistical structure of the per-pixel bridge — and how to read the
+uncertainty<a class="anchor" aria-label="anchor" href="#statistical-structure-of-the-per-pixel-bridge-and-how-to-read-the-uncertainty"></a>
+</h3>
+<p>The bridge is a <strong>rank-preserving re-marginalization</strong>
+of a single joint Monte Carlo ensemble, not an independent per-property
+resample. Understanding that is what makes the per-pixel AWC (or
+per-pixel property percentiles) interpretable as a genuine probability
+distribution.</p>
+<p><strong>1. One joint source ensemble.</strong>
+<code><a href="../reference/extract_mukey_joint_ensemble.html">extract_mukey_joint_ensemble()</a></code> runs the SSURGO Monte Carlo
+<strong>once</strong>. <code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code> draws
+every property jointly under the KSSL correlation matrices; the
+joint-copula vertical-correlation step runs down each simulated profile;
+the result is aggregated to the requested depth windows
+<strong>row-aligned</strong> - realization <code>r</code> in window
+<code>0-5</code> and realization <code>r</code> in window
+<code>5-15</code> are the <em>same</em> simulated profile. So the source
+ensemble carries (a) cross-property correlation within each window and
+(b) vertical correlation of each property across windows.</p>
+<p><strong>2. A single realization index threads through the
+transform.</strong> <code><a href="../reference/remarginalize_ensemble_to_posterior.html">remarginalize_ensemble_to_posterior()</a></code>
+computes, for realization <code>r</code>, property <code>p</code>,
+window <code>w</code>:
+<code>u = (rank of r in the source ensemble for (p, w) - 0.5) / n</code>,
+then <code>v_new = F_posterior^-1(u)</code> at each pixel. The
+<strong>same index <code>r</code></strong> is used for every property
+and every window (<code>n_kept</code> is one count across all mukeys and
+windows). Realization <code>r</code> therefore keeps its rank position
+everywhere, so the transformed ensemble preserves the source’s
+<strong>Spearman</strong> cross-property correlation <em>within</em> a
+window and vertical correlation <em>across</em> windows. Only the
+marginals change - each becomes that pixel’s SSURGO x SOLUS fused
+posterior. (Pinned by a unit test: transformed-ensemble Spearman
+<code>cor</code> between two properties equals the source’s to
+<code>1e-6</code>.)</p>
+<p><strong>3. Derived quantities are computed per realization, then
+combined.</strong>
+<code>remarginalized_awc(method = "saxton_rawls")</code> takes, for
+realization <code>r</code> / pixel <code>c</code> / window
+<code>w</code>, the jointly-consistent
+<code>(sand_r, clay_r, silt_r, db_r, om_r, rfv_r)</code> -&gt;
+<code><a href="../reference/saxton_rawls_raster.html">saxton_rawls_raster()</a></code> -&gt; <code>(fc_r, wp_r)</code>, then
+<code>AWC_r = sum_windows (fc_r - wp_r)/100 * thickness_w</code> (summed
+over windows for the <strong>same</strong> realization, so shallow and
+deep contributions are vertically consistent). The result is an
+<code>n_kept</code>-layer AWC raster; <code><a href="https://rspatial.github.io/terra/reference/quantile.html" class="external-link">terra::quantile()</a></code> per
+pixel gives the AWC probability distribution (P5..P95) -&gt; the
+per-pixel uncertainty band.</p>
+<p><strong>What the uncertainty band does and does not
+include:</strong></p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>Aspect</th>
+<th>Treatment</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>Cross-property &amp; cross-depth <strong>dependence</strong>
+</td>
+<td>The SSURGO tabular copula (KSSL + joint-copula vertical
+correlation), <strong>held fixed</strong>. SOLUS carries no joint
+information - only independent per-property, per-depth point predictions
+- so there is no fused joint structure to use.</td>
+</tr>
+<tr class="even">
+<td>Correlation type preserved</td>
+<td>
+<strong>Rank (Spearman)</strong>, not linear (Pearson). “Wet stays
+wet”, “high-clay stays high-clay” is exact; Pearson structure is
+approximate if a marginal shifts substantially under fusion.</td>
+</tr>
+<tr class="odd">
+<td>
+<strong>Marginal</strong> uncertainty of each input property</td>
+<td>The full SSURGO x SOLUS fused posterior spread, per pixel,
+propagated through Saxton-Rawls.</td>
+</tr>
+<tr class="even">
+<td>Pedotransfer-function error</td>
+<td>
+<strong>Not propagated.</strong> Saxton-Rawls is applied
+deterministically per realization; the +/-15%
+<code>_l</code>/<code>_h</code> band
+<code><a href="../reference/calculate_saxton_rawls_single.html">calculate_saxton_rawls_single()</a></code> returns is not used.</td>
+</tr>
+<tr class="odd">
+<td>Sub-mukey variation in the <strong>dependence</strong>
+structure</td>
+<td>None - every pixel in a mukey shares the source ensemble (same
+copula, same rank ordering); only the fused marginals vary
+pixel-to-pixel.</td>
+</tr>
+<tr class="even">
+<td>Texture compositional closure</td>
+<td>Independent re-marginalization can leave
+<code>sand + silt + clay != 100</code>;
+<code><a href="../reference/saxton_rawls_raster.html">saxton_rawls_raster()</a></code> renormalizes to 100 when off by more
+than 5 (the equations use only the sand and clay fractions).</td>
+</tr>
+</tbody>
+</table>
+<p>In short: the per-pixel AWC distribution reflects <strong>SOLUS-fused
+marginal uncertainty threaded through the SSURGO tabular
+copula</strong>, not a fully re-estimated joint posterior and not
+pedotransfer-model error.</p>
 </div>
 </div>
 <div class="section level2">
@@ -1139,7 +1369,37 @@ fusion route expects.</p>
   unwrap_percentile_list()) sits ALONGSIDE both adapters and both top-level orchestrators,
   disk-caching SSURGO tabular data, SSURGO/SOLUS percentile rasters, and texture-group/per-
   property posterior results under tools::R_user_dir("soilSIM", "cache"), keyed by
-  AOI + property/group id + depth window + kind.</code></pre>
+  AOI + property/group id + depth window + kind.
+
+
+  PER-PIXEL ENSEMBLE BRIDGE (raster-fusion-bridge.R) - optional, purely additive layer on top:
+
+  extract_mukey_joint_ensemble(aoi, depth_windows)          run_stage1_fusion() per property
+    -&gt; simulate_ssurgo_mapunit_draws(depth_windows=)          per depth window (as above)
+         (ONE joint Monte Carlo; KSSL + joint-copula                    |
+          vertical correlation; row-aligned across windows)             v
+    -&gt; per mukey: list(windows = [n_replicate x n_property]     posterior$percentiles rasters
+                       matrices, replicate_key)                  (marginal, per property x window)
+                    \                                           /
+                     \                                         /
+                      v                                       v
+              remarginalize_ensemble_to_posterior(ensemble, posterior_by_property_window)
+                - u[r] = rank(r in source ensemble)/n         (ONE realization index r for
+                - v_new[cell, r] = F_post^-1(u[r])             every property AND window)
+                - terra::subst() -&gt; n_kept-layer u stack; invert_posterior_cdf_raster()
+                =&gt; transformed ensemble: fused marginals, SOURCE Spearman copula preserved
+                                                  |
+                    +-----------------------------+------------------------------+
+                    v                                                            v
+        summarize = TRUE:                                        remarginalized_awc(method=)
+        per-pixel percentile rasters                               "saxton_rawls" (default):
+        [[property]][[window]]                                       re-marg sand/silt/clay/db
+                                                                     -&gt; saxton_rawls_raster()
+        zonal_distribution_from_posterior()  (internal)              -&gt; fc/wp per (pixel, realization)
+        cheap mukey-collapsed comparison arm -&gt;                     "direct": wr_3b/wr_15b path
+        fuse_observed_data_into_priors(observed_data_by_mukey=)      =&gt; AWC_r = sum_w (fc-wp)/100*thk
+                                                                     =&gt; terra::quantile() per pixel
+                                                                        = per-pixel AWC distribution</code></pre>
 </div>
 <div class="section level2">
 <h2 id="dependencies">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies"></a>
@@ -1207,7 +1467,16 @@ SSURGO fetch (cached separately from the raster-fusion cache’s own
 <code><a href="../reference/maybe_adjust_soil_data_depth_trend.html">maybe_adjust_soil_data_depth_trend()</a></code>. -
 <code>R/monte-carlo.R</code> — <code><a href="../reference/simulate_from_percentiles.html">simulate_from_percentiles()</a></code>
 is called (per cell, inside <code><a href="https://rspatial.github.io/terra/reference/app.html" class="external-link">terra::app()</a></code>) by
-<code><a href="../reference/fuse_general_kde.html">fuse_general_kde()</a></code>.</p>
+<code><a href="../reference/fuse_general_kde.html">fuse_general_kde()</a></code>. The per-pixel bridge additionally
+reuses <code><a href="../reference/fuse_observed_data_into_priors.html">fuse_observed_data_into_priors()</a></code>’s
+<code>observed_data_by_mukey=</code> parameter (the A.1 opt-in) as the
+sink for <code><a href="../reference/zonal_distribution_from_posterior.html">zonal_distribution_from_posterior()</a></code>. -
+<code>R/data-infilling.R</code> — the per-pixel bridge’s
+<code><a href="../reference/saxton_rawls_raster.html">saxton_rawls_raster()</a></code> is a <code>terra</code>-native port
+of this file’s <code><a href="../reference/calculate_saxton_rawls_single.html">calculate_saxton_rawls_single()</a></code> (the
+equations are duplicated, not called, because the scalar function’s
+<code><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max()</a></code>/<code><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min()</a></code>/<code>if</code> do not vectorize
+over a raster stack).</p>
 <p><code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>/<code><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code>
 (<code>R/raster-fusion.R</code>) are the top-level AOI orchestrators
 tying all of the above together — the single entry points a caller
@@ -1278,6 +1547,29 @@ do for the <code>list(values=&lt;SpatRasters&gt;, probs=)</code>
 percentile shape, and what <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>/
 <code><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code> call around every SSURGO/SOLUS
 cache read and write.</p></li>
+<li><p><strong>Per-pixel bridge — dependence structure is not
+re-estimated from SOLUS.</strong> The bridge fuses only the
+<em>marginals</em>; the cross-property and cross-depth dependence
+carried into the per-pixel product is the SSURGO tabular copula (KSSL +
+joint-copula vertical correlation), held fixed. SOLUS provides
+independent per-property, per-depth point predictions with no joint
+information, so there is nothing fused to use. See “Statistical
+structure of the per-pixel bridge” above.</p></li>
+<li><p><strong>Per-pixel bridge — Saxton-Rawls pedotransfer error is not
+propagated.</strong> In
+<code>remarginalized_awc(method = "saxton_rawls")</code> the
+pedotransfer is applied deterministically per realization; the +/-15%
+band <code><a href="../reference/calculate_saxton_rawls_single.html">calculate_saxton_rawls_single()</a></code> returns is unused. The
+per-pixel AWC distribution reflects fused-posterior <em>input</em>
+uncertainty only.</p></li>
+<li><p><strong><code><a href="../reference/remarginalized_awc.html">remarginalized_awc()</a></code> cannot fuse water
+retention directly.</strong> <code>fetchSOLUS()</code> publishes no
+water-retention variable, so <code>wr_3b</code>/<code>wr_15b</code> have
+no SOLUS likelihood. <code>method = "saxton_rawls"</code> (default)
+derives them from the fusable
+sand/silt/clay/<code>dbovendry</code>/<code>soc</code>/<code>fragvol</code>;
+<code>method = "direct"</code> is only usable with a non-SOLUS
+water-retention likelihood.</p></li>
 </ol>
 </div>
 <div class="section level2">
@@ -1315,7 +1607,30 @@ cache read and write.</p></li>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"route:"</span>, <span class="va">fused</span><span class="op">$</span><span class="va">route</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fused</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">alpha</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fused</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">alpha</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># --- Per-pixel joint ensemble + per-pixel AWC (raster-fusion-bridge.R) ---</span></span>
+<span><span class="va">windows</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">5</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">5</span>, <span class="fl">15</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">15</span>, <span class="fl">30</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># 1. one joint SSURGO Monte Carlo, retained per mukey, aligned across windows</span></span>
+<span><span class="va">ens</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/extract_mukey_joint_ensemble.html">extract_mukey_joint_ensemble</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">windows</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># 2. a SOLUS-fused posterior for each Saxton-Rawls input, per property x window</span></span>
+<span><span class="va">sr_solus</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>sand_total <span class="op">=</span> <span class="st">"sandtotal"</span>, silt_total <span class="op">=</span> <span class="st">"silttotal"</span>,</span>
+<span>              clay_total <span class="op">=</span> <span class="st">"claytotal"</span>, db <span class="op">=</span> <span class="st">"dbovendry"</span>, soc <span class="op">=</span> <span class="st">"soc"</span><span class="op">)</span></span>
+<span><span class="va">pbpw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sr_solus</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">nm</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">windows</span>, <span class="kw">function</span><span class="op">(</span><span class="va">w</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">r</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_stage1_fusion.html">run_stage1_fusion</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="va">nm</span>, solus_variable <span class="op">=</span> <span class="va">sr_solus</span><span class="op">[[</span><span class="va">nm</span><span class="op">]</span><span class="op">]</span>, dist <span class="op">=</span> <span class="st">"auto"</span><span class="op">)</span>,</span>
+<span>                           <span class="va">w</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">w</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>percentiles <span class="op">=</span> <span class="va">r</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">percentiles</span><span class="op">)</span></span>
+<span>  <span class="op">}</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">windows</span>, <span class="kw">function</span><span class="op">(</span><span class="va">w</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">w</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="st">"-"</span>, <span class="va">w</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span>, <span class="st">""</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">pbpw</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sr_solus</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># 3. per-pixel AWC probability distribution (P5..P95 rasters), clamped at 0</span></span>
+<span><span class="va">awc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/remarginalized_awc.html">remarginalized_awc</a></span><span class="op">(</span><span class="va">ens</span>, <span class="va">pbpw</span>, n_out <span class="op">=</span> <span class="fl">250</span><span class="op">)</span>         <span class="co"># method = "saxton_rawls" by default</span></span>
+<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">awc</span><span class="op">$</span><span class="va">awc_cm</span><span class="op">$</span><span class="va">P50</span><span class="op">)</span>                                       <span class="co"># median AWC (cm) over 0-30 cm</span></span>
+<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">awc</span><span class="op">$</span><span class="va">awc_cm</span><span class="op">$</span><span class="va">P95</span> <span class="op">-</span> <span class="va">awc</span><span class="op">$</span><span class="va">awc_cm</span><span class="op">$</span><span class="va">P5</span><span class="op">)</span>                       <span class="co"># 90% credible-interval width = uncertainty</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

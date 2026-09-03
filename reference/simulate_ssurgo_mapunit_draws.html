@@ -31,6 +31,7 @@ depth window."></head><body>
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -90,7 +91,10 @@ depth window.</p>
 <span>  <span class="va">bottom_depth</span>,</span>
 <span>  n_mc <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  parallel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  n_cores <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  n_cores <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  config <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  mukey_raster <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  depth_windows <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">SSURGO_SIM_PROPERTY_COLUMNS</span></span></code></pre></div>
@@ -122,15 +126,44 @@ depth window.</p>
 for AOIs with many cokeys, and each cokey's GP fitting is independent of every other cokey's.
 Default <code>parallel = FALSE</code> matches prior behavior exactly.</p></dd>
 
+
+<dt id="arg-config">config<a class="anchor" aria-label="anchor" href="#arg-config"></a></dt>
+<dd><p>Optional Monte Carlo config, passed through to
+<code><a href="maybe_adjust_soil_data_depth_trend.html">maybe_adjust_soil_data_depth_trend()</a></code> -&gt; <code><a href="apply_local_gp_adjustments.html">apply_local_gp_adjustments()</a></code> -&gt;
+<code><a href="apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code>. <code>config$monte_carlo$vertical_correlation_method</code> (default
+<code>"joint_copula"</code> as of <code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code> Phase 13; set to
+<code>"gp_quantile_retrofit"</code> to opt back into the original algorithm) selects this top-level
+entry point's vertical-correlation method; <code>NULL</code> (default) resolves to <code>"joint_copula"</code>,
+matching <code><a href="get_monte_carlo_defaults.html">get_monte_carlo_defaults()</a></code>'s own default.</p></dd>
+
+
+<dt id="arg-mukey-raster">mukey_raster<a class="anchor" aria-label="anchor" href="#arg-mukey-raster"></a></dt>
+<dd><p>Optional, already-fetched <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code> of mukey codes for this same
+<code>aoi_vect</code> (e.g. from <code><a href="fetch_ssurgo_mukey_raster.html">fetch_ssurgo_mukey_raster</a></code>), passed through to
+<code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code> so its tabular fetch reuses it instead of issuing a second,
+independent <code><a href="http://ncss-tech.github.io/soilDB/reference/mukey.wcs.html" class="external-link">soilDB::mukey.wcs()</a></code> call - see <code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code> task
+P1.2/P1.3. Only consulted on a <code>"ssurgo_tabular"</code> cache miss. <code>NULL</code> (default) preserves
+original behavior exactly.</p></dd>
+
+
+<dt id="arg-depth-windows">depth_windows<a class="anchor" aria-label="anchor" href="#arg-depth-windows"></a></dt>
+<dd><p>Optional list of <code>c(top, bottom)</code> numeric pairs. <code>NULL</code> (default) - one
+aggregation over <code>[top_depth, bottom_depth]</code>, returning a single data frame exactly as before
+(bit-identical). When supplied, the (expensive) per-horizon simulation runs once and is then
+aggregated once per window, returning a <strong>named list</strong> of data frames (names <code>"top-bottom"</code>).
+<code>top_depth</code>/<code>bottom_depth</code> are ignored in this mode - pass the overall span for them. Built for
+<code><a href="extract_mukey_joint_ensemble.html">extract_mukey_joint_ensemble()</a></code>, which needs the SOLUS depth windows from one simulation.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data frame, one row per <code>mukey</code>/<code>cokey</code>/<code>simulation_number</code> replicate, with simulated
-property columns aggregated over the depth window - or <code>NULL</code> if the tabular fetch fails.
-Minor components that <code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code>'s underlying query would otherwise drop
-entirely (real <code>comppct</code>, zero <code>chorizon</code> rows in SDA) are included transparently here
-whenever an AOI sibling let them be recovered - see <code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code>'s "Component
-recovery" section.</p>
+    <p>With <code>depth_windows = NULL</code>: a data frame, one row per <code>mukey</code>/<code>cokey</code>/<code>simulation_number</code>
+replicate, with simulated property columns aggregated over the depth window - or <code>NULL</code> if the
+tabular fetch fails. With <code>depth_windows</code> supplied: a named list of such data frames, one per
+window (or <code>NULL</code> on fetch failure). Minor components that <code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code>'s
+underlying query would otherwise drop entirely (real <code>comppct</code>, zero <code>chorizon</code> rows in SDA)
+are included transparently here whenever an AOI sibling let them be recovered - see
+<code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code>'s "Component recovery" section.</p>
     </div>
     <div class="section level2">
     <h2 id="cache-invalidation">Cache invalidation<a class="anchor" aria-label="anchor" href="#cache-invalidation"></a></h2>
@@ -141,6 +174,17 @@ recovery" section.</p>
 parameter (always <code>NULL</code> here). A cache entry for a given AOI/depth-window combination written
 before component recovery shipped predates it entirely - clear that cache entry (or the whole
 cache directory) to pick up recovered components.</p>
+<p>This function's own SIMULATED output (as opposed to the raw tabular SSURGO input it's cached
+from) is deliberately NOT disk-cached - every call re-simulates fresh random draws, matching
+the original contract exactly. An earlier version of <code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code>
+task P2.1 added an unconditional disk cache here so raster-fusion's raw-draws opt-in
+(<code>R/raster-fusion.R</code>'s <code><a href="fuse_general_kde.html">fuse_general_kde()</a></code>) could reuse draws across calls - reverted after
+review: it silently froze repeat output for EVERY caller of this function (including ones with
+nothing to do with raw-draws fusion, e.g. direct <code><a href="fetch_ssurgo_percentiles.html">fetch_ssurgo_percentiles()</a></code> use), which broke
+this project's own "default unchanged until opted in" convention. Raw-draws fusion instead
+reuses draws purely in-memory within one <code><a href="run_stage1_fusion.html">run_stage1_fusion()</a></code> call (compute once, use for both
+the percentile cache and <code><a href="mukey_draws_lookup.html">mukey_draws_lookup()</a></code>) - see that function's implementation and
+<code><a href="run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code>'s pre-existing <code>shared_draws</code> pattern, which already did this.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

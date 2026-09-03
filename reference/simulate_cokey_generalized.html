@@ -33,6 +33,7 @@ after."></head><body>
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -117,7 +118,9 @@ names matching (a subset of) <code>c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "r
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A data frame of simulated property values across all rows/realizations, with
-<code>compname</code>, <code>mukey</code>, <code>cokey</code>, <code>hzdept_r</code>, <code>hzdepb_r</code>, <code>simulation_number</code>, <code>unique_id</code>.</p>
+<code>compname</code>, <code>mukey</code>, <code>cokey</code>, <code>hzdept_r</code>, <code>hzdepb_r</code>, <code>simulation_number</code>, <code>unique_id</code>, and
+(when <code>sim_cokey</code> itself has a <code>bound_sd</code> column - see <code><a href="attach_osd_boundary_distinctness.html">attach_osd_boundary_distinctness()</a></code>)
+<code>bound_sd</code>.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

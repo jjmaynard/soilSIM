@@ -37,6 +37,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul>
 </li>
 <li class="nav-item dropdown">
@@ -330,7 +331,11 @@ values across all input rows and all realizations, with
 <code>hzdept_r</code>, <code>hzdepb_r</code>,
 <code>simulation_number</code>, and <code>unique_id</code>
 (<code>"&lt;cokey&gt;-&lt;simulation_number&gt;"</code>, zero-padded to
-2 digits) columns attached.</li>
+2 digits) columns attached - plus <code>bound_sd</code>, whenever
+<code>sim_cokey</code> itself has a <code>bound_sd</code> column (see
+<code><a href="../reference/attach_osd_boundary_distinctness.html">attach_osd_boundary_distinctness()</a></code>), broadcast unchanged
+onto every realization for that horizon row; absent entirely for any
+caller whose <code>sim_cokey</code> never had one.</li>
 <li>
 <strong>Behavior</strong>: For each row of <code>sim_cokey</code>,
 looks up that row’s <code>genhz</code>- keyed local correlation matrix,
@@ -428,6 +433,57 @@ the OSD data and appends placeholder rows
 <code>NA</code> distinctness values, then converts distinctness codes to
 numeric offsets via <code><a href="https://ncss-tech.github.io/aqp/reference/hzDistinctnessCodeToOffset.html" class="external-link">aqp::hzDistinctnessCodeToOffset()</a></code> into
 <code>bound_sd</code>.</li>
+</ul>
+</div>
+<div class="section level4">
+<h4 id="attach_osd_boundary_distinctnesshz_data">
+<code>attach_osd_boundary_distinctness(hz_data)</code><a class="anchor" aria-label="anchor" href="#attach_osd_boundary_distinctnesshz_data"></a>
+</h4>
+<ul>
+<li>
+<strong>Parameters</strong>: <code>hz_data</code> - a data frame
+with at least <code>compname</code>, <code>hzname</code>, and
+<code>genhz</code> columns (the same shape
+<code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> builds right after
+<code><a href="../reference/classify_genhz.html">classify_genhz()</a></code>).</li>
+<li>
+<strong>Returns</strong>: <code>hz_data</code> with a
+<code>bound_sd</code> numeric column added/overwritten - one value per
+<code>compname</code>/<code>genhz</code> combination, <code>NA</code>
+for any combination the OSD lookup couldn’t resolve. On OSD lookup
+failure (e.g. no network access), degrades to an all-<code>NA</code>
+<code>bound_sd</code> column rather than erroring.</li>
+<li>
+<strong>Behavior</strong>: Exposes
+<code><a href="../reference/query_osd_distinctness.html">query_osd_distinctness()</a></code>’s already-computed,
+already-genhz-averaged <code>bound_sd</code> value on arbitrary horizon
+data, so it can also gate the joint-copula vertical-correlation depth
+kernel (see the GP Depth Modeling &amp; Multivariate Adjustment module,
+<code><a href="../reference/build_depth_correlation_kernel.html">build_depth_correlation_kernel()</a></code>) - previously
+<code>bound_sd</code> was computed and consumed only inside
+<code><a href="../reference/simulate_and_perturb_soil_profiles.html">simulate_and_perturb_soil_profiles()</a></code>, as
+<code><a href="https://ncss-tech.github.io/aqp/reference/perturb.html" class="external-link">aqp::perturb()</a></code>’s <code>boundary.attr</code> for
+horizon-<em>depth</em> perturbation, and never reached the
+property-<em>value</em> Monte Carlo simulation pipeline. Calls
+<code><a href="../reference/query_osd_distinctness.html">query_osd_distinctness()</a></code>, then reuses the identical
+<code>dplyr::group_by(id, genhz) |&gt; dplyr::summarise(bound_sd = mean(bound_sd, na.rm = TRUE))</code>
+aggregation <code><a href="../reference/simulate_and_perturb_soil_profiles.html">simulate_and_perturb_soil_profiles()</a></code> already
+used internally, and left-joins the result onto <code>hz_data</code>.
+<strong>Joins case-insensitively</strong> (<code><a href="https://rdrr.io/r/base/chartr.html" class="external-link">toupper()</a></code> on
+both sides): <code><a href="http://ncss-tech.github.io/soilDB/reference/fetchOSD.html" class="external-link">soilDB::fetchOSD()</a></code> (called inside
+<code><a href="../reference/query_osd_distinctness.html">query_osd_distinctness()</a></code>) returns its <code>id</code>
+column upper-cased regardless of the requested case - a real bug (found
+via real-AOI validation, not synthetic test fixtures) where a naive
+exact-case join against <code>hz_data$compname</code> silently produced
+all-<code>NA</code> <code>bound_sd</code> for every row. Wired into
+<code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>
+(<code>ssurgo-simulation.R</code>) immediately after
+<code><a href="../reference/classify_genhz.html">classify_genhz()</a></code>; unconditional, so <code>bound_sd</code>
+(all-<code>NA</code> or resolved) is always present in that pipeline’s
+output regardless of whether the joint-copula method’s discontinuity
+gating is actually enabled
+(<code>config$monte_carlo$vertical_correlation_gating</code>, off by
+default).</li>
 </ul>
 </div>
 <div class="section level4">

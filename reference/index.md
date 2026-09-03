@@ -662,12 +662,25 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
 - [`closest_solus_depth_slice()`](https://jjmaynard.github.io/soilSIM/reference/closest_solus_depth_slice.md)
   : Snap a Depth Window to the Nearest Native SOLUS Depth Slice
 
+- [`solus_depth_window_weights()`](https://jjmaynard.github.io/soilSIM/reference/solus_depth_window_weights.md)
+  : Trapezoidal Depth-Average Weights over Native SOLUS Depth Slices
+
 - [`fetch_solus_low_pred_high()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high.md)
   : Fetch SOLUS100 Low/Prediction/High Rasters for One Variable and
   Depth Window
 
 - [`fetch_solus_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.md)
   : Fetch SOLUS100 Percentile-Value Rasters for an AOI
+
+- [`extract_mukey_joint_ensemble()`](https://jjmaynard.github.io/soilSIM/reference/extract_mukey_joint_ensemble.md)
+  : Per-Mukey Joint Multivariate Profile Ensemble at Several Depth
+  Windows
+
+- [`remarginalize_ensemble_to_posterior()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_ensemble_to_posterior.md)
+  : Per-Pixel Ensemble Re-Marginalization to a Fused Posterior
+
+- [`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)
+  : Per-Pixel Available Water Capacity from a Re-Marginalized Ensemble
 
 ## Utilities
 
@@ -1290,3 +1303,41 @@ if you’re reading soilSIM’s source.
   for caching - see
   [`cache_set()`](https://jjmaynard.github.io/soilSIM/reference/cache_set.md)'s
   `@section Known limitation:`.
+
+- [`apply_copula_to_marginals()`](https://jjmaynard.github.io/soilSIM/reference/apply_copula_to_marginals.md)
+  : Map a Joint Copula Sample onto Existing Per-Depth Marginal
+  Distributions
+
+- [`attach_osd_boundary_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/attach_osd_boundary_distinctness.md)
+  :
+
+  Attach OSD-Derived Boundary Distinctness to Horizon Data (per-genhz
+  `bound_sd`)
+
+- [`build_depth_correlation_kernel()`](https://jjmaynard.github.io/soilSIM/reference/build_depth_correlation_kernel.md)
+  : Build a Depth Correlation Kernel Matrix
+
+- [`extract_depth_length_scale()`](https://jjmaynard.github.io/soilSIM/reference/extract_depth_length_scale.md)
+  : Extract a Real-Units Depth Length-Scale from a Fitted GP Model
+
+- [`mukey_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md)
+  : Raw Per-Mukey Monte Carlo Draws, Keyed by Mukey (Not Collapsed to
+  Percentiles)
+
+- [`mukey_texture_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_texture_draws_lookup.md)
+  : Raw Per-Mukey JOINT Texture Draws, Keyed by Mukey (clay/sand/silt
+  Row-Aligned)
+
+- [`preserve_correlation_structure_joint()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure_joint.md)
+  : Preserve Correlation Structure via a Joint Depth x Property Copula
+  (Phase 3)
+
+- [`raster_fusion_bridge`](https://jjmaynard.github.io/soilSIM/reference/raster_fusion_bridge.md)
+  : Per-Pixel Ensemble Re-Marginalization (raster-fusion \<-\> tabular
+  MC bridge)
+
+- [`sample_joint_depth_property_copula()`](https://jjmaynard.github.io/soilSIM/reference/sample_joint_depth_property_copula.md)
+  : Draw a Joint Depth x Property Gaussian Copula Sample
+
+- [`validate_joint_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/validate_joint_correlation_structure.md)
+  : Validate Joint Depth x Property Correlation Structure

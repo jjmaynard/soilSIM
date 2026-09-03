@@ -25,3 +25,9 @@ check_required_columns(data, column_specifications, strict_mode = TRUE)
 ## Value
 
 Column validation results
+
+## Usage note
+
+Fully implemented and exported, but not currently called from anywhere
+else in the package (confirmed by source grep) - standalone public API
+for callers who need it, not dead/broken code.

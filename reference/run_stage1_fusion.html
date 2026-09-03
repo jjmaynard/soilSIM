@@ -27,6 +27,7 @@ fuse_property_adaptive()."></head><body>
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -125,12 +126,42 @@ prior behavior exactly.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p><code>list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=, route_detail=, n_fallback_cells=)</code>, or <code>NULL</code> if the SSURGO or SOLUS side failed.
-<code>posterior</code>'s shape depends on <code>dist</code> - see <code><a href="fuse_property_adaptive.html">fuse_property_adaptive()</a></code>'s docs.</p>
+<code>posterior</code>'s shape depends on <code>dist</code> - see <code><a href="fuse_property_adaptive.html">fuse_property_adaptive()</a></code>'s docs. As of
+<code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code> tasks P3.2-P3.5, <code>posterior</code> also carries a
+<code>percentiles</code> field (a named list of <code>SpatRaster</code>s, <code>"P01"</code>..<code>"P99"</code> by default - see
+<a href="FUSE_POSTERIOR_DEFAULT_PROBS.html">FUSE_POSTERIOR_DEFAULT_PROBS</a>) regardless of <code>dist</code>, for every non-compositional property -
+this function doesn't expose its own <code>posterior_probs</code> parameter (matching the existing
+convention that <code>n_samples</code>/<code>grid_resolution</code> also aren't threaded this far down; the
+underlying <code>fuse_*()</code> route's own default applies).</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Compositional properties (<code>property_config$composition_group</code> set) are detected up front and
 delegated to <code><a href="run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code> instead, since they must be fetched/fit jointly.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="fusion-fidelity-prior-fusion-method-default-changed-at-p-">Fusion fidelity - <code>prior_fusion_method</code> (default changed at P2.10)<a class="anchor" aria-label="anchor" href="#fusion-fidelity-prior-fusion-method-default-changed-at-p-"></a></h2>
+
+
+<p>Controls whether fusion runs against each mukey's real per-cell Monte Carlo draws
+(<code>"raw_draws"</code>) or a percentile-reconstructed approximation (<code>"percentile"</code>) - see
+<code><a href="fuse_general_kde.html">fuse_general_kde()</a></code>'s docs and <code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code> tasks
+P2.2/P2.3/P2.6/P2.10. <strong>As of P2.10, leaving <code>property_config$prior_fusion_method</code> unset
+defaults to <code>"raw_draws"</code></strong> for <code>dist %in% c("auto","normal","beta","gamma","lognormal")</code> - see
+<code><a href="resolve_want_raw_draws.html">resolve_want_raw_draws()</a></code> for the exact rule and the benchmark numbers behind it. Only an
+explicit <code>dist = "metalog"</code> keeps the pre-P2.10 default - <code><a href="fuse_metalog_adapter.html">fuse_metalog_adapter()</a></code> does have a
+raw-draws fit as of P2.12, but its cost/benefit is unbenchmarked (mirroring the texture-group
+route's P2.11 treatment), so the default stays conservative until that's measured. Set
+<code>property_config$prior_fusion_method = "percentile"</code> explicitly to opt back into the original
+behavior for any <code>dist</code> (e.g. to match older cached/tested output, or avoid the live simulation
+dependency); <code>"raw_draws"</code> explicitly forces it on even for <code>dist = "metalog"</code>, now genuinely
+used there (P2.12), not just accepted-and-ignored.</p>
+<p>The real draws are held in memory only for the duration of this one call, never disk-cached
+(see <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>'s docs for why) - so raw_draws fusion (whether defaulted
+or explicit) forces a fresh simulation even when this AOI/property/depth-window's <code>"ssurgo"</code>
+percentile cache is already warm (the draws that produced that cached percentile summary weren't
+kept). That simulation still runs at most once per call regardless of cache state - it is shared
+with the percentile-cache-population step when both are needed in the same call.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

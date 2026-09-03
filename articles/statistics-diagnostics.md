@@ -782,7 +782,7 @@ quality_report$analysis_quality
 #> [1] 1
 #> 
 #> $distribution_quality$n_properties
-#> [1] 3
+#> [1] 2
 #> 
 #> 
 #> $outlier_quality

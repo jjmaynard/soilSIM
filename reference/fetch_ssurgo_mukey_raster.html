@@ -21,6 +21,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -80,16 +81,29 @@
 <dd><p>A <code><a href="https://rspatial.github.io/terra/reference/SpatVector-class.html" class="external-link">terra::SpatVector</a></code> (projected, e.g. EPSG:5070) - the AOI footprint itself,
 not widened to its bounding box (unlike <code>R/ssurgo-acquisition.R</code>'s
 <code><a href="process_aoi_and_get_mukeys_working.html">process_aoi_and_get_mukeys_working()</a></code>, which bbox-widens for its tabular by-mukey-list
-query - inappropriate here, where over-fetching/over-rasterizing the AOI's full bbox would
-waste both a <code>mukey.wcs()</code> grid and a <code>SDA_spatialQuery()</code> polygon fetch).</p></dd>
+query - <code><a href="http://ncss-tech.github.io/soilDB/reference/mukey.wcs.html" class="external-link">soilDB::mukey.wcs()</a></code> bbox-clips internally regardless of input polygon shape, so
+both resolve to the same extent; passing the footprint here avoids widening the <em>cached</em>
+grid's extent unnecessarily for callers that only need the AOI itself covered).</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A single-layer, categorical (factor) <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code> named <code>"mukey"</code>, or <code>NULL</code> if
-either the grid or the polygon fetch returns nothing (including when <code><a href="http://ncss-tech.github.io/soilDB/reference/SDA_spatialQuery.html" class="external-link">soilDB::SDA_spatialQuery()</a></code>
-errors outright, e.g. because its <code>sf</code> dependency isn't loadable in this session - a real,
-encountered failure mode, not hypothetical).</p>
+the grid fetch returns nothing.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="implementation-note">Implementation note<a class="anchor" aria-label="anchor" href="#implementation-note"></a></h2>
+
+
+<p>Previously this function <em>also</em> issued a separate <code>soilDB::SDA_spatialQuery(what="mupolygon")</code>
+vector fetch and rasterized it onto <code>mukey.wcs()</code>'s own grid purely as a template, discarding
+that grid's own cell values - <code><a href="http://ncss-tech.github.io/soilDB/reference/mukey.wcs.html" class="external-link">soilDB::mukey.wcs()</a></code>'s own documented example
+(<code><a href="http://ncss-tech.github.io/soilDB/reference/mukey.wcs.html" class="external-link">?soilDB::mukey.wcs</a></code>) reads mukey codes directly off its returned raster's values
+(<code>unique(values(res))</code>), confirming no separate polygon fetch/rasterize step is needed. Dropped
+that redundant fetch (see <code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code>, task P1.1) - this function
+now issues exactly one network call per cache miss instead of two. Also disk-cached
+(<code>raster-cache.R</code>, kind <code>"mukey_grid"</code>, depth-agnostic key via <code><a href="mukey_grid_cache_key.html">mukey_grid_cache_key()</a></code>) so
+repeated calls for the same AOI across separate top-level user calls hit zero network calls.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -17,7 +17,8 @@ maybe_adjust_soil_data_depth_trend(
   properties,
   min_depths = 2,
   parallel = FALSE,
-  n_cores = NULL
+  n_cores = NULL,
+  config = NULL
 )
 ```
 
@@ -51,6 +52,22 @@ maybe_adjust_soil_data_depth_trend(
 
   Number of worker processes to use when `parallel = TRUE` (default
   `max(1, parallel::detectCores() - 1)`).
+
+- config:
+
+  Optional Monte Carlo config, passed through to
+  [`adjust_one_cokey_depth_trend()`](https://jjmaynard.github.io/soilSIM/reference/adjust_one_cokey_depth_trend.md)
+  -\>
+  [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md)
+  -\>
+  [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md).
+  `config$monte_carlo$vertical_correlation_method` (default
+  `"joint_copula"` as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`
+  Phase 13; set to `"gp_quantile_retrofit"` to opt back into the
+  original algorithm) selects the vertical-correlation method; `NULL`
+  (default) resolves to `"joint_copula"`, matching
+  [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)'s
+  own default.
 
 ## Value
 

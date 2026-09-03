@@ -16,6 +16,7 @@ generate_monte_carlo_realizations(
   parallel = FALSE,
   seed = NULL,
   observed_data = NULL,
+  observed_data_by_mukey = NULL,
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 ```
@@ -63,6 +64,16 @@ generate_monte_carlo_realizations(
   [`fuse_observed_data_into_priors()`](https://jjmaynard.github.io/soilSIM/reference/fuse_observed_data_into_priors.md)
   for the accepted shapes and behavior. `NULL` (default) skips fusion
   entirely, preserving today's prior-only behavior exactly.
+
+- observed_data_by_mukey:
+
+  Optional named list keyed by `mukey` code, each element an
+  `observed_data`-shaped list, fusing each horizon against its own map
+  unit's likelihood instead of one shared value - see
+  [`fuse_observed_data_into_priors()`](https://jjmaynard.github.io/soilSIM/reference/fuse_observed_data_into_priors.md).
+  Requires `soil_data` to carry a `mukey` column. Mutually exclusive
+  with `observed_data`. `NULL` (default) preserves current behavior
+  exactly.
 
 - verbose:
 

@@ -20,10 +20,11 @@ articles:
   getting-started-monte-carlo: getting-started-monte-carlo.html
   gp-modeling-multivariate-adjustment: gp-modeling-multivariate-adjustment.html
   profile-depth-simulation: profile-depth-simulation.html
+  raster-fusion-perpixel-awc: raster-fusion-perpixel-awc.html
   raster-fusion-ssurgo-solus: raster-fusion-ssurgo-solus.html
   raster-native-fitting-fusion: raster-native-fitting-fusion.html
   statistics-diagnostics: statistics-diagnostics.html
-last_built: 2026-08-18T06:27Z
+last_built: 2026-09-03T05:17Z
 urls:
   reference: https://jjmaynard.github.io/soilSIM/reference
   article: https://jjmaynard.github.io/soilSIM/articles

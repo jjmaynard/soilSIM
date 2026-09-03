@@ -13,7 +13,10 @@ fuse_closed_form(
   lik_value_rasters,
   percentile_probs,
   family,
-  bounds
+  bounds,
+  posterior_probs = NULL,
+  mukey_raster = NULL,
+  mukey_draws = NULL
 )
 ```
 
@@ -35,6 +38,38 @@ fuse_closed_form(
 
   Required for `family = "beta"`.
 
+- posterior_probs:
+
+  Numeric probabilities (0-1) at which to report posterior percentiles.
+  `NULL` (default) resolves to
+  [FUSE_POSTERIOR_DEFAULT_PROBS](https://jjmaynard.github.io/soilSIM/reference/FUSE_POSTERIOR_DEFAULT_PROBS.md).
+  Computed analytically (`qnorm`/`qbeta`/`qgamma` at the fused family
+  parameters) - exact regardless of how extreme the requested
+  probability is, unlike
+  [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)'s
+  sample/grid-based route.
+
+- mukey_raster, mukey_draws:
+
+  Optional - opts into `prior_fusion_method = "raw_draws"` for this
+  (closed-form) route, added `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`
+  task P2.6. Fits the PRIOR side's family parameters directly from each
+  cell's mukey's real Monte Carlo draws (via
+  [`mukey_draws_closed_form_fit_raster()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_closed_form_fit_raster.md))
+  instead of
+  [`fit_normal_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_raster.md)/
+  [`fit_beta_mle_newton_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton_raster.md)/[`fit_gamma_mom_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_gamma_mom_raster.md)'s
+  percentile-triplet formulas - cells whose mukey has no draws entry
+  fall back to the percentile-based fit for that cell only, same
+  convention as
+  [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)'s
+  raw_draws branch. The LIKELIHOOD (SOLUS) side is unaffected either
+  way - no raw-draws equivalent exists for it. `NULL` (default) for
+  either parameter preserves the original percentile-only behavior
+  exactly.
+
 ## Value
 
-`list(posterior=, route_detail=, n_fallback_cells=)`.
+`list(posterior=, route_detail=, n_fallback_cells=)`. `posterior`
+carries a new `percentiles` field (named list of `SpatRaster`s)
+alongside the existing family-native parameters.

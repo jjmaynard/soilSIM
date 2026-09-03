@@ -27,6 +27,7 @@ matches the closed-form route."></head><body>
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -85,7 +86,10 @@ matches the closed-form route.</p>
 <span>  <span class="va">family</span>,</span>
 <span>  <span class="va">bounds</span>,</span>
 <span>  <span class="va">n_samples</span>,</span>
-<span>  <span class="va">grid_resolution</span></span>
+<span>  <span class="va">grid_resolution</span>,</span>
+<span>  mukey_raster <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  mukey_draws <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  posterior_probs <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -117,6 +121,32 @@ matches the closed-form route.</p>
 <dd><p>Passed to <code><a href="bayesian_update.html">bayesian_update()</a></code>. <code>NULL</code> (the caller-facing default from
 <code><a href="fuse_adaptive.html">fuse_adaptive()</a></code>) resolves to <a href="FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION.html">FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION</a>, not
 <code><a href="bayesian_update.html">bayesian_update()</a></code>'s own standalone default of <code>0.01</code> - see that constant's docs for why.</p></dd>
+
+
+<dt id="arg-mukey-raster-mukey-draws">mukey_raster, mukey_draws<a class="anchor" aria-label="anchor" href="#arg-mukey-raster-mukey-draws"></a></dt>
+<dd><p>Optional - opts into <code>prior_fusion_method = "raw_draws"</code> (see
+<code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code> task P2.2/P2.3). <code>mukey_raster</code> must already be
+aligned to the same grid as <code>prior_value_rasters</code>/<code>lik_value_rasters</code> (nearest-neighbor
+resampled, since it's categorical - bilinear would fabricate nonsensical mukey codes).
+<code>mukey_draws</code> is a <code><a href="mukey_draws_lookup.html">mukey_draws_lookup()</a></code> result. When both are supplied, the PRIOR side's
+samples for a cell are drawn from that cell's mukey's real Monte Carlo draws (computed
+once per unique mukey, not once per cell) instead of <code><a href="sim_linear_cdf_batch.html">sim_linear_cdf_batch()</a></code>'s
+percentile-reconstructed approximation - a genuine fidelity improvement, not just a speed one,
+since the real draws carry information the 5-percentile summary lost. The LIKELIHOOD (SOLUS)
+side is unaffected either way, since it has no raw-draws equivalent (see that function's own
+docs). <code>NULL</code> (default) for either parameter preserves the original percentile-reconstruction
+behavior for the prior side exactly - bit-identical output to before this parameter existed.</p></dd>
+
+
+<dt id="arg-posterior-probs">posterior_probs<a class="anchor" aria-label="anchor" href="#arg-posterior-probs"></a></dt>
+<dd><p>Numeric vector of probabilities (0-1) at which to report posterior
+percentiles, computed via <code><a href="bayesian_update.html">bayesian_update()</a></code>'s grid-based exact percentile machinery (see
+that function's docs). <code>NULL</code> (default) resolves to <a href="FUSE_POSTERIOR_DEFAULT_PROBS.html">FUSE_POSTERIOR_DEFAULT_PROBS</a> - unlike
+<code><a href="bayesian_update.html">bayesian_update()</a></code>'s own <code>NULL</code> default (which means "no percentiles, preserve the original
+plain-vector return"), this is an internal orchestration parameter with no external
+plain-vector consumers, so its <code>NULL</code> means "use the standard rich default" instead. Also used
+to compute <code>mu</code>/<code>sigma</code> (via the exact grid-based mean/var, not <code><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean()</a></code>/<code><a href="https://rdrr.io/r/stats/cor.html" class="external-link">var()</a></code> on a resampled
+vector - a strictly more accurate replacement for the pre-P3.2 computation, at no extra cost).</p></dd>
 
 </dl></div>
 

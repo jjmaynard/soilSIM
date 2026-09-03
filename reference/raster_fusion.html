@@ -55,6 +55,7 @@ which claims exactly this property)."></head><body>
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -120,7 +121,7 @@ which claims exactly this property).</p>
 
 
     <div class="section level2">
-    <h2 id="deliberately-out-of-scope">Deliberately out of scope<a class="anchor" aria-label="anchor" href="#deliberately-out-of-scope"></a></h2>
+    <h2 id="formerly-out-of-scope-now-implemented">Formerly out of scope, now implemented<a class="anchor" aria-label="anchor" href="#formerly-out-of-scope-now-implemented"></a></h2>
 
 
 <p><code><a href="run_stage1_fusion.html">run_stage1_fusion()</a></code>/<code><a href="run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code> (the original top-level
@@ -134,20 +135,26 @@ built as a handoff package for a <em>different, sibling project</em>
 functions listed as unresolved integration gaps for that project. Those
 gaps have since been closed (<code>R/raster-cache.R</code>, <code>R/ssurgo-simulation.R</code>,
 <code>R/solus-simulation.R</code>), and <code><a href="run_stage1_fusion.html">run_stage1_fusion()</a></code>/
-<code><a href="run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code> are now fully implemented below, wiring
-everything together. <code><a href="fuse_property_adaptive.html">fuse_property_adaptive()</a></code> remains the lower-level
-entry point for callers who already have their own pre-fetched
-<code>prior_value_rasters</code>/<code>lik_value_rasters</code> and want to skip the
-fetch-and-cache wrapper.</p>
-<p>Also not ported: the global <code>PROPERTIES</code> config-list registry from the
-source bundle's <code>config.R</code>. <code><a href="group_members.html">group_members()</a></code>/<code><a href="fuse_property_adaptive.html">fuse_property_adaptive()</a></code>
+<code><a href="run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code> are now fully implemented below (this is a
+historical note, not a current limitation), wiring everything together.
+<code><a href="fuse_property_adaptive.html">fuse_property_adaptive()</a></code> remains the lower-level entry point for callers
+who already have their own pre-fetched <code>prior_value_rasters</code>/
+<code>lik_value_rasters</code> and want to skip the fetch-and-cache wrapper.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="deliberately-out-of-scope">Deliberately out of scope<a class="anchor" aria-label="anchor" href="#deliberately-out-of-scope"></a></h2>
+
+
+<p>The global <code>PROPERTIES</code> config-list registry from the source bundle's
+<code>config.R</code> was not ported. <code><a href="group_members.html">group_members()</a></code>/<code><a href="fuse_property_adaptive.html">fuse_property_adaptive()</a></code>
 below take a per-call config list/member vector directly instead,
 reusing soilSIM's own existing <code>config$monte_carlo$composition_groups</code>
 convention (see <code>R/distributions.R</code>'s <code><a href="resolve_composition_groups.html">resolve_composition_groups()</a></code>)
 rather than introducing a second, parallel config schema.</p>
     </div>
 
-  </main></div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">

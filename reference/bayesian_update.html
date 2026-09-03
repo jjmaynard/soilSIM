@@ -31,6 +31,7 @@ being considerably more expensive than the closed-form tiers above."></head><bod
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -89,7 +90,9 @@ being considerably more expensive than the closed-form tiers above.</p>
 <span>  <span class="va">likelihood_distribution</span>,</span>
 <span>  grid_range <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  grid_resolution <span class="op">=</span> <span class="fl">0.01</span>,</span>
-<span>  n <span class="op">=</span> <span class="fl">1000</span></span>
+<span>  n <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  winsorize_probs <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  posterior_probs <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -113,10 +116,71 @@ being considerably more expensive than the closed-form tiers above.</p>
 <dt id="arg-n">n<a class="anchor" aria-label="anchor" href="#arg-n"></a></dt>
 <dd><p>Number of posterior samples to draw.</p></dd>
 
+
+<dt id="arg-winsorize-probs">winsorize_probs<a class="anchor" aria-label="anchor" href="#arg-winsorize-probs"></a></dt>
+<dd><p>Optional length-2 vector <code>c(lower, upper)</code> (e.g. <code>c(0.01, 0.99)</code>). When
+supplied, each side's sample is independently clipped to its OWN <code><a href="https://rdrr.io/r/stats/quantile.html" class="external-link">quantile()</a></code> range at these
+probabilities before the <code>stats::density(bw = "nrd0")</code> call. <code>NULL</code> (default) preserves this
+function's original behavior exactly.</p></dd>
+
+
+<dt id="arg-posterior-probs">posterior_probs<a class="anchor" aria-label="anchor" href="#arg-posterior-probs"></a></dt>
+<dd><p>Optional numeric vector of probabilities (0-1) at which to report
+posterior percentiles (e.g. <code>c(0.05, 0.5, 0.95)</code>). <code>NULL</code> (default) preserves this function's
+original return shape EXACTLY - a plain numeric vector of <code>n</code> posterior samples - so every
+existing caller (<code><a href="fuse_property.html">fuse_property()</a></code>, <code>R/monte-carlo.R</code>'s <code><a href="fuse_observed_data_into_priors.html">fuse_observed_data_into_priors()</a></code>,
+this file's own tests) is completely unaffected. When supplied, the return shape changes to
+the richer list described below (see <code>@return</code>); see <code>@section Grid-based percentiles</code> for why
+this is the primary use case for <code>posterior_probs</code>, not <code><a href="https://rdrr.io/r/stats/quantile.html" class="external-link">quantile()</a></code> on the resampled vector.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A numeric vector of <code>n</code> samples drawn from the posterior distribution.</p>
+    <p>When <code>posterior_probs</code> is <code>NULL</code> (default): a numeric vector of <code>n</code> samples drawn from
+the posterior distribution (unchanged from this function's original contract). When
+<code>posterior_probs</code> is supplied: a list with -</p><ul><li><p><code>samples</code>: the same <code>n</code>-length resampled vector as the <code>NULL</code> case (still available for
+callers that want actual posterior draws, e.g. downstream Monte Carlo propagation).</p></li>
+<li><p><code>mean</code>, <code>var</code>: the posterior mean/variance computed EXACTLY from the discretized
+<code>posterior_prob</code>/<code>value_grid</code> distribution (<code>sum(value_grid * posterior_prob)</code> and its
+variance analogue) - zero resampling noise, strictly at least as accurate as <code>mean(samples)</code>/
+<code>var(samples)</code> for any <code>n</code>.</p></li>
+<li><p><code>percentiles</code>: a named numeric vector (names <code>"P5"</code>, <code>"P50"</code>, ... matching <code>posterior_probs</code>),
+read directly off <code>cumsum(posterior_prob)</code> - also zero resampling noise, accurate to within
+<code>grid_resolution</code>.</p></li>
+<li><p><code>value_grid</code>, <code>posterior_prob</code>: the underlying discretized distribution itself, for callers
+that want to compute something these three summaries don't cover.</p></li>
+</ul></div>
+    <div class="section level2">
+    <h2 id="grid-based-percentiles-have-zero-resampling-noise">Grid-based percentiles have zero resampling noise<a class="anchor" aria-label="anchor" href="#grid-based-percentiles-have-zero-resampling-noise"></a></h2>
+
+
+<p>This function already computes the FULL discretized posterior distribution
+(<code>posterior_prob</code> over <code>value_grid</code>) before its final step, which historically only existed to
+hand back a plain vector (<code>sample(value_grid, size = n, prob = posterior_prob, replace = TRUE)</code>).
+Reading percentiles/moments directly off <code>posterior_prob</code>'s cumulative distribution - finding
+where <code>cumsum(posterior_prob)</code> crosses each target probability - is exact relative to
+<code>grid_resolution</code> and has no resampling noise at all, unlike <code>quantile(samples, probs = ...)</code>
+would have. No amount of increasing <code>n</code> improves on reading percentiles directly off an
+already-fully-known discrete distribution, so this is <code>posterior_probs</code>' primary computation
+path, not a convenience wrapper around the resampled <code>samples</code> vector.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="known-limitation-raw-draws-fusion-vs-percentile-reconstruction-fusion-">Known limitation (raw-draws fusion vs. percentile-reconstruction fusion)<a class="anchor" aria-label="anchor" href="#known-limitation-raw-draws-fusion-vs-percentile-reconstruction-fusion-"></a></h2>
+
+
+<p>A dedicated adversarial test (<code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code> task P2.7) found that for
+a skewed prior fused against a weak/wide likelihood, <code>soilSIM</code>'s <code>prior_fusion_method = "raw_draws"</code> route (a genuine empirical resample as the prior side) can produce a fused posterior
+mean measurably <em>less</em> close to the prior population's true mean than the default
+percentile-reconstruction route, in a way that first looked like a bandwidth-selection bug. Task
+P3.1's follow-up investigation ruled that out directly (forcing both routes onto the exact same
+<code><a href="https://rdrr.io/r/stats/density.html" class="external-link">stats::density()</a></code> bandwidth left the gap essentially unchanged) and traced the real mechanism to
+<code>R/percentile-sampling.R</code>'s <code><a href="sim_linear_cdf_batch.html">sim_linear_cdf_batch()</a></code>: reconstructing a distribution from only 5
+percentile knots is an inherent information-loss approximation for skewed shapes (confirmed
+method-agnostic - <code>linear_cdf</code>/<code>spline</code>/<code>kde</code> reconstruction all show a comparable P75-P95
+overshoot on the same synthetic scenario), not a defect in this function or in raw_draws. See
+that task's write-up for the full investigation; <code>winsorize_probs</code> remains available below as a
+harmless, independently-useful safety net for genuine extreme-outlier inputs, not as a fix for
+this finding (there was nothing here to fix).</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

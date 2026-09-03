@@ -26,41 +26,40 @@ for the package-level roxygen summary of this framing.
 This directory’s 10 documents go one level deeper than that package doc
 or the per-function `.Rd`/roxygen reference: each covers a functional
 group’s full function signatures, internal call graphs, cross-file
-dependencies, data flow, and known limitations - the same depth the
-legacy `modules/mod0-8_summary.md` docs provided for the pre-package
-prototype, adapted to soilSIM’s current (larger, restructured) `R/`
-layout.
+dependencies, data flow, and known limitations.
 
 ## Core vs. adapters
 
-                          ┌─────────────────────────────────────────┐
-                          │              GENERIC CORE                │
-                          │  (data-source-agnostic; works on any     │
-                          │   percentile triplet / prior-likelihood  │
-                          │   pair, regardless of origin)            │
-                          │                                           │
-                          │  03 Distribution fitting & correlations  │
-                          │  04 Monte Carlo simulation                │
-                          │  05 GP depth modeling & adjustment        │
-                          │  08 Bayesian updating (scalar)            │
-                          │  09 Raster fusion core (distribution-     │
-                          │     fitting-raster.R, raster-fusion.R,    │
-                          │     raster-cache.R)                       │
-                          └───────────────┬───────────────────────────┘
-                                          │ consumed by / feeds
-                  ┌───────────────────────┼───────────────────────┐
-                  │                       │                       │
-       ┌──────────▼──────────┐ ┌──────────▼──────────┐ ┌──────────▼──────────┐
-       │  SSURGO ADAPTER      │ │  SOLUS100 ADAPTER    │ │  (future adapters:   │
-       │  01 Acquisition/     │ │  09 solus-           │ │   HWSD, SoilGrids,   │
-       │     processing        │ │     simulation.R      │ │   etc. - not yet     │
-       │  06 Property/depth/   │ │  supplies raster      │ │   implemented)       │
-       │     component sim     │ │  fusion likelihood    │ │                      │
-       │  09 ssurgo-           │ │  side                 │ │                      │
-       │     simulation.R      │ │                       │ │                      │
-       │  supplies raster      │ │                       │ │                      │
-       │  fusion prior side     │ │                       │ │                      │
-       └──────────────────────┘ └──────────────────────┘ └──────────────────────┘
+``` shell
+                      ┌─────────────────────────────────────────┐
+                      │              GENERIC CORE                │
+                      │  (data-source-agnostic; works on any     │
+                      │   percentile triplet / prior-likelihood  │
+                      │   pair, regardless of origin)            │
+                      │                                           │
+                      │  03 Distribution fitting & correlations  │
+                      │  04 Monte Carlo simulation                │
+                      │  05 GP depth modeling & adjustment        │
+                      │  08 Bayesian updating (scalar)            │
+                      │  09 Raster fusion core (distribution-     │
+                      │     fitting-raster.R, raster-fusion.R,    │
+                      │     raster-cache.R)                       │
+                      └───────────────┬───────────────────────────┘
+                                      │ consumed by / feeds
+              ┌───────────────────────┼───────────────────────┐
+              │                       │                       │
+   ┌──────────▼──────────┐ ┌──────────▼──────────┐ ┌──────────▼──────────┐
+   │  SSURGO ADAPTER      │ │  SOLUS100 ADAPTER    │ │  (future adapters:   │
+   │  01 Acquisition/     │ │  09 solus-           │ │   HWSD, SoilGrids,   │
+   │     processing        │ │     simulation.R      │ │   etc. - not yet     │
+   │  06 Property/depth/   │ │  supplies raster      │ │   implemented)       │
+   │     component sim     │ │  fusion likelihood    │ │                      │
+   │  09 ssurgo-           │ │  side                 │ │                      │
+   │     simulation.R      │ │                       │ │                      │
+   │  supplies raster      │ │                       │ │                      │
+   │  fusion prior side     │ │                       │ │                      │
+   └──────────────────────┘ └──────────────────────┘ └──────────────────────┘
+```
 
 `02 Statistics & diagnostics`, `07 AWS/Van Genuchten modeling`, and
 `10 Utilities` sit alongside this split: Statistics & Diagnostics

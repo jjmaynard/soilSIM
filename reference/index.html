@@ -21,6 +21,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -1580,6 +1581,13 @@
 
         <dt>
 
+          <code><a href="solus_depth_window_weights.html">solus_depth_window_weights()</a></code>
+
+        </dt>
+        <dd>Trapezoidal Depth-Average Weights over Native SOLUS Depth Slices</dd>
+
+        <dt>
+
           <code><a href="fetch_solus_low_pred_high.html">fetch_solus_low_pred_high()</a></code>
 
         </dt>
@@ -1591,6 +1599,27 @@
 
         </dt>
         <dd>Fetch SOLUS100 Percentile-Value Rasters for an AOI</dd>
+
+        <dt>
+
+          <code><a href="extract_mukey_joint_ensemble.html">extract_mukey_joint_ensemble()</a></code>
+
+        </dt>
+        <dd>Per-Mukey Joint Multivariate Profile Ensemble at Several Depth Windows</dd>
+
+        <dt>
+
+          <code><a href="remarginalize_ensemble_to_posterior.html">remarginalize_ensemble_to_posterior()</a></code>
+
+        </dt>
+        <dd>Per-Pixel Ensemble Re-Marginalization to a Fused Posterior</dd>
+
+        <dt>
+
+          <code><a href="remarginalized_awc.html">remarginalized_awc()</a></code>
+
+        </dt>
+        <dd>Per-Pixel Available Water Capacity from a Re-Marginalized Ensemble</dd>
       </dl></div><div class="section level2">
       <h2 id="utilities">Utilities<a class="anchor" aria-label="anchor" href="#utilities"></a></h2>
 
@@ -2988,6 +3017,76 @@
 
         </dt>
         <dd>Wrap/unwrap the <code>SpatRaster</code>s inside a <code>list(values = &lt;list of SpatRaster&gt;, probs = )</code> percentile structure for caching - see <code><a href="../reference/cache_set.html">cache_set()</a></code>'s <code>@section Known limitation:</code>.</dd>
+
+        <dt>
+
+          <code><a href="apply_copula_to_marginals.html">apply_copula_to_marginals()</a></code>
+
+        </dt>
+        <dd>Map a Joint Copula Sample onto Existing Per-Depth Marginal Distributions</dd>
+
+        <dt>
+
+          <code><a href="attach_osd_boundary_distinctness.html">attach_osd_boundary_distinctness()</a></code>
+
+        </dt>
+        <dd>Attach OSD-Derived Boundary Distinctness to Horizon Data (per-genhz <code>bound_sd</code>)</dd>
+
+        <dt>
+
+          <code><a href="build_depth_correlation_kernel.html">build_depth_correlation_kernel()</a></code>
+
+        </dt>
+        <dd>Build a Depth Correlation Kernel Matrix</dd>
+
+        <dt>
+
+          <code><a href="extract_depth_length_scale.html">extract_depth_length_scale()</a></code>
+
+        </dt>
+        <dd>Extract a Real-Units Depth Length-Scale from a Fitted GP Model</dd>
+
+        <dt>
+
+          <code><a href="mukey_draws_lookup.html">mukey_draws_lookup()</a></code>
+
+        </dt>
+        <dd>Raw Per-Mukey Monte Carlo Draws, Keyed by Mukey (Not Collapsed to Percentiles)</dd>
+
+        <dt>
+
+          <code><a href="mukey_texture_draws_lookup.html">mukey_texture_draws_lookup()</a></code>
+
+        </dt>
+        <dd>Raw Per-Mukey JOINT Texture Draws, Keyed by Mukey (clay/sand/silt Row-Aligned)</dd>
+
+        <dt>
+
+          <code><a href="preserve_correlation_structure_joint.html">preserve_correlation_structure_joint()</a></code>
+
+        </dt>
+        <dd>Preserve Correlation Structure via a Joint Depth x Property Copula (Phase 3)</dd>
+
+        <dt>
+
+          <code><a href="raster_fusion_bridge.html">raster_fusion_bridge</a></code>
+
+        </dt>
+        <dd>Per-Pixel Ensemble Re-Marginalization (raster-fusion &lt;-&gt; tabular MC bridge)</dd>
+
+        <dt>
+
+          <code><a href="sample_joint_depth_property_copula.html">sample_joint_depth_property_copula()</a></code>
+
+        </dt>
+        <dd>Draw a Joint Depth x Property Gaussian Copula Sample</dd>
+
+        <dt>
+
+          <code><a href="validate_joint_correlation_structure.html">validate_joint_correlation_structure()</a></code>
+
+        </dt>
+        <dd>Validate Joint Depth x Property Correlation Structure</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

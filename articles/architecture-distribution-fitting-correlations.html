@@ -5,13 +5,13 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Distribution Fitting &amp; Correlation Matrices - Function Summary and Connections • soilSIM</title>
+<title>Distribution Fitting &amp; Correlation Matrices • soilSIM</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
-<meta property="og:title" content="Distribution Fitting &amp; Correlation Matrices - Function Summary and Connections">
+<meta property="og:title" content="Distribution Fitting &amp; Correlation Matrices">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -37,6 +37,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul>
 </li>
 <li class="nav-item dropdown">
@@ -87,7 +88,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
-      <h1>Distribution Fitting &amp; Correlation Matrices - Function Summary and Connections</h1>
+      <h1>Distribution Fitting &amp; Correlation Matrices</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/vignettes/articles/architecture-distribution-fitting-correlations.Rmd" class="external-link"><code>vignettes/articles/architecture-distribution-fitting-correlations.Rmd</code></a></small>
@@ -421,8 +422,8 @@ sanity checks<a class="anchor" aria-label="anchor" href="#validate_fit_parameter
 </h4>
 <p><strong>Purpose</strong>: Real replacement for the
 always-<code>valid=TRUE</code>
-<code><a href="../reference/validate_distribution_parameters.html">validate_distribution_parameters()</a></code> stub previously in
-<code>mod05_monte_carlo.R</code>. <strong>Signature</strong>:
+<code><a href="../reference/validate_distribution_parameters.html">validate_distribution_parameters()</a></code> stub in an earlier
+version of the Monte Carlo simulation code. <strong>Signature</strong>:
 <code>validate_fit_parameters(family, fit)</code>
 <strong>Returns</strong>: <code>list(valid=, message=)</code>.
 <strong>Algorithm</strong>: <code>family</code>-specific

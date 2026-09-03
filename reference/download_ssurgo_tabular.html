@@ -25,6 +25,7 @@ with existing soil property simulation workflows."></head><body>
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -83,6 +84,7 @@ with existing soil property simulation workflows.</p>
 <span>  cache_dir <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  force_download <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  validate_data <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  mukey_raster <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"ssurgo.verbose"</span>, <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -115,6 +117,16 @@ unsuitable horizon detection (default: TRUE)</p></dd>
 
 <dt id="arg-validate-data">validate_data<a class="anchor" aria-label="anchor" href="#arg-validate-data"></a></dt>
 <dd><p>Logical. Perform comprehensive data validation (default: TRUE)</p></dd>
+
+
+<dt id="arg-mukey-raster">mukey_raster<a class="anchor" aria-label="anchor" href="#arg-mukey-raster"></a></dt>
+<dd><p>Optional, already-fetched <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code> of mukey codes for this same
+AOI (e.g. from <code><a href="fetch_ssurgo_mukey_raster.html">fetch_ssurgo_mukey_raster</a></code>) - passed through to
+<code><a href="process_aoi_and_get_mukeys_working.html">process_aoi_and_get_mukeys_working</a></code> so it can skip its own independent
+<code><a href="http://ncss-tech.github.io/soilDB/reference/mukey.wcs.html" class="external-link">soilDB::mukey.wcs()</a></code> call. <code>NULL</code> (default) preserves this function's original
+behavior exactly (it fetches its own grid) - see <code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code>
+task P1.2 for why this exists (raster-fusion callers that already fetched a mukey grid for
+the same AOI can now reuse it instead of triggering a second network call).</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

@@ -29,7 +29,7 @@ dedicated smoke test before this file was written; see
 [`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)'s
 own doc comment upstream, which claims exactly this property).
 
-## Deliberately out of scope
+## Formerly out of scope, now implemented
 
 [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)/[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
 (the original top-level orchestrators) were initially **not** ported,
@@ -48,14 +48,17 @@ for that project. Those gaps have since been closed (`R/raster-cache.R`,
 `R/ssurgo-simulation.R`, `R/solus-simulation.R`), and
 [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)/
 [`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
-are now fully implemented below, wiring everything together.
+are now fully implemented below (this is a historical note, not a
+current limitation), wiring everything together.
 [`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md)
 remains the lower-level entry point for callers who already have their
-own pre-fetched `prior_value_rasters`/`lik_value_rasters` and want to
+own pre-fetched `prior_value_rasters`/ `lik_value_rasters` and want to
 skip the fetch-and-cache wrapper.
 
-Also not ported: the global `PROPERTIES` config-list registry from the
-source bundle's `config.R`.
+## Deliberately out of scope
+
+The global `PROPERTIES` config-list registry from the source bundle's
+`config.R` was not ported.
 [`group_members()`](https://jjmaynard.github.io/soilSIM/reference/group_members.md)/[`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md)
 below take a per-call config list/member vector directly instead,
 reusing soilSIM's own existing `config$monte_carlo$composition_groups`

@@ -14,8 +14,10 @@ property_to_sim_column(property_id)
 
   One of `"ph"`, `"ph1to1h2o"`, `"bulk_density"`, `"dbovendry"`,
   `"soc"`, `"om"`, `"cec"`, `"cec7"`, `"clay"`, `"claytotal"`, `"sand"`,
-  `"sandtotal"`, `"silt"`, `"silttotal"`, `"rock_fragments"`, or
-  `"rfv"`.
+  `"sandtotal"`, `"silt"`, `"silttotal"`,
+  `"rock_fragments"`/`"rfv"`/`"fragvol"`,
+  `"wthirdbar"`/`"water_retention_third_bar"`/`"wr_3b"`, or
+  `"wfifteenbar"`/`"water_retention_15_bar"`/`"wr_15b"`.
 
 ## Value
 

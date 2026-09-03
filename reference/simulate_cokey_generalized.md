@@ -46,4 +46,7 @@ simulate_cokey_generalized(
 
 A data frame of simulated property values across all rows/realizations,
 with `compname`, `mukey`, `cokey`, `hzdept_r`, `hzdepb_r`,
-`simulation_number`, `unique_id`.
+`simulation_number`, `unique_id`, and (when `sim_cokey` itself has a
+`bound_sd` column - see
+[`attach_osd_boundary_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/attach_osd_boundary_distinctness.md))
+`bound_sd`.

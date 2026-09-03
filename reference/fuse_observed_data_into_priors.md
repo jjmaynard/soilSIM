@@ -22,9 +22,10 @@ fuse_observed_data_into_priors(
   simulation_data,
   sim_properties,
   properties,
-  observed_data,
+  observed_data = NULL,
   composition_plan,
   config,
+  observed_data_by_mukey = NULL,
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 ```
@@ -54,7 +55,9 @@ fuse_observed_data_into_priors(
 
 - observed_data:
 
-  Named list keyed by property name (see shapes above).
+  Named list keyed by property name (see shapes above). The single
+  shared likelihood applied to every horizon. Supply this OR
+  `observed_data_by_mukey`, never both.
 
 - composition_plan:
 
@@ -64,6 +67,19 @@ fuse_observed_data_into_priors(
 - config:
 
   Simulation configuration.
+
+- observed_data_by_mukey:
+
+  Optional named list keyed by `mukey` code (character), each element an
+  `observed_data`-shaped named list. When supplied, each horizon is
+  fused against its OWN mukey's likelihood (looked up via
+  `simulation_data$mukey`) instead of one shared value; this is the
+  shape a mukey-keyed zonal reduction of a raster-fusion posterior
+  takes, but the source is deliberately arbitrary (field observations,
+  lab summaries, or expert priors aggregated by map unit all fit).
+  Horizons whose `mukey` has no entry keep their unfused prior (logged
+  at DEBUG). Requires a `mukey` column in `simulation_data`. `NULL`
+  (default) preserves the single-`observed_data` behavior exactly.
 
 - verbose:
 

@@ -19,7 +19,8 @@ fuse_texture_group_batch(
   prior_z,
   lik_z,
   n_mc = 2000,
-  max_cells_per_subchunk = 2000
+  max_cells_per_subchunk = 2000,
+  mukey_prior_texture_samples = NULL
 )
 
 fuse_texture_group_batch_core(
@@ -29,7 +30,8 @@ fuse_texture_group_batch_core(
   silt_id,
   prior_z,
   lik_z,
-  n_mc = 2000
+  n_mc = 2000,
+  mukey_prior_texture_samples = NULL
 )
 ```
 
@@ -40,7 +42,8 @@ fuse_texture_group_batch_core(
   A matrix with one row per cell and the 18
   `<id>_<prior|lik>_<lo|p50|hi>` columns
   [`fuse_texture_group()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group.md)
-  builds.
+  builds (plus one trailing `mukey_code` column when
+  `mukey_prior_texture_samples` is supplied).
 
 - clay_id, sand_id, silt_id:
 
@@ -73,6 +76,17 @@ fuse_texture_group_batch_core(
   50,000-cell chunk failed with "cannot allocate vector of size 4.5 Gb".
   Sub-chunking here, in cell order, doesn't change the RNG stream order
   (still cell-major) so results are unaffected.
+
+- mukey_prior_texture_samples:
+
+  Optional - opts into `prior_fusion_method = "raw_draws"` (see
+  `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4). A named list,
+  keyed by mukey (as character), each element an `n_mc x 3` matrix
+  (columns `clay_total`/`sand_total`/ `silt_total`) of real joint
+  texture draws for that mukey - see
+  [`mukey_texture_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_texture_draws_lookup.md).
+  When supplied, `row_mat`'s last column must be the per-cell mukey
+  code. `NULL` (default) preserves original behavior exactly.
 
 ## Value
 

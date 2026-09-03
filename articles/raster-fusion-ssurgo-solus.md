@@ -61,7 +61,7 @@ fusion_clay$dist
 fusion_clay$route
 #> [1] "bayesian_update_general"
 names(fusion_clay$posterior)
-#> [1] "mu"    "sigma"
+#> [1] "mu"          "sigma"       "percentiles"
 ```
 
 The fused posterior for a `dist = "normal"` property routed through
@@ -79,8 +79,8 @@ fusion_clay$posterior$mu
 #> coord. ref. : NAD83 / Conus Albers (EPSG:5070)
 #> source(s)   : memory
 #> name        :     lyr.1
-#> min value   :  3.218861
-#> max value   : 28.167618
+#> min value   :   3.23677
+#> max value   : 42.577457
 terra::plot(fusion_clay$posterior$mu, main = "Fused posterior mean clay content (%)")
 ```
 
@@ -189,6 +189,85 @@ it lands close to the prior rather than the likelihood, illustrating
 that “fusion” is a precision-weighted compromise, not a simple average
 of the two inputs.
 
+## Step 1b: Percentile output for risk and uncertainty analysis
+
+The `mu`/`sigma` pair above is a good point estimate, but risk- and
+cost-assessment workflows often need more than a mean and a standard
+deviation - exceedance probabilities, asymmetric credible intervals, or
+simply “how uncertain is this cell, really?” Every fusion route also
+returns a full set of posterior percentiles alongside the point
+estimate, precisely for this purpose:
+
+``` r
+
+names(fusion_clay$posterior$percentiles)
+#> [1] "P1"  "P5"  "P10" "P25" "P50" "P75" "P90" "P95" "P99"
+```
+
+Nine percentiles by default (`FUSE_POSTERIOR_DEFAULT_PROBS`), covering a
+98% interval (P01/P99), a 90% interval (P05/P95), and an 80% interval
+(P10/P90) around the median - deliberately richer than the 5-point set
+SSURGO/SOLUS happen to supply as *input*, since the posterior has no
+such external constraint and tail resolution is exactly what risk-style
+questions need.
+
+### An uncertainty map: the 90% credible interval width
+
+Subtracting the 5th percentile from the 95th gives a per-cell width - a
+map of *where* the fused estimate is trustworthy versus where it’s
+genuinely uncertain, not just a single AOI-wide number:
+
+``` r
+
+p05 <- fusion_clay$posterior$percentiles$P5
+p95 <- fusion_clay$posterior$percentiles$P95
+credible_width <- p95 - p05
+
+terra::plot(
+  credible_width,
+  main = "90% credible interval width (P95 - P5) for clay content (%)",
+  col = grDevices::hcl.colors(50, "inferno", rev = TRUE)
+)
+```
+
+![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-11-1.png)
+
+This map is not spatially uniform - width narrows where the SOLUS100
+likelihood is more informative relative to the SSURGO prior for that
+cell, and widens where the two sources disagree more or where either is
+individually less certain. A single `sigma` raster carries the same
+information as a symmetric summary, but the percentile pair generalizes
+to cases where the posterior isn’t symmetric (e.g. the closed-form
+beta/gamma routes, or the general grid-KDE route on a skewed input) -
+`sigma` alone can’t distinguish “narrow but skewed” from “wide but
+symmetric,” while a P05/P95 pair always describes the actual shape.
+
+### A risk-style question: where might clay content be higher than expected?
+
+A land-use decision that only tolerates a small chance of encountering
+high-clay soil (e.g. for drainage or foundation planning) cares less
+about the *mean* clay content than about a conservative upper bound. The
+P95 percentile answers “what’s the clay content this cell is unlikely
+(5% chance) to exceed” directly, without assuming normality:
+
+``` r
+
+elevated_clay_risk <- p95 > 25
+terra::plot(
+  elevated_clay_risk,
+  main = "Cells where P95 clay content exceeds 25% (elevated-clay risk)",
+  col = c("grey85", "firebrick")
+)
+```
+
+![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-12-1.png)
+
+Cells flagged here could plausibly have clay content above 25% even
+though their *mean* (`mu`) may sit comfortably below that threshold -
+exactly the kind of tail information a point estimate alone discards,
+and exactly why the percentile output exists alongside it rather than
+replacing it.
+
 ## Step 2: Fuse a compositional group (clay, sand, silt jointly)
 
 Fusing clay/sand/silt independently can break the sum-to-100 constraint
@@ -227,7 +306,7 @@ fusion_texture$clay$dist   # "texture_ilr" for every member - not the per-proper
 means <- sapply(fusion_texture, function(m) terra::global(m$posterior$value, "mean", na.rm = TRUE)[1, 1])
 means
 #>     clay     sand     silt 
-#> 13.07337 59.86485 27.06177
+#> 16.36699 55.60234 28.03068
 sum(means)
 #> [1] 100
 ```
@@ -244,7 +323,38 @@ terra::plot(c(fusion_texture$clay$posterior$value,
             main = c("Clay", "Sand", "Silt"))
 ```
 
-![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-13-1.png)
+![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-16-1.png)
+
+Each member also carries its own fraction’s posterior percentiles, drawn
+from a dedicated raster-native sampler of the fused bivariate-Normal ILR
+posterior:
+
+``` r
+
+names(fusion_texture$clay$posterior$percentiles)
+#> [1] "P1"  "P5"  "P10" "P25" "P50" "P75" "P90" "P95" "P99"
+```
+
+**Sum-to-100 caveat**: `value` (the point estimate above) sums to
+exactly 100 by construction - the whole reason this vignette’s joint ILR
+fusion exists. Per-fraction *percentiles* do **not** share that
+guarantee, and this isn’t a bug:
+
+``` r
+
+p95_sum <- Reduce(`+`, lapply(fusion_texture, function(m) m$posterior$percentiles$P95))
+terra::global(p95_sum, fun = c("min", "max"), na.rm = TRUE)
+#>            min      max
+#> lyr.8 111.1252 183.2736
+```
+
+The P95 percentiles across clay/sand/silt sum well above 100 in this
+AOI - percentiles of correlated marginals don’t add linearly the way
+means do (a cell can simultaneously see a high-tail clay draw and a
+high-tail sand draw from different regions of the same joint
+distribution). Use `value` when a hard sum-to-100 composition is
+required; use `percentiles` for per-fraction uncertainty, not as a
+second composition that should also sum to 100.
 
 ## Under the hood: scalar Bayesian updating
 

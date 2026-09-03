@@ -33,6 +33,7 @@ already-ported scalar fuse_texture_group_from_triplets()."></head><body>
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -87,7 +88,13 @@ already-ported scalar <code><a href="fuse_texture_group_from_triplets.html">fuse
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fuse_texture_group</span><span class="op">(</span><span class="va">fetched</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fuse_texture_group</span><span class="op">(</span></span>
+<span>  <span class="va">fetched</span>,</span>
+<span>  mukey_raster <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  mukey_texture_draws <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  posterior_probs <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  posterior_n_mc <span class="op">=</span> <span class="fl">2000</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -98,12 +105,34 @@ already-ported scalar <code><a href="fuse_texture_group_from_triplets.html">fuse
 <dd><p>A list (one entry per group member, in <code><a href="group_members.html">group_members()</a></code>'s
 order) of <code>list(id=, prior=&lt;named list of ALIGNED percentile-value rasters&gt;, prior_probs=, lik=&lt;value rasters&gt;, lik_probs=)</code>.</p></dd>
 
+
+<dt id="arg-mukey-raster-mukey-texture-draws">mukey_raster, mukey_texture_draws<a class="anchor" aria-label="anchor" href="#arg-mukey-raster-mukey-texture-draws"></a></dt>
+<dd><p>Optional - opts into <code>prior_fusion_method = "raw_draws"</code> (see <code><a href="fuse_texture_group_batch.html">fuse_texture_group_batch_core()</a></code>'s docs and
+<code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code> task P2.4). <code>mukey_raster</code> must already be aligned
+to the same grid as <code>fetched</code>'s percentile rasters (nearest-neighbor resampled - it's
+categorical). <code>mukey_texture_draws</code> is a <code><a href="mukey_texture_draws_lookup.html">mukey_texture_draws_lookup()</a></code> result. <code>NULL</code>
+(default) for either preserves the original percentile-reconstruction behavior exactly -
+bit-identical output to before these parameters existed.</p></dd>
+
+
+<dt id="arg-posterior-probs">posterior_probs<a class="anchor" aria-label="anchor" href="#arg-posterior-probs"></a></dt>
+<dd><p>Numeric probabilities (0-1) at which to report each fraction's posterior
+percentiles. <code>NULL</code> (default) resolves to <a href="FUSE_POSTERIOR_DEFAULT_PROBS.html">FUSE_POSTERIOR_DEFAULT_PROBS</a>. Computed via
+<code><a href="texture_group_percentiles_raster.html">texture_group_percentiles_raster()</a></code> - see that function's <code>@section Sum-to-100 caveat</code> for
+why, unlike <code>value</code>, these do NOT generally sum to 100 across the group's three members.</p></dd>
+
+
+<dt id="arg-posterior-n-mc">posterior_n_mc<a class="anchor" aria-label="anchor" href="#arg-posterior-n-mc"></a></dt>
+<dd><p>Monte Carlo draw count per cell for the percentile sampler (default 2000).
+See <code><a href="texture_group_percentiles_raster.html">texture_group_percentiles_raster()</a></code>'s docs for why this is a separate lever from the
+moment-estimation MC sample size used elsewhere in this function.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A named list keyed by each member's <code>id</code>:
-<code>list(posterior = list(value = &lt;inverse-ILR point-estimate raster for that fraction&gt;, ilr_mu = &lt;2-layer raster, shared across the group&gt;, ilr_Sigma = &lt;3-layer raster (S11,S12,S22), shared&gt;), dist = "texture_ilr", route = "closed_form_ilr_group", route_detail = NULL, n_fallback_cells = 0)</code>. To draw posterior samples for a specific
-fraction/cell, extract that cell's <code>ilr_mu</code>/<code>ilr_Sigma</code> and pass to
+<code>list(posterior = list(value = &lt;inverse-ILR point-estimate raster for that fraction&gt;, ilr_mu = &lt;2-layer raster, shared across the group&gt;, ilr_Sigma = &lt;3-layer raster (S11,S12,S22), shared&gt;, percentiles = &lt;named list of percentile SpatRasters for THIS member's own fraction - see the sum-to-100 caveat above&gt;), dist = "texture_ilr", route = "closed_form_ilr_group", route_detail = NULL, n_fallback_cells = 0)</code>. To draw posterior samples for a specific
+fraction/cell directly, extract that cell's <code>ilr_mu</code>/<code>ilr_Sigma</code> and pass to
 <code><a href="sample_ilr_posterior.html">sample_ilr_posterior()</a></code>.</p>
     </div>
 

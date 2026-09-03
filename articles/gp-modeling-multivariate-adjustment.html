@@ -37,6 +37,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul>
 </li>
 <li class="active nav-item dropdown">
@@ -139,6 +140,11 @@ path</li>
 <code><a href="../reference/apply_nrcs_trend_adjustments.html">apply_nrcs_trend_adjustments()</a></code>
 vs. <code><a href="../reference/apply_local_gp_adjustments.html">apply_local_gp_adjustments()</a></code> - regional vs. local
 trends</li>
+<li>
+<code><a href="../reference/preserve_correlation_structure_joint.html">preserve_correlation_structure_joint()</a></code> - the joint
+depth x property copula method (now the package default), A/B tested
+against the original <code>gp_quantile_retrofit</code> algorithm from
+Step 7 above on this vignette’s own real fitted GP models</li>
 </ol>
 <p>This vignette reuses the same real, cached Amador County, CA SSURGO
 data (<code>inst/extdata/ssurgo_amador.rds</code>) that
@@ -591,20 +597,23 @@ depth, so the original correlation survives the depth-trend adjustment
 nearly intact.</p>
 </div>
 <div class="section level2">
-<h2 id="step-7-preserve_correlation_structure-apply_gp_depth_trends---the-production-path">Step 7: <code>preserve_correlation_structure()</code> /
-<code>apply_gp_depth_trends()</code> - the production path<a class="anchor" aria-label="anchor" href="#step-7-preserve_correlation_structure-apply_gp_depth_trends---the-production-path"></a>
+<h2 id="step-7-preserve_correlation_structure-apply_gp_depth_trends---the-long-format-path">Step 7: <code>preserve_correlation_structure()</code> /
+<code>apply_gp_depth_trends()</code> - the long-format path<a class="anchor" aria-label="anchor" href="#step-7-preserve_correlation_structure-apply_gp_depth_trends---the-long-format-path"></a>
 </h2>
 <p><code><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP()</a></code> above (from
 <code>gp-modeling.R</code>) operates directly on
 <code>[depth x simulation]</code> matrices and is the original,
-array-based implementation of this algorithm. The production pipeline
-that <code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code> actually calls works
-on long-format Monte Carlo output instead, via
+array-based implementation of this algorithm. The pipeline
+<code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code> actually calls works on
+long-format Monte Carlo output instead, via
 <code>multivariate-adjustment.R</code>’s
 <code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code> (reshapes long-format rows into
 matrices, dispatches to <code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code>
-when <code>preserve_correlations = TRUE</code> and at least two
-properties are present, then reshapes back) and
+when <code>preserve_correlations = TRUE</code>, at least two properties
+are present, and
+<code>config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"</code>
+is explicitly set - see Step 9 below for the package’s actual current
+default, <code>"joint_copula"</code> - then reshapes back) and
 <code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code> itself (the identical
 reference-quantile algorithm - same
 <code>calculate_safe_gp_ratio()</code> clamped-ratio step, same
@@ -716,6 +725,218 @@ rather than impose a strong trend - useful when a cokey’s own data
 really does deviate from its group’s regional pattern, but a weaker
 signal to lean on than the regional model when a cokey has little data
 of its own.</p>
+</div>
+<div class="section level2">
+<h2 id="step-9-why-the-production-default-changed---the-joint-depth-x-property-copula">Step 9: why the production default changed - the joint depth x
+property copula<a class="anchor" aria-label="anchor" href="#step-9-why-the-production-default-changed---the-joint-depth-x-property-copula"></a>
+</h2>
+<p>Steps 6-7 above walked through
+<code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code> - the ORIGINAL algorithm
+this package used, still fully supported today as an explicit opt-out
+(<code>config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"</code>).
+It keeps cross-<em>property</em> correlation intact while nudging
+realizations toward a GP-fitted depth trend, via a shared
+reference-quantile trick. That same mechanism has a side effect that
+motivated replacing it as the default: because it anchors EVERY depth’s
+adjustment to one FIXED per-realization percentile (established once, at
+the surface, and reused unchanged at every deeper depth), it doesn’t
+just preserve realization <em>ranking</em> - it forces realization
+<em>j</em> to occupy the same percentile at every depth, for the life of
+the profile. That is a much stronger, more rigid constraint than
+“vertical correlation”: it’s independent of how quickly or slowly the
+underlying property actually varies with depth (the GP model’s own
+fitted smoothness plays no role here at all), and - as the comparison
+below shows on this vignette’s own real fitted models - the result is
+spuriously near-perfect (<code>&gt; 0.99</code>) correlation across the
+<em>entire</em> depth profile, not a realistic decay.</p>
+<p><code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code> (in the package
+root) documents the replacement:
+<code><a href="../reference/preserve_correlation_structure_joint.html">preserve_correlation_structure_joint()</a></code>, wired into
+<code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code> behind
+<code>config$monte_carlo$vertical_correlation_method</code> (now
+defaulting to <code>"joint_copula"</code> as of that plan’s Phase 13 -
+<code>"gp_quantile_retrofit"</code> remains available as an explicit
+opt-out, not removed). Instead of a sequential mean-nudge, it draws
+depth correlation and property correlation
+<strong>simultaneously</strong> from a single Kronecker-separable joint
+distribution (<code><a href="../reference/sample_joint_depth_property_copula.html">sample_joint_depth_property_copula()</a></code>), so
+both are satisfied by construction rather than left to chance. This
+default flip followed multi-AOI real-data validation (a second AOI
+beyond this vignette’s own Amador County data, plus a full-AOI
+performance check finding no meaningful overhead) and closing every
+other blocking gap identified before the switch - see
+<code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code>’s own
+decision-tracking sections for the full record.</p>
+<p>To A/B the two methods fairly, this section reuses the SAME real
+fitted GP models from Step 3
+(<code>clay_gp_model</code>/<code>sand_gp_model</code>, for
+<code>xv_group</code>) but needs a different starting fixture than Step
+6’s <code>clay_mat</code>/<code>sand_mat</code>: those matrices
+deliberately replicate one shared per-simulation draw across every depth
+(<code>byrow = TRUE</code>, no fresh noise per depth), which is perfect
+for demonstrating the reference-quantile trick but is <em>already</em>
+perfectly depth-correlated by construction - not a useful “before” state
+for showing whether a method actually <em>adds</em> vertical
+correlation. Here, each depth instead gets its own fresh, independent
+draw (still with the same <code>target_rho</code> clay-sand property
+correlation established in Step 6):</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">4041</span><span class="op">)</span></span>
+<span><span class="va">vc_n_sims</span> <span class="op">&lt;-</span> <span class="fl">400</span></span>
+<span><span class="va">vc_depths</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">20</span>, <span class="fl">40</span>, <span class="fl">60</span>, <span class="fl">80</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">vc_clay_mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="cn">NA_real_</span>, nrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">vc_depths</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="va">vc_n_sims</span><span class="op">)</span></span>
+<span><span class="va">vc_sand_mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="cn">NA_real_</span>, nrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">vc_depths</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="va">vc_n_sims</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">vc_depths</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">z_c</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">vc_n_sims</span><span class="op">)</span></span>
+<span>  <span class="va">z_s</span> <span class="op">&lt;-</span> <span class="va">target_rho</span> <span class="op">*</span> <span class="va">z_c</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">target_rho</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">vc_n_sims</span><span class="op">)</span></span>
+<span>  <span class="va">vc_clay_mat</span><span class="op">[</span><span class="va">i</span>, <span class="op">]</span> <span class="op">&lt;-</span> <span class="va">clay_base</span> <span class="op">+</span> <span class="fl">6</span> <span class="op">*</span> <span class="va">z_c</span></span>
+<span>  <span class="va">vc_sand_mat</span><span class="op">[</span><span class="va">i</span>, <span class="op">]</span> <span class="op">&lt;-</span> <span class="va">sand_base</span> <span class="op">+</span> <span class="fl">8</span> <span class="op">*</span> <span class="va">z_s</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># Clay's own correlation between the surface and deepest demo depths - near zero by construction,</span></span>
+<span><span class="co"># unlike Step 6's fixture (which starts at ~1.0 because every depth is a literal copy).</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">vc_clay_mat</span><span class="op">[</span><span class="fl">1</span>, <span class="op">]</span>, <span class="va">vc_clay_mat</span><span class="op">[</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/dimensions.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">vc_clay_mat</span><span class="op">)</span>, <span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0.03924881</span></span></code></pre></div>
+<p>Reshape to the long format <code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code>
+consumes (same <code><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid()</a></code>/column-major flatten pattern
+Step 8 already used), and build the
+<code>gp_predictions</code>/<code>gp_models</code> lists keyed by the
+same property names this cokey data uses:</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">vc_cokey_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid</a></span><span class="op">(</span>hzdept_r <span class="op">=</span> <span class="va">vc_depths</span>, simulation_number <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">vc_n_sims</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">vc_cokey_data</span><span class="op">$</span><span class="va">claytotal</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">vc_clay_mat</span><span class="op">)</span></span>
+<span><span class="va">vc_cokey_data</span><span class="op">$</span><span class="va">sandtotal</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">vc_sand_mat</span><span class="op">)</span></span>
+<span><span class="va">vc_cokey_data</span><span class="op">$</span><span class="va">cokey</span> <span class="op">&lt;-</span> <span class="st">"vc_demo_cokey"</span></span>
+<span></span>
+<span><span class="va">vc_gp_predictions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>  claytotal <span class="op">=</span> <span class="fu"><a href="../reference/predict_gp_depth_trends.html">predict_gp_depth_trends</a></span><span class="op">(</span><span class="va">clay_gp_model</span>, <span class="va">vc_depths</span><span class="op">)</span>,</span>
+<span>  sandtotal <span class="op">=</span> <span class="fu"><a href="../reference/predict_gp_depth_trends.html">predict_gp_depth_trends</a></span><span class="op">(</span><span class="va">sand_gp_model</span>, <span class="va">vc_depths</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">vc_gp_models</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>claytotal <span class="op">=</span> <span class="va">clay_gp_model</span>, sandtotal <span class="op">=</span> <span class="va">sand_gp_model</span><span class="op">)</span></span></code></pre></div>
+<p>Run <code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code> twice on the identical
+input, explicitly requesting each method (so this comparison stays valid
+regardless of which one is the package’s current default) - the original
+<code>"gp_quantile_retrofit"</code> algorithm, still fully supported as
+an opt-out, and <code>"joint_copula"</code> (passing the real
+<code>gp_models</code> through so the depth kernel’s length-scale is
+derived from these actual fitted models, per
+<code><a href="../reference/extract_depth_length_scale.html">extract_depth_length_scale()</a></code>, rather than falling back to a
+generic full-depth-range default):</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">retrofit_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends</a></span><span class="op">(</span></span>
+<span>  <span class="va">vc_cokey_data</span>, <span class="va">vc_gp_predictions</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"claytotal"</span>, <span class="st">"sandtotal"</span><span class="op">)</span>,</span>
+<span>  config <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>monte_carlo <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>vertical_correlation_method <span class="op">=</span> <span class="st">"gp_quantile_retrofit"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">joint_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends</a></span><span class="op">(</span></span>
+<span>  <span class="va">vc_cokey_data</span>, <span class="va">vc_gp_predictions</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"claytotal"</span>, <span class="st">"sandtotal"</span><span class="op">)</span>,</span>
+<span>  config <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>monte_carlo <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>vertical_correlation_method <span class="op">=</span> <span class="st">"joint_copula"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  gp_models <span class="op">=</span> <span class="va">vc_gp_models</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="../reference/validate_joint_correlation_structure.html">validate_joint_correlation_structure()</a></code> - the same
+acceptance-test helper
+<code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code>’s Phase 0 built
+for exactly this comparison - reports both halves of the joint structure
+(property correlation at every depth, depth correlation for every
+property) against a known target, for each method’s output:</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sim_nums</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">vc_cokey_data</span><span class="op">$</span><span class="va">simulation_number</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">retrofit_matrices</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/convert_to_property_matrices.html">convert_to_property_matrices</a></span><span class="op">(</span><span class="va">retrofit_result</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"claytotal"</span>, <span class="st">"sandtotal"</span><span class="op">)</span>, <span class="va">vc_depths</span>, <span class="va">sim_nums</span><span class="op">)</span></span>
+<span><span class="va">joint_matrices</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/convert_to_property_matrices.html">convert_to_property_matrices</a></span><span class="op">(</span><span class="va">joint_result</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"claytotal"</span>, <span class="st">"sandtotal"</span><span class="op">)</span>, <span class="va">vc_depths</span>, <span class="va">sim_nums</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">target_prop_corr</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">target_rho</span>, <span class="va">target_rho</span>, <span class="fl">1</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  dimnames <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"claytotal"</span>, <span class="st">"sandtotal"</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"claytotal"</span>, <span class="st">"sandtotal"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">retrofit_check</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/validate_joint_correlation_structure.html">validate_joint_correlation_structure</a></span><span class="op">(</span><span class="va">retrofit_matrices</span>, target_property_corr <span class="op">=</span> <span class="va">target_prop_corr</span><span class="op">)</span></span>
+<span><span class="va">joint_check</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/validate_joint_correlation_structure.html">validate_joint_correlation_structure</a></span><span class="op">(</span><span class="va">joint_matrices</span>, target_property_corr <span class="op">=</span> <span class="va">target_prop_corr</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gp_quantile_retrofit (production default)"</span>, <span class="st">"joint_copula (new, opt-in)"</span><span class="op">)</span>,</span>
+<span>  property_corr_max_diff <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">retrofit_check</span><span class="op">$</span><span class="va">overall_property_max_diff</span>, <span class="va">joint_check</span><span class="op">$</span><span class="va">overall_property_max_diff</span><span class="op">)</span>,</span>
+<span>  clay_surface_vs_deepest_corr <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>    <span class="va">retrofit_check</span><span class="op">$</span><span class="va">achieved_depth_correlation</span><span class="op">$</span><span class="va">claytotal</span><span class="op">[</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">vc_depths</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>    <span class="va">joint_check</span><span class="op">$</span><span class="va">achieved_depth_correlation</span><span class="op">$</span><span class="va">claytotal</span><span class="op">[</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">vc_depths</span><span class="op">)</span><span class="op">]</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt;                                      method property_corr_max_diff</span></span>
+<span><span class="co">#&gt; 1 gp_quantile_retrofit (production default)             0.01750089</span></span>
+<span><span class="co">#&gt; 2                joint_copula (new, opt-in)             0.04444873</span></span>
+<span><span class="co">#&gt;   clay_surface_vs_deepest_corr</span></span>
+<span><span class="co">#&gt; 1                   0.99389059</span></span>
+<span><span class="co">#&gt; 2                  -0.02504001</span></span></code></pre></div>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">depth_cor_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    depth <span class="op">=</span> <span class="va">vc_depths</span>,</span>
+<span>    correlation <span class="op">=</span> <span class="va">retrofit_check</span><span class="op">$</span><span class="va">achieved_depth_correlation</span><span class="op">$</span><span class="va">claytotal</span><span class="op">[</span><span class="fl">1</span>, <span class="op">]</span>,</span>
+<span>    method <span class="op">=</span> <span class="st">"gp_quantile_retrofit\n(production default)"</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    depth <span class="op">=</span> <span class="va">vc_depths</span>,</span>
+<span>    correlation <span class="op">=</span> <span class="va">joint_check</span><span class="op">$</span><span class="va">achieved_depth_correlation</span><span class="op">$</span><span class="va">claytotal</span><span class="op">[</span><span class="fl">1</span>, <span class="op">]</span>,</span>
+<span>    method <span class="op">=</span> <span class="st">"joint_copula\n(new, opt-in)"</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">depth_cor_df</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">depth</span>, y <span class="op">=</span> <span class="va">correlation</span>, color <span class="op">=</span> <span class="va">method</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_path.html" class="external-link">geom_line</a></span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">2</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_viridis.html" class="external-link">scale_color_viridis_d</a></span><span class="op">(</span>end <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Clay content: correlation with the surface depth (0cm), by method"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"Identical starting data (near-zero depth correlation at every depth) fed through both methods"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Depth (cm)"</span>, y <span class="op">=</span> <span class="st">"Correlation with clay at 0cm"</span>, color <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>legend.position <span class="op">=</span> <span class="st">"bottom"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="gp-modeling-multivariate-adjustment_files/figure-html/unnamed-chunk-19-1.png" class="r-plt" alt="" width="576"></p>
+<p><code>extract_depth_length_scale(clay_gp_model)</code> reports 12.8
+cm for <code>clay_gp_model</code>’s own fitted depth trend - a fairly
+SHORT range, meaning the training data this GP was fit from shows clay
+content varying fairly quickly with depth for this soil group. The
+<code>joint_copula</code> line above tracks that: correlation drops from
+<code>1</code> at the surface to roughly its
+<code>exp(-1) ~= 0.37</code> “range” value by ~13cm and is essentially
+gone by 40cm+ (matching an exponential kernel with that length-scale),
+the same real, GP-derived smoothness this vignette’s other steps already
+established for this group.</p>
+<p>Both methods keep the clay-sand property correlation close to its
+-0.65 target (<code>property_corr_max_diff</code> small for both) -
+neither one distorts the correlation structure that was already there.
+The depth axis is where they genuinely diverge, and not in the direction
+a “the old method under-correlates” story would predict:
+<code>gp_quantile_retrofit</code>’s fixed-per-realization-rank mechanism
+pushes clay’s own cross-depth correlation to <code>&gt; 0.99</code> at
+every depth tested, regardless of distance from the surface - a rigidity
+that has nothing to do with how quickly clay actually varies with depth
+in this soil group’s own training data. <code>joint_copula</code>, by
+contrast, reproduces a decay directly tied to
+<code>clay_gp_model</code>’s own fitted length-scale, dropping toward
+zero within a few tens of centimeters - the behavior a genuinely
+physically-motivated vertical correlation model should have, and the
+concrete gap <code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code>’s
+redesign was built to close.</p>
+<p>This is real AOI data (Amador County SSURGO, via the same cached data
+and fitted GP models used throughout this vignette) run through both
+methods with identical synthetic Monte Carlo-style inputs -
+offline-reproducible validation of the joint-copula redesign’s core
+claim, without requiring a live network call.
+<code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code>’s later phases
+extended this validation to a second, independent AOI (finding the same
+result), confirmed negligible full-AOI performance overhead, and closed
+the remaining top-level API gaps - <code>joint_copula</code> is now
+reachable through
+<code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>/<code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code>’s
+own top-level config, not only via <code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code>
+directly, and is now the package default. What remains open per that
+plan’s own decision-tracking notes: calibrating the depth kernel’s
+discontinuity-gating defaults
+(<code>distinctness_range</code>/<code>min_gate_weight</code>, still off
+by default via <code>vertical_correlation_gating = FALSE</code>) against
+real KSSL/SSURGO profile lag-correlations.</p>
 </div>
 <div class="section level2">
 <h2 id="where-this-data-came-from">Where this data came from<a class="anchor" aria-label="anchor" href="#where-this-data-came-from"></a>

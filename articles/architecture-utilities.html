@@ -37,6 +37,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul>
 </li>
 <li class="nav-item dropdown">
@@ -134,11 +135,11 @@ Column name containing horizon designations (default
 <code>"hzname"</code>). If this column is absent, the function logs a
 WARN and returns all-<code>FALSE</code> (nothing flagged) rather than
 erroring. - <code>strict_mode</code> - Whether to apply additional
-strict-mode criteria (default <code>TRUE</code>, note this differs from
-the legacy <code>mod00</code> default of <code>FALSE</code>). -
-<code>custom_exclusions</code> - Optional additional regex patterns
-(matched against raw <code>hzname</code> values) to flag as
-unsuitable.</p>
+strict-mode criteria (default <code>TRUE</code>; note this differs from
+an earlier version of this function, which defaulted to
+<code>FALSE</code>). - <code>custom_exclusions</code> - Optional
+additional regex patterns (matched against raw <code>hzname</code>
+values) to flag as unsuitable.</p>
 <p><strong>Returns</strong>: A logical vector, one element per row of
 <code>data</code>, <code>TRUE</code> where the horizon is considered
 unsuitable.</p>
@@ -169,14 +170,13 @@ transitional-horizon patterns (<code>^C$</code>, <code>^C[0-9]</code>,
 applied last, also case-sensitively against raw <code>hznames</code>.
 Final counts and (if &lt;= 10 distinct) the actual unsuitable
 horizon-name values are logged via <code><a href="../reference/log_message.html">log_message()</a></code>. Note the
-default <code>strict_mode = TRUE</code> here differs from the legacy
-<code>mod00_soil_utils.R</code> prototype’s default of
-<code>FALSE</code>, and the strict-mode pattern pass and
-custom-exclusion pass both match against the <strong>raw,
-non-uppercased</strong> <code>hznames</code> vector rather than the
-upper-cased <code>hz</code> used earlier in the loop - a mixed-case
-horizon name (e.g. <code>"bc"</code>) will not match the strict-mode
-<code>"BC"</code> pattern.</p>
+default <code>strict_mode = TRUE</code> here differs from an earlier
+version of this function, which defaulted to <code>FALSE</code>, and the
+strict-mode pattern pass and custom-exclusion pass both match against
+the <strong>raw, non-uppercased</strong> <code>hznames</code> vector
+rather than the upper-cased <code>hz</code> used earlier in the loop - a
+mixed-case horizon name (e.g. <code>"bc"</code>) will not match the
+strict-mode <code>"BC"</code> pattern.</p>
 </div>
 <div class="section level4">
 <h4 id="validate_data_qualitydata-required_columns-character0-numeric_columns-character0-quality_thresholds-null">

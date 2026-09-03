@@ -45,6 +45,7 @@ analyze_soil_statistics(
   distribution_fitting = TRUE,
   outlier_detection = TRUE,
   validate_results = TRUE,
+  use_enhanced_chain = FALSE,
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 ```
@@ -61,7 +62,17 @@ compute (`"pearson"`, `"spearman"`, and/or `"kendall"`). -
 `distribution_fitting` — whether to run Step 5 (distribution
 analysis). - `outlier_detection` — whether to run Step 6 (outlier
 analysis). - `validate_results` — whether to run Step 8
-(statistical-results validation). - `verbose` — enables `DEBUG`-level
+(statistical-results validation). - `use_enhanced_chain` — `FALSE`
+(default) runs the lightweight `_safe` chain for steps 4/5/6/8/9,
+preserving today’s output shape exactly. `TRUE` routes those steps
+through the richer enhanced functions instead (parametric `fitdistrplus`
+distribution fits with AIC/BIC/convergence, per-method + multivariate
+outlier detection, stratified + ILR texture correlations). The two
+return **non-interchangeable shapes** — notably
+`distribution_analysis$fitted_distributions[[prop]]` is a flat stats
+list under `_safe` and a family-name-keyed list of fit objects under
+enhanced. Both chains are public API; whether the default flips is a
+later, benchmark-driven decision. - `verbose` — enables `DEBUG`-level
 logging and initializes logging if not already configured.
 
 **Returns**: A list with `correlation_matrices`,
@@ -81,25 +92,34 @@ warning rather than stopping if quality is below `min_quality_score`;
 [`validate_properties_with_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/validate_properties_with_synonyms.md);
 (3) handles missing values via
 [`handle_missing_values()`](https://jjmaynard.github.io/soilSIM/reference/handle_missing_values.md),
-optionally grouped by `genhz`; (4) runs correlation analysis via the
-internal
-[`run_comprehensive_correlation_analysis_safe()`](https://jjmaynard.github.io/soilSIM/reference/run_comprehensive_correlation_analysis_safe.md);
-(5) optionally fits distributions via
-[`analyze_property_distributions_safe()`](https://jjmaynard.github.io/soilSIM/reference/analyze_property_distributions_safe.md)
-(a lightweight version that only computes descriptive summary statistics
-per property, not actual distribution fits); (6) optionally detects
-outliers via
-[`detect_comprehensive_outliers_safe()`](https://jjmaynard.github.io/soilSIM/reference/detect_comprehensive_outliers_safe.md)
-(IQR method only); (7) computes full property statistics via
+optionally grouped by `genhz`; (4) runs correlation analysis; (5)
+optionally fits distributions; (6) optionally detects outliers; (7)
+computes full property statistics via
 [`compute_property_statistics()`](https://jjmaynard.github.io/soilSIM/reference/compute_property_statistics.md);
-(8) optionally validates the accumulated results via
+(8) optionally validates the accumulated results; (9) builds a quality
+report; (10) assembles timing/count metadata. Steps 4/5/6/8/9 dispatch
+on `use_enhanced_chain`: `FALSE` (default) uses the `_safe` variants
+([`run_comprehensive_correlation_analysis_safe()`](https://jjmaynard.github.io/soilSIM/reference/run_comprehensive_correlation_analysis_safe.md)
+— global matrices only;
+[`analyze_property_distributions_safe()`](https://jjmaynard.github.io/soilSIM/reference/analyze_property_distributions_safe.md)
+— descriptive summary statistics per property, not actual fits;
+[`detect_comprehensive_outliers_safe()`](https://jjmaynard.github.io/soilSIM/reference/detect_comprehensive_outliers_safe.md)
+— IQR method only;
 [`validate_statistical_results_safe()`](https://jjmaynard.github.io/soilSIM/reference/validate_statistical_results_safe.md);
-(9) builds a quality report via
-[`generate_statistical_quality_report_safe()`](https://jjmaynard.github.io/soilSIM/reference/generate_statistical_quality_report_safe.md);
-(10) assembles timing/count metadata. Every analytical step is
-individually `tryCatch`-wrapped with
+[`generate_statistical_quality_report_safe()`](https://jjmaynard.github.io/soilSIM/reference/generate_statistical_quality_report_safe.md));
+`TRUE` uses the enhanced variants (documented below). Every analytical
+step is individually `tryCatch`-wrapped with
 `handle_workflow_error(..., "warn")`, so a failure in any one step
 degrades gracefully rather than aborting the whole analysis.
+
+The enhanced-chain config-plumbing bug (its functions read statistical
+parameters flat off `config$X` when
+[`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md)
+nests them under `config$statistical_analysis$X`, so
+`analyze_soil_statistics(data)` with no `analysis_config` hard-errored
+the enhanced chain) was fixed 2026-09-02 via the internal
+`.stat_cfg(config, key, default)` =
+`config$statistical_analysis[[key]] %||% config[[key]] %||% default`.
 
 #### 2. `run_comprehensive_correlation_analysis()` — Enhanced Correlation Analysis
 
@@ -124,13 +144,18 @@ properties are available, via
 and `summary`.
 
 **Behavior**: This is a richer, more feature-complete correlation
-routine than the internal `_safe` version used by
+routine than the `_safe` version
 [`analyze_soil_statistics()`](https://jjmaynard.github.io/soilSIM/reference/analyze_soil_statistics.md)
-(see Internal Connections below) — it additionally computes
-eigen-decomposition diagnostics per matrix and adds horizon-stratified
-and texture-specific correlation blocks. It does not filter to
-complete-case rows the way the `_safe` version does, so it assumes
-`available_properties` are already appropriately cleaned.
+uses by default (it is the one
+`analyze_soil_statistics(use_enhanced_chain = TRUE)` selects) — it
+additionally computes eigen-decomposition diagnostics per matrix and
+adds horizon-stratified and texture-specific correlation blocks. It does
+not filter to complete-case rows the way the `_safe` version does, so it
+assumes `available_properties` are already appropriately cleaned. Config
+reads go through
+[`.stat_cfg()`](https://jjmaynard.github.io/soilSIM/reference/dot-stat_cfg.md)
+(`config$statistical_analysis$X %||% config$X %||% <default>`), so it no
+longer requires a flat config.
 
 #### 3. `compute_stratified_correlations()`
 
@@ -226,11 +251,14 @@ via
 [`validate_correlation_matrices()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrices.md)
 (real check, delegates to `distributions.R`’s
 [`validate_correlation_matrix()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrix.md)),
-plus pass-through stubs `validate_distribution_analysis()` and
-`validate_outlier_analysis()` (both currently always return an empty
-warnings list with no real checks). Aggregates into an overall validity
-flag and a `validation_score` via `calculate_overall_validation_score()`
-(1.0 minus per-error/per-warning penalties). **Returns**
+plus pass-through stubs
+[`validate_distribution_analysis()`](https://jjmaynard.github.io/soilSIM/reference/validate_distribution_analysis.md)
+and
+[`validate_outlier_analysis()`](https://jjmaynard.github.io/soilSIM/reference/validate_outlier_analysis.md)
+(both currently always return an empty warnings list with no real
+checks). Aggregates into an overall validity flag and a
+`validation_score` via `calculate_overall_validation_score()` (1.0 minus
+per-error/per-warning penalties). **Returns**
 `list(overall_valid=, errors=, warnings=, validation_score=, component_validations=)`.
 
 #### 9. `generate_statistical_quality_report()` — Enhanced Quality Reporting
@@ -792,29 +820,27 @@ carries its own `@section Known limitation`): - *Monte Carlo internals*:
 
     statistics.R
     ========================================================================
-    analyze_soil_statistics()                          [MASTER — statistics.R]
+    analyze_soil_statistics(use_enhanced_chain=)         [MASTER — statistics.R]
     ├── validate_data_quality()                         [utils.R]
     ├── identify_numeric_soil_properties()
     ├── filter_valid_numeric_properties()
     ├── validate_properties_with_synonyms()              [utils.R]
     ├── handle_missing_values()                          [utils.R]
-    ├── run_comprehensive_correlation_analysis_safe()
+    ├── run_comprehensive_correlation_analysis[_safe]()  ← _safe if !use_enhanced_chain
     │   └── safe_correlation()                           [utils.R]
-    ├── analyze_property_distributions_safe()            (descriptive only —
-    │                                                       does NOT call fit_property_distributions())
-    ├── detect_comprehensive_outliers_safe()
+    ├── analyze_property_distributions[_safe]()          ← _safe = descriptive only
+    ├── detect_comprehensive_outliers[_safe]()
     │   └── detect_outliers()                            [utils.R]
     ├── compute_property_statistics()
     │   ├── calculate_confidence_intervals()             [utils.R]
     │   ├── calculate_skewness() / calculate_kurtosis()
     │   └── shapiro.test()                               [stats]
-    ├── validate_statistical_results_safe()
-    └── generate_statistical_quality_report_safe()
+    ├── validate_statistical_results[_safe]()
+    └── generate_statistical_quality_report[_safe]()
 
-      NOTE: the "enhanced" exported functions below form a separate,
-      richer call chain that is NOT wired into analyze_soil_statistics() —
-      they are available for direct use but the master pipeline uses the
-      lighter "_safe" internal versions above instead.
+      As of 2026-09-02 the "enhanced" exported functions below ARE reachable
+      from analyze_soil_statistics() via `use_enhanced_chain = TRUE` (default
+      FALSE keeps the lighter "_safe" chain). They remain usable standalone.
 
     run_comprehensive_correlation_analysis()             [exported, standalone]
     ├── safe_correlation()                               [utils.R]
@@ -843,8 +869,10 @@ carries its own `@section Known limitation`): - *Monte Carlo internals*:
 
     validate_statistical_results()                       [exported, standalone]
     ├── validate_correlation_matrices()
-    ├── validate_distribution_analysis()   (stub)
-    ├── validate_outlier_analysis()        (stub)
+    ├── validate_distribution_analysis()   (real as of 2026-09-02: non-zero convergence,
+    │                                        non-finite aic/bic/loglik/param_sd, no-fit)
+    ├── validate_outlier_analysis()        (real as of 2026-09-02: outlier_rate over a
+    │                                        config threshold, non-finite multivariate stats)
     └── calculate_overall_validation_score()
 
     generate_statistical_quality_report()                [exported, standalone]
@@ -941,8 +969,9 @@ carries its own `@section Known limitation`): - *Monte Carlo internals*:
 
 ## Dependencies
 
-**From within soilSIM**: - `R/utils.R` (“Module 0” in legacy terms) —
-the single heaviest dependency for both files:
+**From within soilSIM**: - `R/utils.R` (the
+[Utilities](https://jjmaynard.github.io/soilSIM/articles/architecture-utilities.md)
+module) — the single heaviest dependency for both files:
 [`log_message()`](https://jjmaynard.github.io/soilSIM/reference/log_message.md),
 [`handle_workflow_error()`](https://jjmaynard.github.io/soilSIM/reference/handle_workflow_error.md),
 [`setup_logging()`](https://jjmaynard.github.io/soilSIM/reference/setup_logging.md),

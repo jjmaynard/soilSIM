@@ -51,9 +51,33 @@ fuse_property_adaptive(
 - ...:
 
   Additional arguments passed to
-  [`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md)/
-  `fuse_lognormal_adaptive()` (e.g. `n_samples`, `grid_resolution`,
-  `verbose`).
+  [`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md)/[`fuse_lognormal_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_lognormal_adaptive.md)/
+  [`fuse_metalog_adapter()`](https://jjmaynard.github.io/soilSIM/reference/fuse_metalog_adapter.md)
+  (e.g. `n_samples`, `grid_resolution`, `verbose`, `posterior_probs` -
+  see
+  [FUSE_POSTERIOR_DEFAULT_PROBS](https://jjmaynard.github.io/soilSIM/reference/FUSE_POSTERIOR_DEFAULT_PROBS.md);
+  reaches every route as of P3.5 -
+  [`fuse_metalog_adapter()`](https://jjmaynard.github.io/soilSIM/reference/fuse_metalog_adapter.md)
+  absorbs and ignores the arguments it doesn't use, e.g. `n_samples`).
+  Also how `mukey_raster`/`mukey_draws` (opting into
+  `prior_fusion_method = "raw_draws"`, see
+  [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)'s
+  docs) reach the underlying routes: both the general-KDE and
+  closed-form routes support it for
+  `dist %in% c("normal","beta","gamma")` (P2.6), and it reaches
+  [`fuse_lognormal_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_lognormal_adaptive.md)'s
+  small-AOI general branch AND large-AOI closed-form branch (P2.12) the
+  same way.
+  [`fuse_metalog_adapter()`](https://jjmaynard.github.io/soilSIM/reference/fuse_metalog_adapter.md)
+  also has a raw-draws fit as of P2.12 (empirical per-mukey percentiles
+  feed the same interpolation machinery) - but
+  [`resolve_want_raw_draws()`](https://jjmaynard.github.io/soilSIM/reference/resolve_want_raw_draws.md)'s
+  default still excludes `dist = "metalog"`, mirroring the texture-group
+  route's P2.11 treatment: a fit existing is not the same as its
+  cost/benefit being benchmarked, and that default-flip decision is
+  deliberately kept separate (see
+  `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`). Explicitly passing
+  `mukey_raster`/`mukey_draws` for `dist = "metalog"` still works.
 
 ## Value
 

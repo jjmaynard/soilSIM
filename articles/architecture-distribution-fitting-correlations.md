@@ -1,4 +1,4 @@
-# Distribution Fitting & Correlation Matrices - Function Summary and Connections
+# Distribution Fitting & Correlation Matrices
 
 ## Overview
 
@@ -311,8 +311,8 @@ as appropriate.
 
 **Purpose**: Real replacement for the always-`valid=TRUE`
 [`validate_distribution_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_distribution_parameters.md)
-stub previously in `mod05_monte_carlo.R`. **Signature**:
-`validate_fit_parameters(family, fit)` **Returns**:
+stub in an earlier version of the Monte Carlo simulation code.
+**Signature**: `validate_fit_parameters(family, fit)` **Returns**:
 `list(valid=, message=)`. **Algorithm**: `family`-specific
 structural/numeric checks: `triangular`/`uniform` require finite
 `min <= max` and (if present) `mode` inside `[min, max]`;

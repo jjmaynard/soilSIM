@@ -10,7 +10,9 @@ apply_local_depth_trends(
   local_predictions,
   unique_depths,
   preserve_correlations = TRUE,
-  verbose = getOption("ssurgo.verbose", FALSE)
+  verbose = getOption("ssurgo.verbose", FALSE),
+  config = NULL,
+  gp_models = NULL
 )
 ```
 
@@ -38,6 +40,29 @@ apply_local_depth_trends(
   `INFO`-level progress messages print for the duration of this call
   (default `FALSE` - quiet). See
   [`set_verbose_logging()`](https://jjmaynard.github.io/soilSIM/reference/set_verbose_logging.md).
+
+- config:
+
+  Optional config, passed straight through to
+  [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md) -
+  lets `config$monte_carlo$vertical_correlation_method` (default
+  `"joint_copula"` as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`
+  Phase 13; set to `"gp_quantile_retrofit"` to opt back into the
+  original algorithm) reach this call site. `NULL` (default) resolves to
+  `"joint_copula"`, matching
+  [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)'s
+  own default.
+
+- gp_models:
+
+  Optional named list of fitted local GP models (as
+  [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md)
+  already has in scope via
+  [`fit_local_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_models.md)),
+  passed straight through to
+  [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md)
+  so the joint-copula depth kernel can reuse their fitted length-scales.
+  Ignored under `"gp_quantile_retrofit"`.
 
 ## Value
 

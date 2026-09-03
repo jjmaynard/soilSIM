@@ -42,3 +42,11 @@ read_soil_data(
 ## Value
 
 Loaded soil data
+
+## Usage note
+
+Fully implemented and exported, but not currently called from anywhere
+else in the package outside a `@seealso` doc link (confirmed by source
+grep) - standalone public API for callers who need it, not dead/broken
+code. See also
+[`write_soil_data`](https://jjmaynard.github.io/soilSIM/reference/write_soil_data.md).

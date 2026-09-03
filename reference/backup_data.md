@@ -25,3 +25,11 @@ backup_data(source_path, backup_dir = NULL, max_backups = 5)
 ## Value
 
 Backup file path
+
+## Usage note
+
+Fully implemented and exported, but not currently called from anywhere
+else in the package (confirmed by source grep) - standalone public API
+for callers who need standalone/versioned backups (as opposed to
+[`write_soil_data`](https://jjmaynard.github.io/soilSIM/reference/write_soil_data.md)'s
+single-backup-on-overwrite behavior), not dead/broken code.

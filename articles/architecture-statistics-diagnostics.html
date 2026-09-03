@@ -37,6 +37,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul>
 </li>
 <li class="nav-item dropdown">
@@ -144,6 +145,7 @@ report) over a processed SSURGO data frame.</p>
 <span>  distribution_fitting <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  outlier_detection <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  validate_results <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  use_enhanced_chain <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"ssurgo.verbose"</span>, <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><strong>Parameters</strong>: - <code>processed_data</code> —
@@ -158,9 +160,20 @@ and/or <code>"kendall"</code>). - <code>distribution_fitting</code> —
 whether to run Step 5 (distribution analysis). -
 <code>outlier_detection</code> — whether to run Step 6 (outlier
 analysis). - <code>validate_results</code> — whether to run Step 8
-(statistical-results validation). - <code>verbose</code> — enables
-<code>DEBUG</code>-level logging and initializes logging if not already
-configured.</p>
+(statistical-results validation). - <code>use_enhanced_chain</code> —
+<code>FALSE</code> (default) runs the lightweight <code>_safe</code>
+chain for steps 4/5/6/8/9, preserving today’s output shape exactly.
+<code>TRUE</code> routes those steps through the richer enhanced
+functions instead (parametric <code>fitdistrplus</code> distribution
+fits with AIC/BIC/convergence, per-method + multivariate outlier
+detection, stratified + ILR texture correlations). The two return
+<strong>non-interchangeable shapes</strong> — notably
+<code>distribution_analysis$fitted_distributions[[prop]]</code> is a
+flat stats list under <code>_safe</code> and a family-name-keyed list of
+fit objects under enhanced. Both chains are public API; whether the
+default flips is a later, benchmark-driven decision. -
+<code>verbose</code> — enables <code>DEBUG</code>-level logging and
+initializes logging if not already configured.</p>
 <p><strong>Returns</strong>: A list with
 <code>correlation_matrices</code>, <code>distribution_analysis</code>,
 <code>outlier_analysis</code>, <code>property_statistics</code>,
@@ -177,22 +190,33 @@ soil properties via <code><a href="../reference/identify_numeric_soil_properties
 <code><a href="../reference/filter_valid_numeric_properties.html">filter_valid_numeric_properties()</a></code> (drops all-NA/non-finite
 columns) + <code><a href="../reference/validate_properties_with_synonyms.html">validate_properties_with_synonyms()</a></code>; (3) handles
 missing values via <code><a href="../reference/handle_missing_values.html">handle_missing_values()</a></code>, optionally
-grouped by <code>genhz</code>; (4) runs correlation analysis via the
-internal <code><a href="../reference/run_comprehensive_correlation_analysis_safe.html">run_comprehensive_correlation_analysis_safe()</a></code>; (5)
-optionally fits distributions via
-<code><a href="../reference/analyze_property_distributions_safe.html">analyze_property_distributions_safe()</a></code> (a lightweight
-version that only computes descriptive summary statistics per property,
-not actual distribution fits); (6) optionally detects outliers via
-<code><a href="../reference/detect_comprehensive_outliers_safe.html">detect_comprehensive_outliers_safe()</a></code> (IQR method only); (7)
+grouped by <code>genhz</code>; (4) runs correlation analysis; (5)
+optionally fits distributions; (6) optionally detects outliers; (7)
 computes full property statistics via
 <code><a href="../reference/compute_property_statistics.html">compute_property_statistics()</a></code>; (8) optionally validates the
-accumulated results via
-<code><a href="../reference/validate_statistical_results_safe.html">validate_statistical_results_safe()</a></code>; (9) builds a quality
-report via <code><a href="../reference/generate_statistical_quality_report_safe.html">generate_statistical_quality_report_safe()</a></code>; (10)
-assembles timing/count metadata. Every analytical step is individually
-<code>tryCatch</code>-wrapped with
+accumulated results; (9) builds a quality report; (10) assembles
+timing/count metadata. Steps 4/5/6/8/9 dispatch on
+<code>use_enhanced_chain</code>: <code>FALSE</code> (default) uses the
+<code>_safe</code> variants
+(<code><a href="../reference/run_comprehensive_correlation_analysis_safe.html">run_comprehensive_correlation_analysis_safe()</a></code> — global
+matrices only; <code><a href="../reference/analyze_property_distributions_safe.html">analyze_property_distributions_safe()</a></code> —
+descriptive summary statistics per property, not actual fits;
+<code><a href="../reference/detect_comprehensive_outliers_safe.html">detect_comprehensive_outliers_safe()</a></code> — IQR method only;
+<code><a href="../reference/validate_statistical_results_safe.html">validate_statistical_results_safe()</a></code>;
+<code><a href="../reference/generate_statistical_quality_report_safe.html">generate_statistical_quality_report_safe()</a></code>);
+<code>TRUE</code> uses the enhanced variants (documented below). Every
+analytical step is individually <code>tryCatch</code>-wrapped with
 <code>handle_workflow_error(..., "warn")</code>, so a failure in any one
 step degrades gracefully rather than aborting the whole analysis.</p>
+<p>The enhanced-chain config-plumbing bug (its functions read
+statistical parameters flat off <code>config$X</code> when
+<code><a href="../reference/get_statistical_analysis_defaults.html">get_statistical_analysis_defaults()</a></code> nests them under
+<code>config$statistical_analysis$X</code>, so
+<code>analyze_soil_statistics(data)</code> with no
+<code>analysis_config</code> hard-errored the enhanced chain) was fixed
+2026-09-02 via the internal <code>.stat_cfg(config, key, default)</code>
+=
+<code>config$statistical_analysis[[key]] %||% config[[key]] %||% default</code>.</p>
 </div>
 <div class="section level4">
 <h4 id="run_comprehensive_correlation_analysis-enhanced-correlation-analysis">2. <code>run_comprehensive_correlation_analysis()</code> — Enhanced
@@ -219,13 +243,17 @@ are available, via <code><a href="../reference/analyze_texture_correlations.html
 <code><a href="../reference/validate_correlation_matrices.html">validate_correlation_matrices()</a></code>), and
 <code>summary</code>.</p>
 <p><strong>Behavior</strong>: This is a richer, more feature-complete
-correlation routine than the internal <code>_safe</code> version used by
-<code><a href="../reference/analyze_soil_statistics.html">analyze_soil_statistics()</a></code> (see Internal Connections below)
+correlation routine than the <code>_safe</code> version
+<code><a href="../reference/analyze_soil_statistics.html">analyze_soil_statistics()</a></code> uses by default (it is the one
+<code>analyze_soil_statistics(use_enhanced_chain = TRUE)</code> selects)
 — it additionally computes eigen-decomposition diagnostics per matrix
 and adds horizon-stratified and texture-specific correlation blocks. It
 does not filter to complete-case rows the way the <code>_safe</code>
 version does, so it assumes <code>available_properties</code> are
-already appropriately cleaned.</p>
+already appropriately cleaned. Config reads go through
+<code><a href="../reference/dot-stat_cfg.html">.stat_cfg()</a></code>
+(<code>config$statistical_analysis$X %||% config$X %||% &lt;default&gt;</code>),
+so it no longer requires a flat config.</p>
 </div>
 <div class="section level4">
 <h4 id="compute_stratified_correlations">3. <code>compute_stratified_correlations()</code><a class="anchor" aria-label="anchor" href="#compute_stratified_correlations"></a>
@@ -322,8 +350,8 @@ Validation<a class="anchor" aria-label="anchor" href="#validate_statistical_resu
 <code><a href="../reference/validate_correlation_matrices.html">validate_correlation_matrices()</a></code> (real check, delegates to
 <code>distributions.R</code>’s
 <code><a href="../reference/validate_correlation_matrix.html">validate_correlation_matrix()</a></code>), plus pass-through stubs
-<code>validate_distribution_analysis()</code> and
-<code>validate_outlier_analysis()</code> (both currently always return
+<code><a href="../reference/validate_distribution_analysis.html">validate_distribution_analysis()</a></code> and
+<code><a href="../reference/validate_outlier_analysis.html">validate_outlier_analysis()</a></code> (both currently always return
 an empty warnings list with no real checks). Aggregates into an overall
 validity flag and a <code>validation_score</code> via
 <code>calculate_overall_validation_score()</code> (1.0 minus
@@ -896,29 +924,27 @@ rendering/plotting internals</em> (non-exported):
 </h2>
 <pre><code>statistics.R
 ========================================================================
-analyze_soil_statistics()                          [MASTER — statistics.R]
+analyze_soil_statistics(use_enhanced_chain=)         [MASTER — statistics.R]
 ├── validate_data_quality()                         [utils.R]
 ├── identify_numeric_soil_properties()
 ├── filter_valid_numeric_properties()
 ├── validate_properties_with_synonyms()              [utils.R]
 ├── handle_missing_values()                          [utils.R]
-├── run_comprehensive_correlation_analysis_safe()
+├── run_comprehensive_correlation_analysis[_safe]()  ← _safe if !use_enhanced_chain
 │   └── safe_correlation()                           [utils.R]
-├── analyze_property_distributions_safe()            (descriptive only —
-│                                                       does NOT call fit_property_distributions())
-├── detect_comprehensive_outliers_safe()
+├── analyze_property_distributions[_safe]()          ← _safe = descriptive only
+├── detect_comprehensive_outliers[_safe]()
 │   └── detect_outliers()                            [utils.R]
 ├── compute_property_statistics()
 │   ├── calculate_confidence_intervals()             [utils.R]
 │   ├── calculate_skewness() / calculate_kurtosis()
 │   └── shapiro.test()                               [stats]
-├── validate_statistical_results_safe()
-└── generate_statistical_quality_report_safe()
+├── validate_statistical_results[_safe]()
+└── generate_statistical_quality_report[_safe]()
 
-  NOTE: the "enhanced" exported functions below form a separate,
-  richer call chain that is NOT wired into analyze_soil_statistics() —
-  they are available for direct use but the master pipeline uses the
-  lighter "_safe" internal versions above instead.
+  As of 2026-09-02 the "enhanced" exported functions below ARE reachable
+  from analyze_soil_statistics() via `use_enhanced_chain = TRUE` (default
+  FALSE keeps the lighter "_safe" chain). They remain usable standalone.
 
 run_comprehensive_correlation_analysis()             [exported, standalone]
 ├── safe_correlation()                               [utils.R]
@@ -947,8 +973,10 @@ detect_comprehensive_outliers()                      [exported, standalone]
 
 validate_statistical_results()                       [exported, standalone]
 ├── validate_correlation_matrices()
-├── validate_distribution_analysis()   (stub)
-├── validate_outlier_analysis()        (stub)
+├── validate_distribution_analysis()   (real as of 2026-09-02: non-zero convergence,
+│                                        non-finite aic/bic/loglik/param_sd, no-fit)
+├── validate_outlier_analysis()        (real as of 2026-09-02: outlier_rate over a
+│                                        config threshold, non-finite multivariate stats)
 └── calculate_overall_validation_score()
 
 generate_statistical_quality_report()                [exported, standalone]
@@ -1046,10 +1074,11 @@ generate_validation_report()                          [standalone]
 <div class="section level2">
 <h2 id="dependencies">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies"></a>
 </h2>
-<p><strong>From within soilSIM</strong>: - <code>R/utils.R</code>
-(“Module 0” in legacy terms) — the single heaviest dependency for both
-files: <code><a href="../reference/log_message.html">log_message()</a></code>, <code><a href="../reference/handle_workflow_error.html">handle_workflow_error()</a></code>,
-<code><a href="../reference/setup_logging.html">setup_logging()</a></code>, <code><a href="../reference/get_default_configuration.html">get_default_configuration()</a></code>,
+<p><strong>From within soilSIM</strong>: - <code>R/utils.R</code> (the
+<a href="architecture-utilities.html">Utilities</a> module) — the single
+heaviest dependency for both files: <code><a href="../reference/log_message.html">log_message()</a></code>,
+<code><a href="../reference/handle_workflow_error.html">handle_workflow_error()</a></code>, <code><a href="../reference/setup_logging.html">setup_logging()</a></code>,
+<code><a href="../reference/get_default_configuration.html">get_default_configuration()</a></code>,
 <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>, <code><a href="../reference/validate_parameters.html">validate_parameters()</a></code>,
 <code><a href="../reference/validate_properties.html">validate_properties()</a></code>,
 <code><a href="../reference/validate_properties_with_synonyms.html">validate_properties_with_synonyms()</a></code>,

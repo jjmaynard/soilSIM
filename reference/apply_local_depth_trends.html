@@ -21,6 +21,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -74,7 +75,9 @@
 <span>  <span class="va">local_predictions</span>,</span>
 <span>  <span class="va">unique_depths</span>,</span>
 <span>  preserve_correlations <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"ssurgo.verbose"</span>, <span class="cn">FALSE</span><span class="op">)</span></span>
+<span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"ssurgo.verbose"</span>, <span class="cn">FALSE</span><span class="op">)</span>,</span>
+<span>  config <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  gp_models <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -102,6 +105,21 @@
 <dd><p>Logical; if <code>TRUE</code>, temporarily raises the package's log level so
 <code>INFO</code>-level progress messages print for the duration of this call (default
 <code>FALSE</code> - quiet). See <code><a href="set_verbose_logging.html">set_verbose_logging()</a></code>.</p></dd>
+
+
+<dt id="arg-config">config<a class="anchor" aria-label="anchor" href="#arg-config"></a></dt>
+<dd><p>Optional config, passed straight through to <code><a href="apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code> - lets
+<code>config$monte_carlo$vertical_correlation_method</code> (default <code>"joint_copula"</code> as of
+<code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code> Phase 13; set to <code>"gp_quantile_retrofit"</code> to opt
+back into the original algorithm) reach this call site. <code>NULL</code> (default) resolves to
+<code>"joint_copula"</code>, matching <code><a href="get_monte_carlo_defaults.html">get_monte_carlo_defaults()</a></code>'s own default.</p></dd>
+
+
+<dt id="arg-gp-models">gp_models<a class="anchor" aria-label="anchor" href="#arg-gp-models"></a></dt>
+<dd><p>Optional named list of fitted local GP models (as <code><a href="apply_local_gp_adjustments.html">apply_local_gp_adjustments()</a></code>
+already has in scope via <code><a href="fit_local_gp_models.html">fit_local_gp_models()</a></code>), passed straight through to
+<code><a href="apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code> so the joint-copula depth kernel can reuse their fitted
+length-scales. Ignored under <code>"gp_quantile_retrofit"</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

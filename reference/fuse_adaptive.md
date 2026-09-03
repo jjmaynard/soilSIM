@@ -15,7 +15,10 @@ fuse_adaptive(
   threshold_cells = 80000,
   n_samples = 500,
   grid_resolution = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  mukey_raster = NULL,
+  mukey_draws = NULL,
+  posterior_probs = NULL
 )
 ```
 
@@ -68,13 +71,47 @@ fuse_adaptive(
 
   If TRUE (default), print the chosen route and why.
 
+- mukey_raster, mukey_draws:
+
+  Optional - opts into `prior_fusion_method = "raw_draws"` on whichever
+  route runs
+  ([`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)
+  for the general route - task P2.2/P2.3;
+  [`fuse_closed_form()`](https://jjmaynard.github.io/soilSIM/reference/fuse_closed_form.md)
+  for the closed-form route - task P2.6, added at negligible cost since
+  that route's raw_draws fit is a per-mukey precompute +
+  [`terra::subst()`](https://rspatial.github.io/terra/reference/subst.html)
+  broadcast, not a per-cell computation - see
+  [`mukey_draws_closed_form_fit_raster()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_closed_form_fit_raster.md)'s
+  docs). `NULL` (default) preserves original behavior exactly on both
+  routes.
+
+- posterior_probs:
+
+  Passed through to whichever route runs
+  ([`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)
+  for the general route,
+  [`fuse_closed_form()`](https://jjmaynard.github.io/soilSIM/reference/fuse_closed_form.md)
+  for the closed-form route - see
+  [FUSE_POSTERIOR_DEFAULT_PROBS](https://jjmaynard.github.io/soilSIM/reference/FUSE_POSTERIOR_DEFAULT_PROBS.md)).
+  `NULL` (default) resolves to the same rich default on both routes. The
+  general route computes percentiles from
+  [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+  discretized posterior (exact relative to `grid_resolution`, but tail
+  percentiles are limited by how well the KDE approximates the tails
+  from a finite sample); the closed-form route computes them
+  analytically (`qnorm`/`qbeta`/ `qgamma` at the fused family
+  parameters - exact regardless of how extreme the probability).
+
 ## Value
 
 A list:
 
 - `posterior`: family-native parameter list (`mu`/`sigma` for "normal",
   `alpha`/`beta` for "beta", `shape`/`rate` for "gamma") - always this
-  shape regardless of which route ran.
+  shape regardless of which route ran. Also carries `percentiles`: a
+  named list of `SpatRaster`s (`"P01"`..`"P99"` by default), one per
+  `posterior_probs` entry, on both routes (as of P3.3).
 
 - `route`: one of `"bayesian_update_general"`, `"closed_form_normal"`,
   `"closed_form_beta"`, `"closed_form_gamma"`.

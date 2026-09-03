@@ -9,9 +9,11 @@ call per member - independent fusion measurably breaks sum-to-100. Each
 member's SSURGO/SOLUS percentiles are still fetched/cached per-property
 (so a later request for just one member's raw percentiles still hits
 cache), but the fusion itself runs once for the whole group, under a
-`"texture_group"` cache kind, with each member's resulting posterior
-also seeded into a per-property `"posterior"` cache kind - so three
-sequential
+`"texture_group"` cache kind (`"texture_group_raw_draws"` when
+`prior_fusion_method = "raw_draws"` was requested - see the section
+below for why these must be distinct kinds), with each member's
+resulting posterior also seeded into a per-property
+`"posterior"`/`"posterior_raw_draws"` cache kind - so three sequential
 [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
 calls for clay, then sand, then silt trigger the joint fetch+fusion
 exactly once, not three times.
@@ -71,7 +73,7 @@ run_stage1_fusion_group(
 ## Value
 
 The full group result: a named list keyed by member id, each element
-`list(posterior = list(value=, ilr_mu=, ilr_Sigma=), dist = "texture_ilr", route = "closed_form_ilr_group", route_detail = NULL, n_fallback_cells = 0)`
+`list(posterior = list(value=, ilr_mu=, ilr_Sigma=, percentiles=), dist = "texture_ilr", route = "closed_form_ilr_group", route_detail = NULL, n_fallback_cells = 0)`
 (see
 [`fuse_texture_group()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group.md)'s
 docs - NOT the uniform `(mu,sigma)`/`(alpha,beta)` contract
@@ -80,4 +82,36 @@ SSURGO/SOLUS fetch failed.
 [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)'s
 own dispatch slices this down to the single requested member
 (`group_result[[property_config$id]]`) to keep its own per-property
-return contract consistent regardless of `dist`.
+return contract consistent regardless of `dist`. `percentiles` (added
+`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P3.6) is THIS member's own
+fraction's percentiles (a named list of `SpatRaster`s) - see
+[`fuse_texture_group()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group.md)'s
+`@section Sum-to-100 caveat`: unlike `value`, these do NOT generally sum
+to 100 across the group's three members.
+
+## Higher-fidelity fusion (opt-in)
+
+Set `prior_fusion_method = "raw_draws"` on ANY member's
+`property_configs` entry to fuse the whole group against the real joint
+(clay, sand, silt) Monte Carlo draws instead of independent
+percentile-reconstructed marginals - see
+[`fuse_texture_group()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group.md)'s
+docs and `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4/P2.5.
+Checked across all members (not just one) since the group is always
+fused jointly regardless of which member's config carries the setting.
+Like
+[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)'s
+equivalent section, this forces the shared simulation to run even when
+every member's own `"ssurgo"` percentile cache is already warm (the
+draws that produced those cached percentiles weren't kept - see
+[`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)'s
+docs). Unset on every member (default) preserves the original
+percentile-reconstruction behavior exactly. **Unlike
+[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)'s
+P2.10 default flip, this default is intentionally unchanged** - the
+joint texture-group raw-draws route
+([`fuse_texture_group_batch_core()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_batch.md)'s
+per-cell Cholesky/MC sampler) has no equivalent
+`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` P2.9-style cost benchmark yet,
+so flipping its default too would be an unverified assumption, not a
+data-driven decision.

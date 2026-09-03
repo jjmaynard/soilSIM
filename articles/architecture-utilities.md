@@ -32,9 +32,10 @@ designation information. - `hzname_col` - Column name containing horizon
 designations (default `"hzname"`). If this column is absent, the
 function logs a WARN and returns all-`FALSE` (nothing flagged) rather
 than erroring. - `strict_mode` - Whether to apply additional strict-mode
-criteria (default `TRUE`, note this differs from the legacy `mod00`
-default of `FALSE`). - `custom_exclusions` - Optional additional regex
-patterns (matched against raw `hzname` values) to flag as unsuitable.
+criteria (default `TRUE`; note this differs from an earlier version of
+this function, which defaulted to `FALSE`). - `custom_exclusions` -
+Optional additional regex patterns (matched against raw `hzname` values)
+to flag as unsuitable.
 
 **Returns**: A logical vector, one element per row of `data`, `TRUE`
 where the horizon is considered unsuitable.
@@ -60,12 +61,12 @@ applied last, also case-sensitively against raw `hznames`. Final counts
 and (if \<= 10 distinct) the actual unsuitable horizon-name values are
 logged via
 [`log_message()`](https://jjmaynard.github.io/soilSIM/reference/log_message.md).
-Note the default `strict_mode = TRUE` here differs from the legacy
-`mod00_soil_utils.R` prototype’s default of `FALSE`, and the strict-mode
-pattern pass and custom-exclusion pass both match against the **raw,
-non-uppercased** `hznames` vector rather than the upper-cased `hz` used
-earlier in the loop - a mixed-case horizon name (e.g. `"bc"`) will not
-match the strict-mode `"BC"` pattern.
+Note the default `strict_mode = TRUE` here differs from an earlier
+version of this function, which defaulted to `FALSE`, and the
+strict-mode pattern pass and custom-exclusion pass both match against
+the **raw, non-uppercased** `hznames` vector rather than the upper-cased
+`hz` used earlier in the loop - a mixed-case horizon name (e.g. `"bc"`)
+will not match the strict-mode `"BC"` pattern.
 
 #### `validate_data_quality(data, required_columns = character(0), numeric_columns = character(0), quality_thresholds = NULL)`
 

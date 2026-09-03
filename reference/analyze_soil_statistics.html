@@ -23,6 +23,7 @@ error handling, logging, and statistical computations."></head><body>
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -79,6 +80,7 @@ error handling, logging, and statistical computations.</p>
 <span>  distribution_fitting <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  outlier_detection <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  validate_results <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  use_enhanced_chain <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"ssurgo.verbose"</span>, <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -109,6 +111,20 @@ error handling, logging, and statistical computations.</p>
 
 <dt id="arg-validate-results">validate_results<a class="anchor" aria-label="anchor" href="#arg-validate-results"></a></dt>
 <dd><p>Logical; validate statistical results (default: TRUE)</p></dd>
+
+
+<dt id="arg-use-enhanced-chain">use_enhanced_chain<a class="anchor" aria-label="anchor" href="#arg-use-enhanced-chain"></a></dt>
+<dd><p>Logical (default <code>FALSE</code>). <code>FALSE</code> runs the <code>_safe</code> chain -
+<code><a href="run_comprehensive_correlation_analysis_safe.html">run_comprehensive_correlation_analysis_safe()</a></code> / <code><a href="analyze_property_distributions_safe.html">analyze_property_distributions_safe()</a></code> /
+<code><a href="detect_comprehensive_outliers_safe.html">detect_comprehensive_outliers_safe()</a></code> / <code><a href="validate_statistical_results_safe.html">validate_statistical_results_safe()</a></code> /
+<code><a href="generate_statistical_quality_report_safe.html">generate_statistical_quality_report_safe()</a></code> - preserving today's output shape exactly
+(pinned by an <code><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical()</a></code> regression test). <code>TRUE</code> routes through the richer enhanced
+functions instead (parametric distribution fits with AIC/BIC/convergence, per-method outlier
+detection, multivariate Mahalanobis outliers, stratified + ILR texture correlations). The two
+return <strong>different, non-interchangeable shapes</strong> - notably <code>distribution_analysis$fitted_distributions[[prop]]</code>
+is a flat stats list under <code>_safe</code> and a family-name-keyed list of fit objects under enhanced.
+Both chains stay public API. Whether the default should ever flip is a separate, later,
+benchmark-driven decision (see <code>RASTER_STATISTICS_INTEGRATION_PLAN.md</code> Problem B).</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

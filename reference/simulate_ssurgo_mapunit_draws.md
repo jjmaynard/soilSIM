@@ -19,7 +19,10 @@ simulate_ssurgo_mapunit_draws(
   bottom_depth,
   n_mc = 1000,
   parallel = FALSE,
-  n_cores = NULL
+  n_cores = NULL,
+  config = NULL,
+  mukey_raster = NULL,
+  depth_windows = NULL
 )
 
 SSURGO_SIM_PROPERTY_COLUMNS
@@ -56,11 +59,58 @@ An object of class `character` of length 10.
   GP fitting is independent of every other cokey's. Default
   `parallel = FALSE` matches prior behavior exactly.
 
+- config:
+
+  Optional Monte Carlo config, passed through to
+  [`maybe_adjust_soil_data_depth_trend()`](https://jjmaynard.github.io/soilSIM/reference/maybe_adjust_soil_data_depth_trend.md)
+  -\>
+  [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md)
+  -\>
+  [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md).
+  `config$monte_carlo$vertical_correlation_method` (default
+  `"joint_copula"` as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`
+  Phase 13; set to `"gp_quantile_retrofit"` to opt back into the
+  original algorithm) selects this top-level entry point's
+  vertical-correlation method; `NULL` (default) resolves to
+  `"joint_copula"`, matching
+  [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)'s
+  own default.
+
+- mukey_raster:
+
+  Optional, already-fetched
+  [`terra::SpatRaster`](https://rspatial.github.io/terra/reference/SpatRaster-class.html)
+  of mukey codes for this same `aoi_vect` (e.g. from
+  [`fetch_ssurgo_mukey_raster`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_mukey_raster.md)),
+  passed through to
+  [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
+  so its tabular fetch reuses it instead of issuing a second,
+  independent
+  [`soilDB::mukey.wcs()`](http://ncss-tech.github.io/soilDB/reference/mukey.wcs.md)
+  call - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P1.2/P1.3.
+  Only consulted on a `"ssurgo_tabular"` cache miss. `NULL` (default)
+  preserves original behavior exactly.
+
+- depth_windows:
+
+  Optional list of `c(top, bottom)` numeric pairs. `NULL` (default) -
+  one aggregation over `[top_depth, bottom_depth]`, returning a single
+  data frame exactly as before (bit-identical). When supplied, the
+  (expensive) per-horizon simulation runs once and is then aggregated
+  once per window, returning a **named list** of data frames (names
+  `"top-bottom"`). `top_depth`/`bottom_depth` are ignored in this mode -
+  pass the overall span for them. Built for
+  [`extract_mukey_joint_ensemble()`](https://jjmaynard.github.io/soilSIM/reference/extract_mukey_joint_ensemble.md),
+  which needs the SOLUS depth windows from one simulation.
+
 ## Value
 
-A data frame, one row per `mukey`/`cokey`/`simulation_number` replicate,
-with simulated property columns aggregated over the depth window - or
-`NULL` if the tabular fetch fails. Minor components that
+With `depth_windows = NULL`: a data frame, one row per
+`mukey`/`cokey`/`simulation_number` replicate, with simulated property
+columns aggregated over the depth window - or `NULL` if the tabular
+fetch fails. With `depth_windows` supplied: a named list of such data
+frames, one per window (or `NULL` on fetch failure). Minor components
+that
 [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)'s
 underlying query would otherwise drop entirely (real `comppct`, zero
 `chorizon` rows in SDA) are included transparently here whenever an AOI
@@ -78,3 +128,24 @@ own `cache_dir` parameter (always `NULL` here). A cache entry for a
 given AOI/depth-window combination written before component recovery
 shipped predates it entirely - clear that cache entry (or the whole
 cache directory) to pick up recovered components.
+
+This function's own SIMULATED output (as opposed to the raw tabular
+SSURGO input it's cached from) is deliberately NOT disk-cached - every
+call re-simulates fresh random draws, matching the original contract
+exactly. An earlier version of `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`
+task P2.1 added an unconditional disk cache here so raster-fusion's
+raw-draws opt-in (`R/raster-fusion.R`'s
+[`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md))
+could reuse draws across calls - reverted after review: it silently
+froze repeat output for EVERY caller of this function (including ones
+with nothing to do with raw-draws fusion, e.g. direct
+[`fetch_ssurgo_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_percentiles.md)
+use), which broke this project's own "default unchanged until opted in"
+convention. Raw-draws fusion instead reuses draws purely in-memory
+within one
+[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+call (compute once, use for both the percentile cache and
+[`mukey_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md)) -
+see that function's implementation and
+[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)'s
+pre-existing `shared_draws` pattern, which already did this.

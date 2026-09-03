@@ -21,6 +21,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -69,7 +70,11 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">process_aoi_and_get_mukeys_working</span><span class="op">(</span><span class="va">aoi_wkt</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">process_aoi_and_get_mukeys_working</span><span class="op">(</span></span>
+<span>  <span class="va">aoi_wkt</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  mukey_raster <span class="op">=</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -82,6 +87,14 @@
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>Logical; provide progress messages</p></dd>
+
+
+<dt id="arg-mukey-raster">mukey_raster<a class="anchor" aria-label="anchor" href="#arg-mukey-raster"></a></dt>
+<dd><p>Optional, already-fetched <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code> of mukey codes for this same
+AOI (e.g. from <code><a href="fetch_ssurgo_mukey_raster.html">fetch_ssurgo_mukey_raster</a></code>). When supplied, this function skips
+its own <code><a href="http://ncss-tech.github.io/soilDB/reference/mukey.wcs.html" class="external-link">soilDB::mukey.wcs()</a></code> call entirely and derives <code>mu</code>/<code>mukey_list</code> directly from
+it - see <code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code> task P1.2. <code>NULL</code> (default) preserves the
+original behavior exactly.</p></dd>
 
 </dl></div>
     <div class="section level2">

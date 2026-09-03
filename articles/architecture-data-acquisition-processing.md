@@ -16,8 +16,11 @@ pedotransfer functions such as Saxton-Rawls). The three files covered
 here - `ssurgo-acquisition.R`, `ssurgo-processing.R`, and
 `data-infilling.R` - together turn a WKT polygon and a list of property
 names into a complete, gap-free horizon/component data set with
-`_l`/`_r`/`_h` triplet columns, ready to be handed to the Statistics &
-Diagnostics module and the Monte Carlo simulation core.
+`_l`/`_r`/`_h` triplet columns, ready to be handed to the [Statistics &
+Diagnostics](https://jjmaynard.github.io/soilSIM/articles/architecture-statistics-diagnostics.md)
+module and the [Monte Carlo
+Simulation](https://jjmaynard.github.io/soilSIM/articles/architecture-monte-carlo-simulation.md)
+core.
 
 ## Core Functions
 
@@ -261,7 +264,7 @@ component-level, and combined views plus a quality report.
 process_ssurgo_data(
   raw_data,                    # Raw SSURGO data from download functions.
   processing_options = list(), # Overrides merged over defaults (see below).
-  validate_results = TRUE,     # Logical. Run Module-8 validation on the output.
+  validate_results = TRUE,     # Logical. Run Statistics & Diagnostics validation (validation-diagnostics.R) on the output.
   max_depth = 250,             # Numeric. Maximum depth (cm) retained.
   verbose = getOption("ssurgo.verbose", FALSE)
 )
@@ -898,8 +901,9 @@ spreads if `add_ranges`), annotating `infill_method`.
 
 ## Dependencies
 
-**From elsewhere in soilSIM** (the “Module 8”-equivalent utility layer,
-all in `R/utils.R`):
+**From elsewhere in soilSIM** (the
+[Utilities](https://jjmaynard.github.io/soilSIM/articles/architecture-utilities.md)
+module, all in `R/utils.R`):
 [`log_message()`](https://jjmaynard.github.io/soilSIM/reference/log_message.md),
 [`handle_workflow_error()`](https://jjmaynard.github.io/soilSIM/reference/handle_workflow_error.md)
 *(referenced in this group’s older code comments; not called directly in
@@ -933,11 +937,13 @@ guarded by [`requireNamespace()`](https://rdrr.io/r/base/ns-load.html)).
 
 **Downstream consumers**: The cleaned/infilled horizon+component data
 frames (with complete `_l/_r/_h` triplet columns) produced by this group
-feed the **Statistics & Diagnostics** module (descriptive statistics,
-correlation analysis over the property triplets) and the **Monte Carlo
-simulation core** (percentile-triplet distribution fitting and
-correlated sampling consume the `sim_*`/triplet columns this group
-guarantees are gap-free).
+feed the **[Statistics &
+Diagnostics](https://jjmaynard.github.io/soilSIM/articles/architecture-statistics-diagnostics.md)**
+module (descriptive statistics, correlation analysis over the property
+triplets) and the **[Monte Carlo
+Simulation](https://jjmaynard.github.io/soilSIM/articles/architecture-monte-carlo-simulation.md)**
+core (percentile-triplet distribution fitting and correlated sampling
+consume the `sim_*`/triplet columns this group guarantees are gap-free).
 [`hz_quant_prob_mukey()`](https://jjmaynard.github.io/soilSIM/reference/hz_quant_prob_mukey.md)
 runs in the opposite direction - it consumes *already-simulated* horizon
 data (post Monte Carlo) to produce per-mukey/depth summary statistics,
@@ -947,36 +953,41 @@ acquisition/processing step.
 
 ## Data Flow In/Out
 
-**Inputs required from the caller**: - An **AOI** as a WKT string in
-`EPSG:4326` (geographic WGS84) coordinates, valid per
-[`validate_wkt_geometry()`](https://jjmaynard.github.io/soilSIM/reference/validate_wkt_geometry.md)
-(bounded to `[-180,180] x [-90,90]`, default max area 100 deg^2, max
-1000 vertices / 100 parts). - A **property name list** drawn from (or
-resolvable via synonym to) SSURGO base names: `sandtotal`, `claytotal`,
-`silttotal`, `dbovendry`, `ph1to1h2o`, `cec7`, `om`, `wthirdbar`,
-`wfifteenbar` (default set), plus `rfv` for rock fragments, which is
-handled specially throughout. - Optionally, a `cache_dir` for download
-caching, and a `max_depth` (cm) governing how deep into the profile
-processing/infilling extends (default 250 cm throughout).
+**Inputs required from the caller**:
 
-**Outputs produced**: -
-[`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
-→ raw `ssurgo_data` (one row per horizon per component, `_l/_r/_h`
-columns per requested property, restriction/unsuitable-horizon flags if
-requested) + spatial `mu` + metadata. -
-[`process_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_data.md)
-→ `processed_data` (the infill-ready combined data frame - cleaned,
-standardized column names, essential columns guaranteed, depth-filtered,
-sorted by `cokey`/depth), plus separate `horizon_data`/`component_data`
-views and a quality report. -
-[`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)
-/
-[`process_soil_properties_comprehensive()`](https://jjmaynard.github.io/soilSIM/reference/process_soil_properties_comprehensive.md)
-→ the same data frame shape with **no remaining `NA`s** in suitable,
-in-depth `_r` cells for the processed properties (to the extent
-recoverable), complete `_l`/`_h` ranges satisfying `_l <= _r <= _h`, an
-`unsuitable_horizon` logical flag, and an `infill_method` audit-trail
-string per row documenting which strategy filled each cell.
+- An **AOI** as a WKT string in `EPSG:4326` (geographic WGS84)
+  coordinates, valid per
+  [`validate_wkt_geometry()`](https://jjmaynard.github.io/soilSIM/reference/validate_wkt_geometry.md)
+  (bounded to `[-180,180] x [-90,90]`, default max area 100 deg^2, max
+  1000 vertices / 100 parts).
+- A **property name list** drawn from (or resolvable via synonym to)
+  SSURGO base names: `sandtotal`, `claytotal`, `silttotal`, `dbovendry`,
+  `ph1to1h2o`, `cec7`, `om`, `wthirdbar`, `wfifteenbar` (default set),
+  plus `rfv` for rock fragments, which is handled specially throughout.
+- Optionally, a `cache_dir` for download caching, and a `max_depth` (cm)
+  governing how deep into the profile processing/infilling extends
+  (default 250 cm throughout).
+
+**Outputs produced**:
+
+- [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
+  → raw `ssurgo_data` (one row per horizon per component, `_l/_r/_h`
+  columns per requested property, restriction/unsuitable-horizon flags
+  if requested) + spatial `mu` + metadata.
+- [`process_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_data.md)
+  → `processed_data` (the infill-ready combined data frame - cleaned,
+  standardized column names, essential columns guaranteed,
+  depth-filtered, sorted by `cokey`/depth), plus separate
+  `horizon_data`/`component_data` views and a quality report.
+- [`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)
+  /
+  [`process_soil_properties_comprehensive()`](https://jjmaynard.github.io/soilSIM/reference/process_soil_properties_comprehensive.md)
+  → the same data frame shape with **no remaining `NA`s** in suitable,
+  in-depth `_r` cells for the processed properties (to the extent
+  recoverable), complete `_l`/`_h` ranges satisfying `_l <= _r <= _h`,
+  an `unsuitable_horizon` logical flag, and an `infill_method`
+  audit-trail string per row documenting which strategy filled each
+  cell.
 
 A caller wiring this group into a larger pipeline should expect to
 supply only the WKT + property list, and should treat

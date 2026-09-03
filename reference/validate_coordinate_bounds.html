@@ -21,6 +21,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -91,6 +92,20 @@
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>Bounds validation results</p>
+    </div>
+    <div class="section level2">
+    <h2 id="usage-note">Usage note<a class="anchor" aria-label="anchor" href="#usage-note"></a></h2>
+
+
+<p>Fully implemented and exported, but not currently called from anywhere
+else in the package (confirmed by source grep) - standalone public API,
+not dead/broken code. <code><a href="validate_wkt_geometry.html">validate_wkt_geometry</a></code> (the package's
+live WKT validation entry point) does its own bounds check inline rather
+than delegating here: this function treats an out-of-bounds geometry as
+an error (<code>valid = FALSE</code>), while the live path treats it as a
+warning-only condition - adopting this function's stricter behavior
+there would be a real behavior change for existing callers, not a pure
+cleanup.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -37,6 +37,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul>
 </li>
 <li class="nav-item dropdown">
@@ -115,8 +116,9 @@ here - <code>ssurgo-acquisition.R</code>,
 together turn a WKT polygon and a list of property names into a
 complete, gap-free horizon/component data set with
 <code>_l</code>/<code>_r</code>/<code>_h</code> triplet columns, ready
-to be handed to the Statistics &amp; Diagnostics module and the Monte
-Carlo simulation core.</p>
+to be handed to the <a href="architecture-statistics-diagnostics.html">Statistics &amp;
+Diagnostics</a> module and the <a href="architecture-monte-carlo-simulation.html">Monte Carlo
+Simulation</a> core.</p>
 </div>
 <div class="section level2">
 <h2 id="core-functions">Core Functions<a class="anchor" aria-label="anchor" href="#core-functions"></a>
@@ -380,7 +382,7 @@ component-level, and combined views plus a quality report.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/process_ssurgo_data.html">process_ssurgo_data</a></span><span class="op">(</span></span>
 <span>  <span class="va">raw_data</span>,                    <span class="co"># Raw SSURGO data from download functions.</span></span>
 <span>  processing_options <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>, <span class="co"># Overrides merged over defaults (see below).</span></span>
-<span>  validate_results <span class="op">=</span> <span class="cn">TRUE</span>,     <span class="co"># Logical. Run Module-8 validation on the output.</span></span>
+<span>  validate_results <span class="op">=</span> <span class="cn">TRUE</span>,     <span class="co"># Logical. Run Statistics &amp; Diagnostics validation (validation-diagnostics.R) on the output.</span></span>
 <span>  max_depth <span class="op">=</span> <span class="fl">250</span>,             <span class="co"># Numeric. Maximum depth (cm) retained.</span></span>
 <span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"ssurgo.verbose"</span>, <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -1041,11 +1043,11 @@ process_soil_properties_comprehensive() [data-infilling.R, MULTI-PROPERTY WORKFL
 <div class="section level2">
 <h2 id="dependencies">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies"></a>
 </h2>
-<p><strong>From elsewhere in soilSIM</strong> (the “Module 8”-equivalent
-utility layer, all in <code>R/utils.R</code>):
-<code><a href="../reference/log_message.html">log_message()</a></code>, <code><a href="../reference/handle_workflow_error.html">handle_workflow_error()</a></code>
-<em>(referenced in this group’s older code comments; not called directly
-in the current source)</em>, <code><a href="../reference/validate_parameters.html">validate_parameters()</a></code>,
+<p><strong>From elsewhere in soilSIM</strong> (the <a href="architecture-utilities.html">Utilities</a> module, all in
+<code>R/utils.R</code>): <code><a href="../reference/log_message.html">log_message()</a></code>,
+<code><a href="../reference/handle_workflow_error.html">handle_workflow_error()</a></code> <em>(referenced in this group’s
+older code comments; not called directly in the current source)</em>,
+<code><a href="../reference/validate_parameters.html">validate_parameters()</a></code>,
 <code><a href="../reference/validate_wkt_geometry.html">validate_wkt_geometry()</a></code>,
 <code><a href="../reference/validate_properties_with_synonyms.html">validate_properties_with_synonyms()</a></code>,
 <code><a href="../reference/validate_data_quality.html">validate_data_quality()</a></code>,
@@ -1075,13 +1077,13 @@ classification in <code><a href="../reference/hz_quant_prob_mukey.html">hz_quant
 <code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace()</a></code>).</p>
 <p><strong>Downstream consumers</strong>: The cleaned/infilled
 horizon+component data frames (with complete <code>_l/_r/_h</code>
-triplet columns) produced by this group feed the <strong>Statistics
-&amp; Diagnostics</strong> module (descriptive statistics, correlation
-analysis over the property triplets) and the <strong>Monte Carlo
-simulation core</strong> (percentile-triplet distribution fitting and
-correlated sampling consume the <code>sim_*</code>/triplet columns this
-group guarantees are gap-free). <code><a href="../reference/hz_quant_prob_mukey.html">hz_quant_prob_mukey()</a></code> runs
-in the opposite direction - it consumes <em>already-simulated</em>
+triplet columns) produced by this group feed the <strong><a href="architecture-statistics-diagnostics.html">Statistics &amp;
+Diagnostics</a></strong> module (descriptive statistics, correlation
+analysis over the property triplets) and the <strong><a href="architecture-monte-carlo-simulation.html">Monte Carlo
+Simulation</a></strong> core (percentile-triplet distribution fitting
+and correlated sampling consume the <code>sim_*</code>/triplet columns
+this group guarantees are gap-free). <code><a href="../reference/hz_quant_prob_mukey.html">hz_quant_prob_mukey()</a></code>
+runs in the opposite direction - it consumes <em>already-simulated</em>
 horizon data (post Monte Carlo) to produce per-mukey/depth summary
 statistics, so it is better understood as a reporting utility co-located
 here for historical (ported-file) reasons rather than a pure
@@ -1090,31 +1092,41 @@ acquisition/processing step.</p>
 <div class="section level2">
 <h2 id="data-flow-inout">Data Flow In/Out<a class="anchor" aria-label="anchor" href="#data-flow-inout"></a>
 </h2>
-<p><strong>Inputs required from the caller</strong>: - An
-<strong>AOI</strong> as a WKT string in <code>EPSG:4326</code>
+<p><strong>Inputs required from the caller</strong>:</p>
+<ul>
+<li>An <strong>AOI</strong> as a WKT string in <code>EPSG:4326</code>
 (geographic WGS84) coordinates, valid per
 <code><a href="../reference/validate_wkt_geometry.html">validate_wkt_geometry()</a></code> (bounded to
 <code>[-180,180] x [-90,90]</code>, default max area 100 deg^2, max 1000
-vertices / 100 parts). - A <strong>property name list</strong> drawn
-from (or resolvable via synonym to) SSURGO base names:
-<code>sandtotal</code>, <code>claytotal</code>, <code>silttotal</code>,
-<code>dbovendry</code>, <code>ph1to1h2o</code>, <code>cec7</code>,
-<code>om</code>, <code>wthirdbar</code>, <code>wfifteenbar</code>
-(default set), plus <code>rfv</code> for rock fragments, which is
-handled specially throughout. - Optionally, a <code>cache_dir</code> for
-download caching, and a <code>max_depth</code> (cm) governing how deep
-into the profile processing/infilling extends (default 250 cm
-throughout).</p>
-<p><strong>Outputs produced</strong>: -
-<code><a href="../reference/download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code> → raw <code>ssurgo_data</code>
-(one row per horizon per component, <code>_l/_r/_h</code> columns per
-requested property, restriction/unsuitable-horizon flags if requested) +
-spatial <code>mu</code> + metadata. - <code><a href="../reference/process_ssurgo_data.html">process_ssurgo_data()</a></code>
-→ <code>processed_data</code> (the infill-ready combined data frame -
-cleaned, standardized column names, essential columns guaranteed,
-depth-filtered, sorted by <code>cokey</code>/depth), plus separate
+vertices / 100 parts).</li>
+<li>A <strong>property name list</strong> drawn from (or resolvable via
+synonym to) SSURGO base names: <code>sandtotal</code>,
+<code>claytotal</code>, <code>silttotal</code>, <code>dbovendry</code>,
+<code>ph1to1h2o</code>, <code>cec7</code>, <code>om</code>,
+<code>wthirdbar</code>, <code>wfifteenbar</code> (default set), plus
+<code>rfv</code> for rock fragments, which is handled specially
+throughout.</li>
+<li>Optionally, a <code>cache_dir</code> for download caching, and a
+<code>max_depth</code> (cm) governing how deep into the profile
+processing/infilling extends (default 250 cm throughout).</li>
+</ul>
+<p><strong>Outputs produced</strong>:</p>
+<ul>
+<li>
+<code><a href="../reference/download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code> → raw
+<code>ssurgo_data</code> (one row per horizon per component,
+<code>_l/_r/_h</code> columns per requested property,
+restriction/unsuitable-horizon flags if requested) + spatial
+<code>mu</code> + metadata.</li>
+<li>
+<code><a href="../reference/process_ssurgo_data.html">process_ssurgo_data()</a></code> → <code>processed_data</code>
+(the infill-ready combined data frame - cleaned, standardized column
+names, essential columns guaranteed, depth-filtered, sorted by
+<code>cokey</code>/depth), plus separate
 <code>horizon_data</code>/<code>component_data</code> views and a
-quality report. - <code><a href="../reference/infill_soil_property.html">infill_soil_property()</a></code> /
+quality report.</li>
+<li>
+<code><a href="../reference/infill_soil_property.html">infill_soil_property()</a></code> /
 <code><a href="../reference/process_soil_properties_comprehensive.html">process_soil_properties_comprehensive()</a></code> → the same data
 frame shape with <strong>no remaining <code>NA</code>s</strong> in
 suitable, in-depth <code>_r</code> cells for the processed properties
@@ -1122,7 +1134,8 @@ suitable, in-depth <code>_r</code> cells for the processed properties
 ranges satisfying <code>_l &lt;= _r &lt;= _h</code>, an
 <code>unsuitable_horizon</code> logical flag, and an
 <code>infill_method</code> audit-trail string per row documenting which
-strategy filled each cell.</p>
+strategy filled each cell.</li>
+</ul>
 <p>A caller wiring this group into a larger pipeline should expect to
 supply only the WKT + property list, and should treat
 <code>unsuitable_horizon == TRUE</code> rows as excluded from simulation

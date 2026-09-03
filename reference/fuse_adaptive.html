@@ -23,6 +23,7 @@ route by AOI size rather than requiring the caller to pick."></head><body>
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -81,7 +82,10 @@ route by AOI size rather than requiring the caller to pick.</p>
 <span>  threshold_cells <span class="op">=</span> <span class="fl">80000</span>,</span>
 <span>  n_samples <span class="op">=</span> <span class="fl">500</span>,</span>
 <span>  grid_resolution <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  mukey_raster <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  mukey_draws <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  posterior_probs <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -130,12 +134,33 @@ standalone default of <code>0.01</code>.</p></dd>
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>If TRUE (default), print the chosen route and why.</p></dd>
 
+
+<dt id="arg-mukey-raster-mukey-draws">mukey_raster, mukey_draws<a class="anchor" aria-label="anchor" href="#arg-mukey-raster-mukey-draws"></a></dt>
+<dd><p>Optional - opts into <code>prior_fusion_method = "raw_draws"</code> on
+whichever route runs (<code><a href="fuse_general_kde.html">fuse_general_kde()</a></code> for the general route - task P2.2/P2.3;
+<code><a href="fuse_closed_form.html">fuse_closed_form()</a></code> for the closed-form route - task P2.6, added at negligible cost since
+that route's raw_draws fit is a per-mukey precompute + <code><a href="https://rspatial.github.io/terra/reference/subst.html" class="external-link">terra::subst()</a></code> broadcast, not a
+per-cell computation - see <code><a href="mukey_draws_closed_form_fit_raster.html">mukey_draws_closed_form_fit_raster()</a></code>'s docs). <code>NULL</code> (default)
+preserves original behavior exactly on both routes.</p></dd>
+
+
+<dt id="arg-posterior-probs">posterior_probs<a class="anchor" aria-label="anchor" href="#arg-posterior-probs"></a></dt>
+<dd><p>Passed through to whichever route runs (<code><a href="fuse_general_kde.html">fuse_general_kde()</a></code> for the
+general route, <code><a href="fuse_closed_form.html">fuse_closed_form()</a></code> for the closed-form route - see <a href="FUSE_POSTERIOR_DEFAULT_PROBS.html">FUSE_POSTERIOR_DEFAULT_PROBS</a>).
+<code>NULL</code> (default) resolves to the same rich default on both routes. The general route computes
+percentiles from <code><a href="bayesian_update.html">bayesian_update()</a></code>'s discretized posterior (exact relative to
+<code>grid_resolution</code>, but tail percentiles are limited by how well the KDE approximates the tails
+from a finite sample); the closed-form route computes them analytically (<code>qnorm</code>/<code>qbeta</code>/
+<code>qgamma</code> at the fused family parameters - exact regardless of how extreme the probability).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list:</p><ul><li><p><code>posterior</code>: family-native parameter list (<code>mu</code>/<code>sigma</code> for "normal",
 <code>alpha</code>/<code>beta</code> for "beta", <code>shape</code>/<code>rate</code> for "gamma") - always this
-shape regardless of which route ran.</p></li>
+shape regardless of which route ran. Also carries <code>percentiles</code>: a named list of
+<code>SpatRaster</code>s (<code>"P01"</code>..<code>"P99"</code> by default), one per <code>posterior_probs</code> entry, on both
+routes (as of P3.3).</p></li>
 <li><p><code>route</code>: one of <code>"bayesian_update_general"</code>, <code>"closed_form_normal"</code>,
 <code>"closed_form_beta"</code>, <code>"closed_form_gamma"</code>.</p></li>
 <li><p><code>route_detail</code>: for <code>family %in% c("beta","gamma")</code> on the

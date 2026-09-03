@@ -23,6 +23,7 @@ for validation, error handling, logging, and data quality assessment."></head><b
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -82,6 +83,7 @@ for validation, error handling, logging, and data quality assessment.</p>
 <span>  parallel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  observed_data <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  observed_data_by_mukey <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"ssurgo.verbose"</span>, <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -129,6 +131,15 @@ providing a Bayesian-updating likelihood to fuse against each property's
 SSURGO-derived prior before simulating - see <code><a href="fuse_observed_data_into_priors.html">fuse_observed_data_into_priors()</a></code>
 for the accepted shapes and behavior. <code>NULL</code> (default) skips fusion
 entirely, preserving today's prior-only behavior exactly.</p></dd>
+
+
+<dt id="arg-observed-data-by-mukey">observed_data_by_mukey<a class="anchor" aria-label="anchor" href="#arg-observed-data-by-mukey"></a></dt>
+<dd><p>Optional named list keyed by <code>mukey</code> code,
+each element an <code>observed_data</code>-shaped list, fusing each horizon against
+its own map unit's likelihood instead of one shared value - see
+<code><a href="fuse_observed_data_into_priors.html">fuse_observed_data_into_priors()</a></code>. Requires <code>soil_data</code> to carry a
+<code>mukey</code> column. Mutually exclusive with <code>observed_data</code>. <code>NULL</code>
+(default) preserves current behavior exactly.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

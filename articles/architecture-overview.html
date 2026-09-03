@@ -37,6 +37,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul>
 </li>
 <li class="nav-item dropdown">
@@ -121,15 +122,12 @@ framing.</p>
 <p>This directory’s 10 documents go one level deeper than that package
 doc or the per-function <code>.Rd</code>/roxygen reference: each covers
 a functional group’s full function signatures, internal call graphs,
-cross-file dependencies, data flow, and known limitations - the same
-depth the legacy <code>modules/mod0-8_summary.md</code> docs provided
-for the pre-package prototype, adapted to soilSIM’s current (larger,
-restructured) <code>R/</code> layout.</p>
+cross-file dependencies, data flow, and known limitations.</p>
 </div>
 <div class="section level2">
 <h2 id="core-vs--adapters">Core vs. adapters<a class="anchor" aria-label="anchor" href="#core-vs--adapters"></a>
 </h2>
-<pre><code>                      ┌─────────────────────────────────────────┐
+<pre class="shell"><code>                      ┌─────────────────────────────────────────┐
                       │              GENERIC CORE                │
                       │  (data-source-agnostic; works on any     │
                       │   percentile triplet / prior-likelihood  │

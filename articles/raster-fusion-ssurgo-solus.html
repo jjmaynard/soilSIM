@@ -37,6 +37,7 @@
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul>
 </li>
 <li class="nav-item dropdown">
@@ -148,7 +149,7 @@ distributional shape:</p>
 <span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">route</span></span>
 <span><span class="co">#&gt; [1] "bayesian_update_general"</span></span>
 <span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "mu"    "sigma"</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "mu"          "sigma"       "percentiles"</span></span></code></pre></div>
 <p>The fused posterior for a <code>dist = "normal"</code> property
 routed through bayesian_update_general is a pair of rasters -
 <code>mu</code> (posterior mean) and <code>sigma</code> (posterior
@@ -163,8 +164,8 @@ m resolution:</p>
 <span><span class="co">#&gt; coord. ref. : NAD83 / Conus Albers (EPSG:5070)</span></span>
 <span><span class="co">#&gt; source(s)   : memory</span></span>
 <span><span class="co">#&gt; name        :     lyr.1</span></span>
-<span><span class="co">#&gt; min value   :  3.218861</span></span>
-<span><span class="co">#&gt; max value   : 28.167618</span></span>
+<span><span class="co">#&gt; min value   :   3.23677</span></span>
+<span><span class="co">#&gt; max value   : 42.577457</span></span>
 <span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">mu</span>, main <span class="op">=</span> <span class="st">"Fused posterior mean clay content (%)"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-5-1.png" class="r-plt" alt="" width="576"></p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
@@ -255,6 +256,78 @@ compromise, not a simple average of the two inputs.</p>
 </div>
 </div>
 <div class="section level2">
+<h2 id="step-1b-percentile-output-for-risk-and-uncertainty-analysis">Step 1b: Percentile output for risk and uncertainty analysis<a class="anchor" aria-label="anchor" href="#step-1b-percentile-output-for-risk-and-uncertainty-analysis"></a>
+</h2>
+<p>The <code>mu</code>/<code>sigma</code> pair above is a good point
+estimate, but risk- and cost-assessment workflows often need more than a
+mean and a standard deviation - exceedance probabilities, asymmetric
+credible intervals, or simply “how uncertain is this cell, really?”
+Every fusion route also returns a full set of posterior percentiles
+alongside the point estimate, precisely for this purpose:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">percentiles</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "P1"  "P5"  "P10" "P25" "P50" "P75" "P90" "P95" "P99"</span></span></code></pre></div>
+<p>Nine percentiles by default
+(<code>FUSE_POSTERIOR_DEFAULT_PROBS</code>), covering a 98% interval
+(P01/P99), a 90% interval (P05/P95), and an 80% interval (P10/P90)
+around the median - deliberately richer than the 5-point set
+SSURGO/SOLUS happen to supply as <em>input</em>, since the posterior has
+no such external constraint and tail resolution is exactly what
+risk-style questions need.</p>
+<div class="section level3">
+<h3 id="an-uncertainty-map-the-90-credible-interval-width">An uncertainty map: the 90% credible interval width<a class="anchor" aria-label="anchor" href="#an-uncertainty-map-the-90-credible-interval-width"></a>
+</h3>
+<p>Subtracting the 5th percentile from the 95th gives a per-cell width -
+a map of <em>where</em> the fused estimate is trustworthy versus where
+it’s genuinely uncertain, not just a single AOI-wide number:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">p05</span> <span class="op">&lt;-</span> <span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">percentiles</span><span class="op">$</span><span class="va">P5</span></span>
+<span><span class="va">p95</span> <span class="op">&lt;-</span> <span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">percentiles</span><span class="op">$</span><span class="va">P95</span></span>
+<span><span class="va">credible_width</span> <span class="op">&lt;-</span> <span class="va">p95</span> <span class="op">-</span> <span class="va">p05</span></span>
+<span></span>
+<span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span></span>
+<span>  <span class="va">credible_width</span>,</span>
+<span>  main <span class="op">=</span> <span class="st">"90% credible interval width (P95 - P5) for clay content (%)"</span>,</span>
+<span>  col <span class="op">=</span> <span class="fu">grDevices</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/grDevices/palettes.html" class="external-link">hcl.colors</a></span><span class="op">(</span><span class="fl">50</span>, <span class="st">"inferno"</span>, rev <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-11-1.png" class="r-plt" alt="" width="672"></p>
+<p>This map is not spatially uniform - width narrows where the SOLUS100
+likelihood is more informative relative to the SSURGO prior for that
+cell, and widens where the two sources disagree more or where either is
+individually less certain. A single <code>sigma</code> raster carries
+the same information as a symmetric summary, but the percentile pair
+generalizes to cases where the posterior isn’t symmetric (e.g. the
+closed-form beta/gamma routes, or the general grid-KDE route on a skewed
+input) - <code>sigma</code> alone can’t distinguish “narrow but skewed”
+from “wide but symmetric,” while a P05/P95 pair always describes the
+actual shape.</p>
+</div>
+<div class="section level3">
+<h3 id="a-risk-style-question-where-might-clay-content-be-higher-than-expected">A risk-style question: where might clay content be higher than
+expected?<a class="anchor" aria-label="anchor" href="#a-risk-style-question-where-might-clay-content-be-higher-than-expected"></a>
+</h3>
+<p>A land-use decision that only tolerates a small chance of
+encountering high-clay soil (e.g. for drainage or foundation planning)
+cares less about the <em>mean</em> clay content than about a
+conservative upper bound. The P95 percentile answers “what’s the clay
+content this cell is unlikely (5% chance) to exceed” directly, without
+assuming normality:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">elevated_clay_risk</span> <span class="op">&lt;-</span> <span class="va">p95</span> <span class="op">&gt;</span> <span class="fl">25</span></span>
+<span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span></span>
+<span>  <span class="va">elevated_clay_risk</span>,</span>
+<span>  main <span class="op">=</span> <span class="st">"Cells where P95 clay content exceeds 25% (elevated-clay risk)"</span>,</span>
+<span>  col <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"grey85"</span>, <span class="st">"firebrick"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-12-1.png" class="r-plt" alt="" width="672"></p>
+<p>Cells flagged here could plausibly have clay content above 25% even
+though their <em>mean</em> (<code>mu</code>) may sit comfortably below
+that threshold - exactly the kind of tail information a point estimate
+alone discards, and exactly why the percentile output exists alongside
+it rather than replacing it.</p>
+</div>
+</div>
+<div class="section level2">
 <h2 id="step-2-fuse-a-compositional-group-clay-sand-silt-jointly">Step 2: Fuse a compositional group (clay, sand, silt jointly)<a class="anchor" aria-label="anchor" href="#step-2-fuse-a-compositional-group-clay-sand-silt-jointly"></a>
 </h2>
 <p>Fusing clay/sand/silt independently can break the sum-to-100
@@ -262,7 +335,7 @@ constraint texture fractions must satisfy.
 <code><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code> fuses a whole compositional group
 jointly, in isometric log-ratio (ILR) space, guaranteeing every cell’s
 fused clay + sand + silt sums to 100:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># The real call this vignette's cached data came from:</span></span>
 <span><span class="va">composition_groups</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>texture <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>members <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"clay"</span>, <span class="st">"sand"</span>, <span class="st">"silt"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">property_configs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -273,7 +346,7 @@ fused clay + sand + silt sums to 100:</p>
 <span><span class="va">fusion_texture</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group</a></span><span class="op">(</span></span>
 <span>  <span class="va">aoi</span>, <span class="st">"texture"</span>, <span class="va">composition_groups</span>, <span class="va">property_configs</span>, top_depth <span class="op">=</span> <span class="fl">0</span>, bottom_depth <span class="op">=</span> <span class="fl">5</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fusion_texture</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/wrap_nested_rasters.html">unwrap_nested_rasters</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"fusion_texture_salinas.rds"</span>, package <span class="op">=</span> <span class="st">"soilSIM"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
@@ -281,22 +354,45 @@ fused clay + sand + silt sums to 100:</p>
 <span><span class="co">#&gt; [1] "clay" "sand" "silt"</span></span>
 <span><span class="va">fusion_texture</span><span class="op">$</span><span class="va">clay</span><span class="op">$</span><span class="va">dist</span>   <span class="co"># "texture_ilr" for every member - not the per-property normal/beta/gamma dist</span></span>
 <span><span class="co">#&gt; [1] "texture_ilr"</span></span></code></pre></div>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">means</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">fusion_texture</span>, <span class="kw">function</span><span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/global.html" class="external-link">global</a></span><span class="op">(</span><span class="va">m</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">value</span>, <span class="st">"mean"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="va">means</span></span>
 <span><span class="co">#&gt;     clay     sand     silt </span></span>
-<span><span class="co">#&gt; 13.07337 59.86485 27.06177</span></span>
+<span><span class="co">#&gt; 16.36699 55.60234 28.03068</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">means</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 100</span></span></code></pre></div>
 <p>Mean fused clay/sand/silt percentages sum to 100 across the AOI - the
 joint ILR fusion’s guarantee, verified here on real fused output rather
 than just asserted.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">fusion_texture</span><span class="op">$</span><span class="va">clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">value</span>,</span>
 <span>              <span class="va">fusion_texture</span><span class="op">$</span><span class="va">sand</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">value</span>,</span>
 <span>              <span class="va">fusion_texture</span><span class="op">$</span><span class="va">silt</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">value</span><span class="op">)</span>,</span>
 <span>            main <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Clay"</span>, <span class="st">"Sand"</span>, <span class="st">"Silt"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-13-1.png" class="r-plt" alt="" width="576"></p>
+<p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-16-1.png" class="r-plt" alt="" width="576"></p>
+<p>Each member also carries its own fraction’s posterior percentiles,
+drawn from a dedicated raster-native sampler of the fused
+bivariate-Normal ILR posterior:</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fusion_texture</span><span class="op">$</span><span class="va">clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">percentiles</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "P1"  "P5"  "P10" "P25" "P50" "P75" "P90" "P95" "P99"</span></span></code></pre></div>
+<p><strong>Sum-to-100 caveat</strong>: <code>value</code> (the point
+estimate above) sums to exactly 100 by construction - the whole reason
+this vignette’s joint ILR fusion exists. Per-fraction
+<em>percentiles</em> do <strong>not</strong> share that guarantee, and
+this isn’t a bug:</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">p95_sum</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Reduce</a></span><span class="op">(</span><span class="va">`+`</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">fusion_texture</span>, <span class="kw">function</span><span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="va">m</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">percentiles</span><span class="op">$</span><span class="va">P95</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/global.html" class="external-link">global</a></span><span class="op">(</span><span class="va">p95_sum</span>, fun <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"min"</span>, <span class="st">"max"</span><span class="op">)</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt;            min      max</span></span>
+<span><span class="co">#&gt; lyr.8 111.1252 183.2736</span></span></code></pre></div>
+<p>The P95 percentiles across clay/sand/silt sum well above 100 in this
+AOI - percentiles of correlated marginals don’t add linearly the way
+means do (a cell can simultaneously see a high-tail clay draw and a
+high-tail sand draw from different regions of the same joint
+distribution). Use <code>value</code> when a hard sum-to-100 composition
+is required; use <code>percentiles</code> for per-fraction uncertainty,
+not as a second composition that should also sum to 100.</p>
 </div>
 <div class="section level2">
 <h2 id="under-the-hood-scalar-bayesian-updating">Under the hood: scalar Bayesian updating<a class="anchor" aria-label="anchor" href="#under-the-hood-scalar-bayesian-updating"></a>

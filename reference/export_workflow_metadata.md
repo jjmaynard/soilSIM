@@ -37,3 +37,9 @@ export_workflow_metadata(
 ## Value
 
 Success status
+
+## Usage note
+
+Fully implemented and exported, but not currently called from anywhere
+else in the package (confirmed by source grep) - standalone public API
+for callers who need it, not dead/broken code.

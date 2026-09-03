@@ -25,6 +25,7 @@ requested family) where the naive same-family fusion is infeasible."></head><bod
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -80,7 +81,10 @@ requested family) where the naive same-family fusion is infeasible.</p>
 <span>  <span class="va">lik_value_rasters</span>,</span>
 <span>  <span class="va">percentile_probs</span>,</span>
 <span>  <span class="va">family</span>,</span>
-<span>  <span class="va">bounds</span></span>
+<span>  <span class="va">bounds</span>,</span>
+<span>  posterior_probs <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  mukey_raster <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  mukey_draws <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -103,10 +107,31 @@ requested family) where the naive same-family fusion is infeasible.</p>
 <dt id="arg-bounds">bounds<a class="anchor" aria-label="anchor" href="#arg-bounds"></a></dt>
 <dd><p>Required for <code>family = "beta"</code>.</p></dd>
 
+
+<dt id="arg-posterior-probs">posterior_probs<a class="anchor" aria-label="anchor" href="#arg-posterior-probs"></a></dt>
+<dd><p>Numeric probabilities (0-1) at which to report posterior percentiles.
+<code>NULL</code> (default) resolves to <a href="FUSE_POSTERIOR_DEFAULT_PROBS.html">FUSE_POSTERIOR_DEFAULT_PROBS</a>. Computed analytically
+(<code>qnorm</code>/<code>qbeta</code>/<code>qgamma</code> at the fused family parameters) - exact regardless of how extreme
+the requested probability is, unlike <code><a href="fuse_general_kde.html">fuse_general_kde()</a></code>'s sample/grid-based route.</p></dd>
+
+
+<dt id="arg-mukey-raster-mukey-draws">mukey_raster, mukey_draws<a class="anchor" aria-label="anchor" href="#arg-mukey-raster-mukey-draws"></a></dt>
+<dd><p>Optional - opts into <code>prior_fusion_method = "raw_draws"</code> for
+this (closed-form) route, added <code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code> task P2.6. Fits the
+PRIOR side's family parameters directly from each cell's mukey's real Monte Carlo draws (via
+<code><a href="mukey_draws_closed_form_fit_raster.html">mukey_draws_closed_form_fit_raster()</a></code>) instead of <code><a href="fit_normal_raster.html">fit_normal_raster()</a></code>/
+<code><a href="fit_beta_mle_newton_raster.html">fit_beta_mle_newton_raster()</a></code>/<code><a href="fit_gamma_mom_raster.html">fit_gamma_mom_raster()</a></code>'s percentile-triplet formulas - cells
+whose mukey has no draws entry fall back to the percentile-based fit for that cell only, same
+convention as <code><a href="fuse_general_kde.html">fuse_general_kde()</a></code>'s raw_draws branch. The LIKELIHOOD (SOLUS) side is
+unaffected either way - no raw-draws equivalent exists for it. <code>NULL</code> (default) for either
+parameter preserves the original percentile-only behavior exactly.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p><code>list(posterior=, route_detail=, n_fallback_cells=)</code>.</p>
+    <p><code>list(posterior=, route_detail=, n_fallback_cells=)</code>. <code>posterior</code> carries a new
+<code>percentiles</code> field (named list of <code>SpatRaster</code>s) alongside the existing family-native
+parameters.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -29,6 +29,7 @@ per-cokey guard did."></head><body>
     <li><a class="dropdown-item" href="../articles/profile-depth-simulation.html">Profile, component &amp; depth simulation</a></li>
     <li><a class="dropdown-item" href="../articles/aws-van-genuchten.html">Available water storage via Van Genuchten / ROSETTA</a></li>
     <li><a class="dropdown-item" href="../articles/raster-fusion-ssurgo-solus.html">Multi-source raster fusion: SSURGO x SOLUS100</a></li>
+    <li><a class="dropdown-item" href="../articles/raster-fusion-perpixel-awc.html">Per-pixel fused ensemble &amp; available water capacity</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-function-level-guides" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Function-Level Guides</button>
@@ -86,7 +87,8 @@ per-cokey guard did.</p>
 <span>  <span class="va">properties</span>,</span>
 <span>  min_depths <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  parallel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  n_cores <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  n_cores <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  config <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -117,6 +119,16 @@ to sequential processing if the parallel setup itself errors. See <code><a href=
 <dt id="arg-n-cores">n_cores<a class="anchor" aria-label="anchor" href="#arg-n-cores"></a></dt>
 <dd><p>Number of worker processes to use when <code>parallel = TRUE</code> (default
 <code>max(1, parallel::detectCores() - 1)</code>).</p></dd>
+
+
+<dt id="arg-config">config<a class="anchor" aria-label="anchor" href="#arg-config"></a></dt>
+<dd><p>Optional Monte Carlo config, passed through to
+<code><a href="adjust_one_cokey_depth_trend.html">adjust_one_cokey_depth_trend()</a></code> -&gt; <code><a href="apply_local_gp_adjustments.html">apply_local_gp_adjustments()</a></code> -&gt;
+<code><a href="apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code>. <code>config$monte_carlo$vertical_correlation_method</code> (default
+<code>"joint_copula"</code> as of <code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code> Phase 13; set to
+<code>"gp_quantile_retrofit"</code> to opt back into the original algorithm) selects the
+vertical-correlation method; <code>NULL</code> (default) resolves to <code>"joint_copula"</code>, matching
+<code><a href="get_monte_carlo_defaults.html">get_monte_carlo_defaults()</a></code>'s own default.</p></dd>
 
 </dl></div>
     <div class="section level2">

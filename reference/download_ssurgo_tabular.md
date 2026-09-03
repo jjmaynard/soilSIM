@@ -16,6 +16,7 @@ download_ssurgo_tabular(
   cache_dir = NULL,
   force_download = FALSE,
   validate_data = TRUE,
+  mukey_raster = NULL,
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 ```
@@ -50,6 +51,22 @@ download_ssurgo_tabular(
 - validate_data:
 
   Logical. Perform comprehensive data validation (default: TRUE)
+
+- mukey_raster:
+
+  Optional, already-fetched
+  [`terra::SpatRaster`](https://rspatial.github.io/terra/reference/SpatRaster-class.html)
+  of mukey codes for this same AOI (e.g. from
+  [`fetch_ssurgo_mukey_raster`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_mukey_raster.md)) -
+  passed through to
+  [`process_aoi_and_get_mukeys_working`](https://jjmaynard.github.io/soilSIM/reference/process_aoi_and_get_mukeys_working.md)
+  so it can skip its own independent
+  [`soilDB::mukey.wcs()`](http://ncss-tech.github.io/soilDB/reference/mukey.wcs.md)
+  call. `NULL` (default) preserves this function's original behavior
+  exactly (it fetches its own grid) - see
+  `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P1.2 for why this exists
+  (raster-fusion callers that already fetched a mukey grid for the same
+  AOI can now reuse it instead of triggering a second network call).
 
 - verbose:
 

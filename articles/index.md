@@ -8,8 +8,8 @@
   (Scalar)](https://jjmaynard.github.io/soilSIM/articles/architecture-bayesian-updating.md):
 - [Data Acquisition &
   Processing](https://jjmaynard.github.io/soilSIM/articles/architecture-data-acquisition-processing.md):
-- [Distribution Fitting & Correlation Matrices - Function Summary and
-  Connections](https://jjmaynard.github.io/soilSIM/articles/architecture-distribution-fitting-correlations.md):
+- [Distribution Fitting & Correlation
+  Matrices](https://jjmaynard.github.io/soilSIM/articles/architecture-distribution-fitting-correlations.md):
 - [GP Depth Modeling & Multivariate
   Adjustment](https://jjmaynard.github.io/soilSIM/articles/architecture-gp-modeling-multivariate-adjustment.md):
 - [Monte Carlo
@@ -37,6 +37,8 @@
   Function](https://jjmaynard.github.io/soilSIM/articles/gp-modeling-multivariate-adjustment.md):
 - [Profile, Component & Depth Simulation with a Real Soil
   Component](https://jjmaynard.github.io/soilSIM/articles/profile-depth-simulation.md):
+- [Per-Pixel Fused Ensemble & Available Water
+  Capacity](https://jjmaynard.github.io/soilSIM/articles/raster-fusion-perpixel-awc.md):
 - [Multi-Source Raster Fusion: SSURGO x
   SOLUS100](https://jjmaynard.github.io/soilSIM/articles/raster-fusion-ssurgo-solus.md):
 - [Raster-Native Fitting & Fusion

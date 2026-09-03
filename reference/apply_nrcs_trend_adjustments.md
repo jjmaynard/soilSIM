@@ -12,7 +12,8 @@ apply_nrcs_trend_adjustments(
   model_group,
   properties,
   preserve_correlations = TRUE,
-  verbose = getOption("ssurgo.verbose", FALSE)
+  verbose = getOption("ssurgo.verbose", FALSE),
+  config = NULL
 )
 ```
 
@@ -44,6 +45,19 @@ apply_nrcs_trend_adjustments(
   `INFO`-level progress messages print for the duration of this call
   (default `FALSE` - quiet). See
   [`set_verbose_logging()`](https://jjmaynard.github.io/soilSIM/reference/set_verbose_logging.md).
+
+- config:
+
+  Optional Monte Carlo config, passed through to
+  [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md) -
+  `config$monte_carlo$vertical_correlation_method` (default
+  `"joint_copula"` as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`
+  Phase 13; set to `"gp_quantile_retrofit"` to opt back into the
+  original algorithm) reaches the NRCS/regional GP path the same way it
+  already reaches the local-GP path (Phase 6/11). `NULL` (default)
+  resolves to `"joint_copula"`, matching
+  [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)'s
+  own default.
 
 ## Value
 
