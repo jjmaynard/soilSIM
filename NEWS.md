@@ -1,3 +1,21 @@
+# soilSIM 0.1.0.9000 (development version)
+
+* Multi-property raster fusion. `simulate_cokey_generalized()`, `simulate_ssurgo_mapunit_draws()`,
+  `fetch_ssurgo_percentiles()`, and `extract_mukey_joint_ensemble()` gain a `requested_properties`
+  argument that restricts the SSURGO Monte Carlo simulation to the properties actually needed - the
+  per-cokey depth-trend GP fit is the pipeline's dominant cost and scales with the property count.
+* `run_stage1_fusion()` now simulates **only** its own property (plus the full sand/silt/clay draw
+  for texture members) by default. The prior is statistically equivalent to - not bit-identical to -
+  the previous all-property simulation (the pipeline was already unseeded), and a single-property
+  map can show marginally more `NA` where a map unit's components carry no data for that one
+  property. Restriction is honoured only under the default `vertical_correlation_method =
+  "joint_copula"`; `"gp_quantile_retrofit"` falls back to a full simulation with a warning.
+* New `run_stage1_fusion_multi()`: fuses many properties over an AOI (and multiple depth windows)
+  from a **single** SSURGO simulation, seeding the same per-property disk caches
+  `run_stage1_fusion()` reads. Replaces an N-properties x M-windows loop of `run_stage1_fusion()`
+  calls (each of which re-ran the full simulation); every leaf now shares one draw set, so their
+  `NA` masks are mutually consistent.
+
 # soilSIM 0.1.0
 
 Initial release.

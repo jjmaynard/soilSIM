@@ -321,3 +321,62 @@ test_that("fetch_ssurgo_mukey_raster() calls mukey.wcs() exactly once, never cal
   expect_equal(wcs_calls, 1)
   expect_setequal(unique(terra::values(result2))[, 1], c(101, 202))
 })
+
+# ---------------------------------------------------------------------------
+# requested_properties (MULTI_PROPERTY_FUSION_PLAN.md tasks B0 / B2 / B-pre)
+# ---------------------------------------------------------------------------
+
+test_that("normalize_requested_properties() is total, idempotent, and couples texture", {
+  nz <- normalize_requested_properties
+  expect_null(nz(NULL))
+  expect_identical(nz("ph"), "ph")
+  expect_identical(nz(c("bulk_density", "dbovendry", "db")), "db")          # aliases collapse
+  expect_identical(nz("sandtotal"), c("ilr1", "ilr2"))                      # texture -> both axes
+  expect_identical(nz("clay_total"), c("ilr1", "ilr2"))
+  expect_identical(nz(c("ilr1", "ilr2")), c("ilr1", "ilr2"))               # sentinel accepted
+  expect_identical(nz(c("soc", "db")), c("db", "soc"))                      # canonical param order
+  expect_identical(nz(nz(c("clay", "ph", "soc"))), nz(c("clay", "ph", "soc")))  # idempotent
+  expect_error(nz("not_a_property"), "no simulated column mapping")
+})
+
+test_that("simulate_ssurgo_mapunit_draws() ignores requested_properties (with a warning) under gp_quantile_retrofit", {
+  # The guard runs before any fetch; mock the tabular fetch away so the call returns quickly.
+  testthat::local_mocked_bindings(
+    cache_get = function(...) NULL,
+    download_ssurgo_tabular = function(...) NULL,
+    .package = "soilSIM"
+  )
+  aoi <- terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070")
+  retrofit <- list(monte_carlo = list(vertical_correlation_method = "gp_quantile_retrofit"))
+
+  expect_warning(
+    res <- simulate_ssurgo_mapunit_draws(aoi, 0, 5, requested_properties = "ph", config = retrofit),
+    "gp_quantile_retrofit"
+  )
+  expect_null(res)  # download mocked to NULL
+
+  # joint_copula (the default) does NOT warn.
+  expect_no_warning(
+    simulate_ssurgo_mapunit_draws(aoi, 0, 5, requested_properties = "ph")
+  )
+})
+
+test_that("maybe_adjust_soil_data_depth_trend() handles a single property (joint_copula, k = 1)", {
+  testthat::skip_if_not_installed("GPfit")
+  set.seed(101)
+  depths <- c(0, 20, 50, 100)
+  n_sims <- 30
+  sim_long <- data.frame(
+    cokey = "1",
+    hzdept_r = rep(depths, each = n_sims), hzdepb_r = rep(depths + 20, each = n_sims),
+    simulation_number = rep(seq_len(n_sims), times = length(depths)),
+    clay_total = 25 + 0.05 * rep(depths, each = n_sims) + stats::rnorm(n_sims * length(depths), sd = 2)
+  )
+
+  set.seed(102)
+  res <- maybe_adjust_soil_data_depth_trend(sim_long, "clay_total", min_depths = 2)
+  expect_equal(nrow(res), nrow(sim_long))
+  expect_false(anyNA(res$clay_total))
+  # the k < 2 branch of preserve_correlation_structure_joint() still applies a depth trend
+  expect_false(isTRUE(all.equal(res$clay_total, sim_long$clay_total)))
+})

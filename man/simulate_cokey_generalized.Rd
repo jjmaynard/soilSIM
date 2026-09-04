@@ -7,7 +7,8 @@
 simulate_cokey_generalized(
   sim_cokey,
   correlation_matrices,
-  txt_correlation_matrices = NULL
+  txt_correlation_matrices = NULL,
+  requested_properties = NULL
 )
 }
 \arguments{
@@ -20,6 +21,15 @@ names matching (a subset of) \code{c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "r
 
 \item{txt_correlation_matrices}{A list of texture correlation matrices keyed by \code{genhz}
 (sand/silt/clay order, matching the \code{simulate_correlated_triangular()} call for texture).}
+
+\item{requested_properties}{\code{NULL} (default) simulates every property with a complete \verb{_l/_r/_h}
+triplet, unchanged. Otherwise a character vector of property identifiers - in any vocabulary
+\code{normalize_requested_properties()} accepts (caller ids, SSURGO stems, output column names, or
+the internal \code{param_order} names) - restricting the simulation to just those (plus the texture
+coupling: any texture member pulls in the full sand/silt/clay draw and both ILR axes). The
+Gaussian-copula marginals of a restricted simulation match the corresponding columns of a full
+one under the default \code{joint_copula} vertical-correlation method (modulo RNG-stream Monte Carlo
+noise); see \code{simulate_ssurgo_mapunit_draws()} for the \code{gp_quantile_retrofit} caveat.}
 }
 \value{
 A data frame of simulated property values across all rows/realizations, with

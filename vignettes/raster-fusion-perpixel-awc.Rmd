@@ -91,24 +91,31 @@ vapply(ens$window_names,
        numeric(1))
 ```
 
-## Step 2: fuse each Saxton-Rawls input against SOLUS
+## Step 2: fuse every Saxton-Rawls input against SOLUS in one pass
 
-`run_stage1_fusion()` produces a per-cell SSURGO x SOLUS posterior for one property and one depth
-window. We need one for each Saxton-Rawls input. `dist = "auto"` lets the fusion core pick the
-distribution family per property.
+`run_stage1_fusion_multi()` produces a per-cell SSURGO x SOLUS posterior for **many** properties
+across **many** depth windows, running the (expensive) SSURGO Monte Carlo simulation just once and
+reusing that one draw set for every property/window. Calling the single-property
+`run_stage1_fusion()` in a loop instead would re-run the full simulation for each of the
+`5 inputs x 3 windows = 15` combinations, each discarding all but one of the ~9 jointly simulated
+properties. `dist = "auto"` lets the fusion core pick the distribution family per property.
+
+Because every leaf comes from the *same* simulation, the sand/silt/clay posteriors share an exact
+`NA` mask (they are one joint texture draw), and each property's coverage is a stable, reproducible
+consequence of that one run rather than of five independent ones. Texture and bulk density can
+still differ: a map unit whose components have complete bulk-density data but no texture triplet
+contributes `db` but drops out of the texture columns entirely.
 
 ```{r, eval = FALSE}
-# The real calls this vignette's cached data came from (one per property x window):
+# The real call this vignette's cached data came from - one simulation for all 5 x 3 leaves:
 cfg <- function(id, solus_var) list(id = id, solus_variable = solus_var, dist = "auto")
 sr_inputs <- c(sand_total = "sandtotal", silt_total = "silttotal", clay_total = "claytotal",
                db = "dbovendry", soc = "soc")
-post <- lapply(names(sr_inputs), function(nm) {
-  setNames(lapply(windows, function(w) {
-    r <- run_stage1_fusion(aoi, cfg(nm, sr_inputs[[nm]]), w[1], w[2])
-    list(percentiles = r$posterior$percentiles)
-  }), vapply(windows, function(w) paste0(w[1], "-", w[2]), ""))
-})
-names(post) <- names(sr_inputs)
+property_configs <- setNames(
+  lapply(names(sr_inputs), function(nm) cfg(nm, sr_inputs[[nm]])),
+  names(sr_inputs)
+)
+post <- run_stage1_fusion_multi(aoi, property_configs, windows, simplify = TRUE)
 ```
 
 ```{r}
@@ -252,7 +259,7 @@ right default for it - `zonal_distribution_from_posterior()` is kept internal.
 The cached objects this vignette loads (`inst/extdata/perpixel_ensemble_salinas.rds`,
 `inst/extdata/perpixel_posteriors_salinas.rds`) were produced once by
 `data-raw/build_vignette_data.R`, which runs `extract_mukey_joint_ensemble()` and
-`run_stage1_fusion()` live against NRCS Soil Data Access and SOLUS100 for the AOI above, trims each
-map unit's ensemble to 250 realizations, wraps the rasters via `terra::wrap()` /
+`run_stage1_fusion_multi()` live against NRCS Soil Data Access and SOLUS100 for the AOI above, trims
+each map unit's ensemble to 250 realizations, wraps the rasters via `terra::wrap()` /
 `wrap_nested_rasters()`, and saves. The re-marginalization and AWC steps shown above run live in
 this vignette - they are deterministic and need no network access.

@@ -524,6 +524,46 @@ compare_perpixel_vs_zonal <- function(prop_id = "clay_total", solus_var = "clayt
 }
 
 # ---------------------------------------------------------------------------
+# A.7 - run_stage1_fusion_multi() vs a run_stage1_fusion() loop (MULTI_PROPERTY_FUSION_PLAN.md D7).
+#   The whole point of run_stage1_fusion_multi() is to run the (dominant-cost) SSURGO Monte Carlo
+#   simulation ONCE for N properties x M windows instead of N*M times. This measures that.
+#   Live: SDA + SOLUS. Clears the soilSIM disk cache between arms so both actually simulate.
+# ---------------------------------------------------------------------------
+benchmark_multi_property_fusion <- function() {
+  cat("== [A.7] run_stage1_fusion_multi() vs a run_stage1_fusion() loop ==\n")
+  aoi <- small_aoi()
+  windows <- .awc_windows
+  configs <- stats::setNames(
+    lapply(names(.awc_cfgs), function(nm) list(id = nm, solus_variable = .awc_cfgs[[nm]], dist = "auto")),
+    names(.awc_cfgs)
+  )
+  cache_dir <- tools::R_user_dir("soilSIM", "cache")
+  clear_cache <- function() if (dir.exists(cache_dir)) unlink(cache_dir, recursive = TRUE)
+
+  clear_cache()
+  t_loop <- system.time(post_loop <- .perpixel_posteriors(aoi, windows, .awc_cfgs))
+  cat(sprintf("run_stage1_fusion() loop (%d props x %d windows):\n", length(.awc_cfgs), length(windows)))
+  print(t_loop)
+  if (!all(names(.awc_cfgs) %in% names(post_loop))) {
+    cat("SOLUS fusion unavailable - skipping.\n\n"); return(invisible(NULL))
+  }
+
+  clear_cache()
+  t_multi <- system.time(post_multi <- run_stage1_fusion_multi(aoi, configs, windows, simplify = TRUE))
+  cat("run_stage1_fusion_multi() (one call):\n"); print(t_multi)
+
+  ratio <- unname(t_multi[["elapsed"]] / max(t_loop[["elapsed"]], 1e-6))
+  cat(sprintf("multi / loop elapsed ratio: %.2fx  (lower is better; ~1/N is the ideal)\n", ratio))
+
+  # sanity: same leaves present, P50 rasters broadly agree (fresh draws each arm, so ~, not ==)
+  ok_leaves <- all(vapply(names(configs), function(nm)
+    !is.null(post_multi[[nm]]) && all(names(post_loop[[nm]]) %in% names(post_multi[[nm]])),
+    logical(1)))
+  cat("all leaves present in the multi result:", ok_leaves, "\n\n")
+  invisible(list(loop = t_loop, multi = t_multi, ratio = ratio))
+}
+
+# ---------------------------------------------------------------------------
 # B.5 - analyze_soil_statistics() `_safe` chain vs the (now fixed) enhanced chain, on the same
 #   cached Amador SSURGO data as benchmark #3. `fitdistrplus::fitdist()` parametric fitting cost
 #   in the enhanced chain is undocumented and this measures it.
@@ -564,6 +604,7 @@ if (identical(environment(), globalenv())) {
   benchmark_fuse_texture_group_batch_raw_draws()
   benchmark_perpixel_remarginalization()
   compare_perpixel_vs_zonal()
+  benchmark_multi_property_fusion()
   benchmark_statistics_chains()
   cat("All benchmarks done.\n")
 }

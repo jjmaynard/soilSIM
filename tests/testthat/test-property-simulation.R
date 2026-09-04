@@ -337,3 +337,73 @@ test_that("simulate_cokey_generalized() skips a row with no recognized propertie
   expect_message(result <- simulate_cokey_generalized(sim_cokey, corr), "No recognized properties")
   expect_null(result)
 })
+
+# ---------------------------------------------------------------------------
+# requested_properties (MULTI_PROPERTY_FUSION_PLAN.md task B1)
+# ---------------------------------------------------------------------------
+
+test_that("simulate_cokey_generalized(requested_properties = NULL) is bit-identical to the unset call", {
+  cm  <- make_property_correlation_matrices()
+  tcm <- make_texture_correlation_matrices()
+  sc  <- make_sim_cokey_data(texture = TRUE, sim_comppct = 15)
+
+  set.seed(1); a <- simulate_cokey_generalized(sc, cm, tcm)
+  set.seed(1); b <- simulate_cokey_generalized(sc, cm, tcm, requested_properties = NULL)
+  expect_identical(a, b)
+})
+
+test_that("simulate_cokey_generalized() restricts output to the requested properties (+ texture coupling)", {
+  cm  <- make_property_correlation_matrices()
+  tcm <- make_texture_correlation_matrices()
+  sc  <- make_sim_cokey_data(texture = TRUE, sim_comppct = 15)
+
+  set.seed(1); only_ph <- simulate_cokey_generalized(sc, cm, tcm, requested_properties = "ph")
+  expect_true("ph" %in% names(only_ph))
+  expect_false(any(c("db", "sand_total", "silt_total", "clay_total") %in% names(only_ph)))
+
+  # Any texture member pulls in the whole sand/silt/clay draw, nothing else.
+  set.seed(1); only_clay <- simulate_cokey_generalized(sc, cm, tcm, requested_properties = "clay")
+  expect_true(all(c("sand_total", "silt_total", "clay_total") %in% names(only_clay)))
+  expect_false(any(c("db", "ph") %in% names(only_clay)))
+
+  # Exactly one non-texture column alongside texture - regression for the missing `drop = FALSE`
+  # on the post-ILR-inverse column drop.
+  set.seed(1); clay_ph <- simulate_cokey_generalized(sc, cm, tcm, requested_properties = c("clay", "ph"))
+  expect_true(all(c("sand_total", "silt_total", "clay_total", "ph") %in% names(clay_ph)))
+  expect_false("db" %in% names(clay_ph))
+})
+
+test_that("simulate_cokey_generalized() subset marginals match the full simulation distributionally", {
+  cm  <- make_property_correlation_matrices()
+  tcm <- make_texture_correlation_matrices()
+  sc  <- make_sim_cokey_data(texture = TRUE, sim_comppct = 400)
+
+  set.seed(7); full <- simulate_cokey_generalized(sc, cm, tcm)$ph
+  set.seed(7); sub  <- simulate_cokey_generalized(sc, cm, tcm, requested_properties = "ph")$ph
+
+  # RNG streams differ (fewer columns drawn), so not identical - but the Gaussian-copula marginal
+  # of a subset equals the marginal of the full draw, so the distributions must agree.
+  expect_gt(suppressWarnings(stats::ks.test(full, sub)$p.value), 0.01)
+  expect_equal(mean(full), mean(sub), tolerance = 0.1)
+})
+
+test_that("simulate_cokey_generalized(): a cokey with no data for the ONLY requested property drops out (MULTI_PROPERTY_FUSION_PLAN.md B8)", {
+  cm  <- make_property_correlation_matrices()
+  tcm <- make_texture_correlation_matrices()
+  sc  <- make_sim_cokey_data(texture = TRUE, sim_comppct = 15)
+  sc$claytotal_l <- sc$claytotal_r <- sc$claytotal_h <- NA_real_
+
+  # Full simulation: the row still contributes db/ph (texture just absent).
+  set.seed(1)
+  full <- suppressMessages(simulate_cokey_generalized(sc, cm, tcm))
+  expect_true(!is.null(full) && all(c("db", "ph") %in% names(full)))
+
+  # requested_properties = "clay": the only kept parameter is texture, its triplet is NA, so the
+  # row has nothing to simulate -> skipped -> NULL. This is the extra-NA behavior change.
+  set.seed(1)
+  expect_message(
+    only_clay <- simulate_cokey_generalized(sc, cm, tcm, requested_properties = "clay"),
+    "No recognized properties"
+  )
+  expect_null(only_clay)
+})

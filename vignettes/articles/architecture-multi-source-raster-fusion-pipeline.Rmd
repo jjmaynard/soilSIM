@@ -424,6 +424,17 @@ via `fetch_solus_percentiles()` under kind `"solus"`. Because the SSURGO prior (
 route requires cell-aligned rasters. Finally calls `fuse_property_adaptive()` with the aligned
 prior and the SOLUS likelihood, and returns both raw sides plus the fused posterior.
 
+The SSURGO simulation is restricted to *just this call's own property* (plus the full
+sand/silt/clay draw for a texture member) via `simulate_ssurgo_mapunit_draws()`'s
+`requested_properties` argument — the per-cokey depth-trend GP fit is the pipeline's dominant cost
+and scales with the property count. Two consequences: the prior is *statistically equivalent* to,
+not bit-identical to, a full-property simulation's matching column (the pipeline is unseeded — a
+fresh draw either way), and a map unit whose components carry no data for *this one* property no
+longer benefits from those components' other properties being present, so a single-property prior
+can be `NA` for a few cells a full-property run would have covered. The restriction is honoured
+only under the default `vertical_correlation_method = "joint_copula"`; `run_stage1_fusion()` never
+forwards a `config`, so it always gets that method.
+
 #### 16. `run_stage1_fusion_group()` — top-level AOI orchestrator (compositional)
 **Purpose**: Run the same fetch → align → fuse pipeline as `run_stage1_fusion()`, but for a whole
 compositional group (currently only `"texture"`: clay/sand/silt) jointly, since independent fusion
@@ -454,7 +465,44 @@ own SOLUS grid, and — only if every member's fetch succeeded — calls `fuse_t
 the whole group. The joint result is cached under the group key, and each member's own posterior is
 *also* seeded into a per-property `"posterior"` cache kind, so three sequential
 `run_stage1_fusion()` calls for clay, then sand, then silt trigger the joint fetch+fusion exactly
-once, not three times.
+once, not three times. The shared simulation is itself restricted to the group's members (which for
+`"texture"` normalizes to "just the sand/silt/clay draw"), skipping the other properties' GP fits.
+
+#### 16b. `run_stage1_fusion_multi()` — many properties, one simulation
+
+**Purpose**: Fuse many properties (and many depth windows) over an AOI from a **single** SSURGO
+Monte Carlo simulation, instead of one `run_stage1_fusion()` call per property/window — each of
+which re-runs the full (dominant-cost) simulation only to keep one of its ~9 jointly-simulated
+columns.
+
+**Parameters**:
+```r
+run_stage1_fusion_multi(aoi_vect, property_configs, depth_windows,
+                         composition_groups = NULL, n_mc = 1000,
+                         parallel = FALSE, n_cores = NULL,
+                         verbose = FALSE, simplify = FALSE)
+# property_configs  - a NAMED list, keyed by each config's own id, of the same property_config
+#                     lists run_stage1_fusion() takes; a config carrying composition_group is fused
+#                     jointly per run_stage1_fusion_group(), and every member of a referenced group
+#                     must have its own entry
+# depth_windows     - a non-empty list of c(top, bottom) numeric pairs
+# simplify          - TRUE reduces each leaf to list(percentiles = <named SpatRasters>)
+```
+**Returns**: a nested named list `result[[config_id]][["<top>-<bottom>"]]`, each leaf a
+`run_stage1_fusion()`-shaped list (or the `texture_ilr` shape for group members), `NULL` on that
+leaf's own failure; the whole call returns `NULL` only if the shared simulation itself fails.
+
+**Behavior**: Validates the configs, partitions them into standalone vs compositional-group, then
+runs `simulate_ssurgo_mapunit_draws(span, depth_windows =, requested_properties = <union of every
+config's property>)` **once** (skipping it entirely when every needed `"ssurgo"` cache is already
+warm and no config uses raw-draws fusion). SOLUS is fetched once per `(variable, window)` and
+memoized. Per window then per property it calls the same fusion tail `run_stage1_fusion()` uses
+(`stage1_fuse_from_prior_solus()`), and for texture groups the same one `run_stage1_fusion_group()`
+uses (`stage1_fuse_texture_group_from_fetched()`), **seeding the same per-property
+`"ssurgo"`/`"solus"`/`"posterior"` disk caches** — so a later single-property `run_stage1_fusion()`
+for the same AOI/property/window is a cache hit. Every leaf therefore shares one draw set, so
+(unlike independent `run_stage1_fusion()` calls) the properties' `NA` masks are mutually
+consistent. The per-window draws are released as each window finishes.
 
 #### 17. `build_cache_key()` / `CACHE_TTL_SECONDS`
 **Purpose**: Build a deterministic, filename-safe cache key for one AOI/property/depth-window/kind
@@ -609,14 +657,25 @@ that `fetch_ssurgo_percentiles()` summarizes into percentile rasters.
 
 **Parameters**:
 ```r
-simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc = 1000)
+simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
+                              ..., depth_windows = NULL, requested_properties = NULL)
 # aoi_vect                 - a terra::SpatVector AOI
 # top_depth, bottom_depth  - numeric depth window bounds in cm
 # n_mc                     - number of triangular draws sim_component_comp() uses per
 #                            component (default 1000)
+# depth_windows            - optional list of c(top, bottom) pairs; simulate once, aggregate per
+#                            window, return a named list of data frames (top_depth/bottom_depth
+#                            then just give the overall span)
+# requested_properties     - NULL simulates every property (unchanged); otherwise a vector (any
+#                            vocabulary normalize_requested_properties() accepts) restricting the
+#                            simulation - the per-cokey depth-trend GP fit then runs once per kept
+#                            property. Ignored (with a warning) under
+#                            vertical_correlation_method = "gp_quantile_retrofit", which is not
+#                            subset-invariant
 ```
 **Returns**: A data frame, one row per `mukey`/`cokey`/`simulation_number` replicate, with simulated
-property columns aggregated over the depth window — or `NULL` if the tabular fetch fails.
+property columns aggregated over the depth window — or a named list of such data frames when
+`depth_windows` is supplied — or `NULL` if the tabular fetch fails.
 
 **Behavior**: Reprojects `aoi_vect` to EPSG:4326 first (`download_ssurgo_tabular()`'s
 `aoi_wkt` argument is hardcoded to assume lon/lat, regardless of `aoi_vect`'s actual CRS — extracting
@@ -629,10 +688,11 @@ via `classify_genhz()`; simulates component composition via `sim_component_comp(
 `sim_comppct` back onto the horizon data by `cokey`; loads the KSSL reference correlation matrices
 via `.kssl_property_matrices()`/`.kssl_texture_matrices()` (already built into `R/sysdata.rda`, not
 re-read from raw files at runtime); per unique `cokey`, calls `simulate_cokey_generalized()`
-(wrapped in `tryCatch`, skipping and messaging on a per-cokey failure) and row-binds all results;
-applies `maybe_adjust_soil_data_depth_trend()` to the property columns in
-`SSURGO_SIM_PROPERTY_COLUMNS`; and finally aggregates to the requested depth window via
-`aggregate_depth_window_by_replicate()`.
+(wrapped in `tryCatch`, skipping and messaging on a per-cokey failure — passing
+`requested_properties` through so each `simulate_cokey_generalized()` call only draws the kept
+subset) and row-binds all results; applies `maybe_adjust_soil_data_depth_trend()` to whichever of
+`SSURGO_SIM_PROPERTY_COLUMNS` actually came back (so a restricted simulation fits fewer GP models);
+and finally aggregates to the requested depth window(s) via `aggregate_depth_window_by_replicate()`.
 
 #### 25. `SSURGO_SIM_PROPERTY_COLUMNS`
 **Purpose**: The fixed set of simulated property column names this pipeline aggregates/adjusts.
@@ -670,20 +730,25 @@ rasters in the `list(values=, probs=)` shape the fusion core expects.
 **Parameters**:
 ```r
 fetch_ssurgo_percentiles(aoi_vect, property_id, top_depth, bottom_depth,
-                          probs = c(0.05, 0.25, 0.5, 0.75, 0.95), n_mc = 1000)
+                          probs = c(0.05, 0.25, 0.5, 0.75, 0.95), n_mc = 1000,
+                          ..., requested_properties = NULL)
 # aoi_vect                 - a terra::SpatVector AOI
 # property_id              - one of property_to_sim_column()'s recognized ids
 # top_depth, bottom_depth  - numeric depth window bounds in cm
 # probs                    - percentile probabilities to compute
 # n_mc                     - number of triangular draws per component (default 1000)
+# requested_properties     - NULL means "just property_id" (this function only reads one column
+#                            back out), so a bare call simulates only what it needs; pass a vector
+#                            to keep extra properties in the shared draws
 ```
 **Returns**: `list(values = <named list of percentile-value SpatRasters>, probs = probs)`, or
 `NULL` if the mukey raster or the Monte Carlo draws are unavailable for this AOI.
 
 **Behavior**: Calls `fetch_ssurgo_mukey_raster()` (returning `NULL` early if it fails), then
-`simulate_ssurgo_mapunit_draws()` for the replicate-level Monte Carlo draws. Maps `property_id` to
-its simulated column via `property_to_sim_column()`, computes `stats::quantile(..., probs = probs)`
-per `mukey` group, reshapes into a `mukey` + one-column-per-percentile data frame, and rasterizes via
+`simulate_ssurgo_mapunit_draws()` for the replicate-level Monte Carlo draws — restricted to
+`requested_properties` (defaulting to just `property_id`). Maps `property_id` to its simulated
+column via `property_to_sim_column()`, computes `stats::quantile(..., probs = probs)` per `mukey`
+group, reshapes into a `mukey` + one-column-per-percentile data frame, and rasterizes via
 `rasterize_mukey_percentiles()`.
 
 ### SOLUS100 adapter (solus-simulation.R)
@@ -769,7 +834,10 @@ touching either existing pipeline. See `planning-docs/RASTER_FUSION_PERPIXEL_ENS
 Runs `simulate_ssurgo_mapunit_draws(depth_windows=)` once and returns, per mukey, the retained bag
 of **joint** multivariate realizations as `[n_replicate x n_property]` matrices, one per depth
 window, row-aligned on `(cokey, simulation_number)` so cross-property and cross-window rank
-structure is preserved. The multi-property / multi-window analogue of `mukey_draws_lookup()`.
+structure is preserved. The multi-property / multi-window analogue of `mukey_draws_lookup()`. Takes
+`properties` (which columns to keep) and, separately, `requested_properties` (which properties the
+simulation itself draws — defaulting to `properties`, so a call restricted to the Saxton-Rawls
+inputs no longer pays for the properties it will discard).
 
 #### 32. `remarginalize_ensemble_to_posterior()`
 Rank-preserving marginal transform: for each property x window, `v_new = F_post^-1(F_prior(v_r))`
@@ -925,12 +993,14 @@ pedotransfer-model error.
 
   PER-PIXEL ENSEMBLE BRIDGE (raster-fusion-bridge.R) - optional, purely additive layer on top:
 
-  extract_mukey_joint_ensemble(aoi, depth_windows)          run_stage1_fusion() per property
-    -> simulate_ssurgo_mapunit_draws(depth_windows=)          per depth window (as above)
-         (ONE joint Monte Carlo; KSSL + joint-copula                    |
-          vertical correlation; row-aligned across windows)             v
-    -> per mukey: list(windows = [n_replicate x n_property]     posterior$percentiles rasters
-                       matrices, replicate_key)                  (marginal, per property x window)
+  extract_mukey_joint_ensemble(aoi, depth_windows)          run_stage1_fusion_multi(aoi, configs,
+    -> simulate_ssurgo_mapunit_draws(depth_windows=)          depth_windows)  -- ONE simulation for
+         (ONE joint Monte Carlo; KSSL + joint-copula           every property x window, seeding the
+          vertical correlation; row-aligned across windows)     same per-property caches
+    -> per mukey: list(windows = [n_replicate x n_property]                     |
+                       matrices, replicate_key)                                v
+                                                              posterior$percentiles rasters
+                                                               (marginal, per property x window)
                     \                                           /
                      \                                         /
                       v                                       v
@@ -1105,17 +1175,15 @@ windows <- list(c(0, 5), c(5, 15), c(15, 30))
 # 1. one joint SSURGO Monte Carlo, retained per mukey, aligned across windows
 ens <- extract_mukey_joint_ensemble(aoi_vect, windows)
 
-# 2. a SOLUS-fused posterior for each Saxton-Rawls input, per property x window
+# 2. a SOLUS-fused posterior for each Saxton-Rawls input, per property x window - one simulation
+#    for all 5 x 3 leaves, not 15
 sr_solus <- c(sand_total = "sandtotal", silt_total = "silttotal",
               clay_total = "claytotal", db = "dbovendry", soc = "soc")
-pbpw <- lapply(names(sr_solus), function(nm) {
-  setNames(lapply(windows, function(w) {
-    r <- run_stage1_fusion(aoi_vect, list(id = nm, solus_variable = sr_solus[[nm]], dist = "auto"),
-                           w[1], w[2])
-    list(percentiles = r$posterior$percentiles)
-  }), vapply(windows, function(w) paste0(w[1], "-", w[2]), ""))
-})
-names(pbpw) <- names(sr_solus)
+configs <- setNames(
+  lapply(names(sr_solus), function(nm) list(id = nm, solus_variable = sr_solus[[nm]], dist = "auto")),
+  names(sr_solus)
+)
+pbpw <- run_stage1_fusion_multi(aoi_vect, configs, windows, simplify = TRUE)
 
 # 3. per-pixel AWC probability distribution (P5..P95 rasters), clamped at 0
 awc <- remarginalized_awc(ens, pbpw, n_out = 250)         # method = "saxton_rawls" by default

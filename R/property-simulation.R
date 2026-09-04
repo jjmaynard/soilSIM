@@ -335,14 +335,32 @@ calculate_mode <- function(x) {
 #'   names matching (a subset of) `c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc")`.
 #' @param txt_correlation_matrices A list of texture correlation matrices keyed by `genhz`
 #'   (sand/silt/clay order, matching the `simulate_correlated_triangular()` call for texture).
+#' @param requested_properties `NULL` (default) simulates every property with a complete `_l/_r/_h`
+#'   triplet, unchanged. Otherwise a character vector of property identifiers - in any vocabulary
+#'   `normalize_requested_properties()` accepts (caller ids, SSURGO stems, output column names, or
+#'   the internal `param_order` names) - restricting the simulation to just those (plus the texture
+#'   coupling: any texture member pulls in the full sand/silt/clay draw and both ILR axes). The
+#'   Gaussian-copula marginals of a restricted simulation match the corresponding columns of a full
+#'   one under the default `joint_copula` vertical-correlation method (modulo RNG-stream Monte Carlo
+#'   noise); see `simulate_ssurgo_mapunit_draws()` for the `gp_quantile_retrofit` caveat.
 #' @return A data frame of simulated property values across all rows/realizations, with
 #'   `compname`, `mukey`, `cokey`, `hzdept_r`, `hzdepb_r`, `simulation_number`, `unique_id`, and
 #'   (when `sim_cokey` itself has a `bound_sd` column - see `attach_osd_boundary_distinctness()`)
 #'   `bound_sd`.
 #' @export
-simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_correlation_matrices = NULL) {
+simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_correlation_matrices = NULL,
+                                        requested_properties = NULL) {
 
   param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc")
+
+  # NULL -> keep everything (unchanged). Otherwise restrict to the requested subset; normalize here
+  # (idempotently) so a direct caller can pass ids like "clay"/"ph" rather than param_order names.
+  keep_params <- if (is.null(requested_properties)) {
+    param_order
+  } else {
+    intersect(param_order, normalize_requested_properties(requested_properties))
+  }
+  want_texture <- any(c("ilr1", "ilr2") %in% keep_params)
 
   texture_cols_required <- c("sandtotal_l", "sandtotal_r", "sandtotal_h",
                              "silttotal_l", "silttotal_r", "silttotal_h",
@@ -401,7 +419,7 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
     ilr1_lrh <- NULL
     ilr2_lrh <- NULL
 
-    if (has_texture && !is.null(txt_correlation_matrices)) {
+    if (want_texture && has_texture && !is.null(txt_correlation_matrices)) {
       # .kssl_texture_matrices() is documented as exactly singular for genhz E/Cr/R even
       # when correctly matched (see R/kssl-reference-correlations.R) - chol() inside
       # simulate_correlated_triangular() would otherwise error deterministically for those
@@ -460,30 +478,30 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
     names(param_list) <- param_order
 
     db_set <- get_param_set(row, "dbovendry")
-    if (!is.null(db_set)) param_list[["db"]] <- db_set
+    if ("db" %in% keep_params && !is.null(db_set)) param_list[["db"]] <- db_set
 
     wr3_set <- get_param_set(row, "wthirdbar")
-    if (!is.null(wr3_set)) param_list[["wr_3b"]] <- wr3_set
+    if ("wr_3b" %in% keep_params && !is.null(wr3_set)) param_list[["wr_3b"]] <- wr3_set
 
     wr15_set <- get_param_set(row, "wfifteenbar")
-    if (!is.null(wr15_set)) param_list[["wr_15b"]] <- wr15_set
+    if ("wr_15b" %in% keep_params && !is.null(wr15_set)) param_list[["wr_15b"]] <- wr15_set
 
-    if (has_texture && !is.null(ilr1_lrh) && !is.null(ilr2_lrh)) {
+    if (want_texture && has_texture && !is.null(ilr1_lrh) && !is.null(ilr2_lrh)) {
       param_list[["ilr1"]] <- ilr1_lrh
       param_list[["ilr2"]] <- ilr2_lrh
     }
 
     rfv_set <- get_param_set(row, "rfv")
-    if (!is.null(rfv_set)) param_list[["rfv"]] <- rfv_set
+    if ("rfv" %in% keep_params && !is.null(rfv_set)) param_list[["rfv"]] <- rfv_set
 
     ph_set <- get_param_set(row, "ph1to1h2o")
-    if (!is.null(ph_set)) param_list[["ph"]] <- ph_set
+    if ("ph" %in% keep_params && !is.null(ph_set)) param_list[["ph"]] <- ph_set
 
     cec_set <- get_param_set(row, "cec7")
-    if (!is.null(cec_set)) param_list[["cec"]] <- cec_set
+    if ("cec" %in% keep_params && !is.null(cec_set)) param_list[["cec"]] <- cec_set
 
     om_set <- get_param_set(row, "om")
-    if (!is.null(om_set)) param_list[["soc"]] <- om_set
+    if ("soc" %in% keep_params && !is.null(om_set)) param_list[["soc"]] <- om_set
 
     param_list <- param_list[!vapply(param_list, is.null, logical(1))]
 
@@ -522,7 +540,11 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
         sim_txt <- as.data.frame(sim_txt)[, c("sand", "silt", "clay")]
         colnames(sim_txt) <- c("sand_total", "silt_total", "clay_total")
 
-        sim_data <- sim_data[, setdiff(names(sim_data), c("ilr1", "ilr2"))]
+        # drop = FALSE: with requested_properties restricting the simulation, exactly one
+        # non-texture column can remain here (e.g. requested_properties = c("clay", "ph")), and
+        # `df[, "ph"]` without drop = FALSE would collapse to an unnamed vector and lose the
+        # column on the following cbind(). Harmless for the full-property path (many columns).
+        sim_data <- sim_data[, setdiff(names(sim_data), c("ilr1", "ilr2")), drop = FALSE]
         sim_data <- cbind(sim_data, sim_txt)
       }
 

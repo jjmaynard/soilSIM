@@ -54,6 +54,19 @@ SSURGO grid onto the SOLUS grid via \code{terra::resample()}, then fuses via
 Compositional properties (\code{property_config$composition_group} set) are detected up front and
 delegated to \code{run_stage1_fusion_group()} instead, since they must be fetched/fit jointly.
 }
+\section{SSURGO simulation scope}{
+
+The SSURGO prior simulation is restricted to just this call's own property (plus the full
+sand/silt/clay draw for any texture member) via \code{simulate_ssurgo_mapunit_draws()}'s
+\code{requested_properties} - the per-cokey depth-trend GP fit is the pipeline's dominant cost and
+scales with the property count. Consequences: (1) the prior is \emph{statistically equivalent} to,
+not bit-identical to, a full-property simulation's matching column (a fresh unseeded draw either
+way); (2) a map unit whose components carry no data for \emph{this} property no longer benefits from
+those components' other properties being present, so a single-property prior - and hence the
+fused posterior - can be \code{NA} for a few cells a full-property run would have covered. Those
+cells genuinely lack data for the property in question.
+}
+
 \section{Fusion fidelity - \code{prior_fusion_method} (default changed at P2.10)}{
 
 Controls whether fusion runs against each mukey's real per-cell Monte Carlo draws

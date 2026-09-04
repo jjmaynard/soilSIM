@@ -18,7 +18,8 @@ simulate_ssurgo_mapunit_draws(
   n_cores = NULL,
   config = NULL,
   mukey_raster = NULL,
-  depth_windows = NULL
+  depth_windows = NULL,
+  requested_properties = NULL
 )
 
 SSURGO_SIM_PROPERTY_COLUMNS
@@ -56,6 +57,16 @@ aggregation over \verb{[top_depth, bottom_depth]}, returning a single data frame
 aggregated once per window, returning a \strong{named list} of data frames (names \code{"top-bottom"}).
 \code{top_depth}/\code{bottom_depth} are ignored in this mode - pass the overall span for them. Built for
 \code{extract_mukey_joint_ensemble()}, which needs the SOLUS depth windows from one simulation.}
+
+\item{requested_properties}{\code{NULL} (default) simulates every recognized property, bit-identical
+to before. Otherwise a character vector (any vocabulary \code{normalize_requested_properties()}
+accepts) restricting \code{simulate_cokey_generalized()} to just those (plus texture coupling) -
+the per-cokey GP depth-trend fit then runs once per kept property instead of ~8 times, the
+pipeline's dominant saving. A restricted simulation is only \emph{law}-equivalent (not
+bit-identical) to slicing the same columns from a full simulation, and only under the default
+\code{vertical_correlation_method = "joint_copula"}; under \code{"gp_quantile_retrofit"} (not
+subset-invariant - its rank retrofit keys off the first property in the list)
+\code{requested_properties} is ignored with a warning and all properties are simulated.}
 }
 \value{
 With \code{depth_windows = NULL}: a data frame, one row per \code{mukey}/\code{cokey}/\code{simulation_number}

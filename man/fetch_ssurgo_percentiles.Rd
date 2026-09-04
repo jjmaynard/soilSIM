@@ -12,7 +12,8 @@ fetch_ssurgo_percentiles(
   probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
   n_mc = 1000,
   parallel = FALSE,
-  n_cores = NULL
+  n_cores = NULL,
+  requested_properties = NULL
 )
 }
 \arguments{
@@ -30,6 +31,12 @@ fetch_ssurgo_percentiles(
 \code{parallel}/\code{n_cores} - the per-cokey depth-trend GP fitting step is this function's
 dominant cost for AOIs with many cokeys. Default \code{parallel = FALSE} matches prior behavior
 exactly.}
+
+\item{requested_properties}{Passed through to \code{simulate_ssurgo_mapunit_draws()} to restrict the
+simulation. Default \code{NULL} here means "just \code{property_id}" (this function only ever reads one
+property's column back out), so a bare call simulates only what it needs. Pass an explicit
+vector to keep extra properties in the shared draws (e.g. a caller reusing them); pass
+\code{character(0)}-safe values only - \code{NULL} is the "just this property" shortcut, not "all".}
 }
 \value{
 \verb{list(values = <named list of percentile-value SpatRasters>, probs = probs)}, or \code{NULL}

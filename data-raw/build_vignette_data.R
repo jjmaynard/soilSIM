@@ -207,21 +207,17 @@ pp_posteriors <- save_step(
   "perpixel_posteriors_salinas",
   file.path(extdata_dir, "perpixel_posteriors_salinas.rds"),
   {
-    out <- list()
-    for (nm in names(pp_solus)) {
-      per_w <- list()
-      for (w in pp_windows) {
-        r <- tryCatch(
-          run_stage1_fusion(aoi, list(id = nm, solus_variable = pp_solus[[nm]], dist = "auto"),
-                            top_depth = w[1], bottom_depth = w[2]),
-          error = function(e) { cat(sprintf("  [%s %d-%d] %s\n", nm, w[1], w[2], conditionMessage(e))); NULL }
-        )
-        if (!is.null(r)) {
-          per_w[[paste0(w[1], "-", w[2])]] <- list(percentiles = r$posterior$percentiles)
-        }
-      }
-      if (length(per_w) > 0) out[[nm]] <- per_w
-    }
+    # One SSURGO simulation for all pp_solus properties x all pp_windows (was a
+    # run_stage1_fusion() loop that re-ran the full simulation once per property x window).
+    pp_configs <- stats::setNames(
+      lapply(names(pp_solus), function(nm) list(id = nm, solus_variable = pp_solus[[nm]], dist = "auto")),
+      names(pp_solus)
+    )
+    out <- run_stage1_fusion_multi(aoi, pp_configs, pp_windows, simplify = TRUE)
+    # Match the old loop's shape: drop NULL leaves (a failed window), then drop any property left
+    # with no windows at all (SOLUS variable unavailable).
+    out <- lapply(out, function(pw) pw[!vapply(pw, is.null, logical(1))])
+    out <- out[lengths(out) > 0]
     if (length(out) == 0) NULL else wrap_nested_rasters(out)
   }
 )

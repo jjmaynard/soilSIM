@@ -256,6 +256,47 @@ property_to_sim_column <- function(property_id) {
   unname(mapping[property_id])
 }
 
+#' Normalize a Requested-Properties Vector to `simulate_cokey_generalized()` Parameter Names
+#'
+#' Resolves a caller's mixed vocabulary (caller-facing ids like `"clay"`/`"bulk_density"`, SSURGO
+#' stems like `"ph1to1h2o"`, `simulate_cokey_generalized()` output columns like `"clay_total"`, or
+#' the internal parameter names themselves) into the fixed
+#' `c("db","wr_3b","wr_15b","ilr1","ilr2","rfv","ph","cec","soc")` vocabulary that
+#' `simulate_cokey_generalized()` gates its per-row `param_list` on.
+#'
+#' Texture is a coupled all-or-nothing unit: any texture member (`sand`/`silt`/`clay` in any
+#' spelling, or `ilr1`/`ilr2` directly) pulls in **both** ILR axes, since
+#' `simulate_cokey_generalized()` derives `ilr1`/`ilr2` jointly from one sand+silt+clay draw and
+#' only ever adds them as a pair. The only intra-`simulate_cokey_generalized()` derivation is this
+#' texture coupling - any future dependency (e.g. a property estimated from another) is expanded
+#' here.
+#'
+#' Total and idempotent: `normalize_requested_properties(normalize_requested_properties(x))` equals
+#' `normalize_requested_properties(x)`, so callers (including `simulate_cokey_generalized()` itself)
+#' can normalize freely. `NULL` in -> `NULL` out ("simulate everything", the unchanged default).
+#'
+#' @param requested_properties `NULL`, or a character vector of property identifiers in any of the
+#'   accepted vocabularies.
+#' @return `NULL`, or a de-duplicated character vector in canonical `param_order` order.
+#' @keywords internal
+normalize_requested_properties <- function(requested_properties) {
+  if (is.null(requested_properties)) return(NULL)
+
+  param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc")
+  texture_sentinel <- c("ilr1", "ilr2")
+
+  resolve_one <- function(id) {
+    if (id %in% texture_sentinel) return(texture_sentinel)
+    if (id %in% param_order) return(id)
+    col <- property_to_sim_column(id)  # stop()s on an unknown id
+    if (col %in% c("clay_total", "sand_total", "silt_total")) return(texture_sentinel)
+    col                                # db / wr_3b / wr_15b / rfv / ph / cec / soc
+  }
+
+  resolved <- unique(unlist(lapply(requested_properties, resolve_one), use.names = FALSE))
+  param_order[param_order %in% resolved]
+}
+
 #' Monte Carlo-Simulate SSURGO Property Draws for an AOI
 #'
 #' Orchestrates the full SSURGO percentile-prior pipeline for one AOI/depth-window: fetch (cached)
@@ -285,6 +326,15 @@ property_to_sim_column <- function(property_id) {
 #'   independent `soilDB::mukey.wcs()` call - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task
 #'   P1.2/P1.3. Only consulted on a `"ssurgo_tabular"` cache miss. `NULL` (default) preserves
 #'   original behavior exactly.
+#' @param requested_properties `NULL` (default) simulates every recognized property, bit-identical
+#'   to before. Otherwise a character vector (any vocabulary `normalize_requested_properties()`
+#'   accepts) restricting `simulate_cokey_generalized()` to just those (plus texture coupling) -
+#'   the per-cokey GP depth-trend fit then runs once per kept property instead of ~8 times, the
+#'   pipeline's dominant saving. A restricted simulation is only *law*-equivalent (not
+#'   bit-identical) to slicing the same columns from a full simulation, and only under the default
+#'   `vertical_correlation_method = "joint_copula"`; under `"gp_quantile_retrofit"` (not
+#'   subset-invariant - its rank retrofit keys off the first property in the list)
+#'   `requested_properties` is ignored with a warning and all properties are simulated.
 #' @param depth_windows Optional list of `c(top, bottom)` numeric pairs. `NULL` (default) - one
 #'   aggregation over `[top_depth, bottom_depth]`, returning a single data frame exactly as before
 #'   (bit-identical). When supplied, the (expensive) per-horizon simulation runs once and is then
@@ -319,7 +369,16 @@ property_to_sim_column <- function(property_id) {
 #' @export
 simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
                                            parallel = FALSE, n_cores = NULL, config = NULL,
-                                           mukey_raster = NULL, depth_windows = NULL) {
+                                           mukey_raster = NULL, depth_windows = NULL,
+                                           requested_properties = NULL) {
+  req_props <- normalize_requested_properties(requested_properties)
+  if (!is.null(req_props) &&
+      identical(config$monte_carlo$vertical_correlation_method, "gp_quantile_retrofit")) {
+    warning("simulate_ssurgo_mapunit_draws(): requested_properties ignored under ",
+            "'gp_quantile_retrofit' (not subset-invariant); simulating all properties.")
+    req_props <- NULL
+  }
+
   # download_ssurgo_tabular()/process_aoi_and_get_mukeys_working() (R/ssurgo-acquisition.R)
   # always assume their aoi_wkt argument is lon/lat EPSG:4326 (hardcoded there), regardless of
   # aoi_vect's actual CRS - extracting WKT directly from an already-projected aoi_vect (e.g.
@@ -373,7 +432,8 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
   sim_results <- lapply(unique(hz_data$cokey), function(ck) {
     sim_cokey <- hz_data[hz_data$cokey == ck, , drop = FALSE]
     tryCatch(
-      simulate_cokey_generalized(sim_cokey, property_matrices, texture_matrices),
+      simulate_cokey_generalized(sim_cokey, property_matrices, texture_matrices,
+                                 requested_properties = req_props),
       error = function(e) {
         message("simulate_ssurgo_mapunit_draws(): skipping cokey ", ck, ": ", e$message)
         NULL
@@ -574,6 +634,9 @@ mukey_texture_draws_lookup <- function(draws) {
 #'   test offline; when given, `aoi_vect`/`n_mc`/`parallel`/`n_cores`/`config` are unused.
 #' @param properties Property columns to retain (default \code{SSURGO_SIM_PROPERTY_COLUMNS}); the
 #'   returned `properties` element is the subset actually present for this AOI.
+#' @param requested_properties Passed through to `simulate_ssurgo_mapunit_draws()` to restrict the
+#'   simulation itself (as opposed to `properties`, which only filters columns after the fact).
+#'   `NULL` (default) restricts to `properties`; ignored when `draws_by_window` is supplied.
 #' @return `list(by_mukey = <named list, keyed by mukey code>, properties = <character>,
 #'   depth_windows = , window_names = , mukey_raster = )`. Each `by_mukey` element is
 #'   `list(windows = <named list of [n_replicate x n_property] matrices, one per window>,
@@ -584,7 +647,8 @@ mukey_texture_draws_lookup <- function(draws) {
 extract_mukey_joint_ensemble <- function(aoi_vect, depth_windows, n_mc = 1000,
                                           parallel = FALSE, n_cores = NULL, config = NULL,
                                           mukey_raster = NULL, draws_by_window = NULL,
-                                          properties = SSURGO_SIM_PROPERTY_COLUMNS) {
+                                          properties = SSURGO_SIM_PROPERTY_COLUMNS,
+                                          requested_properties = NULL) {
   ok_pair <- function(w) length(w) == 2 && is.numeric(w) && is.finite(w[[1]]) &&
     is.finite(w[[2]]) && w[[2]] > w[[1]]
   if (!is.list(depth_windows) || length(depth_windows) == 0 ||
@@ -602,7 +666,8 @@ extract_mukey_joint_ensemble <- function(aoi_vect, depth_windows, n_mc = 1000,
     draws_by_window <- simulate_ssurgo_mapunit_draws(
       aoi_vect, top_depth = span[1], bottom_depth = span[2],
       n_mc = n_mc, parallel = parallel, n_cores = n_cores, config = config,
-      mukey_raster = mukey_raster, depth_windows = depth_windows
+      mukey_raster = mukey_raster, depth_windows = depth_windows,
+      requested_properties = if (is.null(requested_properties)) properties else requested_properties
     )
   }
   if (is.null(draws_by_window)) return(NULL)
@@ -669,18 +734,26 @@ extract_mukey_joint_ensemble <- function(aoi_vect, depth_windows, n_mc = 1000,
 #'   `parallel`/`n_cores` - the per-cokey depth-trend GP fitting step is this function's
 #'   dominant cost for AOIs with many cokeys. Default `parallel = FALSE` matches prior behavior
 #'   exactly.
+#' @param requested_properties Passed through to `simulate_ssurgo_mapunit_draws()` to restrict the
+#'   simulation. Default `NULL` here means "just `property_id`" (this function only ever reads one
+#'   property's column back out), so a bare call simulates only what it needs. Pass an explicit
+#'   vector to keep extra properties in the shared draws (e.g. a caller reusing them); pass
+#'   `character(0)`-safe values only - `NULL` is the "just this property" shortcut, not "all".
 #' @return `list(values = <named list of percentile-value SpatRasters>, probs = probs)`, or `NULL`
 #'   if the mukey raster or the Monte Carlo draws are unavailable for this AOI.
 #' @export
 fetch_ssurgo_percentiles <- function(aoi_vect, property_id, top_depth, bottom_depth,
                                       probs = c(0.05, 0.25, 0.5, 0.75, 0.95), n_mc = 1000,
-                                      parallel = FALSE, n_cores = NULL) {
+                                      parallel = FALSE, n_cores = NULL,
+                                      requested_properties = NULL) {
   mukey_raster <- fetch_ssurgo_mukey_raster(aoi_vect)
   if (is.null(mukey_raster)) return(NULL)
 
+  req_props <- if (is.null(requested_properties)) property_id else requested_properties
   draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc,
                                           parallel = parallel, n_cores = n_cores,
-                                          mukey_raster = mukey_raster)
+                                          mukey_raster = mukey_raster,
+                                          requested_properties = req_props)
   if (is.null(draws) || nrow(draws) == 0) return(NULL)
 
   percentiles_from_draws(mukey_raster, draws, property_id, probs)

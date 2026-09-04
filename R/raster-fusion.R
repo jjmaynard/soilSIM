@@ -1546,6 +1546,70 @@ resolve_want_raw_draws <- function(prior_fusion_method, dist) {
   isTRUE(dist %in% c("auto", "normal", "beta", "gamma", "lognormal"))
 }
 
+#' Fuse an Already-Fetched Prior and Likelihood (Stage 1 fusion tail)
+#'
+#' The portion of [run_stage1_fusion()] that runs once its SSURGO prior and SOLUS likelihood
+#' percentile lists are in hand: resample the prior onto the SOLUS grid, optionally attach the real
+#' per-mukey Monte Carlo draws for raw-draws fusion, fuse via [fuse_property_adaptive()], and
+#' assemble the standard `run_stage1_fusion()` return list. Factored out so `run_stage1_fusion()`
+#' and `run_stage1_fusion_multi()` share exactly one non-compositional fusion code path.
+#'
+#' @param property_config As in [run_stage1_fusion()].
+#' @param prior,solus The pre-alignment `list(values=, probs=)` percentile lists for the SSURGO
+#'   prior and SOLUS likelihood.
+#' @param draws Optional in-memory draws data frame (already simulated by the caller) for the
+#'   raw-draws fusion path; `NULL` skips it.
+#' @param mukey_raster_native Optional native-grid mukey raster matching `draws` - required for the
+#'   raw-draws path.
+#' @param verbose Passed through to [fuse_property_adaptive()] (default `TRUE`, matching the
+#'   original inline behavior).
+#' @return `run_stage1_fusion()`'s return list
+#'   (`list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=,
+#'   route_detail=, n_fallback_cells=)`).
+#' @keywords internal
+stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
+                                          draws = NULL, mukey_raster_native = NULL,
+                                          verbose = TRUE) {
+  ssurgo_property_id <- if (!is.null(property_config$solus_variable)) property_config$solus_variable else property_config$id
+  want_raw_draws <- resolve_want_raw_draws(property_config$prior_fusion_method, property_config$dist)
+
+  # SSURGO prior (~30m, from mukey.wcs()) and SOLUS likelihood (100m) are on different grids -
+  # resample the prior onto the SOLUS grid before combining, since every fusion route requires
+  # cell-aligned rasters.
+  reference_grid <- solus$values[[1]]
+  prior_aligned <- lapply(prior$values, terra::resample, y = reference_grid, method = "bilinear")
+
+  # Opt-in raw-draws fusion (see run_stage1_fusion()'s @section): `draws` is already in memory from
+  # the caller whenever want_raw_draws is TRUE, so this never triggers a further simulation. Align
+  # the mukey raster to the SOLUS grid via NEAREST-NEIGHBOR resampling (not bilinear, which would
+  # fabricate nonsensical interpolated mukey codes between categories).
+  extra_fusion_args <- list()
+  if (want_raw_draws && !is.null(draws) && !is.null(mukey_raster_native)) {
+    mukey_draws <- mukey_draws_lookup(draws, ssurgo_property_id)
+    if (!is.null(mukey_draws)) {
+      extra_fusion_args$mukey_raster <- terra::resample(mukey_raster_native, reference_grid, method = "near")
+      extra_fusion_args$mukey_draws <- mukey_draws
+    }
+  }
+
+  fused <- do.call(fuse_property_adaptive, c(
+    list(
+      prior_value_rasters = prior_aligned, prior_probs = prior$probs,
+      lik_value_rasters = solus$values, lik_probs = solus$probs,
+      property_config = property_config, verbose = verbose
+    ),
+    extra_fusion_args
+  ))
+
+  list(
+    prior = list(values = prior_aligned, probs = prior$probs),
+    likelihood = list(values = solus$values, probs = solus$probs),
+    posterior = fused$posterior,
+    dist = fused$dist, dist_source = fused$dist_source, skew_proxy = fused$skew_proxy,
+    route = fused$route, route_detail = fused$route_detail, n_fallback_cells = fused$n_fallback_cells
+  )
+}
+
 #' Run Stage 1 Fusion for One Property/Depth over an AOI
 #'
 #' Fetches the (cached) SSURGO prior (`R/ssurgo-simulation.R`'s `fetch_ssurgo_percentiles()`) and
@@ -1578,6 +1642,16 @@ resolve_want_raw_draws <- function(prior_fusion_method, dist) {
 #'   this function doesn't expose its own `posterior_probs` parameter (matching the existing
 #'   convention that `n_samples`/`grid_resolution` also aren't threaded this far down; the
 #'   underlying `fuse_*()` route's own default applies).
+#' @section SSURGO simulation scope:
+#' The SSURGO prior simulation is restricted to just this call's own property (plus the full
+#' sand/silt/clay draw for any texture member) via `simulate_ssurgo_mapunit_draws()`'s
+#' `requested_properties` - the per-cokey depth-trend GP fit is the pipeline's dominant cost and
+#' scales with the property count. Consequences: (1) the prior is *statistically equivalent* to,
+#' not bit-identical to, a full-property simulation's matching column (a fresh unseeded draw either
+#' way); (2) a map unit whose components carry no data for *this* property no longer benefits from
+#' those components' other properties being present, so a single-property prior - and hence the
+#' fused posterior - can be `NA` for a few cells a full-property run would have covered. Those
+#' cells genuinely lack data for the property in question.
 #' @section Fusion fidelity - `prior_fusion_method` (default changed at P2.10):
 #' Controls whether fusion runs against each mukey's real per-cell Monte Carlo draws
 #' (`"raw_draws"`) or a percentile-reconstructed approximation (`"percentile"`) - see
@@ -1628,9 +1702,18 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
   if (is.null(prior) || want_raw_draws) {
     mukey_raster_native <- fetch_ssurgo_mukey_raster(aoi_vect)
     if (is.null(mukey_raster_native)) return(NULL)
+    # Simulate only the one property this call fuses (plus texture coupling) - the per-cokey GP
+    # depth-trend fit is the pipeline's dominant cost and scales with the property count. Only
+    # ever law-equivalent (not bit-identical) to a full simulation's matching column, and only
+    # under the default joint_copula vertical method - see simulate_ssurgo_mapunit_draws()'s
+    # `requested_properties` docs. run_stage1_fusion() never forwards `config`, so it always gets
+    # joint_copula. A cokey with no data for this one property no longer rides along on the
+    # others, so a single-property prior can be NA for a mukey a full-property run would have
+    # covered - documented in this function's @return.
     draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth,
                                             parallel = parallel, n_cores = n_cores,
-                                            mukey_raster = mukey_raster_native)
+                                            mukey_raster = mukey_raster_native,
+                                            requested_properties = ssurgo_property_id)
     if (is.null(draws)) return(NULL)
   }
 
@@ -1648,42 +1731,47 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
     cache_set(solus_key, "solus", wrap_percentile_list(solus))
   }
 
-  # SSURGO prior (~30m, from mukey.wcs()) and SOLUS likelihood (100m) are on different grids -
-  # resample the prior onto the SOLUS grid before combining, since every fusion route requires
-  # cell-aligned rasters.
-  reference_grid <- solus$values[[1]]
-  prior_aligned <- lapply(prior$values, terra::resample, y = reference_grid, method = "bilinear")
+  # `draws`/`mukey_raster_native` are already in memory from above whenever want_raw_draws is TRUE
+  # (part of the is.null(prior) || want_raw_draws condition), so the shared fusion tail never
+  # triggers a further simulation.
+  stage1_fuse_from_prior_solus(property_config, prior, solus,
+                                draws = draws, mukey_raster_native = mukey_raster_native)
+}
 
-  # Opt-in raw-draws fusion (see @section above): `draws` is already in memory from above whenever
-  # want_raw_draws is TRUE (it's part of the is.null(prior) || want_raw_draws condition), so this
-  # never triggers a further simulation. Align the mukey raster to the SOLUS grid via
-  # NEAREST-NEIGHBOR resampling (not bilinear, which would fabricate nonsensical interpolated
-  # mukey codes between categories).
-  extra_fusion_args <- list()
-  if (want_raw_draws && !is.null(draws)) {
-    mukey_draws <- mukey_draws_lookup(draws, ssurgo_property_id)
-    if (!is.null(mukey_draws)) {
-      extra_fusion_args$mukey_raster <- terra::resample(mukey_raster_native, reference_grid, method = "near")
-      extra_fusion_args$mukey_draws <- mukey_draws
+#' Fuse an Already-Fetched Texture Group (Stage 1 group-fusion tail)
+#'
+#' The portion of [run_stage1_fusion_group()] that runs once every member's aligned SSURGO prior
+#' and SOLUS likelihood are assembled into `fetched`: optionally prepare the real joint per-mukey
+#' texture draws for raw-draws fusion, then fuse the group via [fuse_texture_group()]. Factored out
+#' so `run_stage1_fusion_group()` and `run_stage1_fusion_multi()` share one group-fusion code path.
+#'
+#' @param fetched A list (one entry per group member, in `group_members()` order) of
+#'   `list(id=, prior=<aligned percentile-value rasters>, prior_probs=, lik=<value rasters>,
+#'   lik_probs=)`.
+#' @param want_raw_draws Whether any member requested `prior_fusion_method = "raw_draws"` - the
+#'   raw-draws texture path only runs when this is `TRUE` (a cold percentile cache alone can leave
+#'   `shared_draws` non-`NULL` without raw-draws fusion being requested).
+#' @param shared_draws,shared_mukey_raster The one-per-group in-memory draws data frame and its
+#'   native-grid mukey raster (already computed by the caller); both required for the raw-draws
+#'   path.
+#' @return `fuse_texture_group()`'s return value - a named list keyed by member id.
+#' @keywords internal
+stage1_fuse_texture_group_from_fetched <- function(fetched, want_raw_draws = FALSE,
+                                                    shared_draws = NULL, shared_mukey_raster = NULL) {
+  # Align the mukey raster to the same reference grid every member's own prior was resampled onto
+  # (the first member's likelihood raster) via NEAREST-NEIGHBOR resampling (not bilinear, which
+  # would fabricate nonsensical interpolated mukey codes between categories).
+  mukey_texture_draws <- NULL
+  mukey_raster_aligned <- NULL
+  if (isTRUE(want_raw_draws) && !is.null(shared_draws) && !is.null(shared_mukey_raster)) {
+    mukey_texture_draws <- mukey_texture_draws_lookup(shared_draws)
+    if (!is.null(mukey_texture_draws)) {
+      mukey_raster_aligned <- terra::resample(shared_mukey_raster, fetched[[1]]$lik[[1]], method = "near")
     }
   }
 
-  fused <- do.call(fuse_property_adaptive, c(
-    list(
-      prior_value_rasters = prior_aligned, prior_probs = prior$probs,
-      lik_value_rasters = solus$values, lik_probs = solus$probs,
-      property_config = property_config
-    ),
-    extra_fusion_args
-  ))
-
-  list(
-    prior = list(values = prior_aligned, probs = prior$probs),
-    likelihood = list(values = solus$values, probs = solus$probs),
-    posterior = fused$posterior,
-    dist = fused$dist, dist_source = fused$dist_source, skew_proxy = fused$skew_proxy,
-    route = fused$route, route_detail = fused$route_detail, n_fallback_cells = fused$n_fallback_cells
-  )
+  fuse_texture_group(fetched, mukey_raster = mukey_raster_aligned,
+                     mukey_texture_draws = mukey_texture_draws)
 }
 
 #' Run Stage 1 Fusion for a Whole Compositional Group Jointly
@@ -1777,6 +1865,12 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
     ssurgo_keys <- lapply(members, function(m) build_cache_key(aoi_vect, m$id, top_depth, bottom_depth, "ssurgo"))
     ssurgo_cached <- lapply(ssurgo_keys, cache_get_valid_percentiles)
 
+    # Restrict the shared simulation to this group's members - for texture that normalizes to
+    # "just the sand/silt/clay draw" (both ILR axes), skipping the other ~6 properties' GP fits.
+    member_props <- unique(vapply(members, function(m) {
+      if (!is.null(m$solus_variable)) m$solus_variable else m$id
+    }, character(1)))
+
     shared_mukey_raster <- NULL
     shared_draws <- NULL
     if (want_raw_draws || any(vapply(ssurgo_cached, is.null, logical(1)))) {
@@ -1784,7 +1878,8 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
       if (!is.null(shared_mukey_raster)) {
         shared_draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth,
                                                         parallel = parallel, n_cores = n_cores,
-                                                        mukey_raster = shared_mukey_raster)
+                                                        mukey_raster = shared_mukey_raster,
+                                                        requested_properties = member_props)
       }
     }
 
@@ -1815,22 +1910,12 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
     })
     if (any(vapply(fetched, is.null, logical(1)))) return(NULL)
 
-    # Opt-in raw-draws fusion (see @section above): `shared_draws` is already in memory from above
-    # whenever want_raw_draws is TRUE, so this never triggers a further simulation. Align the
-    # mukey raster to the same reference grid every member's own prior was already resampled onto
-    # (the first member's likelihood raster, `fetched[[1]]$lik[[1]]`) via NEAREST-NEIGHBOR
-    # resampling (not bilinear, which would fabricate nonsensical interpolated mukey codes).
-    mukey_texture_draws <- NULL
-    mukey_raster_aligned <- NULL
-    if (want_raw_draws && !is.null(shared_draws) && !is.null(shared_mukey_raster)) {
-      mukey_texture_draws <- mukey_texture_draws_lookup(shared_draws)
-      if (!is.null(mukey_texture_draws)) {
-        mukey_raster_aligned <- terra::resample(shared_mukey_raster, fetched[[1]]$lik[[1]], method = "near")
-      }
-    }
-
-    group_result <- fuse_texture_group(fetched, mukey_raster = mukey_raster_aligned,
-                                        mukey_texture_draws = mukey_texture_draws)
+    # `shared_draws`/`shared_mukey_raster` are already in memory from above whenever want_raw_draws
+    # is TRUE, so the shared texture-group fusion tail never triggers a further simulation.
+    group_result <- stage1_fuse_texture_group_from_fetched(
+      fetched, want_raw_draws = want_raw_draws,
+      shared_draws = shared_draws, shared_mukey_raster = shared_mukey_raster
+    )
     cache_set(group_key, group_kind, wrap_nested_rasters(group_result))
 
     for (id in member_ids) {
@@ -1840,4 +1925,214 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
   }
 
   group_result
+}
+
+#' Run Stage 1 Fusion for Many Properties over an AOI in One Simulation Pass
+#'
+#' The multi-property / multi-depth-window counterpart of [run_stage1_fusion()]: runs the
+#' expensive SSURGO Monte Carlo simulation **once** - covering every requested property and every
+#' depth window via [simulate_ssurgo_mapunit_draws()]'s `depth_windows` argument - then fuses each
+#' property/window against SOLUS, seeding the same per-property `"ssurgo"`/`"solus"`/`"posterior"`
+#' disk caches [run_stage1_fusion()] reads. A later single-property `run_stage1_fusion()` call for
+#' the same AOI/property/window therefore hits cache instead of re-simulating.
+#'
+#' Calling `run_stage1_fusion()` in a loop over N properties x M windows runs the (dominant-cost)
+#' per-cokey simulation N*M times, each discarding all but one of the ~9 jointly-simulated
+#' properties; this runs it once. Every leaf shares that one draw set, so - unlike independent
+#' `run_stage1_fusion()` calls - their `NA` masks are mutually consistent.
+#'
+#' @param aoi_vect A `terra::SpatVector` AOI (projected, e.g. EPSG:5070).
+#' @param property_configs A **named** list, keyed by each config's own `id`, of `property_config`
+#'   lists exactly as [run_stage1_fusion()] takes them (each needs `id`/`solus_variable`, optionally
+#'   `dist`/`bounds`/`composition_group`/`prior_fusion_method`/...). Configs carrying a
+#'   `composition_group` are fused jointly per [run_stage1_fusion_group()]; **every** member of any
+#'   referenced group must have its own entry here.
+#' @param depth_windows A non-empty list of `c(top, bottom)` numeric pairs (cm, `bottom > top`).
+#' @param composition_groups A `config$monte_carlo$composition_groups`-shaped list (see
+#'   [group_members()]); required if any config sets `composition_group`.
+#' @param n_mc,parallel,n_cores Passed to [simulate_ssurgo_mapunit_draws()].
+#' @param verbose Passed to [fuse_property_adaptive()] - default `FALSE` (a multi-leaf batch is
+#'   otherwise noisy with per-route messages).
+#' @param simplify If `TRUE`, each leaf is reduced to `list(percentiles = <named SpatRasters>)`
+#'   (what per-pixel re-marginalization consumes); default `FALSE` returns the full
+#'   [run_stage1_fusion()]-shaped list per leaf.
+#' @return A nested named list `result[[config_id]][["<top>-<bottom>"]]`. Each leaf is a
+#'   [run_stage1_fusion()] return list (or, for group members, the `texture_ilr`-shaped list from
+#'   [run_stage1_fusion_group()]), or `NULL` on that leaf's own failure; the whole call returns
+#'   `NULL` only if the shared simulation itself fails.
+#' @seealso [run_stage1_fusion()], [run_stage1_fusion_group()], [extract_mukey_joint_ensemble()]
+#' @export
+run_stage1_fusion_multi <- function(aoi_vect, property_configs, depth_windows,
+                                     composition_groups = NULL,
+                                     n_mc = 1000, parallel = FALSE, n_cores = NULL,
+                                     verbose = FALSE, simplify = FALSE) {
+  ## --- validate ---------------------------------------------------------------
+  if (!is.list(property_configs) || length(property_configs) == 0 ||
+      is.null(names(property_configs)) || any(!nzchar(names(property_configs)))) {
+    stop("run_stage1_fusion_multi(): `property_configs` must be a non-empty named list keyed by config id.")
+  }
+  if (!all(vapply(seq_along(property_configs),
+                  function(i) identical(property_configs[[i]]$id, names(property_configs)[i]),
+                  logical(1)))) {
+    stop("run_stage1_fusion_multi(): each `property_configs` entry's $id must match its list name.")
+  }
+  ok_pair <- function(w) length(w) == 2 && is.numeric(w) && is.finite(w[[1]]) &&
+    is.finite(w[[2]]) && w[[2]] > w[[1]]
+  if (!is.list(depth_windows) || length(depth_windows) == 0 ||
+      !all(vapply(depth_windows, ok_pair, logical(1)))) {
+    stop("run_stage1_fusion_multi(): `depth_windows` must be a non-empty list of c(top, bottom) pairs with bottom > top.")
+  }
+  window_names <- vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), character(1))
+
+  ## --- partition standalone vs compositional-group configs -------------------
+  is_group <- vapply(property_configs, function(cfg) !is.null(cfg$composition_group), logical(1))
+  group_names <- unique(vapply(property_configs[is_group],
+                               function(cfg) cfg$composition_group, character(1)))
+  if (length(group_names) && is.null(composition_groups)) {
+    stop("run_stage1_fusion_multi(): a config sets `composition_group` but `composition_groups` is NULL.")
+  }
+  for (g in group_names) {
+    miss <- setdiff(group_members(g, composition_groups), names(property_configs))
+    if (length(miss)) {
+      stop(sprintf("run_stage1_fusion_multi(): composition group '%s' member(s) missing from property_configs: %s",
+                   g, paste(miss, collapse = ", ")))
+    }
+  }
+  standalone_ids <- names(property_configs)[!is_group]
+
+  ## --- decide whether the shared simulation is needed at all -----------------
+  cfg_id_prop <- function(cfg) if (!is.null(cfg$solus_variable)) cfg$solus_variable else cfg$id
+  need_sim <- any(vapply(property_configs,
+                         function(cfg) resolve_want_raw_draws(cfg$prior_fusion_method, cfg$dist),
+                         logical(1)))
+  if (!need_sim) {
+    for (w in depth_windows) {
+      for (cfg in property_configs) {
+        k <- build_cache_key(aoi_vect, cfg$id, w[[1]], w[[2]], "ssurgo")
+        if (is.null(cache_get_valid_percentiles(k))) { need_sim <- TRUE; break }
+      }
+      if (need_sim) break
+    }
+  }
+
+  ## --- one simulation, every window -----------------------------------------
+  mukey_raster <- fetch_ssurgo_mukey_raster(aoi_vect)
+  if (is.null(mukey_raster)) return(NULL)
+
+  draws_by_window <- NULL
+  if (need_sim) {
+    req_props <- unique(unlist(lapply(property_configs, cfg_id_prop), use.names = FALSE))
+    span <- range(unlist(depth_windows))
+    draws_by_window <- simulate_ssurgo_mapunit_draws(
+      aoi_vect, top_depth = span[1], bottom_depth = span[2],
+      n_mc = n_mc, parallel = parallel, n_cores = n_cores,
+      mukey_raster = mukey_raster, depth_windows = depth_windows,
+      requested_properties = req_props
+    )
+    if (is.null(draws_by_window)) return(NULL)
+  }
+
+  ## --- SOLUS fetch memo (per solus_variable x window) -----------------------
+  solus_memo <- list()
+  get_solus <- function(solus_variable, w) {
+    key <- paste0(solus_variable, "@", w[[1]], "-", w[[2]])
+    if (!is.null(solus_memo[[key]])) {
+      return(if (identical(solus_memo[[key]], "MISS")) NULL else solus_memo[[key]])
+    }
+    val <- fetch_solus_percentiles(aoi_vect, solus_variable, w[[1]], w[[2]])
+    solus_memo[[key]] <<- if (is.null(val)) "MISS" else val
+    val
+  }
+  seed_solus_cache <- function(cfg_id, w, solus) {
+    k <- build_cache_key(aoi_vect, cfg_id, w[[1]], w[[2]], "solus")
+    if (is.null(cache_get_valid_percentiles(k))) cache_set(k, "solus", wrap_percentile_list(solus))
+  }
+
+  result <- stats::setNames(lapply(names(property_configs), function(id) {
+    stats::setNames(vector("list", length(window_names)), window_names)
+  }), names(property_configs))
+
+  ## --- per window: standalone leaves, then compositional groups -------------
+  for (wi in seq_along(depth_windows)) {
+    w <- depth_windows[[wi]]
+    wname <- window_names[wi]
+    dw <- if (is.null(draws_by_window)) NULL else draws_by_window[[wname]]
+
+    for (id in standalone_ids) {
+      cfg <- property_configs[[id]]
+      ssid <- cfg_id_prop(cfg)
+      cfg_raw <- resolve_want_raw_draws(cfg$prior_fusion_method, cfg$dist)
+      skey <- build_cache_key(aoi_vect, cfg$id, w[[1]], w[[2]], "ssurgo")
+
+      # raw-draws leaf: skip the percentile-cache READ so prior + draws come from one sim.
+      prior <- if (cfg_raw) NULL else cache_get_valid_percentiles(skey)
+      if (is.null(prior)) {
+        if (is.null(dw)) next
+        prior <- percentiles_from_draws(mukey_raster, dw, ssid)
+        if (is.null(prior)) next
+        cache_set(skey, "ssurgo", wrap_percentile_list(prior))
+      }
+      solus <- get_solus(cfg$solus_variable, w)
+      if (is.null(solus)) next
+      seed_solus_cache(cfg$id, w, solus)
+
+      leaf <- stage1_fuse_from_prior_solus(
+        cfg, prior, solus,
+        draws = if (cfg_raw) dw else NULL,
+        mukey_raster_native = mukey_raster, verbose = verbose
+      )
+      result[[id]][[wname]] <- if (isTRUE(simplify)) list(percentiles = leaf$posterior$percentiles) else leaf
+    }
+
+    for (g in group_names) {
+      member_ids <- group_members(g, composition_groups)
+      members <- property_configs[member_ids]
+      want_raw <- any(vapply(members, function(m) identical(m$prior_fusion_method, "raw_draws"), logical(1)))
+      group_kind  <- if (want_raw) "texture_group_raw_draws" else "texture_group"
+      member_kind <- if (want_raw) "posterior_raw_draws" else "posterior"
+
+      fetched <- lapply(members, function(m) {
+        ssid <- cfg_id_prop(m)
+        skey <- build_cache_key(aoi_vect, m$id, w[[1]], w[[2]], "ssurgo")
+        prior <- if (want_raw) NULL else cache_get_valid_percentiles(skey)
+        if (is.null(prior)) {
+          if (is.null(dw)) return(NULL)
+          prior <- percentiles_from_draws(mukey_raster, dw, ssid)
+          if (!is.null(prior)) cache_set(skey, "ssurgo", wrap_percentile_list(prior))
+        }
+        solus <- get_solus(m$solus_variable, w)
+        if (is.null(prior) || is.null(solus)) return(NULL)
+        seed_solus_cache(m$id, w, solus)
+        prior_aligned <- lapply(prior$values, terra::resample, y = solus$values[[1]], method = "bilinear")
+        list(id = m$id, prior = prior_aligned, prior_probs = prior$probs,
+             lik = solus$values, lik_probs = solus$probs)
+      })
+      if (any(vapply(fetched, is.null, logical(1)))) next
+
+      group_result <- stage1_fuse_texture_group_from_fetched(
+        fetched, want_raw_draws = want_raw,
+        shared_draws = if (want_raw) dw else NULL,
+        shared_mukey_raster = if (want_raw) mukey_raster else NULL
+      )
+      cache_set(build_cache_key(aoi_vect, g, w[[1]], w[[2]], group_kind), group_kind,
+                wrap_nested_rasters(group_result))
+      for (mid in member_ids) {
+        cache_set(build_cache_key(aoi_vect, mid, w[[1]], w[[2]], member_kind), member_kind,
+                  wrap_nested_rasters(group_result[[mid]]))
+        if (mid %in% names(result)) {
+          result[[mid]][[wname]] <- if (isTRUE(simplify)) {
+            list(percentiles = group_result[[mid]]$posterior$percentiles)
+          } else {
+            group_result[[mid]]
+          }
+        }
+      }
+    }
+
+    if (!is.null(draws_by_window)) draws_by_window[[wname]] <- NULL  # release as we go
+  }
+
+  rm(draws_by_window)
+  gc(verbose = FALSE)
+  result
 }
