@@ -15,6 +15,11 @@
   `run_stage1_fusion()` reads. Replaces an N-properties x M-windows loop of `run_stage1_fusion()`
   calls (each of which re-ran the full simulation); every leaf now shares one draw set, so their
   `NA` masks are mutually consistent.
+* New optional `seed` argument on `simulate_ssurgo_mapunit_draws()`, `fetch_ssurgo_percentiles()`,
+  `extract_mukey_joint_ensemble()`, `run_stage1_fusion()`, `run_stage1_fusion_group()`, and
+  `run_stage1_fusion_multi()` for opt-in reproducibility (default `NULL` = unchanged stochastic
+  behavior). Seeds the sequential RNG stream and the parallel depth-trend `future.seed`;
+  determinism is conditional on the live SSURGO/SOLUS data being unchanged.
 
 # soilSIM 0.1.0
 

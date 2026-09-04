@@ -380,3 +380,51 @@ test_that("maybe_adjust_soil_data_depth_trend() handles a single property (joint
   # the k < 2 branch of preserve_correlation_structure_joint() still applies a depth trend
   expect_false(isTRUE(all.equal(res$clay_total, sim_long$clay_total)))
 })
+
+# ---------------------------------------------------------------------------
+# seed = (opt-in determinism, MULTI_PROPERTY_FUSION_PLAN.md B9)
+# ---------------------------------------------------------------------------
+
+test_that("simulate_ssurgo_mapunit_draws(seed=) seeds the global RNG stream once, up front", {
+  testthat::local_mocked_bindings(
+    cache_get = function(...) NULL,
+    download_ssurgo_tabular = function(...) NULL,  # -> early NULL return, nothing else uses RNG
+    .package = "soilSIM"
+  )
+  aoi <- terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070")
+
+  set.seed(42)
+  ref <- .Random.seed
+  runif(1)  # perturb so we can tell the call re-seeds rather than leaving it alone
+  invisible(simulate_ssurgo_mapunit_draws(aoi, 0, 5, seed = 42))
+  expect_identical(.Random.seed, ref)
+
+  # seed = NULL leaves the stream untouched (current behavior)
+  s_before <- .Random.seed
+  invisible(simulate_ssurgo_mapunit_draws(aoi, 0, 5, seed = NULL))
+  expect_identical(.Random.seed, s_before)
+})
+
+test_that("maybe_adjust_soil_data_depth_trend(parallel=TRUE) is reproducible with seed and random without", {
+  testthat::skip_if_not_installed("GPfit")
+  testthat::skip_if_not_installed("future.apply")
+  skip_if_not(nzchar(system.file("Meta", "package.rds", package = "future")),
+              "future package metadata unavailable")
+
+  set.seed(1)
+  depths <- c(0, 20, 50, 100); n_sims <- 20
+  mk <- function(ck) data.frame(
+    cokey = ck,
+    hzdept_r = rep(depths, each = n_sims), hzdepb_r = rep(depths + 20, each = n_sims),
+    simulation_number = rep(seq_len(n_sims), times = length(depths)),
+    clay_total = 25 + 0.05 * rep(depths, each = n_sims) + stats::rnorm(n_sims * length(depths), sd = 2),
+    db = 1.3 + 0.002 * rep(depths, each = n_sims) + stats::rnorm(n_sims * length(depths), sd = 0.03)
+  )
+  sim_long <- rbind(mk("1"), mk("2"))
+  props <- c("clay_total", "db")
+
+  a <- maybe_adjust_soil_data_depth_trend(sim_long, props, parallel = TRUE, n_cores = 2, seed = 7)
+  b <- maybe_adjust_soil_data_depth_trend(sim_long, props, parallel = TRUE, n_cores = 2, seed = 7)
+  ord <- function(d) d[order(d$cokey, d$hzdept_r, d$simulation_number), ]
+  expect_equal(ord(a)$clay_total, ord(b)$clay_total, tolerance = 1e-8)
+})

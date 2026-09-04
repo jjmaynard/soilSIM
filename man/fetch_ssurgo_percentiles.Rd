@@ -13,7 +13,8 @@ fetch_ssurgo_percentiles(
   n_mc = 1000,
   parallel = FALSE,
   n_cores = NULL,
-  requested_properties = NULL
+  requested_properties = NULL,
+  seed = NULL
 )
 }
 \arguments{
@@ -37,6 +38,9 @@ simulation. Default \code{NULL} here means "just \code{property_id}" (this funct
 property's column back out), so a bare call simulates only what it needs. Pass an explicit
 vector to keep extra properties in the shared draws (e.g. a caller reusing them); pass
 \code{character(0)}-safe values only - \code{NULL} is the "just this property" shortcut, not "all".}
+
+\item{seed}{Optional integer for opt-in determinism, forwarded to
+\code{simulate_ssurgo_mapunit_draws()}. \code{NULL} (default) = current stochastic behavior.}
 }
 \value{
 \verb{list(values = <named list of percentile-value SpatRasters>, probs = probs)}, or \code{NULL}

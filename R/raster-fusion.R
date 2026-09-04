@@ -1633,6 +1633,12 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 #'   whichever path this call takes) - the SSURGO adapter's per-cokey depth-trend GP fitting is
 #'   this pipeline's dominant cost for AOIs with many cokeys. Default `parallel = FALSE` matches
 #'   prior behavior exactly.
+#' @param seed Optional integer for opt-in determinism. `NULL` (default) keeps the current
+#'   stochastic behavior. When set, `set.seed(seed)` runs once at the top of this call and `seed`
+#'   is forwarded to `simulate_ssurgo_mapunit_draws()`, so the whole call (SSURGO simulation,
+#'   depth-trend GP fit, and the posterior-sampling fusion step) is reproducible given identical
+#'   upstream SSURGO/SOLUS data. See `simulate_ssurgo_mapunit_draws()`'s `seed` docs for the
+#'   conditional-determinism caveats.
 #' @return `list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=,
 #'   route_detail=, n_fallback_cells=)`, or `NULL` if the SSURGO or SOLUS side failed.
 #'   `posterior`'s shape depends on `dist` - see `fuse_property_adaptive()`'s docs. As of
@@ -1647,8 +1653,10 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 #' sand/silt/clay draw for any texture member) via `simulate_ssurgo_mapunit_draws()`'s
 #' `requested_properties` - the per-cokey depth-trend GP fit is the pipeline's dominant cost and
 #' scales with the property count. Consequences: (1) the prior is *statistically equivalent* to,
-#' not bit-identical to, a full-property simulation's matching column (a fresh unseeded draw either
-#' way); (2) a map unit whose components carry no data for *this* property no longer benefits from
+#' not bit-identical to, a full-property simulation's matching column - the pipeline is unseeded by
+#' default (a fresh draw either way), and even with `seed` set, a subset consumes the RNG stream
+#' differently from a full run; (2) a map unit whose components carry no data for *this* property
+#' no longer benefits from
 #' those components' other properties being present, so a single-property prior - and hence the
 #' fused posterior - can be `NA` for a few cells a full-property run would have covered. Those
 #' cells genuinely lack data for the property in question.
@@ -1676,11 +1684,17 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 #' @export
 run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth,
                                composition_groups = NULL, property_configs = NULL,
-                               parallel = FALSE, n_cores = NULL) {
+                               parallel = FALSE, n_cores = NULL, seed = NULL) {
+  # Opt-in determinism: seed once up front so the whole call - including a fusion-sampling step
+  # that runs even on a warm percentile cache - is reproducible. simulate_ssurgo_mapunit_draws()
+  # re-seeds to the same value for its own scope (and the parallel depth-trend path); nothing
+  # between here and there consumes the RNG.
+  if (!is.null(seed)) set.seed(seed)
+
   if (!is.null(property_config$composition_group)) {
     group_result <- run_stage1_fusion_group(
       aoi_vect, property_config$composition_group, composition_groups, property_configs,
-      top_depth, bottom_depth, parallel = parallel, n_cores = n_cores
+      top_depth, bottom_depth, parallel = parallel, n_cores = n_cores, seed = seed
     )
     return(if (is.null(group_result)) NULL else group_result[[property_config$id]])
   }
@@ -1713,7 +1727,7 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
     draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth,
                                             parallel = parallel, n_cores = n_cores,
                                             mukey_raster = mukey_raster_native,
-                                            requested_properties = ssurgo_property_id)
+                                            requested_properties = ssurgo_property_id, seed = seed)
     if (is.null(draws)) return(NULL)
   }
 
@@ -1798,6 +1812,9 @@ stage1_fuse_texture_group_from_fetched <- function(fetched, want_raw_draws = FAL
 #' @param parallel,n_cores Passed through to `simulate_ssurgo_mapunit_draws()`'s
 #'   `parallel`/`n_cores` for the shared draws computation below (only relevant when at least one
 #'   member isn't already disk-cached). Default `parallel = FALSE` matches prior behavior exactly.
+#' @param seed Optional integer for opt-in determinism, forwarded to
+#'   `simulate_ssurgo_mapunit_draws()` (and `set.seed()` once up front). `NULL` (default) =
+#'   current stochastic behavior.
 #' @return The full group result: a named list keyed by member id, each element
 #'   `list(posterior = list(value=, ilr_mu=, ilr_Sigma=, percentiles=), dist = "texture_ilr", route =
 #'   "closed_form_ilr_group", route_detail = NULL, n_fallback_cells = 0)` (see
@@ -1827,7 +1844,9 @@ stage1_fuse_texture_group_from_fetched <- function(fetched, want_raw_draws = FAL
 #' too would be an unverified assumption, not a data-driven decision.
 #' @export
 run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, property_configs,
-                                     top_depth, bottom_depth, parallel = FALSE, n_cores = NULL) {
+                                     top_depth, bottom_depth, parallel = FALSE, n_cores = NULL,
+                                     seed = NULL) {
+  if (!is.null(seed)) set.seed(seed)
   member_ids <- group_members(group, composition_groups)
   members <- property_configs[member_ids]
   want_raw_draws <- any(vapply(members, function(m) identical(m$prior_fusion_method, "raw_draws"), logical(1)))
@@ -1879,7 +1898,8 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
         shared_draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth,
                                                         parallel = parallel, n_cores = n_cores,
                                                         mukey_raster = shared_mukey_raster,
-                                                        requested_properties = member_props)
+                                                        requested_properties = member_props,
+                                                        seed = seed)
       }
     }
 
@@ -1951,6 +1971,10 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
 #' @param composition_groups A `config$monte_carlo$composition_groups`-shaped list (see
 #'   [group_members()]); required if any config sets `composition_group`.
 #' @param n_mc,parallel,n_cores Passed to [simulate_ssurgo_mapunit_draws()].
+#' @param seed Optional integer for opt-in determinism. `NULL` (default) = current stochastic
+#'   behavior. When set, `set.seed(seed)` runs once up front and `seed` is forwarded to the one
+#'   shared [simulate_ssurgo_mapunit_draws()] call, so the whole batch is reproducible given
+#'   identical upstream SSURGO/SOLUS data.
 #' @param verbose Passed to [fuse_property_adaptive()] - default `FALSE` (a multi-leaf batch is
 #'   otherwise noisy with per-route messages).
 #' @param simplify If `TRUE`, each leaf is reduced to `list(percentiles = <named SpatRasters>)`
@@ -1965,7 +1989,9 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
 run_stage1_fusion_multi <- function(aoi_vect, property_configs, depth_windows,
                                      composition_groups = NULL,
                                      n_mc = 1000, parallel = FALSE, n_cores = NULL,
-                                     verbose = FALSE, simplify = FALSE) {
+                                     seed = NULL, verbose = FALSE, simplify = FALSE) {
+  if (!is.null(seed)) set.seed(seed)
+
   ## --- validate ---------------------------------------------------------------
   if (!is.list(property_configs) || length(property_configs) == 0 ||
       is.null(names(property_configs)) || any(!nzchar(names(property_configs)))) {
@@ -2027,7 +2053,7 @@ run_stage1_fusion_multi <- function(aoi_vect, property_configs, depth_windows,
       aoi_vect, top_depth = span[1], bottom_depth = span[2],
       n_mc = n_mc, parallel = parallel, n_cores = n_cores,
       mukey_raster = mukey_raster, depth_windows = depth_windows,
-      requested_properties = req_props
+      requested_properties = req_props, seed = seed
     )
     if (is.null(draws_by_window)) return(NULL)
   }

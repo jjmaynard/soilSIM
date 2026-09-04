@@ -431,7 +431,8 @@ fresh draw either way), and a map unit whose components carry no data for *this 
 longer benefits from those components' other properties being present, so a single-property prior
 can be `NA` for a few cells a full-property run would have covered. The restriction is honoured
 only under the default `vertical_correlation_method = "joint_copula"`; `run_stage1_fusion()` never
-forwards a `config`, so it always gets that method.
+forwards a `config`, so it always gets that method. An optional `seed` argument makes the whole
+call reproducible given identical upstream SSURGO/SOLUS data; `NULL` (default) is stochastic.
 
 #### 16. `run_stage1_fusion_group()` — top-level AOI orchestrator (compositional)
 **Purpose**: Run the same fetch → align → fuse pipeline as `run_stage1_fusion()`, but for a whole
@@ -670,6 +671,10 @@ simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
 #                            property. Ignored (with a warning) under
 #                            vertical_correlation_method = "gp_quantile_retrofit", which is not
 #                            subset-invariant
+# seed                     - optional integer for opt-in determinism (NULL = current stochastic
+#                            behavior); set.seed(seed) once up front + future.seed on the parallel
+#                            depth-trend path. Conditional on unchanged upstream SSURGO data, and
+#                            does not make a requested_properties subset bit-identical to a full run
 ```
 **Returns**: A data frame, one row per `mukey`/`cokey`/`simulation_number` replicate, with simulated
 property columns aggregated over the depth window — or a named list of such data frames when

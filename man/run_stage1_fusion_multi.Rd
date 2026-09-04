@@ -12,6 +12,7 @@ run_stage1_fusion_multi(
   n_mc = 1000,
   parallel = FALSE,
   n_cores = NULL,
+  seed = NULL,
   verbose = FALSE,
   simplify = FALSE
 )
@@ -31,6 +32,11 @@ referenced group must have its own entry here.}
 \code{\link[=group_members]{group_members()}}); required if any config sets \code{composition_group}.}
 
 \item{n_mc, parallel, n_cores}{Passed to \code{\link[=simulate_ssurgo_mapunit_draws]{simulate_ssurgo_mapunit_draws()}}.}
+
+\item{seed}{Optional integer for opt-in determinism. \code{NULL} (default) = current stochastic
+behavior. When set, \code{set.seed(seed)} runs once up front and \code{seed} is forwarded to the one
+shared \code{\link[=simulate_ssurgo_mapunit_draws]{simulate_ssurgo_mapunit_draws()}} call, so the whole batch is reproducible given
+identical upstream SSURGO/SOLUS data.}
 
 \item{verbose}{Passed to \code{\link[=fuse_property_adaptive]{fuse_property_adaptive()}} - default \code{FALSE} (a multi-leaf batch is
 otherwise noisy with per-route messages).}

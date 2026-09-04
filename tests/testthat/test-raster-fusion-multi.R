@@ -178,6 +178,45 @@ test_that("run_stage1_fusion_multi() is quiet by default and honors simplify = T
   expect_true(all(grepl("^P", names(res_s$ph[["0-5"]]$percentiles))))
 })
 
+test_that("run_stage1_fusion_multi(seed=) seeds up front and forwards the seed to the simulation", {
+  seen_seed <- NULL
+  windows <- list(c(0, 5))
+  cfgs <- list(ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal"))
+
+  testthat::local_mocked_bindings(
+    fetch_ssurgo_mukey_raster = function(...) .mp_mukey_raster(),
+    simulate_ssurgo_mapunit_draws = function(..., depth_windows = NULL, seed = NULL) {
+      seen_seed <<- seed
+      stats::setNames(lapply(depth_windows, function(w) data.frame(mukey = 1)),
+                      vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), ""))
+    },
+    percentiles_from_draws = function(...) .mp_prior(),
+    fetch_solus_percentiles = function(...) .mp_solus(),
+    cache_get_valid_percentiles = function(...) NULL,
+    cache_set = function(...) invisible(TRUE),
+    build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
+    mukey_draws_lookup = function(...) NULL,
+    .package = "soilSIM"
+  )
+
+  # forwards the seed to the shared simulation
+  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, seed = 11)
+  expect_identical(seen_seed, 11)
+
+  # top-of-function set.seed(seed) makes the whole call (incl. the RNG-using fusion step)
+  # reproducible: two runs at the same seed leave the stream in the same place.
+  runif(1)
+  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, seed = 11)
+  s1 <- .Random.seed
+  runif(3)
+  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, seed = 11)
+  expect_identical(.Random.seed, s1)
+
+  seen_seed <- NULL
+  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)  # no seed
+  expect_null(seen_seed)
+})
+
 test_that("run_stage1_fusion_multi() skips the simulation when nothing needs it (all caches warm, no raw_draws)", {
   sim_n <- 0L
   windows <- list(c(0, 5))

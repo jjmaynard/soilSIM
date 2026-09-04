@@ -19,7 +19,8 @@ simulate_ssurgo_mapunit_draws(
   config = NULL,
   mukey_raster = NULL,
   depth_windows = NULL,
-  requested_properties = NULL
+  requested_properties = NULL,
+  seed = NULL
 )
 
 SSURGO_SIM_PROPERTY_COLUMNS
@@ -67,6 +68,13 @@ bit-identical) to slicing the same columns from a full simulation, and only unde
 \code{vertical_correlation_method = "joint_copula"}; under \code{"gp_quantile_retrofit"} (not
 subset-invariant - its rank retrofit keys off the first property in the list)
 \code{requested_properties} is ignored with a warning and all properties are simulated.}
+
+\item{seed}{Optional integer. \code{NULL} (default) keeps the current stochastic behavior. When set,
+\code{set.seed(seed)} runs once at the top (covering the whole sequential RNG stream: component
+composition, per-cokey property/texture draws, sequential depth-trend), and the parallel
+depth-trend path uses it as \code{future.seed}'s L'Ecuyer seed. Determinism is \strong{conditional} on
+identical upstream SSURGO data (\code{download_ssurgo_tabular()} can change over time) and does
+\strong{not} make a \code{requested_properties} subset bit-identical to a full simulation.}
 }
 \value{
 With \code{depth_windows = NULL}: a data frame, one row per \code{mukey}/\code{cokey}/\code{simulation_number}

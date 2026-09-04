@@ -14,7 +14,8 @@ extract_mukey_joint_ensemble(
   mukey_raster = NULL,
   draws_by_window = NULL,
   properties = SSURGO_SIM_PROPERTY_COLUMNS,
-  requested_properties = NULL
+  requested_properties = NULL,
+  seed = NULL
 )
 }
 \arguments{
@@ -36,6 +37,9 @@ returned \code{properties} element is the subset actually present for this AOI.}
 \item{requested_properties}{Passed through to \code{simulate_ssurgo_mapunit_draws()} to restrict the
 simulation itself (as opposed to \code{properties}, which only filters columns after the fact).
 \code{NULL} (default) restricts to \code{properties}; ignored when \code{draws_by_window} is supplied.}
+
+\item{seed}{Optional integer for opt-in determinism, forwarded to
+\code{simulate_ssurgo_mapunit_draws()}; ignored when \code{draws_by_window} is supplied.}
 }
 \value{
 \verb{list(by_mukey = <named list, keyed by mukey code>, properties = <character>, depth_windows = , window_names = , mukey_raster = )}. Each \code{by_mukey} element is

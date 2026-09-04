@@ -144,7 +144,8 @@ adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths, con
 #' @return `sim_long`, depth-trend-adjusted where possible.
 #' @export
 maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths = 2,
-                                                parallel = FALSE, n_cores = NULL, config = NULL) {
+                                                parallel = FALSE, n_cores = NULL, config = NULL,
+                                                seed = NULL) {
   if (!requireNamespace("GPfit", quietly = TRUE)) {
     warning("GPfit not installed - skipping depth-trend GP adjustment.")
     return(sim_long)
@@ -176,8 +177,11 @@ maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths 
     # R's RNG internally (confirmed empirically - future_lapply(future.seed = FALSE) raises an
     # "UNRELIABLE VALUE" warning here), despite the fitted result itself being highly stable
     # across runs/searches (see fit_local_gp_model_single()'s gp_control docs). future_seed =
-    # TRUE for parallel-safe RNG streams, not FALSE.
-    future_seed = TRUE,
+    # TRUE for parallel-safe RNG streams, not FALSE. An explicit integer `seed` (opt-in
+    # determinism, MULTI_PROPERTY_FUSION_PLAN.md B9) is passed straight through as
+    # future.seed's L'Ecuyer seed so the parallel path is reproducible too; NULL keeps the
+    # random-per-run parallel-safe stream.
+    future_seed = if (is.null(seed)) TRUE else seed,
     op_name = "depth-trend adjustment",
     sequential_fallback = function() {
       lapply(cokey_groups, adjust_one_cokey_depth_trend, properties = properties, min_depths = min_depths, config = config)
@@ -335,6 +339,12 @@ normalize_requested_properties <- function(requested_properties) {
 #'   `vertical_correlation_method = "joint_copula"`; under `"gp_quantile_retrofit"` (not
 #'   subset-invariant - its rank retrofit keys off the first property in the list)
 #'   `requested_properties` is ignored with a warning and all properties are simulated.
+#' @param seed Optional integer. `NULL` (default) keeps the current stochastic behavior. When set,
+#'   `set.seed(seed)` runs once at the top (covering the whole sequential RNG stream: component
+#'   composition, per-cokey property/texture draws, sequential depth-trend), and the parallel
+#'   depth-trend path uses it as `future.seed`'s L'Ecuyer seed. Determinism is **conditional** on
+#'   identical upstream SSURGO data (`download_ssurgo_tabular()` can change over time) and does
+#'   **not** make a `requested_properties` subset bit-identical to a full simulation.
 #' @param depth_windows Optional list of `c(top, bottom)` numeric pairs. `NULL` (default) - one
 #'   aggregation over `[top_depth, bottom_depth]`, returning a single data frame exactly as before
 #'   (bit-identical). When supplied, the (expensive) per-horizon simulation runs once and is then
@@ -370,7 +380,16 @@ normalize_requested_properties <- function(requested_properties) {
 simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
                                            parallel = FALSE, n_cores = NULL, config = NULL,
                                            mukey_raster = NULL, depth_windows = NULL,
-                                           requested_properties = NULL) {
+                                           requested_properties = NULL, seed = NULL) {
+  # Opt-in determinism: seed the global RNG stream once, up front. R's RNG is a single stream, so
+  # this one call covers sim_component_comp(), every per-cokey simulate_cokey_generalized(), the
+  # texture sub-sim, and the sequential joint-copula depth-trend step. The parallel depth-trend
+  # path is seeded separately via maybe_adjust_soil_data_depth_trend(seed=) -> future.seed.
+  # Determinism is conditional on identical upstream SSURGO data (download_ssurgo_tabular() can
+  # return different rows over time) and does NOT make a requested_properties subset bit-identical
+  # to a full simulation (fewer columns -> the RNG stream is consumed differently).
+  if (!is.null(seed)) set.seed(seed)
+
   req_props <- normalize_requested_properties(requested_properties)
   if (!is.null(req_props) &&
       identical(config$monte_carlo$vertical_correlation_method, "gp_quantile_retrofit")) {
@@ -455,7 +474,7 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
   property_cols <- intersect(SSURGO_SIM_PROPERTY_COLUMNS, names(sim_long))
   sim_long <- maybe_adjust_soil_data_depth_trend(sim_long, property_cols,
                                                   parallel = parallel, n_cores = n_cores,
-                                                  config = config)
+                                                  config = config, seed = seed)
 
   if (is.null(depth_windows)) {
     return(aggregate_depth_window_by_replicate(
@@ -637,6 +656,8 @@ mukey_texture_draws_lookup <- function(draws) {
 #' @param requested_properties Passed through to `simulate_ssurgo_mapunit_draws()` to restrict the
 #'   simulation itself (as opposed to `properties`, which only filters columns after the fact).
 #'   `NULL` (default) restricts to `properties`; ignored when `draws_by_window` is supplied.
+#' @param seed Optional integer for opt-in determinism, forwarded to
+#'   `simulate_ssurgo_mapunit_draws()`; ignored when `draws_by_window` is supplied.
 #' @return `list(by_mukey = <named list, keyed by mukey code>, properties = <character>,
 #'   depth_windows = , window_names = , mukey_raster = )`. Each `by_mukey` element is
 #'   `list(windows = <named list of [n_replicate x n_property] matrices, one per window>,
@@ -648,7 +669,7 @@ extract_mukey_joint_ensemble <- function(aoi_vect, depth_windows, n_mc = 1000,
                                           parallel = FALSE, n_cores = NULL, config = NULL,
                                           mukey_raster = NULL, draws_by_window = NULL,
                                           properties = SSURGO_SIM_PROPERTY_COLUMNS,
-                                          requested_properties = NULL) {
+                                          requested_properties = NULL, seed = NULL) {
   ok_pair <- function(w) length(w) == 2 && is.numeric(w) && is.finite(w[[1]]) &&
     is.finite(w[[2]]) && w[[2]] > w[[1]]
   if (!is.list(depth_windows) || length(depth_windows) == 0 ||
@@ -667,7 +688,8 @@ extract_mukey_joint_ensemble <- function(aoi_vect, depth_windows, n_mc = 1000,
       aoi_vect, top_depth = span[1], bottom_depth = span[2],
       n_mc = n_mc, parallel = parallel, n_cores = n_cores, config = config,
       mukey_raster = mukey_raster, depth_windows = depth_windows,
-      requested_properties = if (is.null(requested_properties)) properties else requested_properties
+      requested_properties = if (is.null(requested_properties)) properties else requested_properties,
+      seed = seed
     )
   }
   if (is.null(draws_by_window)) return(NULL)
@@ -739,13 +761,15 @@ extract_mukey_joint_ensemble <- function(aoi_vect, depth_windows, n_mc = 1000,
 #'   property's column back out), so a bare call simulates only what it needs. Pass an explicit
 #'   vector to keep extra properties in the shared draws (e.g. a caller reusing them); pass
 #'   `character(0)`-safe values only - `NULL` is the "just this property" shortcut, not "all".
+#' @param seed Optional integer for opt-in determinism, forwarded to
+#'   `simulate_ssurgo_mapunit_draws()`. `NULL` (default) = current stochastic behavior.
 #' @return `list(values = <named list of percentile-value SpatRasters>, probs = probs)`, or `NULL`
 #'   if the mukey raster or the Monte Carlo draws are unavailable for this AOI.
 #' @export
 fetch_ssurgo_percentiles <- function(aoi_vect, property_id, top_depth, bottom_depth,
                                       probs = c(0.05, 0.25, 0.5, 0.75, 0.95), n_mc = 1000,
                                       parallel = FALSE, n_cores = NULL,
-                                      requested_properties = NULL) {
+                                      requested_properties = NULL, seed = NULL) {
   mukey_raster <- fetch_ssurgo_mukey_raster(aoi_vect)
   if (is.null(mukey_raster)) return(NULL)
 
@@ -753,7 +777,7 @@ fetch_ssurgo_percentiles <- function(aoi_vect, property_id, top_depth, bottom_de
   draws <- simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc,
                                           parallel = parallel, n_cores = n_cores,
                                           mukey_raster = mukey_raster,
-                                          requested_properties = req_props)
+                                          requested_properties = req_props, seed = seed)
   if (is.null(draws) || nrow(draws) == 0) return(NULL)
 
   percentiles_from_draws(mukey_raster, draws, property_id, probs)

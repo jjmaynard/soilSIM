@@ -123,6 +123,11 @@ Sys.unsetenv("PROJ_LIB")
 aoi <- terra::vect(salinas_wkt, crs = "epsg:4326")
 aoi <- terra::project(aoi, "epsg:5070")
 
+# Fixed seed so the cached fusion .rds objects regenerate deterministically (opt-in via the
+# `seed` argument, MULTI_PROPERTY_FUSION_PLAN.md B9). Determinism is still conditional on the
+# live SSURGO/SOLUS data itself being unchanged between runs.
+VIGNETTE_SEED <- 20260903L
+
 # property_to_sim_column() (R/ssurgo-simulation.R) only recognizes a fixed set of short
 # property-id codes (clay/sand/silt/ph/bulk_density/soc/cec/rock_fragments) for the SSURGO
 # prior side - "claytotal" (the SSURGO/SOLUS long-form name, correct for solus_variable) isn't
@@ -131,7 +136,8 @@ property_config <- list(id = "clay", solus_variable = "claytotal", dist = "norma
 fusion_clay <- save_step(
   "fusion_clay_salinas",
   file.path(extdata_dir, "fusion_clay_salinas.rds"),
-  wrap_nested_rasters(run_stage1_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5))
+  wrap_nested_rasters(run_stage1_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5,
+                                        seed = VIGNETTE_SEED))
 )
 
 # ---------------------------------------------------------------------------
@@ -156,7 +162,8 @@ fusion_texture <- save_step(
   # didn't match its own vignette's displayed "real call" comment, which already showed
   # run_stage1_fusion_group() correctly.
   wrap_nested_rasters(run_stage1_fusion_group(
-    aoi, "texture", composition_groups, property_configs, top_depth = 0, bottom_depth = 5
+    aoi, "texture", composition_groups, property_configs, top_depth = 0, bottom_depth = 5,
+    seed = VIGNETTE_SEED
   ))
 )
 
@@ -178,7 +185,7 @@ pp_ensemble <- save_step(
   "perpixel_ensemble_salinas",
   file.path(extdata_dir, "perpixel_ensemble_salinas.rds"),
   {
-    ens <- extract_mukey_joint_ensemble(aoi, pp_windows)
+    ens <- extract_mukey_joint_ensemble(aoi, pp_windows, seed = VIGNETTE_SEED)
     if (!is.null(ens)) {
       keep_cols <- intersect(names(pp_solus), ens$properties)
       # Drop tiny map units (< 100 replicates - a component barely overlapping the AOI): with one
@@ -213,7 +220,8 @@ pp_posteriors <- save_step(
       lapply(names(pp_solus), function(nm) list(id = nm, solus_variable = pp_solus[[nm]], dist = "auto")),
       names(pp_solus)
     )
-    out <- run_stage1_fusion_multi(aoi, pp_configs, pp_windows, simplify = TRUE)
+    out <- run_stage1_fusion_multi(aoi, pp_configs, pp_windows, seed = VIGNETTE_SEED,
+                                   simplify = TRUE)
     # Match the old loop's shape: drop NULL leaves (a failed window), then drop any property left
     # with no windows at all (SOLUS variable unavailable).
     out <- lapply(out, function(pw) pw[!vapply(pw, is.null, logical(1))])

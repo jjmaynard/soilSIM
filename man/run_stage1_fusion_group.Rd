@@ -12,7 +12,8 @@ run_stage1_fusion_group(
   top_depth,
   bottom_depth,
   parallel = FALSE,
-  n_cores = NULL
+  n_cores = NULL,
+  seed = NULL
 )
 }
 \arguments{
@@ -32,6 +33,10 @@ replacement for the original bundle's global \code{PROPERTIES} registry.}
 \item{parallel, n_cores}{Passed through to \code{simulate_ssurgo_mapunit_draws()}'s
 \code{parallel}/\code{n_cores} for the shared draws computation below (only relevant when at least one
 member isn't already disk-cached). Default \code{parallel = FALSE} matches prior behavior exactly.}
+
+\item{seed}{Optional integer for opt-in determinism, forwarded to
+\code{simulate_ssurgo_mapunit_draws()} (and \code{set.seed()} once up front). \code{NULL} (default) =
+current stochastic behavior.}
 }
 \value{
 The full group result: a named list keyed by member id, each element

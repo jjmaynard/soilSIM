@@ -12,7 +12,8 @@ run_stage1_fusion(
   composition_groups = NULL,
   property_configs = NULL,
   parallel = FALSE,
-  n_cores = NULL
+  n_cores = NULL,
+  seed = NULL
 )
 }
 \arguments{
@@ -33,6 +34,13 @@ is set - passed through to \code{run_stage1_fusion_group()} (see its docs).}
 whichever path this call takes) - the SSURGO adapter's per-cokey depth-trend GP fitting is
 this pipeline's dominant cost for AOIs with many cokeys. Default \code{parallel = FALSE} matches
 prior behavior exactly.}
+
+\item{seed}{Optional integer for opt-in determinism. \code{NULL} (default) keeps the current
+stochastic behavior. When set, \code{set.seed(seed)} runs once at the top of this call and \code{seed}
+is forwarded to \code{simulate_ssurgo_mapunit_draws()}, so the whole call (SSURGO simulation,
+depth-trend GP fit, and the posterior-sampling fusion step) is reproducible given identical
+upstream SSURGO/SOLUS data. See \code{simulate_ssurgo_mapunit_draws()}'s \code{seed} docs for the
+conditional-determinism caveats.}
 }
 \value{
 \code{list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=, route_detail=, n_fallback_cells=)}, or \code{NULL} if the SSURGO or SOLUS side failed.
@@ -60,8 +68,10 @@ The SSURGO prior simulation is restricted to just this call's own property (plus
 sand/silt/clay draw for any texture member) via \code{simulate_ssurgo_mapunit_draws()}'s
 \code{requested_properties} - the per-cokey depth-trend GP fit is the pipeline's dominant cost and
 scales with the property count. Consequences: (1) the prior is \emph{statistically equivalent} to,
-not bit-identical to, a full-property simulation's matching column (a fresh unseeded draw either
-way); (2) a map unit whose components carry no data for \emph{this} property no longer benefits from
+not bit-identical to, a full-property simulation's matching column - the pipeline is unseeded by
+default (a fresh draw either way), and even with \code{seed} set, a subset consumes the RNG stream
+differently from a full run; (2) a map unit whose components carry no data for \emph{this} property
+no longer benefits from
 those components' other properties being present, so a single-property prior - and hence the
 fused posterior - can be \code{NA} for a few cells a full-property run would have covered. Those
 cells genuinely lack data for the property in question.
