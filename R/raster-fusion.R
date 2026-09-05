@@ -2059,6 +2059,17 @@ run_stage1_fusion_multi <- function(aoi_vect, property_configs, depth_windows,
   }
 
   ## --- SOLUS fetch memo (per solus_variable x window) -----------------------
+  # S1: one batched fetch_solus_percentiles_multi() call per window covers every variable needed
+  # by any standalone config or group member, instead of one fetch_solus_percentiles() call per
+  # (variable, window). Falls back to the scalar per-variable path only if the batched request
+  # itself errors outright (get_solus()'s memo-miss path below already does that transparently).
+  vars_needed <- unique(c(
+    vapply(property_configs[standalone_ids], cfg_id_prop, character(1)),
+    unlist(lapply(group_names, function(g) {
+      vapply(property_configs[group_members(g, composition_groups)], cfg_id_prop, character(1))
+    }), use.names = FALSE)
+  ))
+
   solus_memo <- list()
   get_solus <- function(solus_variable, w) {
     key <- paste0(solus_variable, "@", w[[1]], "-", w[[2]])
@@ -2068,6 +2079,18 @@ run_stage1_fusion_multi <- function(aoi_vect, property_configs, depth_windows,
     val <- fetch_solus_percentiles(aoi_vect, solus_variable, w[[1]], w[[2]])
     solus_memo[[key]] <<- if (is.null(val)) "MISS" else val
     val
+  }
+  prefetch_solus_batch <- function(w) {
+    batch <- tryCatch(
+      fetch_solus_percentiles_multi(aoi_vect, vars_needed, w[[1]], w[[2]]),
+      error = function(e) NULL
+    )
+    if (is.null(batch)) return(invisible(NULL))  # defensive: get_solus() falls back per-variable
+    for (v in vars_needed) {
+      key <- paste0(v, "@", w[[1]], "-", w[[2]])
+      solus_memo[[key]] <<- if (is.null(batch[[v]])) "MISS" else batch[[v]]
+    }
+    invisible(NULL)
   }
   seed_solus_cache <- function(cfg_id, w, solus) {
     k <- build_cache_key(aoi_vect, cfg_id, w[[1]], w[[2]], "solus")
@@ -2082,6 +2105,7 @@ run_stage1_fusion_multi <- function(aoi_vect, property_configs, depth_windows,
   for (wi in seq_along(depth_windows)) {
     w <- depth_windows[[wi]]
     wname <- window_names[wi]
+    prefetch_solus_batch(w)
     dw <- if (is.null(draws_by_window)) NULL else draws_by_window[[wname]]
 
     for (id in standalone_ids) {

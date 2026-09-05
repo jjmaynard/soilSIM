@@ -324,14 +324,31 @@ remarginalize_ensemble_to_posterior <- function(mukey_ensemble, posterior_by_pro
 #' @param tile_rows Optional. Process the AOI in horizontal row-strips, releasing each strip's
 #'   realization stack before the next. Per-pixel quantiles are cell-independent, so a tiled run is
 #'   numerically identical to `tile_rows = NULL`. `NULL` (default) / `>= nrow` disables tiling.
+#' @param restriction_depth Optional single-layer `terra::SpatRaster` of restriction depth in cm -
+#'   typically `fetch_solus_restriction_depth(aoi_vect)` (MULTI_PROPERTY_FUSION_PLAN.md task S2),
+#'   already right-censoring-guarded (cells with no detected restriction are `Inf`, never
+#'   `SOLUS_RESTRICTION_CENSOR_CM` itself). `NULL` (default) preserves today's behavior exactly -
+#'   every window contributes its full nominal thickness, regardless of bedrock. When supplied,
+#'   resampled once (bilinear - a continuous depth value, not a category) onto the working grid,
+#'   and each window's contribution is scaled by its **effective** thickness
+#'   `pmax(0, pmin(bottom, restriction_depth) - top)` instead of the nominal `bottom - top`: a
+#'   window entirely above the restriction keeps its full thickness, one straddling it gets partial
+#'   credit, one entirely below it contributes exactly **0** (not `NA` - `NA` would incorrectly
+#'   blank the whole pixel's AWC, including valid shallower windows, rather than just this window's
+#'   contribution). A pixel with `restriction_depth` missing/`NA` (e.g. no coverage at the AOI edge)
+#'   is treated the same as `Inf` - no truncation - the same "no evidence -> don't truncate"
+#'   convention this pipeline already uses for other SSURGO/SOLUS coverage gaps, rather than
+#'   propagating `NA` into the AWC total.
 #' @return `list(awc_cm = <named list of P.. SpatRasters>, n_kept =, windows_used =, n_tiles =)`.
 #'   AWC clamped at 0.
-#' @seealso `remarginalize_ensemble_to_posterior()`, `saxton_rawls_raster()`, `calculate_aws_df()`
+#' @seealso `remarginalize_ensemble_to_posterior()`, `saxton_rawls_raster()`, `calculate_aws_df()`,
+#'   `fetch_solus_restriction_depth()`
 #' @export
 remarginalized_awc <- function(mukey_ensemble, posterior_by_property_window,
                                method = c("saxton_rawls", "direct"),
                                n_out = 250, probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
-                               rock_fragment = TRUE, soc_to_om = 1.724, tile_rows = NULL) {
+                               rock_fragment = TRUE, soc_to_om = 1.724, tile_rows = NULL,
+                               restriction_depth = NULL) {
   method <- match.arg(method)
   req <- if (method == "saxton_rawls") c("sand_total", "silt_total", "clay_total", "db")
          else c("wr_3b", "wr_15b")
@@ -350,17 +367,30 @@ remarginalized_awc <- function(mukey_ensemble, posterior_by_property_window,
   pbpw <- posterior_by_property_window[keys]
 
   block <- if (method == "saxton_rawls") {
-    function(me, p) .awc_block(me, p, n_out, probs, method = "saxton_rawls", soc_to_om = soc_to_om)
+    function(me, p, rd) .awc_block(me, p, n_out, probs, method = "saxton_rawls", soc_to_om = soc_to_om,
+                                   restriction_depth = rd)
   } else {
-    function(me, p) .awc_block(me, p, n_out, probs, method = "direct")
+    function(me, p, rd) .awc_block(me, p, n_out, probs, method = "direct", restriction_depth = rd)
   }
 
   w1 <- intersect(mukey_ensemble$window_names, names(pbpw[[req[1]]]))
   if (length(w1) == 0) stop("remarginalized_awc(): no window has a posterior for the required properties.")
   ref <- pbpw[[req[1]]][[w1[1]]]$percentiles[[1]]
 
+  # S2: resample restriction_depth onto the working grid ONCE here (not per window inside
+  # .awc_block(), not per tile below) - a continuous depth value, bilinear, matching how every
+  # other continuous SOLUS/SSURGO raster in this pipeline is resampled onto a working grid. NA
+  # cells (e.g. no coverage at the AOI edge) are treated as Inf - "no evidence, don't truncate" -
+  # rather than propagating NA into the AWC total.
+  restriction_depth_aligned <- if (is.null(restriction_depth)) {
+    NULL
+  } else {
+    rd <- terra::resample(restriction_depth, ref, method = "bilinear")
+    terra::ifel(is.na(rd), Inf, rd)
+  }
+
   if (is.null(tile_rows) || tile_rows >= terra::nrow(ref)) {
-    return(c(block(mukey_ensemble, pbpw), list(n_tiles = 1L)))
+    return(c(block(mukey_ensemble, pbpw, restriction_depth_aligned), list(n_tiles = 1L)))
   }
 
   nr <- terra::nrow(ref)
@@ -377,7 +407,8 @@ remarginalized_awc <- function(mukey_ensemble, posterior_by_property_window,
       post$percentiles <- lapply(post$percentiles, terra::crop, y = ext_b, snap = "near")
       post
     }))
-    block(me_b, pbpw_b)
+    rd_b <- if (is.null(restriction_depth_aligned)) NULL else terra::crop(restriction_depth_aligned, ext_b, snap = "near")
+    block(me_b, pbpw_b, rd_b)
   })
 
   merged <- stats::setNames(lapply(seq_along(probs), function(j) {
@@ -389,7 +420,13 @@ remarginalized_awc <- function(mukey_ensemble, posterior_by_property_window,
 }
 
 # One-block (whole-grid) AWC core; called directly, or once per row-strip when tile_rows is set.
-.awc_block <- function(mukey_ensemble, pbpw, n_out, probs, method, soc_to_om = 1.724) {
+# restriction_depth (S2): NULL (default) = today's unchanged behavior, every window uses its full
+# nominal thickness `th`. Otherwise a single-layer SpatRaster (already resampled onto the working
+# grid, already NA->Inf'd, by the caller) - each window's thickness becomes the per-pixel effective
+# thickness pmax(0, pmin(bottom, restriction_depth) - top), via two terra::clamp() calls (clamp
+# with only `upper` set is exactly pmin(x, upper); with only `lower` set, exactly pmax(x, lower)).
+.awc_block <- function(mukey_ensemble, pbpw, n_out, probs, method, soc_to_om = 1.724,
+                       restriction_depth = NULL) {
   rm_res <- remarginalize_ensemble_to_posterior(mukey_ensemble, pbpw, n_out = n_out, summarize = FALSE)
   e <- rm_res$ensemble
 
@@ -397,7 +434,14 @@ remarginalized_awc <- function(mukey_ensemble, posterior_by_property_window,
   used <- character(0)
   for (i in seq_along(mukey_ensemble$window_names)) {
     w <- mukey_ensemble$window_names[i]
-    th <- diff(range(mukey_ensemble$depth_windows[[i]]))
+    win <- mukey_ensemble$depth_windows[[i]]
+    top <- win[1]; bottom <- win[2]
+    th <- if (is.null(restriction_depth)) {
+      bottom - top
+    } else {
+      terra::clamp(terra::clamp(restriction_depth, upper = bottom, values = TRUE) - top,
+                   lower = 0, values = TRUE)
+    }
 
     if (method == "saxton_rawls") {
       if (any(vapply(c("sand_total", "silt_total", "clay_total", "db"),

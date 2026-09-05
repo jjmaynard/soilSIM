@@ -15,7 +15,10 @@ NULL
 #'
 #' @param aoi_wkt Character. Well-Known Text (WKT) representation of the area of interest
 #' @param properties Character vector. Soil properties to download.
-#'   Default: c("w3b", "w15b", "db", "cec", "rfv", "clay", "ph", "sand", "silt", "soc")
+#'   Default: c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o", "cec7", "om",
+#'   "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar") - the last 5 added in
+#'   MULTI_PROPERTY_FUSION_PLAN.md task P2 (needs a matching row in
+#'   `create_ssurgo_property_lookup_working()` to actually reach the SQL query - already present).
 #' @param include_restrictions Logical. Whether to include horizon restriction data for
 #'   unsuitable horizon detection (default: TRUE)
 #' @param cache_dir Character. Directory for caching downloaded data (default: NULL for no caching)
@@ -70,7 +73,13 @@ NULL
 #' @export
 download_ssurgo_tabular <- function(aoi_wkt,
                                     properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
-                                                   "cec7", "om", "wthirdbar", "wfifteenbar"),
+                                                   "cec7", "om", "wthirdbar", "wfifteenbar",
+                                                   # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md
+                                                   # task P2) - widened here (not just added to
+                                                   # create_ssurgo_property_lookup_working()'s lookup
+                                                   # table) since simulate_ssurgo_mapunit_draws()'s call
+                                                   # site never overrides this default.
+                                                   "caco3", "ec", "ecec", "gypsum", "sar"),
                                     include_restrictions = TRUE,
                                     cache_dir = NULL,
                                     force_download = FALSE,
@@ -319,13 +328,20 @@ create_ssurgo_property_lookup_working <- function() {
   # Replace with:
   data.frame(
     Property = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
-                 "cec7", "om", "wthirdbar", "wfifteenbar"),
+                 "cec7", "om", "wthirdbar", "wfifteenbar",
+                 # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2) - column names
+                 # confirmed live against a real gSSURGO chorizon query (2026-09-04, Salinas AOI):
+                 # all 5 triplets exist and return real (if sparse - especially ecec) data.
+                 "caco3", "ec", "ecec", "gypsum", "sar"),
     SSURGO_Label_Low = c("sandtotal_l", "claytotal_l", "silttotal_l", "dbovendry_l",
-                         "ph1to1h2o_l", "cec7_l", "om_l", "wthirdbar_l", "wfifteenbar_l"),
+                         "ph1to1h2o_l", "cec7_l", "om_l", "wthirdbar_l", "wfifteenbar_l",
+                         "caco3_l", "ec_l", "ecec_l", "gypsum_l", "sar_l"),
     SSURGO_Label_Rep = c("sandtotal_r", "claytotal_r", "silttotal_r", "dbovendry_r",
-                         "ph1to1h2o_r", "cec7_r", "om_r", "wthirdbar_r", "wfifteenbar_r"),
+                         "ph1to1h2o_r", "cec7_r", "om_r", "wthirdbar_r", "wfifteenbar_r",
+                         "caco3_r", "ec_r", "ecec_r", "gypsum_r", "sar_r"),
     SSURGO_Label_High = c("sandtotal_h", "claytotal_h", "silttotal_h", "dbovendry_h",
-                          "ph1to1h2o_h", "cec7_h", "om_h", "wthirdbar_h", "wfifteenbar_h"),
+                          "ph1to1h2o_h", "cec7_h", "om_h", "wthirdbar_h", "wfifteenbar_h",
+                          "caco3_h", "ec_h", "ecec_h", "gypsum_h", "sar_h"),
     stringsAsFactors = FALSE
   )
 }

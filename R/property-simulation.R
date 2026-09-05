@@ -318,6 +318,48 @@ calculate_mode <- function(x) {
   ux[which.max(counts)]
 }
 
+#' Van Bemmelen-factor conversion from SSURGO organic matter % to an estimated soil organic
+#' carbon %
+#'
+#' SSURGO's `chorizon` table reports organic matter (`om_l/_r/_h`), not organic carbon - but
+#' `simulate_cokey_generalized()`'s simulated `soc` column (and the KSSL reference correlation
+#' matrix's `soc` row/column, see `R/kssl-reference-correlations.R`'s `.kssl_property_name_map`
+#' docs) both need an actual SOC-scale value to be fused against SOLUS100's real `soc` variable
+#' (organic carbon). `SOC = OM / 1.724` is the standard Van Bemmelen-factor approximation (the
+#' same factor `remarginalized_awc()`'s `soc_to_om` argument uses in the opposite direction,
+#' `R/raster-fusion-bridge.R`). Applying this conversion needs no change to the KSSL correlation
+#' *matrix* itself - Pearson correlation is invariant under a positive linear rescale of one
+#' variable, and triangular-distribution parameters (min/mode/max) transform linearly too - only
+#' the marginal values entering the correlated draw need rescaling, which is exactly where this
+#' constant is used (MULTI_PROPERTY_FUSION_PLAN.md task P1).
+#' @keywords internal
+OM_TO_SOC_FACTOR <- 1 / 1.724
+
+#' Extend a Correlation Matrix with Identity Rows/Columns for Missing Names
+#'
+#' Adds a 1-on-diagonal, 0-cross-correlation row/column for each name in `missing_names` not
+#' already in `m`'s dimnames - the same "uncorrelated with everything, safe default" convention
+#' `build_kssl_fallback_matrix()` uses for properties without KSSL reference data (see
+#' MULTI_PROPERTY_FUSION_PLAN.md task P2). Used by `simulate_cokey_generalized()` as a defensive
+#' fallback so an unrecognized-but-requested property degrades to independence rather than
+#' erroring on `m[keep_cols, keep_cols]`. The result stays positive-definite: a block-diagonal
+#' matrix formed from a positive-definite block (`m`) and an identity block has no negative
+#' eigenvalues.
+#' @param m A square, dimnamed correlation matrix.
+#' @param missing_names Character vector of names to add (assumed disjoint from `rownames(m)`).
+#' @return `m` extended to `nrow(m) + length(missing_names)` rows/columns.
+#' @keywords internal
+extend_corr_matrix_with_identity <- function(m, missing_names) {
+  old_names <- rownames(m)
+  new_names <- c(old_names, missing_names)
+  n_old <- length(old_names)
+  n_new <- length(new_names)
+  extended <- diag(n_new)
+  dimnames(extended) <- list(new_names, new_names)
+  extended[seq_len(n_old), seq_len(n_old)] <- m
+  extended
+}
+
 #' Simulate Soil Properties for a Specific Cokey (Generalized)
 #'
 #' Simulates a flexible set of soil properties (whichever of bulk density, water retention,
@@ -332,7 +374,13 @@ calculate_mode <- function(x) {
 #'   `sim_comppct` column (number of realizations to simulate for that row - see
 #'   `sim_component_comp()`).
 #' @param correlation_matrices A list of correlation matrices keyed by `genhz`, with row/column
-#'   names matching (a subset of) `c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc")`.
+#'   names matching (a subset of) `c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec",
+#'   "soc", "caco3", "ec", "ecec", "gypsum", "sar")`. The 5 chemistry properties added in
+#'   MULTI_PROPERTY_FUSION_PLAN.md task P2 have no real KSSL-fit correlation data (see
+#'   `build_kssl_fallback_matrix()`) - `simulate_ssurgo_mapunit_draws()` builds its
+#'   `correlation_matrices` through that function so they're present (as identity/uncorrelated)
+#'   rather than missing; a direct caller supplying its own matrix without them will simply never
+#'   populate `param_list[["caco3"]]` etc. (see `get_param_set()`'s per-row gating below), not error.
 #' @param txt_correlation_matrices A list of texture correlation matrices keyed by `genhz`
 #'   (sand/silt/clay order, matching the `simulate_correlated_triangular()` call for texture).
 #' @param requested_properties `NULL` (default) simulates every property with a complete `_l/_r/_h`
@@ -346,12 +394,19 @@ calculate_mode <- function(x) {
 #' @return A data frame of simulated property values across all rows/realizations, with
 #'   `compname`, `mukey`, `cokey`, `hzdept_r`, `hzdepb_r`, `simulation_number`, `unique_id`, and
 #'   (when `sim_cokey` itself has a `bound_sd` column - see `attach_osd_boundary_distinctness()`)
-#'   `bound_sd`.
+#'   `bound_sd`. The `soc` column is an SSURGO-organic-matter-**derived SOC estimate**
+#'   (`om * OM_TO_SOC_FACTOR`, the inverse Van Bemmelen factor) - not a lab-measured soil organic
+#'   carbon value. See `OM_TO_SOC_FACTOR`'s own docs (MULTI_PROPERTY_FUSION_PLAN.md task P1).
 #' @export
 simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_correlation_matrices = NULL,
                                         requested_properties = NULL) {
 
-  param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc")
+  # The 5 chemistry properties (caco3/ec/ecec/gypsum/sar) added in MULTI_PROPERTY_FUSION_PLAN.md
+  # task P2 have no real KSSL-fit correlation entry (see correlation_matrices' own @param doc) -
+  # they simulate uncorrelated with everything else by default until real KSSL lab data covering
+  # them becomes available for a re-fit.
+  param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc",
+                   "caco3", "ec", "ecec", "gypsum", "sar")
 
   # NULL -> keep everything (unchanged). Otherwise restrict to the requested subset; normalize here
   # (idempotently) so a direct caller can pass ids like "clay"/"ph" rather than param_order names.
@@ -500,8 +555,30 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
     cec_set <- get_param_set(row, "cec7")
     if ("cec" %in% keep_params && !is.null(cec_set)) param_list[["cec"]] <- cec_set
 
+    # om -> soc conversion (MULTI_PROPERTY_FUSION_PLAN.md task P1): SSURGO reports organic
+    # matter, not organic carbon - convert via the Van Bemmelen factor so this triplet is
+    # SOC-scale before it enters the correlated draw. See OM_TO_SOC_FACTOR's own docs for why
+    # the KSSL correlation matrix itself needs no corresponding change (scale invariance).
     om_set <- get_param_set(row, "om")
-    if ("soc" %in% keep_params && !is.null(om_set)) param_list[["soc"]] <- om_set
+    if ("soc" %in% keep_params && !is.null(om_set)) param_list[["soc"]] <- om_set * OM_TO_SOC_FACTOR
+
+    # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2) - same SSURGO-stem-triplet
+    # gating pattern as every property above, no conversion needed (SSURGO's units already match
+    # SOLUS100's: caco3/gypsum are % by weight, ec is dS/m, ecec is cmol(+)/kg, sar is unitless).
+    caco3_set <- get_param_set(row, "caco3")
+    if ("caco3" %in% keep_params && !is.null(caco3_set)) param_list[["caco3"]] <- caco3_set
+
+    ec_set <- get_param_set(row, "ec")
+    if ("ec" %in% keep_params && !is.null(ec_set)) param_list[["ec"]] <- ec_set
+
+    ecec_set <- get_param_set(row, "ecec")
+    if ("ecec" %in% keep_params && !is.null(ecec_set)) param_list[["ecec"]] <- ecec_set
+
+    gypsum_set <- get_param_set(row, "gypsum")
+    if ("gypsum" %in% keep_params && !is.null(gypsum_set)) param_list[["gypsum"]] <- gypsum_set
+
+    sar_set <- get_param_set(row, "sar")
+    if ("sar" %in% keep_params && !is.null(sar_set)) param_list[["sar"]] <- sar_set
 
     param_list <- param_list[!vapply(param_list, is.null, logical(1))]
 
@@ -513,6 +590,21 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
     params_for_sim <- unname(param_list)
 
     keep_cols <- names(param_list)
+
+    # Defensive: a keep_cols name absent from local_corr's own dimnames (e.g. a direct caller
+    # supplying a correlation_matrices list that predates task P2's 5 new chemistry properties,
+    # or any future property added to param_order before every caller's matrices catch up) would
+    # otherwise make `local_corr[keep_cols, keep_cols]` below throw "subscript out of bounds" and
+    # abort this row (this indexing happens before the tryCatch() further down). Extend local_corr
+    # with an identity row/col for any such name instead - uncorrelated with everything, same
+    # graceful-degrade convention build_kssl_fallback_matrix() and this function's own
+    # genhz-mismatch/singular-texture-matrix fallbacks already use elsewhere in this file. The
+    # production path (simulate_ssurgo_mapunit_draws()) never hits this: it builds
+    # correlation_matrices via build_kssl_fallback_matrix() sized to the full param_order already.
+    missing_cols <- setdiff(keep_cols, rownames(local_corr))
+    if (length(missing_cols)) {
+      local_corr <- extend_corr_matrix_with_identity(local_corr, missing_cols)
+    }
     local_corr_sub <- local_corr[keep_cols, keep_cols, drop = FALSE]
 
     tryCatch({

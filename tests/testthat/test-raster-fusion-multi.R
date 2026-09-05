@@ -13,6 +13,13 @@ probs5 <- c(0.05, 0.25, 0.5, 0.75, 0.95)
 .mp_prior <- function(v = 20) list(values = .mp_pct(v), probs = probs5)
 .mp_solus <- function(v = 22) list(values = .mp_pct(v), probs = probs5)
 
+# S1: run_stage1_fusion_multi() fetches SOLUS via the batched fetch_solus_percentiles_multi()
+# (one call per window, every variable at once), not the scalar fetch_solus_percentiles() per
+# (variable, window) - default mock mirrors .mp_solus() for every requested variable.
+.mp_solus_multi <- function(solus_variables, v = 22) {
+  stats::setNames(lapply(solus_variables, function(x) .mp_solus(v)), solus_variables)
+}
+
 .mp_mukey_raster <- function() {
   r <- terra::rast(nrows = 1, ncols = 1, vals = 900)
   names(r) <- "mukey"
@@ -52,6 +59,7 @@ test_that("run_stage1_fusion_multi() runs the SSURGO simulation exactly once for
     },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) .mp_solus(),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
@@ -81,6 +89,7 @@ test_that("run_stage1_fusion_multi() seeds the per-(id, window) 'ssurgo' and 'so
     },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) .mp_solus(),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = rec$fn,
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
@@ -140,6 +149,12 @@ test_that("run_stage1_fusion_multi() returns NULL leaves on a per-leaf SOLUS fai
     fetch_solus_percentiles = function(aoi_vect, solus_variable, ...) {
       if (identical(solus_variable, "dbovendry")) NULL else .mp_solus()
     },
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) {
+      stats::setNames(
+        lapply(solus_variables, function(v) if (identical(v, "dbovendry")) NULL else .mp_solus()),
+        solus_variables
+      )
+    },
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
@@ -164,6 +179,7 @@ test_that("run_stage1_fusion_multi() is quiet by default and honors simplify = T
     },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) .mp_solus(),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
@@ -192,6 +208,7 @@ test_that("run_stage1_fusion_multi(seed=) seeds up front and forwards the seed t
     },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) .mp_solus(),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
@@ -229,6 +246,7 @@ test_that("run_stage1_fusion_multi() skips the simulation when nothing needs it 
     simulate_ssurgo_mapunit_draws = function(...) { sim_n <<- sim_n + 1L; list() },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) .mp_solus(),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
     cache_get_valid_percentiles = function(...) .mp_prior(),  # everything warm
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
@@ -266,6 +284,7 @@ test_that("run_stage1_fusion_multi() distributes a compositional group's members
     },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) .mp_solus(),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
@@ -283,4 +302,87 @@ test_that("run_stage1_fusion_multi() distributes a compositional group's members
   expect_equal(res$clay[["0-5"]]$dist, "texture_ilr")
   expect_equal(res$sand[["5-15"]]$dist, "texture_ilr")
   expect_true(all(c("prior", "likelihood", "posterior") %in% names(res$ph[["0-5"]])))  # standalone unaffected
+})
+
+# ---------------------------------------------------------------------------
+# S1 - batched SOLUS fetch: one fetch_solus_percentiles_multi() call per window (covering every
+# variable needed by any standalone config or group member), not one fetch_solus_percentiles()
+# call per (variable, window).
+# ---------------------------------------------------------------------------
+
+test_that("run_stage1_fusion_multi() fetches SOLUS once per window (batched), not once per variable", {
+  batch_calls <- list()
+  windows <- list(c(0, 5), c(5, 15), c(15, 30))
+  comp <- list(texture = list(members = c("clay", "sand", "silt")))
+  cfgs <- list(
+    ph   = list(id = "ph",   solus_variable = "ph1to1h2o", dist = "normal"),
+    db   = list(id = "db",   solus_variable = "dbovendry", dist = "normal"),
+    clay = list(id = "clay", solus_variable = "claytotal", composition_group = "texture"),
+    sand = list(id = "sand", solus_variable = "sandtotal", composition_group = "texture"),
+    silt = list(id = "silt", solus_variable = "silttotal", composition_group = "texture")
+  )
+  fake_member <- function(id) list(
+    posterior = list(percentiles = .mp_pct(15)),
+    dist = "texture_ilr", route = "closed_form_ilr_group",
+    route_detail = NULL, n_fallback_cells = 0
+  )
+
+  testthat::local_mocked_bindings(
+    fetch_ssurgo_mukey_raster = function(...) .mp_mukey_raster(),
+    simulate_ssurgo_mapunit_draws = function(..., depth_windows = NULL) {
+      stats::setNames(lapply(depth_windows, function(w) data.frame(mukey = 1)),
+                      vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), ""))
+    },
+    percentiles_from_draws = function(...) .mp_prior(),
+    fetch_solus_percentiles = function(...) stop("fetch_solus_percentiles() (scalar) should not be called when the batch succeeds"),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, top_depth, bottom_depth) {
+      batch_calls[[length(batch_calls) + 1]] <<- list(vars = sort(solus_variables), window = c(top_depth, bottom_depth))
+      .mp_solus_multi(solus_variables)
+    },
+    cache_get_valid_percentiles = function(...) NULL,
+    cache_set = function(...) invisible(TRUE),
+    build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
+    mukey_draws_lookup = function(...) NULL,
+    stage1_fuse_texture_group_from_fetched = function(fetched, ...) {
+      stats::setNames(lapply(fetched, function(f) fake_member(f$id)), vapply(fetched, `[[`, "", "id"))
+    },
+    .package = "soilSIM"
+  )
+
+  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, composition_groups = comp)
+
+  # One batch call per window (3), not one per (variable, window) (would be 5 * 3 = 15).
+  expect_equal(length(batch_calls), 3L)
+  expect_equal(sort(batch_calls[[1]]$vars),
+               sort(c("ph1to1h2o", "dbovendry", "claytotal", "sandtotal", "silttotal")))
+  expect_false(is.null(res$ph[["0-5"]]))
+  expect_false(is.null(res$db[["15-30"]]))
+  expect_equal(res$clay[["5-15"]]$dist, "texture_ilr")
+})
+
+test_that("run_stage1_fusion_multi() falls back to the scalar SOLUS fetch when the batched request errors", {
+  scalar_calls <- 0L
+  windows <- list(c(0, 5))
+  cfgs <- list(ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal"))
+
+  testthat::local_mocked_bindings(
+    fetch_ssurgo_mukey_raster = function(...) .mp_mukey_raster(),
+    simulate_ssurgo_mapunit_draws = function(..., depth_windows = NULL) {
+      stats::setNames(lapply(depth_windows, function(w) data.frame(mukey = 1)),
+                      vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), ""))
+    },
+    percentiles_from_draws = function(...) .mp_prior(),
+    fetch_solus_percentiles = function(...) { scalar_calls <<- scalar_calls + 1L; .mp_solus() },
+    fetch_solus_percentiles_multi = function(...) stop("simulated whole-batch fetchSOLUS() failure"),
+    cache_get_valid_percentiles = function(...) NULL,
+    cache_set = function(...) invisible(TRUE),
+    build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
+    mukey_draws_lookup = function(...) NULL,
+    .package = "soilSIM"
+  )
+
+  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)
+
+  expect_equal(scalar_calls, 1L)
+  expect_false(is.null(res$ph[["0-5"]]))
 })

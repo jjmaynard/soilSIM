@@ -18,7 +18,8 @@ This functional group is soilSIM's SSURGO data-source adapter. It is the entry p
 download_ssurgo_tabular(
   aoi_wkt,                     # Character. WKT representation of the area of interest.
   properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
-                 "cec7", "om", "wthirdbar", "wfifteenbar"),
+                 "cec7", "om", "wthirdbar", "wfifteenbar",
+                 "caco3", "ec", "ecec", "gypsum", "sar"),  # last 5 added task P2, 2026-09-04
   include_restrictions = TRUE, # Logical. Include restriction/horizon-suitability fields.
   cache_dir = NULL,            # Character. Directory for caching; NULL disables caching.
   force_download = FALSE,      # Logical. Bypass cache and force a fresh download.
@@ -33,11 +34,11 @@ download_ssurgo_tabular(
 
 ### 2. **`create_ssurgo_property_lookup_working()`**
 
-**Purpose**: Builds the property-name lookup table mapping the 9 default SSURGO property base names to their `_l`/`_r`/`_h` SSURGO column names.
+**Purpose**: Builds the property-name lookup table mapping the 14 default SSURGO property base names to their `_l`/`_r`/`_h` SSURGO column names.
 
 **Parameters**: None.
 
-**Returns**: A data frame with columns `Property`, `SSURGO_Label_Low`, `SSURGO_Label_Rep`, `SSURGO_Label_High`, one row per of the 9 known properties (`sandtotal`, `claytotal`, `silttotal`, `dbovendry`, `ph1to1h2o`, `cec7`, `om`, `wthirdbar`, `wfifteenbar`).
+**Returns**: A data frame with columns `Property`, `SSURGO_Label_Low`, `SSURGO_Label_Rep`, `SSURGO_Label_High`, one row per of the 14 known properties (`sandtotal`, `claytotal`, `silttotal`, `dbovendry`, `ph1to1h2o`, `cec7`, `om`, `wthirdbar`, `wfifteenbar`, plus `caco3`, `ec`, `ecec`, `gypsum`, `sar` - added MULTI_PROPERTY_FUSION_PLAN.md task P2, 2026-09-04, column names live-confirmed against a real gSSURGO chorizon query).
 
 **Algorithm**: Static `data.frame()` construction - a hardcoded lookup, not derived from the input properties.
 

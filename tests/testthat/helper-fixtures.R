@@ -19,7 +19,13 @@ make_horizon_row <- function(properties = c("dbovendry", "sandtotal", "claytotal
     ph1to1h2o = c(l = 5.5, r = 6.0, h = 6.5),
     cec7 = c(l = 8, r = 12, h = 18),
     om = c(l = 1, r = 2, h = 4),
-    rfv = c(l = 5, r = 10, h = 20)
+    rfv = c(l = 5, r = 10, h = 20),
+    # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2)
+    caco3 = c(l = 0, r = 2, h = 5),
+    ec = c(l = 0, r = 0.5, h = 1),
+    ecec = c(l = 1, r = 5, h = 10),
+    gypsum = c(l = 0, r = 0, h = 1),
+    sar = c(l = 0, r = 1, h = 3)
   )
 
   for (p in properties) {

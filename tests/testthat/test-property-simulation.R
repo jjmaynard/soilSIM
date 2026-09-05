@@ -407,3 +407,102 @@ test_that("simulate_cokey_generalized(): a cokey with no data for the ONLY reque
   )
   expect_null(only_clay)
 })
+
+# ---------------------------------------------------------------------------
+# om -> soc conversion (MULTI_PROPERTY_FUSION_PLAN.md task P1)
+# ---------------------------------------------------------------------------
+
+test_that("simulate_cokey_generalized() converts om to an SOC-scale estimate via OM_TO_SOC_FACTOR", {
+  row <- make_horizon_row(properties = "om", genhz = "A", cokey = "1", mukey = "1")
+  row$compname <- "testseries"
+  row$sim_comppct <- 300
+  cm <- list(A = matrix(1, 1, 1, dimnames = list("soc", "soc")))
+
+  set.seed(11)
+  result <- simulate_cokey_generalized(row, cm, requested_properties = "soc")
+
+  expect_true("soc" %in% names(result))
+  om_l <- row$om_l; om_h <- row$om_h
+  # simulated values fall within the CONVERTED (SOC-scale) support, not the raw OM support
+  expect_true(all(result$soc >= om_l * OM_TO_SOC_FACTOR - 1e-9))
+  expect_true(all(result$soc <= om_h * OM_TO_SOC_FACTOR + 1e-9))
+  # convincingly smaller than the raw OM range (om_h = 4 vs om_h * OM_TO_SOC_FACTOR ~= 2.32) -
+  # a regression to the pre-P1 unconverted behavior would violate this
+  expect_lt(max(result$soc), om_h)
+})
+
+test_that("OM_TO_SOC_FACTOR is the inverse Van Bemmelen factor", {
+  expect_equal(OM_TO_SOC_FACTOR, 1 / 1.724, tolerance = 1e-12)
+})
+
+# ---------------------------------------------------------------------------
+# 5 chemistry properties: caco3/ec/ecec/gypsum/sar (MULTI_PROPERTY_FUSION_PLAN.md task P2)
+# ---------------------------------------------------------------------------
+
+test_that("simulate_cokey_generalized() simulates the 5 P2 chemistry properties when requested", {
+  full_param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc",
+                        "caco3", "ec", "ecec", "gypsum", "sar")
+  cm <- stats::setNames(
+    lapply(c("A", "B"), function(g) build_kssl_fallback_matrix(full_param_order, genhz = g)),
+    c("A", "B")
+  )
+  row <- make_horizon_row(properties = c("dbovendry", "caco3", "ec", "ecec", "gypsum", "sar"),
+                          genhz = "A", cokey = "1", mukey = "1")
+  row$compname <- "testseries"
+  row$sim_comppct <- 25
+
+  set.seed(3)
+  result <- simulate_cokey_generalized(row, cm, requested_properties = NULL)
+  expect_true(all(c("caco3", "ec", "ecec", "gypsum", "sar", "db") %in% names(result)))
+  expect_equal(nrow(result), 25)
+  expect_true(all(result$caco3 >= 0 & result$ec >= 0 & result$ecec >= 0))
+})
+
+test_that("simulate_cokey_generalized() gates each of the 5 chemistry properties independently via requested_properties", {
+  full_param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc",
+                        "caco3", "ec", "ecec", "gypsum", "sar")
+  cm <- stats::setNames(
+    lapply(c("A", "B"), function(g) build_kssl_fallback_matrix(full_param_order, genhz = g)),
+    c("A", "B")
+  )
+  row <- make_horizon_row(properties = c("dbovendry", "caco3", "ec", "ecec", "gypsum", "sar"),
+                          genhz = "A", cokey = "1", mukey = "1")
+  row$compname <- "testseries"
+  row$sim_comppct <- 10
+
+  for (p in c("caco3", "ec", "ecec", "gypsum", "sar")) {
+    set.seed(5)
+    res <- simulate_cokey_generalized(row, cm, requested_properties = p)
+    expect_true(p %in% names(res), info = p)
+    expect_false("db" %in% names(res), info = p)
+    expect_false(any(setdiff(c("caco3", "ec", "ecec", "gypsum", "sar"), p) %in% names(res)), info = p)
+  }
+})
+
+test_that("simulate_cokey_generalized() degrades to independence (not an error) for a requested chemistry property missing from correlation_matrices", {
+  # make_property_correlation_matrices() only carries db/ph/ilr1/ilr2 - predates task P2 entirely,
+  # the exact "direct caller with an old matrix" scenario extend_corr_matrix_with_identity() exists
+  # for. Regression test for the "subscript out of bounds" crash this would otherwise cause.
+  cm  <- make_property_correlation_matrices()
+  row <- make_horizon_row(properties = c("dbovendry", "caco3"), genhz = "A", cokey = "1", mukey = "1")
+  row$compname <- "testseries"
+  row$sim_comppct <- 10
+
+  set.seed(9)
+  result <- expect_no_error(simulate_cokey_generalized(row, cm, requested_properties = "caco3"))
+  expect_true("caco3" %in% names(result))
+})
+
+test_that("extend_corr_matrix_with_identity() adds identity rows/cols and stays positive-definite", {
+  m <- diag(2)
+  dimnames(m) <- list(c("db", "ph"), c("db", "ph"))
+  m["db", "ph"] <- m["ph", "db"] <- 0.4
+
+  extended <- extend_corr_matrix_with_identity(m, c("caco3", "sar"))
+  expect_equal(dim(extended), c(4, 4))
+  expect_equal(rownames(extended), c("db", "ph", "caco3", "sar"))
+  expect_equal(unname(extended["db", "ph"]), 0.4)          # original correlation preserved
+  expect_equal(unname(extended["caco3", "sar"]), 0)        # new names uncorrelated with each other
+  expect_equal(unname(extended["db", "caco3"]), 0)         # and with the original names
+  expect_true(all(eigen(extended, only.values = TRUE, symmetric = TRUE)$values > -1e-10))
+})

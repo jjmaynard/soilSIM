@@ -14,10 +14,11 @@ A character string, safe for use as a filename.
 }
 \description{
 A mukey raster/list depends only on the AOI, not on any depth window - unlike
-\code{build_cache_key()}'s other callers (percentile-value rasters, tabular horizon data), which are
-genuinely depth-window-specific. Rather than changing \code{build_cache_key()}'s signature (every
-other call site would need a depth argument that means nothing there), this calls it with a
-fixed sentinel depth so every mukey-grid request for the same AOI maps to the same key
-regardless of what depth window the caller happens to be working with.
+\code{build_cache_key()}'s other callers whose cached \emph{content} is genuinely depth-window-specific
+(percentile-value rasters, aggregated draws). Rather than changing \code{build_cache_key()}'s
+signature (every other call site would need a depth argument that means nothing there), this
+calls it with a fixed sentinel depth so every mukey-grid request for the same AOI maps to the
+same key regardless of what depth window the caller happens to be working with. See
+\code{ssurgo_tabular_cache_key()} below for the same pattern applied to the raw tabular download.
 }
 \keyword{internal}

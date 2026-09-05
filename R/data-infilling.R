@@ -2072,7 +2072,13 @@ apply_basic_range_limits <- function(values, property_name) {
     om = c(0, 100), oc = c(0, 60),
 
     # Rock fragments
-    rfv = c(0, 95), fragvol = c(0, 95)
+    rfv = c(0, 95), fragvol = c(0, 95),
+
+    # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2) - caco3/gypsum are % by
+    # weight (SSURGO chorizon columns), ec is electrical conductivity in dS/m (generous upper
+    # bound; extreme saline soils rarely exceed ~30), sar is unitless (sodium adsorption ratio;
+    # SSURGO caps it well under 100 in practice)
+    caco3 = c(0, 100), gypsum = c(0, 100), ec = c(0, 100), sar = c(0, 100)
   )
 
   if (property_name %in% names(limits)) {

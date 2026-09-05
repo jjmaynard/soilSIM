@@ -256,6 +256,114 @@ test_that("remarginalized_awc(tile_rows=) is numerically identical to the whole-
 })
 
 # ---------------------------------------------------------------------------
+# S2 - remarginalized_awc(restriction_depth=): bedrock/restriction-depth AWC truncation
+# (MULTI_PROPERTY_FUSION_PLAN.md task S2). Windows are "0-5" (top=0,bottom=5) and "5-15"
+# (top=5,bottom=15) throughout, from .synth_ensemble_sr()'s fixed depth_windows.
+# ---------------------------------------------------------------------------
+
+test_that("remarginalized_awc(restriction_depth = NULL) is bit-identical to omitting the argument", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble_sr(mk)
+  pbpw <- list(
+    sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
+    clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08),
+    soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
+  )
+
+  set.seed(42); a <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.05, 0.5, 0.95))
+  set.seed(42); b <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.05, 0.5, 0.95),
+                                       restriction_depth = NULL)
+  for (nm in names(a$awc_cm)) {
+    expect_equal(terra::values(b$awc_cm[[nm]]), terra::values(a$awc_cm[[nm]]))
+  }
+})
+
+test_that("remarginalized_awc(restriction_depth=) reduces AWC for a restriction straddling a window", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble_sr(mk)
+  pbpw <- list(
+    sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
+    clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08),
+    soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
+  )
+  # 10 cm sits inside the "5-15" window (top=5,bottom=15): that window's effective thickness is
+  # 10-5=5 instead of its nominal 15-5=10 - straddling, partial credit, not full or zero.
+  rd <- terra::setValues(tmpl, rep(10, terra::ncell(tmpl)))
+
+  set.seed(42); unrestricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5))
+  set.seed(42); restricted   <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5),
+                                                   restriction_depth = rd)
+
+  u <- as.numeric(terra::global(unrestricted$awc_cm$P50, "mean", na.rm = TRUE))
+  r <- as.numeric(terra::global(restricted$awc_cm$P50, "mean", na.rm = TRUE))
+  expect_lt(r, u)
+  expect_gt(r, 0)  # partial credit, not zeroed out
+})
+
+test_that("remarginalized_awc(restriction_depth=) zeroes (not NAs) a window entirely below the restriction", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble_sr(mk)
+  pbpw <- list(
+    sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
+    clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08),
+    soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
+  )
+  # 3 cm is above the "5-15" window's top (5) entirely -> that window contributes exactly 0, not
+  # NA (which would incorrectly blank the whole pixel's AWC, including the valid "0-5" window).
+  rd <- terra::setValues(tmpl, rep(3, terra::ncell(tmpl)))
+
+  set.seed(1); res <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5), restriction_depth = rd)
+  expect_false(anyNA(terra::values(res$awc_cm$P50)))
+  expect_true(all(terra::values(res$awc_cm$P50) >= 0, na.rm = TRUE))
+
+  # rd=3 truncates BOTH windows (even "0-5" itself: pmax(0, pmin(5,3) - 0) = 3 cm, not its
+  # nominal 5) - so the restricted AWC must be strictly less than the fully unrestricted run.
+  set.seed(1); unrestricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5))
+  expect_lt(as.numeric(terra::global(res$awc_cm$P50, "mean", na.rm = TRUE)),
+            as.numeric(terra::global(unrestricted$awc_cm$P50, "mean", na.rm = TRUE)))
+})
+
+test_that("remarginalized_awc(restriction_depth = Inf) matches the unrestricted run", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble_sr(mk)
+  pbpw <- list(
+    sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
+    clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08),
+    soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
+  )
+  rd <- terra::setValues(tmpl, rep(Inf, terra::ncell(tmpl)))
+
+  set.seed(7); unrestricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5))
+  set.seed(7); restricted   <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5),
+                                                  restriction_depth = rd)
+  expect_equal(terra::values(restricted$awc_cm$P50), terra::values(unrestricted$awc_cm$P50),
+              tolerance = 1e-9)
+})
+
+test_that("remarginalized_awc(restriction_depth=) treats NA cells as unrestricted (Inf), not propagated NA", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble_sr(mk)
+  pbpw <- list(
+    sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
+    clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08),
+    soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
+  )
+  rd <- terra::setValues(tmpl, rep(NA_real_, terra::ncell(tmpl)))
+
+  set.seed(9); unrestricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5))
+  set.seed(9); na_restricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5),
+                                                   restriction_depth = rd)
+  expect_false(anyNA(terra::values(na_restricted$awc_cm$P50)))
+  expect_equal(terra::values(na_restricted$awc_cm$P50), terra::values(unrestricted$awc_cm$P50),
+              tolerance = 1e-9)
+})
+
+# ---------------------------------------------------------------------------
 # A.7 - live end-to-end (real AOI -> ensemble -> stage-1 fusion -> re-marginalize -> AWC)
 # ---------------------------------------------------------------------------
 

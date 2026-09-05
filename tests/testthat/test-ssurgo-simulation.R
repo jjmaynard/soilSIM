@@ -40,6 +40,29 @@ test_that("property_to_sim_column() maps recognized property ids and errors on u
   expect_error(property_to_sim_column("awc"), "no simulated column mapping")
 })
 
+test_that("property_to_sim_column() maps the 5 P2 chemistry properties to themselves", {
+  for (p in c("caco3", "ec", "ecec", "gypsum", "sar")) {
+    expect_equal(property_to_sim_column(p), p, info = p)
+  }
+})
+
+test_that("SSURGO_SIM_PROPERTY_COLUMNS includes the 5 P2 chemistry properties", {
+  expect_true(all(c("caco3", "ec", "ecec", "gypsum", "sar") %in% SSURGO_SIM_PROPERTY_COLUMNS))
+})
+
+test_that("infill_soil_data() infills the 5 P2 chemistry properties when their _r columns are present", {
+  df <- make_horizon_row(properties = c("dbovendry", "caco3", "ec", "ecec", "gypsum", "sar"))
+  df <- rbind(df, df)
+  df$caco3_r[1] <- NA
+  df$hzname <- "A"
+
+  result <- infill_soil_data(df)
+  # infill_soil_property() is generic over any "<name>_l/_r/_h" triplet - just confirm it ran
+  # without error and the columns survive (full infilling-strategy coverage is
+  # infill_soil_property()'s own concern, tested elsewhere).
+  expect_true(all(c("caco3_r", "ec_r", "ecec_r", "gypsum_r", "sar_r") %in% names(result)))
+})
+
 test_that("maybe_adjust_soil_data_depth_trend() passes through cokeys with fewer than min_depths distinct depths", {
   sim_long <- data.frame(
     cokey = "1", hzdept_r = 0, hzdepb_r = 20, simulation_number = 1:5,
@@ -339,6 +362,13 @@ test_that("normalize_requested_properties() is total, idempotent, and couples te
   expect_error(nz("not_a_property"), "no simulated column mapping")
 })
 
+test_that("normalize_requested_properties() resolves the 5 P2 chemistry properties (self-mapping, canonical order)", {
+  nz <- normalize_requested_properties
+  expect_identical(nz("caco3"), "caco3")
+  expect_identical(nz(c("sar", "caco3")), c("caco3", "sar"))  # canonical param_order, not input order
+  expect_identical(nz(c("ph", "ecec", "clay")), c("ilr1", "ilr2", "ph", "ecec"))
+})
+
 test_that("simulate_ssurgo_mapunit_draws() ignores requested_properties (with a warning) under gp_quantile_retrofit", {
   # The guard runs before any fetch; mock the tabular fetch away so the call returns quickly.
   testthat::local_mocked_bindings(
@@ -427,4 +457,66 @@ test_that("maybe_adjust_soil_data_depth_trend(parallel=TRUE) is reproducible wit
   b <- maybe_adjust_soil_data_depth_trend(sim_long, props, parallel = TRUE, n_cores = 2, seed = 7)
   ord <- function(d) d[order(d$cokey, d$hzdept_r, d$simulation_number), ]
   expect_equal(ord(a)$clay_total, ord(b)$clay_total, tolerance = 1e-8)
+})
+
+# ---------------------------------------------------------------------------
+# ssurgo_tabular_cache_key() / depth-independent tabular cache (MULTI_PROPERTY_FUSION_PLAN.md L1)
+# ---------------------------------------------------------------------------
+
+test_that("ssurgo_tabular_cache_key() is depth-independent and AOI-specific", {
+  aoi1 <- terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070")
+  aoi2 <- terra::vect(terra::ext(5, 6, 5, 6), crs = "EPSG:5070")
+
+  expect_identical(ssurgo_tabular_cache_key(aoi1), build_cache_key(aoi1, "ssurgo_tabular", 0, 0, "ssurgo_tabular"))
+  # No depth args to vary - the function's whole point is that top_depth/bottom_depth never enter
+  # the key at all. Confirm two "requests" for the same AOI (conceptually different windows,
+  # nothing here actually varies since the function takes no depth args) still agree.
+  expect_identical(ssurgo_tabular_cache_key(aoi1), ssurgo_tabular_cache_key(aoi1))
+  expect_false(identical(ssurgo_tabular_cache_key(aoi1), ssurgo_tabular_cache_key(aoi2)))
+})
+
+test_that("simulate_ssurgo_mapunit_draws() shares ONE tabular download across different depth windows for the same AOI", {
+  store <- new.env(parent = emptyenv())
+  dl_calls <- 0L
+  aoi <- terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070")
+
+  testthat::local_mocked_bindings(
+    cache_get = function(key, ttl_seconds = CACHE_TTL_SECONDS) store[[key]],
+    cache_set = function(key, kind, value) { store[[key]] <- value; invisible(TRUE) },
+    download_ssurgo_tabular = function(...) {
+      dl_calls <<- dl_calls + 1L
+      list(ssurgo_data = data.frame(cokey = "1"), mu = NULL, metadata = NULL)  # minimal; downstream may error
+    },
+    .package = "soilSIM"
+  )
+
+  # Two different windows for the SAME AOI - downstream steps beyond the tabular fetch will likely
+  # error on this minimal frame; that's fine, the tabular download + cache_set already happened by
+  # then (see source: cache_set() runs immediately after a cache-miss download, before infill).
+  suppressWarnings(tryCatch(simulate_ssurgo_mapunit_draws(aoi, 0, 5),  error = function(e) NULL))
+  suppressWarnings(tryCatch(simulate_ssurgo_mapunit_draws(aoi, 5, 15), error = function(e) NULL))
+
+  expect_equal(dl_calls, 1L)  # would be 2 before the L1 fix (window-keyed cache)
+})
+
+test_that("simulate_ssurgo_mapunit_draws() does NOT share the tabular cache across different AOIs", {
+  store <- new.env(parent = emptyenv())
+  dl_calls <- 0L
+  aoi1 <- terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070")
+  aoi2 <- terra::vect(terra::ext(5, 6, 5, 6), crs = "EPSG:5070")
+
+  testthat::local_mocked_bindings(
+    cache_get = function(key, ttl_seconds = CACHE_TTL_SECONDS) store[[key]],
+    cache_set = function(key, kind, value) { store[[key]] <- value; invisible(TRUE) },
+    download_ssurgo_tabular = function(...) {
+      dl_calls <<- dl_calls + 1L
+      list(ssurgo_data = data.frame(cokey = "1"), mu = NULL, metadata = NULL)
+    },
+    .package = "soilSIM"
+  )
+
+  suppressWarnings(tryCatch(simulate_ssurgo_mapunit_draws(aoi1, 0, 5), error = function(e) NULL))
+  suppressWarnings(tryCatch(simulate_ssurgo_mapunit_draws(aoi2, 0, 5), error = function(e) NULL))
+
+  expect_equal(dl_calls, 2L)
 })

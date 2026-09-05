@@ -5,20 +5,30 @@
 ## fixture-maintain for the value it'd add.
 sample_wkt <- "POLYGON((-120.5 38.5, -120.4 38.5, -120.4 38.6, -120.5 38.6, -120.5 38.5))"
 
-test_that("create_ssurgo_property_lookup_working() returns the 9-property low/rep/high lookup table", {
+test_that("create_ssurgo_property_lookup_working() returns the 14-property low/rep/high lookup table", {
+  # 9 original properties + 5 chemistry properties added in MULTI_PROPERTY_FUSION_PLAN.md task P2
+  # (column names live-confirmed against a real gSSURGO chorizon query, 2026-09-04).
   lookup <- create_ssurgo_property_lookup_working()
   expect_setequal(lookup$Property, c("sandtotal", "claytotal", "silttotal", "dbovendry",
-                                      "ph1to1h2o", "cec7", "om", "wthirdbar", "wfifteenbar"))
+                                      "ph1to1h2o", "cec7", "om", "wthirdbar", "wfifteenbar",
+                                      "caco3", "ec", "ecec", "gypsum", "sar"))
   expect_true(all(c("SSURGO_Label_Low", "SSURGO_Label_Rep", "SSURGO_Label_High") %in% names(lookup)))
   expect_equal(lookup$SSURGO_Label_Rep[lookup$Property == "sandtotal"], "sandtotal_r")
+  expect_equal(lookup$SSURGO_Label_Rep[lookup$Property == "caco3"], "caco3_r")
 })
 
 test_that("REGRESSION: get_predefined_properties('ssurgo') now resolves the real lookup instead of character(0)", {
   # Before mod01's migration into this package, create_ssurgo_property_lookup_working()
   # did not exist, so utils.R's tryCatch() silently degraded to character(0).
   props <- get_predefined_properties("ssurgo")
-  expect_length(props, 9)
+  expect_length(props, 14)
   expect_true("dbovendry" %in% props)
+  expect_true("caco3" %in% props)
+})
+
+test_that("download_ssurgo_tabular()'s default properties argument includes the 5 P2 chemistry properties", {
+  default_properties <- eval(formals(download_ssurgo_tabular)$properties)
+  expect_true(all(c("caco3", "ec", "ecec", "gypsum", "sar") %in% default_properties))
 })
 
 test_that("aggregate_rock_fragment_volume_working() sums RFV across fragment-size classes within a horizon", {

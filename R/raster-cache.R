@@ -50,16 +50,35 @@ build_cache_key <- function(aoi_vect, id, top_depth, bottom_depth, kind) {
 #' Build a cache key for one AOI's SSURGO mukey grid (depth-independent)
 #'
 #' A mukey raster/list depends only on the AOI, not on any depth window - unlike
-#' `build_cache_key()`'s other callers (percentile-value rasters, tabular horizon data), which are
-#' genuinely depth-window-specific. Rather than changing `build_cache_key()`'s signature (every
-#' other call site would need a depth argument that means nothing there), this calls it with a
-#' fixed sentinel depth so every mukey-grid request for the same AOI maps to the same key
-#' regardless of what depth window the caller happens to be working with.
+#' `build_cache_key()`'s other callers whose cached *content* is genuinely depth-window-specific
+#' (percentile-value rasters, aggregated draws). Rather than changing `build_cache_key()`'s
+#' signature (every other call site would need a depth argument that means nothing there), this
+#' calls it with a fixed sentinel depth so every mukey-grid request for the same AOI maps to the
+#' same key regardless of what depth window the caller happens to be working with. See
+#' `ssurgo_tabular_cache_key()` below for the same pattern applied to the raw tabular download.
 #' @param aoi_vect A `terra::SpatVector` (single-feature AOI).
 #' @return A character string, safe for use as a filename.
 #' @keywords internal
 mukey_grid_cache_key <- function(aoi_vect) {
   build_cache_key(aoi_vect, "mukey", 0, 0, "mukey_grid")
+}
+
+#' Build a cache key for one AOI's raw SSURGO tabular download (depth-independent)
+#'
+#' `download_ssurgo_tabular()` (`R/ssurgo-acquisition.R`) takes no depth-window argument at all -
+#' it fetches every horizon for every AOI mukey; depth filtering happens later, per call, in
+#' `aggregate_depth_window_by_replicate()`. The downloaded tabular data therefore depends only on
+#' the AOI (and the fixed default `properties` list every call site uses - never varied), not on
+#' any depth window. Keying the tabular cache on `top_depth`/`bottom_depth` (as it was before this
+#' function existed - MULTI_PROPERTY_FUSION_PLAN.md task L1) fragments one AOI's cache into one
+#' unusable copy per distinct window ever requested for it, so e.g. `run_stage1_fusion_multi()`'s
+#' wide-span simulation and a later single-window `run_stage1_fusion()` call for the same AOI never
+#' shared a tabular download. Mirrors `mukey_grid_cache_key()`'s fixed-sentinel pattern.
+#' @param aoi_vect A `terra::SpatVector` (single-feature AOI).
+#' @return A character string, safe for use as a filename.
+#' @keywords internal
+ssurgo_tabular_cache_key <- function(aoi_vect) {
+  build_cache_key(aoi_vect, "ssurgo_tabular", 0, 0, "ssurgo_tabular")
 }
 
 #' Retrieve a cached value if present and not older than `ttl_seconds`

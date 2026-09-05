@@ -217,6 +217,28 @@ terra::plot(awc$awc_cm$P95 - awc$awc_cm$P5,
 `awc_cm$P95 - awc_cm$P5` is a genuine 90% credible interval because AWC is computed per source
 realization from vertically- and cross-property-consistent inputs, then combined per pixel.
 
+## Optional: bedrock/restriction-depth-aware AWC
+
+SOLUS100 predicts every property at every depth even where bedrock is shallower - nothing above
+truncates the 30 cm profile at an actual restriction, so a shallow-soil pixel can be credited with
+water storage below bedrock. `remarginalized_awc()`'s optional `restriction_depth` argument fixes
+this: pass a restriction-depth raster (typically `fetch_solus_restriction_depth()`, which defaults
+to SOLUS's `anylithicdpt` - depth to bedrock, trained specifically on lithic/paralithic restriction
+records - and is already right-censoring-guarded at 201 cm) and each window's thickness
+contribution becomes the per-pixel *effective* thickness instead of its nominal one.
+
+This step needs a live SOLUS100 fetch, so it is not part of this vignette's cached pipeline - shown
+for reference, not executed here. `restriction_depth` is opt-in (`NULL` by default preserves every
+result above exactly):
+
+```{r, eval = FALSE}
+restriction_depth <- fetch_solus_restriction_depth(aoi)  # default variable = "anylithicdpt"
+awc_truncated <- remarginalized_awc(ens, post, n_out = 150, restriction_depth = restriction_depth)
+terra::plot(awc_truncated$awc_cm$P50,
+            main = "Median AWC, 0-30 cm, truncated at bedrock (cm)",
+            col = grDevices::hcl.colors(50, "Blues 3", rev = TRUE))
+```
+
 ## Reading the uncertainty band
 
 | Aspect | Treatment |

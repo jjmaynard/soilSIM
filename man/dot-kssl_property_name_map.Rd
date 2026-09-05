@@ -5,7 +5,7 @@
 \alias{.kssl_property_name_map}
 \title{Map soilSIM property names to KSSL reference-matrix column names}
 \format{
-An object of class \code{character} of length 9.
+An object of class \code{character} of length 14.
 }
 \usage{
 .kssl_property_name_map
@@ -15,10 +15,16 @@ Confirmed against the exact lookup table that built the source data
 (\code{code_ref/brdf/property_simulation.R:804-816}).
 }
 \details{
-\code{om} -> \code{soc}: \strong{caveat} - the KSSL matrix's \code{soc} column is actually
-populated from \code{om_r} (organic matter \%) in the source codebase, not true
-lab-measured soil organic carbon. Treat it as an organic-matter proxy, not
-true SOC.
+\code{om} -> \code{soc}: the KSSL matrix's \code{soc} column was fit on \code{om_r} (organic matter \%) data in
+the source codebase, not true lab-measured soil organic carbon - so it's an organic-matter
+\emph{correlation structure}, not a true-SOC one. \strong{This no longer means the simulated \code{soc} values
+are OM-scale}: as of MULTI_PROPERTY_FUSION_PLAN.md task P1,
+\code{simulate_cokey_generalized()} rescales the \code{om} triplet to an estimated SOC triplet
+(\code{OM_TO_SOC_FACTOR}, the Van Bemmelen factor) before it enters the correlated draw - the
+matrix itself needed no change, since Pearson correlation is invariant under a positive
+linear rescale of one variable. Treat the \emph{correlations} involving \code{soc} as an
+organic-matter-based approximation (real SOC correlations may differ slightly), but treat the
+simulated \code{soc} \emph{values} as genuine SOC-scale estimates, not raw OM.
 
 \code{ilr1}/\code{ilr2} map directly (same names) - valid only because
 \code{monte-carlo.R}'s \code{composition_groups$texture$members} default is
@@ -26,5 +32,21 @@ true SOC.
 partition \code{compositions::ilr()} used to build the KSSL matrix (sand vs
 silt+clay, then silt vs clay). See \code{distributions.R}'s ILR section
 header for the positional-role convention this depends on.
+
+\code{caco3}/\code{ec}/\code{ecec}/\code{gypsum}/\code{sar} -> themselves: added for
+MULTI_PROPERTY_FUSION_PLAN.md task P2 (KSSL-correlation design decision confirmed
+2026-09-04, option (a)). These 5 chemistry properties have \strong{no} entry in
+\code{.kssl_property_matrices()} - the identity passthrough exists so
+\code{build_kssl_fallback_matrix()} recognizes them as "mapped" property names, but its own
+\code{mapped_kssl_names \%in\% rownames(kssl_source)} check (see that function's implementation)
+then finds no matching row in the actual KSSL matrix and silently excludes them - they get
+\code{build_kssl_fallback_matrix()}'s identity-matrix default (uncorrelated with everything,
+including each other) rather than an error. \strong{Upgrade path}: once raw KSSL lab data covering
+these 5 properties is available, re-run \code{data-raw/build_kssl_reference_correlations.R} to
+produce an expanded \code{kssl_property_matrices} sysdata object whose rows/columns include them -
+\code{build_kssl_fallback_matrix()} picks the real correlations up automatically via that same
+check, with \strong{no code changes} needed here or anywhere else that calls it. Keep any future
+real-matrix column names identical to these 5 (plain property name, no rename) so the mapping
+below doesn't need to change too.
 }
 \keyword{internal}

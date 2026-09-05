@@ -6,7 +6,7 @@
 \alias{SSURGO_SIM_PROPERTY_COLUMNS}
 \title{Monte Carlo-Simulate SSURGO Property Draws for an AOI}
 \format{
-An object of class \code{character} of length 10.
+An object of class \code{character} of length 15.
 }
 \usage{
 simulate_ssurgo_mapunit_draws(
@@ -95,11 +95,16 @@ depth window.
 }
 \section{Cache invalidation}{
 
-This function's own disk cache (\code{build_cache_key()}/\code{cache_get()}/\code{cache_set()}, keyed by
-\code{aoi_vect}/depth window) is separate from \code{download_ssurgo_tabular()}'s own \code{cache_dir}
-parameter (always \code{NULL} here). A cache entry for a given AOI/depth-window combination written
+This function's own disk cache (\code{build_cache_key()}/\code{cache_get()}/\code{cache_set()} via
+\code{ssurgo_tabular_cache_key()}, keyed by \code{aoi_vect} \strong{only} - depth-independent as of
+MULTI_PROPERTY_FUSION_PLAN.md task L1, since \code{download_ssurgo_tabular()} takes no depth-window
+argument and fetches every horizon for every AOI mukey regardless) is separate from
+\code{download_ssurgo_tabular()}'s own \code{cache_dir} parameter (always \code{NULL} here). One AOI's tabular
+download is shared across every depth window/call requested for that AOI. A cache entry written
 before component recovery shipped predates it entirely - clear that cache entry (or the whole
-cache directory) to pick up recovered components.
+cache directory) to pick up recovered components. Entries written before the L1 fix (keyed by
+\code{aoi_vect}/depth window) are simply orphaned and age out via the normal TTL - no migration
+needed.
 
 This function's own SIMULATED output (as opposed to the raw tabular SSURGO input it's cached
 from) is deliberately NOT disk-cached - every call re-simulates fresh random draws, matching

@@ -77,7 +77,13 @@ fetch_ssurgo_mukey_raster <- function(aoi_vect) {
 #' @export
 infill_soil_data <- function(df) {
   properties <- c("sandtotal", "claytotal", "silttotal", "dbovendry", "wthirdbar",
-                   "wfifteenbar", "ph1to1h2o", "cec7", "om")
+                   "wfifteenbar", "ph1to1h2o", "cec7", "om",
+                   # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2) - infilled the
+                   # same way as every other property here (infill_soil_property() is generic over
+                   # any "<name>_l/_r/_h" triplet; get_default_property_config()'s "generic"
+                   # fallback already covers caco3/gypsum/sar, and its "cec" branch already
+                   # recognizes ecec explicitly - see R/data-infilling.R).
+                   "caco3", "ec", "ecec", "gypsum", "sar")
   for (p in properties) {
     if (paste0(p, "_r") %in% names(df)) {
       df <- infill_soil_property(df, p)
@@ -232,8 +238,9 @@ aggregate_depth_window_by_replicate <- function(sim_long, top_depth, bottom_dept
 #' @param property_id One of `"ph"`, `"ph1to1h2o"`, `"bulk_density"`, `"dbovendry"`,
 #'   `"soc"`, `"om"`, `"cec"`, `"cec7"`, `"clay"`, `"claytotal"`, `"sand"`,
 #'   `"sandtotal"`, `"silt"`, `"silttotal"`, `"rock_fragments"`/`"rfv"`/`"fragvol"`,
-#'   `"wthirdbar"`/`"water_retention_third_bar"`/`"wr_3b"`, or
-#'   `"wfifteenbar"`/`"water_retention_15_bar"`/`"wr_15b"`.
+#'   `"wthirdbar"`/`"water_retention_third_bar"`/`"wr_3b"`,
+#'   `"wfifteenbar"`/`"water_retention_15_bar"`/`"wr_15b"`, or (MULTI_PROPERTY_FUSION_PLAN.md task
+#'   P2) `"caco3"`, `"ec"`, `"ecec"`, `"gypsum"`, `"sar"`.
 #' @return The corresponding column name in `simulate_cokey_generalized()`'s output.
 #' @export
 property_to_sim_column <- function(property_id) {
@@ -252,7 +259,11 @@ property_to_sim_column <- function(property_id) {
     # entries - added so run_stage1_fusion()/percentiles_from_draws() can produce water-retention
     # posteriors (needed by remarginalized_awc()).
     water_retention_third_bar = "wr_3b", wthirdbar = "wr_3b", wr_3b = "wr_3b",
-    water_retention_15_bar = "wr_15b", wfifteenbar = "wr_15b", wr_15b = "wr_15b"
+    water_retention_15_bar = "wr_15b", wfifteenbar = "wr_15b", wr_15b = "wr_15b",
+    # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2) - self-mapping, same as
+    # simulate_cokey_generalized()'s param_order names (no SSURGO-stem alias needed; the SOLUS
+    # variable name, the SSURGO chorizon column stem, and the id are all identical spellings).
+    caco3 = "caco3", ec = "ec", ecec = "ecec", gypsum = "gypsum", sar = "sar"
   )
   if (!property_id %in% names(mapping)) {
     stop(sprintf("property_to_sim_column(): no simulated column mapping for property '%s'.", property_id))
@@ -286,7 +297,9 @@ property_to_sim_column <- function(property_id) {
 normalize_requested_properties <- function(requested_properties) {
   if (is.null(requested_properties)) return(NULL)
 
-  param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc")
+  # Must match simulate_cokey_generalized()'s own param_order exactly (R/property-simulation.R).
+  param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc",
+                   "caco3", "ec", "ecec", "gypsum", "sar")
   texture_sentinel <- c("ilr1", "ilr2")
 
   resolve_one <- function(id) {
@@ -359,11 +372,16 @@ normalize_requested_properties <- function(requested_properties) {
 #'   are included transparently here whenever an AOI sibling let them be recovered - see
 #'   `download_ssurgo_tabular()`'s "Component recovery" section.
 #' @section Cache invalidation:
-#' This function's own disk cache (`build_cache_key()`/`cache_get()`/`cache_set()`, keyed by
-#' `aoi_vect`/depth window) is separate from `download_ssurgo_tabular()`'s own `cache_dir`
-#' parameter (always `NULL` here). A cache entry for a given AOI/depth-window combination written
+#' This function's own disk cache (`build_cache_key()`/`cache_get()`/`cache_set()` via
+#' `ssurgo_tabular_cache_key()`, keyed by `aoi_vect` **only** - depth-independent as of
+#' MULTI_PROPERTY_FUSION_PLAN.md task L1, since `download_ssurgo_tabular()` takes no depth-window
+#' argument and fetches every horizon for every AOI mukey regardless) is separate from
+#' `download_ssurgo_tabular()`'s own `cache_dir` parameter (always `NULL` here). One AOI's tabular
+#' download is shared across every depth window/call requested for that AOI. A cache entry written
 #' before component recovery shipped predates it entirely - clear that cache entry (or the whole
-#' cache directory) to pick up recovered components.
+#' cache directory) to pick up recovered components. Entries written before the L1 fix (keyed by
+#' `aoi_vect`/depth window) are simply orphaned and age out via the normal TTL - no migration
+#' needed.
 #'
 #' This function's own SIMULATED output (as opposed to the raw tabular SSURGO input it's cached
 #' from) is deliberately NOT disk-cached - every call re-simulates fresh random draws, matching
@@ -405,7 +423,11 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
   # meter coordinates as degrees, producing an invalid request. Reproject to EPSG:4326 first.
   aoi_wkt <- terra::geom(terra::project(aoi_vect, "epsg:4326"), wkt = TRUE)[1]
 
-  cache_key <- build_cache_key(aoi_vect, "ssurgo_tabular", top_depth, bottom_depth, "ssurgo_tabular")
+  # Depth-independent (L1 fix): download_ssurgo_tabular() takes no depth-window argument at all,
+  # so this cache is keyed by AOI alone (ssurgo_tabular_cache_key()'s fixed-sentinel pattern) -
+  # one AOI's tabular download is now shared across every window/call requested for it, not
+  # fragmented into one unusable copy per distinct window.
+  cache_key <- ssurgo_tabular_cache_key(aoi_vect)
   hz_data <- cache_get(cache_key)
 
   if (is.null(hz_data)) {
@@ -445,7 +467,22 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
     by = "cokey"
   )
 
-  property_matrices <- .kssl_property_matrices()
+  # Extend each genhz's raw 9x9 KSSL matrix to cover the full param_order vocabulary (14 names as
+  # of MULTI_PROPERTY_FUSION_PLAN.md task P2 - must match simulate_cokey_generalized()'s own
+  # param_order, R/property-simulation.R) via build_kssl_fallback_matrix() - the 5 chemistry
+  # properties added in P2 have no KSSL-fit entry, so this overlays the real 9x9 submatrix
+  # unchanged and adds them as identity (uncorrelated), per the confirmed P2 design decision. Built
+  # once here (not per-cokey/per-row) since it's deterministic given genhz alone; when real KSSL
+  # data for those 5 properties becomes available and the reference matrix is re-fit,
+  # build_kssl_fallback_matrix() picks it up automatically with no change needed here.
+  full_param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc",
+                        "caco3", "ec", "ecec", "gypsum", "sar")
+  property_matrices <- stats::setNames(
+    lapply(names(.kssl_property_matrices()), function(g) {
+      build_kssl_fallback_matrix(full_param_order, genhz = g)
+    }),
+    names(.kssl_property_matrices())
+  )
   texture_matrices <- .kssl_texture_matrices()
 
   sim_results <- lapply(unique(hz_data$cokey), function(ck) {
@@ -497,7 +534,8 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
 #' @rdname simulate_ssurgo_mapunit_draws
 #' @export
 SSURGO_SIM_PROPERTY_COLUMNS <- c("db", "wr_3b", "wr_15b", "rfv", "ph", "cec", "soc",
-                                  "sand_total", "silt_total", "clay_total")
+                                  "sand_total", "silt_total", "clay_total",
+                                  "caco3", "ec", "ecec", "gypsum", "sar")
 
 #' Merge Per-Mukey Percentile Values onto a Mukey Raster
 #'

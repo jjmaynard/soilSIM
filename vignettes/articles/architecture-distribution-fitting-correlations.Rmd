@@ -226,6 +226,20 @@ Static, pre-computed, genetic-horizon-keyed (O/A/E/B/C/Cr, plus R for the textur
 **Algorithm**: Selects the requested genhz's property matrix, or (if `genhz` is `NULL`) averages all genhz matrices (valid since positive-definite matrices form a convex cone - their average stays positive-definite). Maps `properties` to KSSL column names via the internal `.kssl_property_name_map()` lookup (see below), keeping only mappable, present names. If fewer than 2 properties map, returns `NULL`. Otherwise starts from an identity matrix dimnamed by `properties` and overlays the matched KSSL principal submatrix at the mapped positions - properties without a mapping stay at identity values (a deliberate partial degrade, not an all-or-nothing failure). The result is positive-definite by construction (principal submatrices of a PD matrix are PD; a block-diagonal combination of PD blocks with zero cross-terms is PD), but is still passed through `ensure_positive_definite_matrix()` defensively.
 **Supporting internals** (not exported): `.kssl_property_matrices()` / `.kssl_texture_matrices()` are internal accessors for the bundled sysdata (9x9 per-genhz property matrices; 3x3 texture-only matrices, currently unused by `build_kssl_fallback_matrix()` because the 9x9 property matrix's bundled `ilr1`/`ilr2` columns already have solid eigenvalues, unlike the standalone texture matrix which is exactly singular for `E`/`Cr`/`R`). `.kssl_property_name_map` is the fixed lookup vector mapping soilSIM property names (`dbovendry`, `wthirdbar`, `wfifteenbar`, `ph1to1h2o`, `cec7`, `om`, `rfv`, `ilr1`, `ilr2`) to KSSL matrix column names (`db`, `wr_3b`, `wr_15b`, `ph`, `cec`, `soc`, `rfv`, `ilr1`, `ilr2`) - confirmed against the exact lookup table that built the source data. Notably, `om -> soc` is a caveat: the KSSL matrix's `soc` column is actually populated from `om_r` (organic matter %), not true lab-measured soil organic carbon, so it should be treated as an organic-matter proxy.
 
+**5 chemistry properties, no KSSL data yet (MULTI_PROPERTY_FUSION_PLAN.md task P2, 2026-09-04)**:
+`.kssl_property_name_map` also maps `caco3`/`ec`/`ecec`/`gypsum`/`sar` to themselves, but none of
+them has a matching column in `.kssl_property_matrices()`'s actual 9x9 data (fit years before
+these properties existed in this pipeline) - `build_kssl_fallback_matrix()`'s own
+`mapped_kssl_names %in% rownames(kssl_source)` filter drops them the same way it drops any other
+unmapped name, so they land on the identity default (uncorrelated with everything, including each
+other) - a confirmed design decision, not an oversight. `simulate_ssurgo_mapunit_draws()` now
+calls `build_kssl_fallback_matrix()` per genhz key with the full 14-name `param_order` vocabulary
+(instead of indexing `.kssl_property_matrices()` directly) specifically so these 5 are present
+(as identity) rather than missing. Upgrade path: re-fit `kssl_property_matrices` (via
+`data-raw/build_kssl_reference_correlations.R`) from raw KSSL lab data that includes these 5
+properties, using the same column names - `build_kssl_fallback_matrix()` picks the real
+correlations up automatically, no code changes needed anywhere that calls it.
+
 ## Internal Connections
 
 ```

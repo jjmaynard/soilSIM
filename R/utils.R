@@ -1957,7 +1957,13 @@ write_excel_with_metadata <- function(data, file_path, include_metadata) {
     "awc_r"         = c("awc", "available_water"),
     "rfv_r"         = c("rfv", "rock_fragments", "fragvol"),
     "ksat_r"        = c("ksat", "sat_hydraulic_cond"),
-    "ec_r"          = c("ec", "electrical_conductivity")
+    "ec_r"          = c("ec", "electrical_conductivity"),
+    # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2) - "ec_r" above already
+    # existed; the other 4 are new entries.
+    "caco3_r"       = c("caco3", "calcium_carbonate"),
+    "ecec_r"        = c("ecec", "effective_cec", "effective_cation_exchange"),
+    "gypsum_r"      = c("gypsum"),
+    "sar_r"         = c("sar", "sodium_adsorption_ratio")
   )
 }
 

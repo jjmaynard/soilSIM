@@ -51,3 +51,32 @@ test_that("build_kssl_fallback_matrix() dimnames match the requested properties 
   expect_equal(rownames(result), props)
   expect_equal(colnames(result), props)
 })
+
+# ---------------------------------------------------------------------------
+# 5 P2 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2, KSSL-correlation design
+# decision confirmed 2026-09-04: identity fallback via .kssl_property_name_map + this function).
+# ---------------------------------------------------------------------------
+
+test_that("build_kssl_fallback_matrix() treats the 5 P2 chemistry properties as identity (mapped in .kssl_property_name_map, absent from the real KSSL matrix)", {
+  # Named in .kssl_property_name_map (unlike "unmapped_prop" above) but still not present in
+  # kssl_property_matrices' own rownames - build_kssl_fallback_matrix()'s
+  # `mapped_kssl_names %in% rownames(kssl_source)` filter must drop them the same way, not error.
+  result <- build_kssl_fallback_matrix(c("dbovendry", "ph1to1h2o", "caco3", "ec", "ecec", "gypsum", "sar"), genhz = "A")
+  for (p in c("caco3", "ec", "ecec", "gypsum", "sar")) {
+    expect_equal(unname(result[p, p]), 1, info = p)
+    expect_equal(unname(result["dbovendry", p]), 0, info = p)
+  }
+  expect_true(unname(result["dbovendry", "ph1to1h2o"]) != 0)  # real KSSL correlation unaffected
+  expect_true(all(eigen(result, only.values = TRUE, symmetric = TRUE)$values > -1e-10))
+})
+
+test_that("build_kssl_fallback_matrix() stays positive-definite for every genhz with the full 14-property P2 vocabulary", {
+  full_param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc",
+                        "caco3", "ec", "ecec", "gypsum", "sar")
+  for (g in c("O", "A", "E", "B", "C", "Cr")) {
+    result <- build_kssl_fallback_matrix(full_param_order, genhz = g)
+    expect_false(is.null(result), info = g)
+    expect_equal(dim(result), c(14, 14), info = g)
+    expect_true(all(eigen(result, only.values = TRUE, symmetric = TRUE)$values > -1e-10), info = g)
+  }
+})

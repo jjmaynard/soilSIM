@@ -61,6 +61,231 @@ test_that("solus_depth_window_weights() rejects a degenerate window", {
   expect_error(solus_depth_window_weights(30, 10), "bottom_depth > top_depth")
 })
 
+# ---------------------------------------------------------------------------
+# S1 - fetch_solus_low_pred_high_multi() / fetch_solus_percentiles_multi(): batched multi-
+# variable fetchSOLUS() (offline, mocked soilDB::fetchSOLUS()).
+# ---------------------------------------------------------------------------
+
+# Builds a synthetic multi-layer SpatRaster following the confirmed live layer-naming convention
+# (paste0(var, "_", depth, "_cm_", suffix)), one constant-value layer per (variable, depth,
+# suffix) combination - mirrors the live-verified 2026-09-04 spike shape (nlyr = n_vars * n_depths
+# * n_suffixes).
+.solus_multi_stack <- function(vars, depths, suffixes = c("p", "l", "h"), drop = character(0)) {
+  combos <- expand.grid(var = vars, depth = depths, suffix = suffixes, stringsAsFactors = FALSE)
+  combos$name <- paste0(combos$var, "_", combos$depth, "_cm_", combos$suffix)
+  combos <- combos[!combos$name %in% drop, ]
+  layers <- lapply(seq_len(nrow(combos)), function(i) {
+    v <- match(combos$suffix[i], c("l", "p", "h"))  # low < pred < high, deterministic
+    terra::rast(nrows = 1, ncols = 1, vals = as.numeric(combos$depth[i]) + v)
+  })
+  r <- do.call(c, layers)
+  names(r) <- combos$name
+  r
+}
+
+test_that("fetch_solus_low_pred_high_multi() fetches every variable in one fetchSOLUS() call", {
+  fetch_n <- 0L
+  vars <- c("claytotal", "dbovendry")
+  depths <- c(0, 5, 15)
+
+  testthat::local_mocked_bindings(
+    fetchSOLUS = function(aoi_vect, depth_slices, variables, output_type, grid = TRUE) {
+      fetch_n <<- fetch_n + 1L
+      expect_setequal(variables, vars)
+      .solus_multi_stack(vars, depths)
+    },
+    .package = "soilDB"
+  )
+
+  res <- fetch_solus_low_pred_high_multi(terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"),
+                                         vars, top_depth = 0, bottom_depth = 15)
+
+  expect_equal(fetch_n, 1L)
+  expect_named(res, vars)
+  expect_s4_class(res$claytotal$pred, "SpatRaster")
+  expect_s4_class(res$dbovendry$low, "SpatRaster")
+  expect_true(all(terra::values(res$claytotal$low) <= terra::values(res$claytotal$pred)))
+  expect_true(all(terra::values(res$claytotal$pred) <= terra::values(res$claytotal$high)))
+})
+
+test_that("fetch_solus_low_pred_high_multi() flags only the affected (variable, output_type) on partial failure", {
+  vars <- c("claytotal", "dbovendry")
+  depths <- c(0, 5, 15)
+  # Drop every "high" layer for dbovendry only - a partial failure confined to one variable/output_type.
+  missing <- paste0("dbovendry_", depths, "_cm_h")
+
+  testthat::local_mocked_bindings(
+    fetchSOLUS = function(...) .solus_multi_stack(vars, depths, drop = missing),
+    .package = "soilDB"
+  )
+
+  res <- suppressWarnings(fetch_solus_low_pred_high_multi(
+    terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"), vars, top_depth = 0, bottom_depth = 15
+  ))
+
+  expect_s4_class(res$claytotal$pred, "SpatRaster")
+  expect_s4_class(res$claytotal$high, "SpatRaster")
+  expect_s4_class(res$dbovendry$pred, "SpatRaster")
+  expect_null(res$dbovendry$high)  # only the affected combo is NULL
+  expect_warning(
+    fetch_solus_low_pred_high_multi(terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"),
+                                    vars, top_depth = 0, bottom_depth = 15),
+    "dbovendry.*95% high"
+  )
+})
+
+test_that("fetch_solus_low_pred_high_multi() returns all-NULL per variable (not a crash) when fetchSOLUS() itself errors", {
+  vars <- c("claytotal", "dbovendry")
+
+  testthat::local_mocked_bindings(
+    fetchSOLUS = function(...) stop("simulated network failure"),
+    .package = "soilDB"
+  )
+
+  res <- suppressWarnings(fetch_solus_low_pred_high_multi(
+    terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"), vars, top_depth = 0, bottom_depth = 15
+  ))
+
+  expect_named(res, vars)
+  expect_null(res$claytotal$pred)
+  expect_null(res$dbovendry$pred)
+  expect_warning(
+    fetch_solus_low_pred_high_multi(terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"),
+                                    vars, top_depth = 0, bottom_depth = 15),
+    "fetchSOLUS\\(\\) failed"
+  )
+})
+
+test_that("fetch_solus_percentiles_multi() packages every variable's low/pred/high into values/probs, NULL per variable if incomplete", {
+  vars <- c("claytotal", "dbovendry")
+  depths <- c(0, 5, 15)
+  missing <- paste0("dbovendry_", depths, "_cm_h")
+
+  testthat::local_mocked_bindings(
+    fetchSOLUS = function(...) .solus_multi_stack(vars, depths, drop = missing),
+    .package = "soilDB"
+  )
+
+  res <- suppressWarnings(fetch_solus_percentiles_multi(
+    terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"), vars, top_depth = 0, bottom_depth = 15
+  ))
+
+  expect_named(res, vars)
+  expect_equal(res$claytotal$probs, c(0.025, 0.5, 0.975))
+  expect_named(res$claytotal$values, c("P025", "P50", "P975"))
+  expect_null(res$dbovendry)  # incomplete (missing "high") -> whole-variable NULL, matches fetch_solus_percentiles()
+})
+
+# ---------------------------------------------------------------------------
+# S2 - fetch_solus_site_level() / fetch_solus_restriction_depth() (bedrock/restriction-depth
+# truncation, MULTI_PROPERTY_FUSION_PLAN.md task S2). Offline, mocked soilDB::fetchSOLUS(),
+# matching the S1 spike's confirmed site-level layer-naming convention
+# ("<variable>_all_cm_<suffix>", one layer per output type, no depth-slice looping).
+# ---------------------------------------------------------------------------
+
+.solus_site_level_stack <- function(variable, values = c(p = 40, l = 30, h = 50),
+                                    suffixes = c("p", "l", "h")) {
+  layers <- lapply(suffixes, function(s) terra::rast(nrows = 1, ncols = 1, vals = values[[s]]))
+  r <- do.call(c, layers)
+  names(r) <- paste0(variable, "_all_cm_", suffixes)
+  r
+}
+
+test_that("fetch_solus_site_level() issues one fetchSOLUS() call with depth_slices = 'all' and parses the site-level layer names", {
+  fetch_n <- 0L
+  testthat::local_mocked_bindings(
+    fetchSOLUS = function(aoi_vect, depth_slices, variables, output_type, grid = TRUE) {
+      fetch_n <<- fetch_n + 1L
+      expect_equal(depth_slices, "all")
+      expect_equal(variables, "anylithicdpt")
+      .solus_site_level_stack("anylithicdpt")
+    },
+    .package = "soilDB"
+  )
+
+  res <- fetch_solus_site_level(terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"), "anylithicdpt")
+
+  expect_equal(fetch_n, 1L)
+  expect_equal(terra::values(res$pred)[1], 40)
+  expect_equal(terra::values(res$low)[1], 30)
+  expect_equal(terra::values(res$high)[1], 50)
+})
+
+test_that("fetch_solus_site_level() respects a restricted output_types request", {
+  testthat::local_mocked_bindings(
+    fetchSOLUS = function(aoi_vect, depth_slices, variables, output_type, grid = TRUE) {
+      expect_equal(output_type, "prediction")
+      .solus_site_level_stack("anylithicdpt", suffixes = "p")
+    },
+    .package = "soilDB"
+  )
+
+  res <- fetch_solus_site_level(terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"),
+                                "anylithicdpt", output_types = "prediction")
+  expect_equal(terra::values(res$pred)[1], 40)
+  expect_null(res$low)
+  expect_null(res$high)
+})
+
+test_that("fetch_solus_site_level() returns all-NULL (not a crash) when fetchSOLUS() itself errors", {
+  testthat::local_mocked_bindings(
+    fetchSOLUS = function(...) stop("simulated network failure"),
+    .package = "soilDB"
+  )
+  res <- suppressWarnings(fetch_solus_site_level(
+    terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"), "anylithicdpt"
+  ))
+  expect_null(res$pred); expect_null(res$low); expect_null(res$high)
+})
+
+test_that("fetch_solus_restriction_depth() defaults to anylithicdpt and accepts resdept as an alternative", {
+  seen_variable <- NULL
+  testthat::local_mocked_bindings(
+    fetchSOLUS = function(aoi_vect, depth_slices, variables, output_type, grid = TRUE) {
+      seen_variable <<- variables
+      .solus_site_level_stack(variables, values = c(p = 40, l = 30, h = 50), suffixes = "p")
+    },
+    .package = "soilDB"
+  )
+
+  aoi <- terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070")
+  fetch_solus_restriction_depth(aoi)
+  expect_equal(seen_variable, "anylithicdpt")
+
+  fetch_solus_restriction_depth(aoi, variable = "resdept")
+  expect_equal(seen_variable, "resdept")
+})
+
+test_that("fetch_solus_restriction_depth() recodes right-censored (>= 201cm) values to Inf, not a literal cutoff", {
+  testthat::local_mocked_bindings(
+    fetchSOLUS = function(aoi_vect, depth_slices, variables, output_type, grid = TRUE) {
+      terra::rast(nrows = 1, ncols = 4, vals = c(50, 150, 201, 250),
+                  names = paste0(variables, "_all_cm_p"))
+    },
+    .package = "soilDB"
+  )
+
+  res <- fetch_solus_restriction_depth(terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"))
+  vals <- terra::values(res)[, 1]
+  expect_equal(vals[1:2], c(50, 150))          # below the censor point - passed through unchanged
+  expect_true(all(is.infinite(vals[3:4])))     # >= SOLUS_RESTRICTION_CENSOR_CM - recoded to Inf
+})
+
+test_that("fetch_solus_restriction_depth() returns NULL (not a crash) when the underlying fetch fails", {
+  testthat::local_mocked_bindings(
+    fetchSOLUS = function(...) stop("simulated network failure"),
+    .package = "soilDB"
+  )
+  res <- suppressWarnings(fetch_solus_restriction_depth(
+    terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070")
+  ))
+  expect_null(res)
+})
+
+test_that("SOLUS_RESTRICTION_CENSOR_CM is 201, per SOLUS100 documentation section 2.1.3", {
+  expect_equal(SOLUS_RESTRICTION_CENSOR_CM, 201)
+})
+
 test_that("fetch_solus_low_pred_high()/fetch_solus_percentiles() require the live SOLUS service", {
   testthat::skip_if_offline()
   # Live-verified scenario (Salinas Valley, CA - confirmed real SOLUS100 coverage): claytotal over

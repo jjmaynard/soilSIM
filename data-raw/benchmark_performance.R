@@ -529,8 +529,29 @@ compare_perpixel_vs_zonal <- function(prop_id = "clay_total", solus_var = "clayt
 #   simulation ONCE for N properties x M windows instead of N*M times. This measures that.
 #   Live: SDA + SOLUS. Clears the soilSIM disk cache between arms so both actually simulate.
 # ---------------------------------------------------------------------------
+# Counts real soilDB::fetchSOLUS() calls made while evaluating `expr`, by temporarily patching the
+# binding in soilDB's own namespace (fetchSOLUS is looked up there fresh on every `soilDB::`-
+# qualified call, so this counts every call regardless of how deep it's invoked from) - restored
+# via on.exit() even if `expr` errors. Used below to make S1's "1 call/window instead of up to
+# 3*n_vars" claim (MULTI_PROPERTY_FUSION_PLAN.md task S1) an observed number, not an assertion.
+.count_fetchSOLUS_calls <- function(expr) {
+  ns <- asNamespace("soilDB")
+  orig <- get("fetchSOLUS", envir = ns)
+  n <- 0L
+  unlockBinding("fetchSOLUS", ns)
+  on.exit({
+    unlockBinding("fetchSOLUS", ns)
+    assign("fetchSOLUS", orig, envir = ns)
+    lockBinding("fetchSOLUS", ns)
+  })
+  assign("fetchSOLUS", function(...) { n <<- n + 1L; orig(...) }, envir = ns)
+  lockBinding("fetchSOLUS", ns)
+  result <- force(expr)
+  list(result = result, n_calls = n)
+}
+
 benchmark_multi_property_fusion <- function() {
-  cat("== [A.7] run_stage1_fusion_multi() vs a run_stage1_fusion() loop ==\n")
+  cat("== [A.7/S1] run_stage1_fusion_multi() vs a run_stage1_fusion() loop ==\n")
   aoi <- small_aoi()
   windows <- .awc_windows
   configs <- stats::setNames(
@@ -541,26 +562,40 @@ benchmark_multi_property_fusion <- function() {
   clear_cache <- function() if (dir.exists(cache_dir)) unlink(cache_dir, recursive = TRUE)
 
   clear_cache()
-  t_loop <- system.time(post_loop <- .perpixel_posteriors(aoi, windows, .awc_cfgs))
-  cat(sprintf("run_stage1_fusion() loop (%d props x %d windows):\n", length(.awc_cfgs), length(windows)))
+  loop_counted <- .count_fetchSOLUS_calls({
+    t_loop <- system.time(post_loop <- .perpixel_posteriors(aoi, windows, .awc_cfgs))
+    t_loop
+  })
+  t_loop <- loop_counted$result
+  cat(sprintf("run_stage1_fusion() loop (%d props x %d windows): %d fetchSOLUS() call(s)\n",
+              length(.awc_cfgs), length(windows), loop_counted$n_calls))
   print(t_loop)
   if (!all(names(.awc_cfgs) %in% names(post_loop))) {
     cat("SOLUS fusion unavailable - skipping.\n\n"); return(invisible(NULL))
   }
 
   clear_cache()
-  t_multi <- system.time(post_multi <- run_stage1_fusion_multi(aoi, configs, windows, simplify = TRUE))
-  cat("run_stage1_fusion_multi() (one call):\n"); print(t_multi)
+  multi_counted <- .count_fetchSOLUS_calls({
+    t_multi <- system.time(post_multi <- run_stage1_fusion_multi(aoi, configs, windows, simplify = TRUE))
+    t_multi
+  })
+  t_multi <- multi_counted$result
+  cat(sprintf("run_stage1_fusion_multi() (batched, S1): %d fetchSOLUS() call(s)  (%d window(s), expect 1/window)\n",
+              multi_counted$n_calls, length(windows)))
+  print(t_multi)
 
   ratio <- unname(t_multi[["elapsed"]] / max(t_loop[["elapsed"]], 1e-6))
   cat(sprintf("multi / loop elapsed ratio: %.2fx  (lower is better; ~1/N is the ideal)\n", ratio))
+  cat(sprintf("fetchSOLUS() call count: %d (loop) -> %d (multi, S1 batched)\n",
+              loop_counted$n_calls, multi_counted$n_calls))
 
   # sanity: same leaves present, P50 rasters broadly agree (fresh draws each arm, so ~, not ==)
   ok_leaves <- all(vapply(names(configs), function(nm)
     !is.null(post_multi[[nm]]) && all(names(post_loop[[nm]]) %in% names(post_multi[[nm]])),
     logical(1)))
   cat("all leaves present in the multi result:", ok_leaves, "\n\n")
-  invisible(list(loop = t_loop, multi = t_multi, ratio = ratio))
+  invisible(list(loop = t_loop, multi = t_multi, ratio = ratio,
+                 fetchsolus_calls = c(loop = loop_counted$n_calls, multi = multi_counted$n_calls)))
 }
 
 # ---------------------------------------------------------------------------
