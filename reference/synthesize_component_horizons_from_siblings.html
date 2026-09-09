@@ -115,9 +115,9 @@ classifiable at all.</p>
 position or depth bin - robust to sibling profiles having different horizon counts or depths.
 Sibling rows whose <code>hzname</code> doesn't classify (<code><a href="classify_genhz.html">classify_genhz()</a></code> returns <code>NA</code>) are dropped from
 averaging entirely rather than guessed at - verified before choosing this: no depth-or-property-
-based genhz fallback exists anywhere else in soilSIM to reuse (<code><a href="classify_genhz.html">classify_genhz()</a></code> itself and the
-separate <code><a href="https://ncss-tech.github.io/aqp/reference/generalize.hz.html" class="external-link">aqp::generalizeHz()</a></code> usage in <code>R/depth-simulation.R</code> are both purely <code>hzname</code>-regex
-matchers).</p>
+based genhz fallback exists anywhere in soilSIM. <code><a href="classify_genhz.html">classify_genhz()</a></code> is the package's single
+hzname-to-generalized-horizon mapper (used here, in the SSURGO simulation path, and in the
+OSD boundary-distinctness lookup in <code>R/depth-simulation.R</code>).</p>
     </div>
     <div class="section level2">
     <h2 id="averaging-rule-per-genhz-group">Averaging rule per genhz group<a class="anchor" aria-label="anchor" href="#averaging-rule-per-genhz-group"></a></h2>

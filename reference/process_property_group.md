@@ -1,6 +1,11 @@
 # Process Property Group Function
 
-Process Property Group Function
+Per-group
+([`dplyr::group_modify()`](https://dplyr.tidyverse.org/reference/group_map.html)-invoked)
+wrapper for Strategies 1-3. Computes the problematic-cell mask for *this
+group* - a group-modify reorders rows into single-group subsets, so a
+whole-frame mask can't be passed in - then delegates to
+[`infill_missing_property_data()`](https://jjmaynard.github.io/soilSIM/reference/infill_missing_property_data.md).
 
 ## Usage
 
@@ -8,7 +13,6 @@ Process Property Group Function
 process_property_group(
   group,
   property_name,
-  problematic_mask,
   property_config,
   max_depth,
   verbose
@@ -24,10 +28,6 @@ process_property_group(
 - property_name:
 
   Name of the property to infill
-
-- problematic_mask:
-
-  Logical vector for problematic horizons (IGNORED - recalculated)
 
 - property_config:
 

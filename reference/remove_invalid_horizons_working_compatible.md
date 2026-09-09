@@ -9,7 +9,7 @@ missing/empty `cokey`.
 ``` r
 remove_invalid_horizons_working_compatible(
   df,
-  max_depth = 250,
+  max_depth = DEFAULT_MAX_DEPTH_CM,
   verbose = FALSE
 )
 ```

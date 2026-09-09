@@ -18,7 +18,8 @@ remarginalized_awc(
   probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
   rock_fragment = TRUE,
   soc_to_om = 1.724,
-  tile_rows = NULL
+  tile_rows = NULL,
+  restriction_depth = NULL
 )
 ```
 
@@ -64,6 +65,32 @@ remarginalized_awc(
   strip's realization stack before the next. Per-pixel quantiles are
   cell-independent, so a tiled run is numerically identical to
   `tile_rows = NULL`. `NULL` (default) / `>= nrow` disables tiling.
+
+- restriction_depth:
+
+  Optional single-layer
+  [`terra::SpatRaster`](https://rspatial.github.io/terra/reference/SpatRaster-class.html)
+  of restriction depth in cm - typically
+  `fetch_solus_restriction_depth(aoi_vect)`
+  (MULTI_PROPERTY_FUSION_PLAN.md task S2), already
+  right-censoring-guarded (cells with no detected restriction are `Inf`,
+  never `SOLUS_RESTRICTION_CENSOR_CM` itself). `NULL` (default)
+  preserves today's behavior exactly - every window contributes its full
+  nominal thickness, regardless of bedrock. When supplied, resampled
+  once (bilinear - a continuous depth value, not a category) onto the
+  working grid, and each window's contribution is scaled by its
+  **effective** thickness
+  `pmax(0, pmin(bottom, restriction_depth) - top)` instead of the
+  nominal `bottom - top`: a window entirely above the restriction keeps
+  its full thickness, one straddling it gets partial credit, one
+  entirely below it contributes exactly **0** (not `NA` - `NA` would
+  incorrectly blank the whole pixel's AWC, including valid shallower
+  windows, rather than just this window's contribution). A pixel with
+  `restriction_depth` missing/`NA` (e.g. no coverage at the AOI edge) is
+  treated the same as `Inf` - no truncation - the same "no evidence -\>
+  don't truncate" convention this pipeline already uses for other
+  SSURGO/SOLUS coverage gaps, rather than propagating `NA` into the AWC
+  total.
 
 ## Value
 
@@ -123,4 +150,5 @@ structure of the per-pixel bridge" for the full treatment.
 
 [`remarginalize_ensemble_to_posterior()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_ensemble_to_posterior.md),
 [`saxton_rawls_raster()`](https://jjmaynard.github.io/soilSIM/reference/saxton_rawls_raster.md),
-[`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
+[`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md),
+[`fetch_solus_restriction_depth()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_restriction_depth.md)

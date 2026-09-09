@@ -22,7 +22,9 @@ simulate_ssurgo_mapunit_draws(
   n_cores = NULL,
   config = NULL,
   mukey_raster = NULL,
-  depth_windows = NULL
+  depth_windows = NULL,
+  requested_properties = NULL,
+  seed = NULL
 )
 
 SSURGO_SIM_PROPERTY_COLUMNS
@@ -30,7 +32,7 @@ SSURGO_SIM_PROPERTY_COLUMNS
 
 ## Format
 
-An object of class `character` of length 10.
+An object of class `character` of length 15.
 
 ## Arguments
 
@@ -103,6 +105,35 @@ An object of class `character` of length 10.
   [`extract_mukey_joint_ensemble()`](https://jjmaynard.github.io/soilSIM/reference/extract_mukey_joint_ensemble.md),
   which needs the SOLUS depth windows from one simulation.
 
+- requested_properties:
+
+  `NULL` (default) simulates every recognized property, bit-identical to
+  before. Otherwise a character vector (any vocabulary
+  [`normalize_requested_properties()`](https://jjmaynard.github.io/soilSIM/reference/normalize_requested_properties.md)
+  accepts) restricting
+  [`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md)
+  to just those (plus texture coupling) - the per-cokey GP depth-trend
+  fit then runs once per kept property instead of ~8 times, the
+  pipeline's dominant saving. A restricted simulation is only
+  *law*-equivalent (not bit-identical) to slicing the same columns from
+  a full simulation, and only under the default
+  `vertical_correlation_method = "joint_copula"`; under
+  `"gp_quantile_retrofit"` (not subset-invariant - its rank retrofit
+  keys off the first property in the list) `requested_properties` is
+  ignored with a warning and all properties are simulated.
+
+- seed:
+
+  Optional integer. `NULL` (default) keeps the current stochastic
+  behavior. When set, `set.seed(seed)` runs once at the top (covering
+  the whole sequential RNG stream: component composition, per-cokey
+  property/texture draws, sequential depth-trend), and the parallel
+  depth-trend path uses it as `future.seed`'s L'Ecuyer seed. Determinism
+  is **conditional** on identical upstream SSURGO data
+  ([`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
+  can change over time) and does **not** make a `requested_properties`
+  subset bit-identical to a full simulation.
+
 ## Value
 
 With `depth_windows = NULL`: a data frame, one row per
@@ -121,13 +152,22 @@ sibling let them be recovered - see
 ## Cache invalidation
 
 This function's own disk cache
-([`build_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/build_cache_key.md)/[`cache_get()`](https://jjmaynard.github.io/soilSIM/reference/cache_get.md)/[`cache_set()`](https://jjmaynard.github.io/soilSIM/reference/cache_set.md),
-keyed by `aoi_vect`/depth window) is separate from
+([`build_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/build_cache_key.md)/[`cache_get()`](https://jjmaynard.github.io/soilSIM/reference/cache_get.md)/[`cache_set()`](https://jjmaynard.github.io/soilSIM/reference/cache_set.md)
+via
+[`ssurgo_tabular_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/ssurgo_tabular_cache_key.md),
+keyed by `aoi_vect` **only** - depth-independent as of
+MULTI_PROPERTY_FUSION_PLAN.md task L1, since
+[`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
+takes no depth-window argument and fetches every horizon for every AOI
+mukey regardless) is separate from
 [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)'s
-own `cache_dir` parameter (always `NULL` here). A cache entry for a
-given AOI/depth-window combination written before component recovery
-shipped predates it entirely - clear that cache entry (or the whole
-cache directory) to pick up recovered components.
+own `cache_dir` parameter (always `NULL` here). One AOI's tabular
+download is shared across every depth window/call requested for that
+AOI. A cache entry written before component recovery shipped predates it
+entirely - clear that cache entry (or the whole cache directory) to pick
+up recovered components. Entries written before the L1 fix (keyed by
+`aoi_vect`/depth window) are simply orphaned and age out via the normal
+TTL - no migration needed.
 
 This function's own SIMULATED output (as opposed to the raw tabular
 SSURGO input it's cached from) is deliberately NOT disk-cached - every

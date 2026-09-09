@@ -21,10 +21,9 @@ each function actually does to the data and why each parameter exists:
     and
     [`process_component_data_working_compatible()`](https://jjmaynard.github.io/soilSIM/reference/process_component_data_working_compatible.md)
 3.  Per-property cleaning:
-    [`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md)
-    (used during processing) vs.
     [`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md)
-    (used during infilling) and their outlier-detection strategies
+    (the single cleaner, used both during processing and during
+    infilling) and its `outlier_policy` strategies
 4.  The infilling family:
     [`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)’s
     six-strategy recovery hierarchy, the individual strategy functions
@@ -180,10 +179,10 @@ dim(processed$processed_data)
 Calling the horizon sub-pipeline directly shows what each of its steps
 contributes. With `advanced_cleaning = TRUE` (the default), every
 identified soil-property column is run through
-[`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md),
-which can turn additional cells to `NA` (outliers, out-of-range
-values) - so cleaning alone can *increase* apparent missingness even
-before any infilling happens:
+`clean_property_data(..., outlier_policy = "soil_aware")`, which can
+turn additional cells to `NA` (non-finite values, physically impossible
+values, out-of-range values) - so cleaning alone can *increase* apparent
+missingness even before any infilling happens:
 
 ``` r
 
@@ -205,7 +204,7 @@ na_counts
 #>                property advanced_cleaning_on advanced_cleaning_off
 #> sandtotal_r sandtotal_r                   59                    59
 #> claytotal_r claytotal_r                   59                    59
-#> dbovendry_r dbovendry_r                   88                    62
+#> dbovendry_r dbovendry_r                   76                    62
 ```
 
 `processing_stats$property_completeness` (from
@@ -217,7 +216,7 @@ processing:
 
 unlist(horizon_cleaned$processing_stats$property_completeness)
 #>   sandtotal   claytotal   silttotal   dbovendry   ph1to1h2o        cec7 
-#>   0.8973913   0.8973913   0.8973913   0.8469565   0.8921739   0.7704348 
+#>   0.8973913   0.8973913   0.8973913   0.8678261   0.8921739   0.7704348 
 #>          om   wthirdbar wfifteenbar         awc 
 #>   0.8521739   0.8921739   0.8921739   0.8921739
 ```
@@ -283,42 +282,39 @@ summarize_unsuitable_horizons(horizon_data)
 
 ## Step 3: Per-property cleaning
 
-Two nearly-parallel cleaning functions exist because they serve two
-different callers.
-[`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md)
-is what
-[`process_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_data.md)
-uses;
 [`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md)
-is what
+is the single property-value cleaner: both
+[`process_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_data.md)
+and
 [`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)
-uses. Both parse strings, convert types, and null out non-finite values,
-but they differ in *how* they detect statistical outliers on the `_r`
-column:
+call it. It parses strings, converts types, nulls non-finite values,
+optionally flags statistical outliers, and finishes with
+[`apply_basic_range_limits()`](https://jjmaynard.github.io/soilSIM/reference/apply_basic_range_limits.md) -
+hardcoded plausibility bounds (bulk density `[0.3, 3.0]` g/cm^3, pH
+`[2.5, 11.0]`, …) that are always enforced regardless of the outlier
+policy.
 
-- [`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md)
-  uses `detect_outliers(method = "iqr", threshold = 3.0)`
-  - a single generic IQR rule applied to every property alike.
-- [`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md)
-  uses
-  [`detect_statistical_outliers_soil_aware()`](https://jjmaynard.github.io/soilSIM/reference/detect_statistical_outliers_soil_aware.md) -
-  property-type-specific rules (e.g. for pH and texture percentages,
-  only physically-impossible values are flagged; other properties fall
-  back to a *very* conservative IQR factor of 5.0).
+The `outlier_policy` argument controls the middle step:
 
-Both finish with
-[`apply_basic_range_limits()`](https://jjmaynard.github.io/soilSIM/reference/apply_basic_range_limits.md),
-which enforces hardcoded SSURGO plausibility bounds (e.g. bulk density
-`[0.3, 3.0]` g/cm^3, pH `[2.5, 11.0]`) regardless of the outlier method
-used.
+- `"soil_aware"` (default) -
+  [`detect_statistical_outliers_soil_aware()`](https://jjmaynard.github.io/soilSIM/reference/detect_statistical_outliers_soil_aware.md):
+  for pH and texture percentages, only *physically impossible* values
+  are flagged; every other property falls back to a very conservative
+  IQR factor of 5.0. This is what the whole pipeline uses, because a
+  genuine tail value in a distribution you are about to Monte-Carlo is
+  signal, not noise.
+- `"aggressive_iqr"` - a single generic `IQR x 3` rule applied to every
+  property alike (the former
+  [`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md)
+  behavior, kept as an opt-in).
+- `"none"` - skip outlier flagging entirely; still parse, null
+  non-finite, and clamp.
 
 ``` r
 
-clean_result <- clean_property_data_ssurgo_compatible(
+clean_result <- clean_property_data(
   raw_data, "dbovendry", generate_report = TRUE, verbose = FALSE
 )
-clean_result$report$outliers_detected$dbovendry_r$n_outliers
-#> [1] 26
 clean_result$report$type_conversions$dbovendry_r$success_rate
 #> [1] 0.8921739
 ```
@@ -340,7 +336,7 @@ ggplot(before_after, aes(x = value, fill = stage)) +
   scale_fill_viridis_d() +
   theme_minimal() +
   labs(
-    title = "Bulk density (dbovendry_r) before and after clean_property_data_ssurgo_compatible()",
+    title = "Bulk density (dbovendry_r) before and after clean_property_data()",
     x = expression(paste("Bulk density (g/cm"^3, ")")),
     y = "Count of horizons",
     fill = NULL
@@ -349,21 +345,19 @@ ggplot(before_after, aes(x = value, fill = stage)) +
 
 ![](data-acquisition-processing_files/figure-html/unnamed-chunk-13-1.png)
 
-The infilling-side cleaner,
-[`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md),
-is more conservative for texture/pH-type properties precisely because it
-runs *before* the multi-strategy infilling hierarchy - it would rather
-leave a borderline value in place than remove a data point the recovery
-strategies could otherwise have used as a source:
+The two policies differ most on properties with a wide but legitimate
+spread. Compare what each does to clay:
 
 ``` r
 
-clean_result_infill_side <- clean_property_data(
-  raw_data, "claytotal", generate_report = TRUE, verbose = FALSE
-)
-# texture properties use the "texture_conservative" rule: only impossible (<0 or >100) values flagged
-clean_result_infill_side$report$outliers_detected
-#> list()
+soil_aware <- clean_property_data(raw_data, "claytotal", outlier_policy = "soil_aware",
+                                  generate_report = TRUE)
+aggressive <- clean_property_data(raw_data, "claytotal", outlier_policy = "aggressive_iqr",
+                                  generate_report = TRUE)
+c(soil_aware = sum(!is.na(soil_aware$data$claytotal_r)),
+  aggressive = sum(!is.na(aggressive$data$claytotal_r)))
+#> soil_aware aggressive 
+#>        516        516
 ```
 
 ## Step 4: The infilling family

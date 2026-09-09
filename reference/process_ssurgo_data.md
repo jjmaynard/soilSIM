@@ -12,7 +12,7 @@ process_ssurgo_data(
   raw_data,
   processing_options = list(),
   validate_results = TRUE,
-  max_depth = 250,
+  max_depth = DEFAULT_MAX_DEPTH_CM,
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 ```

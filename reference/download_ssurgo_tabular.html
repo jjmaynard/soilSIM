@@ -79,7 +79,7 @@ with existing soil property simulation workflows.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">download_ssurgo_tabular</span><span class="op">(</span></span>
 <span>  <span class="va">aoi_wkt</span>,</span>
 <span>  properties <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"sandtotal"</span>, <span class="st">"claytotal"</span>, <span class="st">"silttotal"</span>, <span class="st">"dbovendry"</span>, <span class="st">"ph1to1h2o"</span>, <span class="st">"cec7"</span>,</span>
-<span>    <span class="st">"om"</span>, <span class="st">"wthirdbar"</span>, <span class="st">"wfifteenbar"</span><span class="op">)</span>,</span>
+<span>    <span class="st">"om"</span>, <span class="st">"wthirdbar"</span>, <span class="st">"wfifteenbar"</span>, <span class="st">"caco3"</span>, <span class="st">"ec"</span>, <span class="st">"ecec"</span>, <span class="st">"gypsum"</span>, <span class="st">"sar"</span><span class="op">)</span>,</span>
 <span>  include_restrictions <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  cache_dir <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  force_download <span class="op">=</span> <span class="cn">FALSE</span>,</span>
@@ -99,7 +99,10 @@ with existing soil property simulation workflows.</p>
 
 <dt id="arg-properties">properties<a class="anchor" aria-label="anchor" href="#arg-properties"></a></dt>
 <dd><p>Character vector. Soil properties to download.
-Default: c("w3b", "w15b", "db", "cec", "rfv", "clay", "ph", "sand", "silt", "soc")</p></dd>
+Default: c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o", "cec7", "om",
+"wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar") - the last 5 added in
+MULTI_PROPERTY_FUSION_PLAN.md task P2 (needs a matching row in
+<code><a href="create_ssurgo_property_lookup_working.html">create_ssurgo_property_lookup_working()</a></code> to actually reach the SQL query - already present).</p></dd>
 
 
 <dt id="arg-include-restrictions">include_restrictions<a class="anchor" aria-label="anchor" href="#arg-include-restrictions"></a></dt>

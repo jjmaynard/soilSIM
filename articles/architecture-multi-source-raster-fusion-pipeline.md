@@ -641,6 +641,24 @@ rasters. Finally calls
 with the aligned prior and the SOLUS likelihood, and returns both raw
 sides plus the fused posterior.
 
+The SSURGO simulation is restricted to *just this call’s own property*
+(plus the full sand/silt/clay draw for a texture member) via
+[`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)‘s
+`requested_properties` argument — the per-cokey depth-trend GP fit is
+the pipeline’s dominant cost and scales with the property count. Two
+consequences: the prior is *statistically equivalent* to, not
+bit-identical to, a full-property simulation’s matching column (the
+pipeline is unseeded — a fresh draw either way), and a map unit whose
+components carry no data for *this one* property no longer benefits from
+those components’ other properties being present, so a single-property
+prior can be `NA` for a few cells a full-property run would have
+covered. The restriction is honoured only under the default
+`vertical_correlation_method = "joint_copula"`;
+[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+never forwards a `config`, so it always gets that method. An optional
+`seed` argument makes the whole call reproducible given identical
+upstream SSURGO/SOLUS data; `NULL` (default) is stochastic.
+
 #### 16. `run_stage1_fusion_group()` — top-level AOI orchestrator (compositional)
 
 **Purpose**: Run the same fetch → align → fuse pipeline as
@@ -685,7 +703,69 @@ key, and each member’s own posterior is *also* seeded into a
 per-property `"posterior"` cache kind, so three sequential
 [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
 calls for clay, then sand, then silt trigger the joint fetch+fusion
-exactly once, not three times.
+exactly once, not three times. The shared simulation is itself
+restricted to the group’s members (which for `"texture"` normalizes to
+“just the sand/silt/clay draw”), skipping the other properties’ GP fits.
+
+#### 16b. `run_stage1_fusion_multi()` — many properties, one simulation
+
+**Purpose**: Fuse many properties (and many depth windows) over an AOI
+from a **single** SSURGO Monte Carlo simulation, instead of one
+[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+call per property/window — each of which re-runs the full
+(dominant-cost) simulation only to keep one of its ~9 jointly-simulated
+columns.
+
+**Parameters**:
+
+``` r
+
+run_stage1_fusion_multi(aoi_vect, property_configs, depth_windows,
+                         composition_groups = NULL, n_mc = 1000,
+                         parallel = FALSE, n_cores = NULL,
+                         verbose = FALSE, simplify = FALSE)
+# property_configs  - a NAMED list, keyed by each config's own id, of the same property_config
+#                     lists run_stage1_fusion() takes; a config carrying composition_group is fused
+#                     jointly per run_stage1_fusion_group(), and every member of a referenced group
+#                     must have its own entry
+# depth_windows     - a non-empty list of c(top, bottom) numeric pairs
+# simplify          - TRUE reduces each leaf to list(percentiles = <named SpatRasters>)
+```
+
+**Returns**: a nested named list
+`result[[config_id]][["<top>-<bottom>"]]`, each leaf a
+[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)-shaped
+list (or the `texture_ilr` shape for group members), `NULL` on that
+leaf’s own failure; the whole call returns `NULL` only if the shared
+simulation itself fails.
+
+**Behavior**: Validates the configs, partitions them into standalone vs
+compositional-group, then runs
+`simulate_ssurgo_mapunit_draws(span, depth_windows =, requested_properties = <union of every config's property>)`
+**once** (skipping it entirely when every needed `"ssurgo"` cache is
+already warm and no config uses raw-draws fusion). SOLUS is fetched via
+one batched
+[`fetch_solus_percentiles_multi()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles_multi.md)
+call **per window** (covering every variable any standalone config or
+group member needs at once, S1), falling back to the per-variable scalar
+[`fetch_solus_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.md)
+only if that batched request itself errors; results are memoized. Per
+window then per property it calls the same fusion tail
+[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+uses
+([`stage1_fuse_from_prior_solus()`](https://jjmaynard.github.io/soilSIM/reference/stage1_fuse_from_prior_solus.md)),
+and for texture groups the same one
+[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
+uses
+([`stage1_fuse_texture_group_from_fetched()`](https://jjmaynard.github.io/soilSIM/reference/stage1_fuse_texture_group_from_fetched.md)),
+**seeding the same per-property `"ssurgo"`/`"solus"`/`"posterior"` disk
+caches** — so a later single-property
+[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+for the same AOI/property/window is a cache hit. Every leaf therefore
+shares one draw set, so (unlike independent
+[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+calls) the properties’ `NA` masks are mutually consistent. The
+per-window draws are released as each window finishes.
 
 #### 17. `build_cache_key()` / `CACHE_TTL_SECONDS`
 
@@ -802,20 +882,28 @@ set for one horizon data frame.
 
 ``` r
 
-infill_soil_data(df)
-# df - a horizon data frame, as returned by download_ssurgo_tabular()
+infill_soil_data(df, water_retention_method = c("saxton_rawls", "generic"))
+# df                    - a horizon data frame, as returned by download_ssurgo_tabular()
+# water_retention_method - how to fill wthirdbar/wfifteenbar gaps (see Behavior)
 ```
 
 **Returns**: `df` with missing values infilled where possible.
 
-**Behavior**: Loops `R/data-infilling.R`’s
-[`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)
-over
-`sandtotal`/`claytotal`/`silttotal`/`dbovendry`/`wthirdbar`/`wfifteenbar`/`ph1to1h2o`/`cec7`/`om`
-(only if each property’s `_r` column is present), then separately
-infills `rfv` if `rfv_r` is present
-([`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)
-already special-cases `"rfv"` internally).
+**Behavior**: A thin wrapper around
+[`process_soil_properties_comprehensive()`](https://jjmaynard.github.io/soilSIM/reference/process_soil_properties_comprehensive.md)
+(the single infilling orchestrator - see
+`docs/01_data_acquisition_processing.md` entry 15), restricting it to
+whichever of the standard SSURGO property set
+(`sandtotal`/`claytotal`/`silttotal`/`dbovendry`/
+`om`/`rfv`/`wthirdbar`/`wfifteenbar`/`ph1to1h2o`/`cec7` + the 5 P2
+chemistry properties) is actually present in `df`, and passing
+`water_retention_method` through. That orchestrator runs three phases -
+foundation (texture/BD/OM/RFV), water retention (Saxton-Rawls
+pedotransfer where texture + BD allow, `overwrite = FALSE`; generic
+hierarchy for the rest or under `water_retention_method = "generic"`),
+then the remaining chemical properties - each property going through
+[`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)’s
+six-strategy hierarchy.
 
 #### 21. `maybe_adjust_soil_data_depth_trend()`
 
@@ -885,7 +973,8 @@ output column name.
 
 property_to_sim_column(property_id)
 # property_id - one of "ph", "bulk_density", "soc", "cec", "clay", "sand", "silt",
-#               "rock_fragments", "wthirdbar", "wfifteenbar" (+ synonyms)
+#               "rock_fragments", "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec",
+#               "gypsum", "sar" (+ synonyms)
 ```
 
 **Returns**: The corresponding column name (e.g. `"clay"` -\>
@@ -895,7 +984,8 @@ unrecognized id.
 **Behavior**: A fixed lookup table (`ph`, `bulk_density -> db`, `soc`,
 `cec`, `clay -> clay_total`, `sand -> sand_total`, `silt -> silt_total`,
 `rock_fragments -> rfv`, `wthirdbar/water_retention_third_bar -> wr_3b`,
-`wfifteenbar/water_retention_15_bar -> wr_15b`). The water-retention
+`wfifteenbar/water_retention_15_bar -> wr_15b`,
+`caco3`/`ec`/`ecec`/`gypsum`/`sar` -\> themselves). The water-retention
 rows were added 2026-09-02 -
 [`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md)
 already emitted those columns (`SSURGO_SIM_PROPERTY_COLUMNS` lists them)
@@ -903,6 +993,10 @@ but the id map was incomplete, blocking water-retention
 [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
 (needed by
 [`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)).
+The 5 chemistry-property rows were added 2026-09-04
+(MULTI_PROPERTY_FUSION_PLAN.md task P2) - self-mapping since the SOLUS
+variable name, the SSURGO chorizon column stem, and the id are all
+identical spellings for these 5.
 
 #### 24. `simulate_ssurgo_mapunit_draws()`
 
@@ -916,17 +1010,32 @@ summarizes into percentile rasters.
 
 ``` r
 
-simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc = 1000)
+simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
+                              ..., depth_windows = NULL, requested_properties = NULL)
 # aoi_vect                 - a terra::SpatVector AOI
 # top_depth, bottom_depth  - numeric depth window bounds in cm
 # n_mc                     - number of triangular draws sim_component_comp() uses per
 #                            component (default 1000)
+# depth_windows            - optional list of c(top, bottom) pairs; simulate once, aggregate per
+#                            window, return a named list of data frames (top_depth/bottom_depth
+#                            then just give the overall span)
+# requested_properties     - NULL simulates every property (unchanged); otherwise a vector (any
+#                            vocabulary normalize_requested_properties() accepts) restricting the
+#                            simulation - the per-cokey depth-trend GP fit then runs once per kept
+#                            property. Ignored (with a warning) under
+#                            vertical_correlation_method = "gp_quantile_retrofit", which is not
+#                            subset-invariant
+# seed                     - optional integer for opt-in determinism (NULL = current stochastic
+#                            behavior); set.seed(seed) once up front + future.seed on the parallel
+#                            depth-trend path. Conditional on unchanged upstream SSURGO data, and
+#                            does not make a requested_properties subset bit-identical to a full run
 ```
 
 **Returns**: A data frame, one row per
 `mukey`/`cokey`/`simulation_number` replicate, with simulated property
-columns aggregated over the depth window — or `NULL` if the tabular
-fetch fails.
+columns aggregated over the depth window — or a named list of such data
+frames when `depth_windows` is supplied — or `NULL` if the tabular fetch
+fails.
 
 **Behavior**: Reprojects `aoi_vect` to EPSG:4326 first
 ([`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)’s
@@ -934,7 +1043,14 @@ fetch fails.
 `aoi_vect`’s actual CRS — extracting WKT directly from an
 already-projected AOI, e.g. EPSG:5070, would silently mislabel meter
 coordinates as degrees). Checks a `"ssurgo_tabular"`-kind disk cache
-first; on a miss, calls `R/ssurgo-acquisition.R`’s
+first, keyed by **AOI alone** via
+[`ssurgo_tabular_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/ssurgo_tabular_cache_key.md)
+(depth-independent as of task L1 —
+[`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
+takes no depth-window argument and fetches every horizon for every AOI
+mukey regardless, so one AOI’s tabular download is shared across every
+depth window/call requested for it); on a miss, calls
+`R/ssurgo-acquisition.R`’s
 [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
 and unwraps its `$ssurgo_data`, caching that data frame directly (no
 [`wrap()`](https://rspatial.github.io/terra/reference/wrap.html) needed
@@ -952,12 +1068,23 @@ loads the KSSL reference correlation matrices via
 (already built into `R/sysdata.rda`, not re-read from raw files at
 runtime); per unique `cokey`, calls
 [`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md)
-(wrapped in `tryCatch`, skipping and messaging on a per-cokey failure)
-and row-binds all results; applies
+(wrapped in `tryCatch`, skipping and messaging on a per-cokey failure —
+passing `requested_properties` through so each
+[`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md)
+call only draws the kept subset) and row-binds all results; applies
 [`maybe_adjust_soil_data_depth_trend()`](https://jjmaynard.github.io/soilSIM/reference/maybe_adjust_soil_data_depth_trend.md)
-to the property columns in `SSURGO_SIM_PROPERTY_COLUMNS`; and finally
-aggregates to the requested depth window via
+to whichever of `SSURGO_SIM_PROPERTY_COLUMNS` actually came back (so a
+restricted simulation fits fewer GP models); and finally aggregates to
+the requested depth window(s) via
 [`aggregate_depth_window_by_replicate()`](https://jjmaynard.github.io/soilSIM/reference/aggregate_depth_window_by_replicate.md).
+`property_matrices` (the genhz-keyed correlation matrices passed to
+[`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md))
+is now built via
+[`build_kssl_fallback_matrix()`](https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.md)
+per genhz key, sized to the full 14-name `param_order` vocabulary,
+rather than indexing
+[`.kssl_property_matrices()`](https://jjmaynard.github.io/soilSIM/reference/dot-kssl_property_matrices.md)
+directly - see \#25’s P2 note for why.
 
 #### 25. `SSURGO_SIM_PROPERTY_COLUMNS`
 
@@ -965,7 +1092,43 @@ aggregates to the requested depth window via
 pipeline aggregates/adjusts.
 
 **Value**:
-`c("db", "wr_3b", "wr_15b", "rfv", "ph", "cec", "soc", "sand_total", "silt_total", "clay_total")`.
+`c("db", "wr_3b", "wr_15b", "rfv", "ph", "cec", "soc", "sand_total", "silt_total", "clay_total", "caco3", "ec", "ecec", "gypsum", "sar")`.
+
+**Note on `soc`**: SSURGO’s `chorizon` table reports organic matter
+(`om_l/_r/_h`), not organic carbon.
+[`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md)
+converts it to an estimated SOC value (`om * OM_TO_SOC_FACTOR`, the Van
+Bemmelen factor, `1/1.724`) before it enters the correlated draw, so
+this `soc` column - and everything fused against SOLUS100’s real `soc`
+variable via `solus_variable = "soc"` - is SOC-scale, not raw OM (fixed
+as of MULTI_PROPERTY_FUSION_PLAN.md task P1; previously it was raw `om`
+mislabeled `soc`). The KSSL reference correlation matrix’s `soc`
+correlations were still fit on OM data and needed no change (correlation
+is invariant under a linear rescale of one variable) - treat those
+*correlations* as an OM-based approximation, but the simulated *values*
+as genuine SOC estimates.
+
+**Note on the 5 chemistry properties
+(`caco3`/`ec`/`ecec`/`gypsum`/`sar`, task P2)**: added 2026-09-04,
+SSURGO chorizon column names live-confirmed against a real gSSURGO
+query. They have **no** entry in the static KSSL reference matrices
+([`.kssl_property_matrices()`](https://jjmaynard.github.io/soilSIM/reference/dot-kssl_property_matrices.md),
+fit years ago, predates these 5 properties) -
+[`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
+builds its per-genhz correlation matrices via
+[`build_kssl_fallback_matrix()`](https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.md)
+(sized to the full `param_order` vocabulary, not just the original 9) so
+these 5 simulate as *uncorrelated* with everything else (and each other)
+rather than erroring or being silently dropped - the confirmed design
+decision for this task (option (a) in the plan doc: identity fallback
+now, real correlations only after a future KSSL-data re-fit that needs
+no code changes elsewhere - see
+[`build_kssl_fallback_matrix()`](https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.md)’s
+own docs). SSURGO coverage for these 5 is real but noticeably sparser
+than the original 9 in spot-checks (e.g. `ecec` was populated in only
+~25% of sampled horizons for one AOI) - expect more `NA` in their fused
+output than the longer-established properties, a genuine SSURGO
+data-completeness gap, not a pipeline defect.
 
 #### 26. `rasterize_mukey_percentiles()`
 
@@ -1016,12 +1179,16 @@ shape the fusion core expects.
 ``` r
 
 fetch_ssurgo_percentiles(aoi_vect, property_id, top_depth, bottom_depth,
-                          probs = c(0.05, 0.25, 0.5, 0.75, 0.95), n_mc = 1000)
+                          probs = c(0.05, 0.25, 0.5, 0.75, 0.95), n_mc = 1000,
+                          ..., requested_properties = NULL)
 # aoi_vect                 - a terra::SpatVector AOI
 # property_id              - one of property_to_sim_column()'s recognized ids
 # top_depth, bottom_depth  - numeric depth window bounds in cm
 # probs                    - percentile probabilities to compute
 # n_mc                     - number of triangular draws per component (default 1000)
+# requested_properties     - NULL means "just property_id" (this function only reads one column
+#                            back out), so a bare call simulates only what it needs; pass a vector
+#                            to keep extra properties in the shared draws
 ```
 
 **Returns**:
@@ -1033,8 +1200,9 @@ for this AOI.
 [`fetch_ssurgo_mukey_raster()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_mukey_raster.md)
 (returning `NULL` early if it fails), then
 [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
-for the replicate-level Monte Carlo draws. Maps `property_id` to its
-simulated column via
+for the replicate-level Monte Carlo draws — restricted to
+`requested_properties` (defaulting to just `property_id`). Maps
+`property_id` to its simulated column via
 [`property_to_sim_column()`](https://jjmaynard.github.io/soilSIM/reference/property_to_sim_column.md),
 computes `stats::quantile(..., probs = probs)` per `mukey` group,
 reshapes into a `mukey` + one-column-per-percentile data frame, and
@@ -1149,6 +1317,55 @@ percentile triplet (SOLUS100’s published 95% prediction interval bounds
 plus its point prediction), matching the `list(values=, probs=)` shape
 every fusion route expects.
 
+#### 29b/30b. `fetch_solus_low_pred_high_multi()` / `fetch_solus_percentiles_multi()` — batched multi-variable SOLUS fetch (S1)
+
+**Purpose**: Batched siblings of \#29/#30 used by
+[`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md).
+[`soilDB::fetchSOLUS()`](http://ncss-tech.github.io/soilDB/reference/fetchSOLUS.md)
+accepts `variables`, `depth_slices`, and `output_type` all as vectors
+simultaneously (live-verified 2026-09-04), so every needed variable’s
+low/prediction/high rasters for one window can be fetched in **one**
+`fetchSOLUS()` call instead of `3 * length(solus_variables)` separate
+ones.
+
+**Parameters**:
+
+``` r
+
+fetch_solus_low_pred_high_multi(aoi_vect, solus_variables, top_depth, bottom_depth)
+fetch_solus_percentiles_multi(aoi_vect, solus_variables, top_depth, bottom_depth)
+# solus_variables          - character vector of soilDB::fetchSOLUS()-recognized variable names
+# (aoi_vect, top_depth, bottom_depth same as #29/#30)
+```
+
+**Returns**: A named list, one entry per `solus_variables` element, in
+the same per-variable shape
+[`fetch_solus_low_pred_high()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high.md)
+/
+[`fetch_solus_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.md)
+return (`list(pred=,low=,high=)`, or `list(values=,probs=)` / `NULL`).
+
+**Behavior**: Computes the depth-window weights once (shared across
+every variable and output type, since the needed native slices don’t
+depend on either), issues **one**
+`soilDB::fetchSOLUS(aoi_vect, depth_slices=, variables = solus_variables, output_type = <all three>, grid = TRUE)`
+call, then reduces per `(variable, output_type)` exactly as \#29 does. A
+single `fetchSOLUS()` error fails the whole batch (every variable’s
+entry becomes `list(pred=NULL,low=NULL,high=NULL)`, with a
+[`warning()`](https://rdrr.io/r/base/warning.html) — callers fall back
+to the scalar path, as
+[`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md)’s
+A4 SOLUS memo does); a missing layer for just one
+`(variable, output_type)` combo within an otherwise-successful response
+only nulls that one piece, with its own
+[`warning()`](https://rdrr.io/r/base/warning.html) naming it. The scalar
+[`fetch_solus_low_pred_high()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high.md)
+/
+[`fetch_solus_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.md)
+(#29/#30) are unchanged and remain what single-property
+[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+uses.
+
 ### Per-pixel ensemble bridge (raster-fusion-bridge.R)
 
 Wires the fused posterior back into the modelling framework as a
@@ -1164,6 +1381,10 @@ per mukey, the retained bag of **joint** multivariate realizations as
 on `(cokey, simulation_number)` so cross-property and cross-window rank
 structure is preserved. The multi-property / multi-window analogue of
 [`mukey_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md).
+Takes `properties` (which columns to keep) and, separately,
+`requested_properties` (which properties the simulation itself draws —
+defaulting to `properties`, so a call restricted to the Saxton-Rawls
+inputs no longer pays for the properties it will discard).
 
 #### 32. `remarginalize_ensemble_to_posterior()`
 
@@ -1215,6 +1436,71 @@ realization, then per-pixel percentiles, clamped at 0. Does **not** use
 
 `tile_rows =` processes the AOI in row-strips for bounded memory,
 numerically identical to the whole-grid run.
+
+**`restriction_depth =` (MULTI_PROPERTY_FUSION_PLAN.md task S2,
+2026-09-04) - optional bedrock/restriction-depth truncation.** `NULL`
+(default) preserves every prior behavior exactly - each window uses its
+full nominal `thickness = bottom - top` regardless of bedrock, which is
+physically wrong for shallow soils (SOLUS predicts every property at
+every depth even where bedrock is shallower) but was the only behavior
+available before this task. When supplied (a single-layer
+[`terra::SpatRaster`](https://rspatial.github.io/terra/reference/SpatRaster-class.html)
+of restriction depth in cm - typically
+`fetch_solus_restriction_depth(aoi_vect)`), resampled once (bilinear)
+onto the working grid, `NA` cells recoded to `Inf` (no evidence -\>
+don’t truncate), and each window’s thickness becomes the per-pixel
+**effective** thickness `pmax(0, pmin(bottom, restriction_depth) - top)`
+instead - via `terra::clamp(restriction_depth, upper = bottom)` then
+`terra::clamp(... - top, lower = 0)`, since
+`clamp(x, upper=)`/`clamp(x, lower=)` are exactly `pmin`/`pmax` against
+a scalar. A window entirely above the restriction keeps full thickness;
+one straddling it gets partial credit; one entirely below contributes
+exactly **0**, not `NA` (`NA` would incorrectly blank the whole pixel’s
+AWC, including valid shallower windows, rather than just that one
+window’s contribution). The single-layer effective-thickness raster is
+recycled across the multi-layer `fc`/`wp` realization stack by `terra`’s
+own arithmetic recycling, the same way the old scalar `thickness` value
+was implicitly “recycled” - no other code in `.awc_block()`’s per-window
+loop changes.
+
+#### 34b. `fetch_solus_site_level()` / `fetch_solus_restriction_depth()` \*(solus-simulation.R,
+
+task S2)\* **Purpose**: Fetch a SOLUS100 **site-level**
+(depth-independent) variable - `anylithicdpt` (depth to bedrock) /
+`resdept` (depth to restriction) are the two relevant ones - requested
+via `fetchSOLUS()`’s special `depth_slices = "all"`, and turn it into
+the censoring-guarded `restriction_depth` raster
+[`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)
+consumes.
+
+**`fetch_solus_site_level(aoi_vect, variable, output_types = c("prediction", "95% low prediction interval", "95% high prediction interval"))`**:
+one `fetchSOLUS(depth_slices = "all", ...)` call, parses the confirmed
+`<variable>_all_cm_<p|l|h>` layer-naming convention (live-verified
+during the S1 spike). Returns `list(pred=, low=, high=)` (deliberately
+not built on
+[`solus_depth_window_weights()`](https://jjmaynard.github.io/soilSIM/reference/solus_depth_window_weights.md),
+which only applies to numeric depth slices).
+
+**`SOLUS_RESTRICTION_CENSOR_CM <- 201`**: both `anylithicdpt` and
+`resdept` are right-censored at 201 cm in SOLUS100’s own training data
+(per gSSURGO convention, confirmed against the published SOLUS100
+methodology, section 2.1.3) - a predicted value at/above this point
+means “no restriction detected within the training range,” not a literal
+depth.
+
+**`fetch_solus_restriction_depth(aoi_vect, variable = "anylithicdpt")`**:
+calls
+[`fetch_solus_site_level()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_site_level.md)
+for the prediction only, then recodes every cell
+`>= SOLUS_RESTRICTION_CENSOR_CM` to `Inf` (never truncates). Default
+`"anylithicdpt"` - trained (per SOLUS100’s own methodology) only on
+`reskind %in% c("Lithic bedrock", "Paralithic bedrock")` records, so
+it’s hard-bedrock-specific **by construction** - no separate SSURGO-side
+hard/soft classifier is needed, since SOLUS already encodes that split
+across its two site-level variables. `"resdept"` is trained on *every*
+restriction record regardless of kind (fragipans, duripans, petrocalcic,
+etc. included) - offered as a broader, more conservative (more
+truncation-prone) non-default alternative.
 
 #### 35. `saxton_rawls_raster()` *(internal)*
 
@@ -1354,12 +1640,14 @@ re-estimated joint posterior and not pedotransfer-model error.
 
       PER-PIXEL ENSEMBLE BRIDGE (raster-fusion-bridge.R) - optional, purely additive layer on top:
 
-      extract_mukey_joint_ensemble(aoi, depth_windows)          run_stage1_fusion() per property
-        -> simulate_ssurgo_mapunit_draws(depth_windows=)          per depth window (as above)
-             (ONE joint Monte Carlo; KSSL + joint-copula                    |
-              vertical correlation; row-aligned across windows)             v
-        -> per mukey: list(windows = [n_replicate x n_property]     posterior$percentiles rasters
-                           matrices, replicate_key)                  (marginal, per property x window)
+      extract_mukey_joint_ensemble(aoi, depth_windows)          run_stage1_fusion_multi(aoi, configs,
+        -> simulate_ssurgo_mapunit_draws(depth_windows=)          depth_windows)  -- ONE simulation for
+             (ONE joint Monte Carlo; KSSL + joint-copula           every property x window, seeding the
+              vertical correlation; row-aligned across windows)     same per-property caches
+        -> per mukey: list(windows = [n_replicate x n_property]                     |
+                           matrices, replicate_key)                                v
+                                                                  posterior$percentiles rasters
+                                                                   (marginal, per property x window)
                         \                                           /
                          \                                         /
                           v                                       v
@@ -1445,7 +1733,9 @@ is called by
 [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
 for the underlying tabular SSURGO fetch (cached separately from the
 raster-fusion cache’s own `"ssurgo"`/`"solus"` kinds, under a
-`"ssurgo_tabular"` kind). - `R/data-infilling.R` —
+`"ssurgo_tabular"` kind, keyed by AOI alone - see
+[`ssurgo_tabular_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/ssurgo_tabular_cache_key.md),
+`R/raster-cache.R`). - `R/data-infilling.R` —
 [`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)
 is called by
 [`infill_soil_data()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_data.md). -
@@ -1618,17 +1908,15 @@ windows <- list(c(0, 5), c(5, 15), c(15, 30))
 # 1. one joint SSURGO Monte Carlo, retained per mukey, aligned across windows
 ens <- extract_mukey_joint_ensemble(aoi_vect, windows)
 
-# 2. a SOLUS-fused posterior for each Saxton-Rawls input, per property x window
+# 2. a SOLUS-fused posterior for each Saxton-Rawls input, per property x window - one simulation
+#    for all 5 x 3 leaves, not 15
 sr_solus <- c(sand_total = "sandtotal", silt_total = "silttotal",
               clay_total = "claytotal", db = "dbovendry", soc = "soc")
-pbpw <- lapply(names(sr_solus), function(nm) {
-  setNames(lapply(windows, function(w) {
-    r <- run_stage1_fusion(aoi_vect, list(id = nm, solus_variable = sr_solus[[nm]], dist = "auto"),
-                           w[1], w[2])
-    list(percentiles = r$posterior$percentiles)
-  }), vapply(windows, function(w) paste0(w[1], "-", w[2]), ""))
-})
-names(pbpw) <- names(sr_solus)
+configs <- setNames(
+  lapply(names(sr_solus), function(nm) list(id = nm, solus_variable = sr_solus[[nm]], dist = "auto")),
+  names(sr_solus)
+)
+pbpw <- run_stage1_fusion_multi(aoi_vect, configs, windows, simplify = TRUE)
 
 # 3. per-pixel AWC probability distribution (P5..P95 rasters), clamped at 0
 awc <- remarginalized_awc(ens, pbpw, n_out = 250)         # method = "saxton_rawls" by default

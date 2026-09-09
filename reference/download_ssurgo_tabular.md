@@ -11,7 +11,7 @@ workflows.
 download_ssurgo_tabular(
   aoi_wkt,
   properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o", "cec7",
-    "om", "wthirdbar", "wfifteenbar"),
+    "om", "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar"),
   include_restrictions = TRUE,
   cache_dir = NULL,
   force_download = FALSE,
@@ -30,8 +30,13 @@ download_ssurgo_tabular(
 
 - properties:
 
-  Character vector. Soil properties to download. Default: c("w3b",
-  "w15b", "db", "cec", "rfv", "clay", "ph", "sand", "silt", "soc")
+  Character vector. Soil properties to download. Default: c("sandtotal",
+  "claytotal", "silttotal", "dbovendry", "ph1to1h2o", "cec7", "om",
+  "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar") -
+  the last 5 added in MULTI_PROPERTY_FUSION_PLAN.md task P2 (needs a
+  matching row in
+  [`create_ssurgo_property_lookup_working()`](https://jjmaynard.github.io/soilSIM/reference/create_ssurgo_property_lookup_working.md)
+  to actually reach the SQL query - already present).
 
 - include_restrictions:
 

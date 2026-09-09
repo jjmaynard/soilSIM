@@ -5,7 +5,8 @@ bulk density, rock fragment volume, and organic matter, via the
 Saxton-Rawls pedotransfer equations (simplified/RFV-corrected variant).
 Real, checkable math (not a placeholder) - inputs are clamped to
 physically plausible ranges and texture percentages are renormalized to
-sum to 100 when off by more than 5 points.
+sum to 100 when off by more than 5 points. The coefficient-bearing core
+is `.saxton_rawls_gravimetric()`, shared with the raster path.
 
 ## Usage
 

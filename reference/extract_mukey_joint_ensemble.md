@@ -26,7 +26,9 @@ extract_mukey_joint_ensemble(
   config = NULL,
   mukey_raster = NULL,
   draws_by_window = NULL,
-  properties = SSURGO_SIM_PROPERTY_COLUMNS
+  properties = SSURGO_SIM_PROPERTY_COLUMNS,
+  requested_properties = NULL,
+  seed = NULL
 )
 ```
 
@@ -65,6 +67,20 @@ extract_mukey_joint_ensemble(
   Property columns to retain (default `SSURGO_SIM_PROPERTY_COLUMNS`);
   the returned `properties` element is the subset actually present for
   this AOI.
+
+- requested_properties:
+
+  Passed through to
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
+  to restrict the simulation itself (as opposed to `properties`, which
+  only filters columns after the fact). `NULL` (default) restricts to
+  `properties`; ignored when `draws_by_window` is supplied.
+
+- seed:
+
+  Optional integer for opt-in determinism, forwarded to
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md);
+  ignored when `draws_by_window` is supplied.
 
 ## Value
 

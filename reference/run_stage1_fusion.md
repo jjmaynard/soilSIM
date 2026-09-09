@@ -20,7 +20,8 @@ run_stage1_fusion(
   composition_groups = NULL,
   property_configs = NULL,
   parallel = FALSE,
-  n_cores = NULL
+  n_cores = NULL,
+  seed = NULL
 )
 ```
 
@@ -67,6 +68,18 @@ run_stage1_fusion(
   many cokeys. Default `parallel = FALSE` matches prior behavior
   exactly.
 
+- seed:
+
+  Optional integer for opt-in determinism. `NULL` (default) keeps the
+  current stochastic behavior. When set, `set.seed(seed)` runs once at
+  the top of this call and `seed` is forwarded to
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md),
+  so the whole call (SSURGO simulation, depth-trend GP fit, and the
+  posterior-sampling fusion step) is reproducible given identical
+  upstream SSURGO/SOLUS data. See
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)'s
+  `seed` docs for the conditional-determinism caveats.
+
 ## Value
 
 `list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=, route_detail=, n_fallback_cells=)`,
@@ -89,6 +102,23 @@ Compositional properties (`property_config$composition_group` set) are
 detected up front and delegated to
 [`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
 instead, since they must be fetched/fit jointly.
+
+## SSURGO simulation scope
+
+The SSURGO prior simulation is restricted to just this call's own
+property (plus the full sand/silt/clay draw for any texture member) via
+[`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)'s
+`requested_properties` - the per-cokey depth-trend GP fit is the
+pipeline's dominant cost and scales with the property count.
+Consequences: (1) the prior is *statistically equivalent* to, not
+bit-identical to, a full-property simulation's matching column - the
+pipeline is unseeded by default (a fresh draw either way), and even with
+`seed` set, a subset consumes the RNG stream differently from a full
+run; (2) a map unit whose components carry no data for *this* property
+no longer benefits from those components' other properties being
+present, so a single-property prior - and hence the fused posterior -
+can be `NA` for a few cells a full-property run would have covered.
+Those cells genuinely lack data for the property in question.
 
 ## Fusion fidelity - `prior_fusion_method` (default changed at P2.10)
 

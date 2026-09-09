@@ -16,8 +16,10 @@ property_to_sim_column(property_id)
   `"soc"`, `"om"`, `"cec"`, `"cec7"`, `"clay"`, `"claytotal"`, `"sand"`,
   `"sandtotal"`, `"silt"`, `"silttotal"`,
   `"rock_fragments"`/`"rfv"`/`"fragvol"`,
-  `"wthirdbar"`/`"water_retention_third_bar"`/`"wr_3b"`, or
-  `"wfifteenbar"`/`"water_retention_15_bar"`/`"wr_15b"`.
+  `"wthirdbar"`/`"water_retention_third_bar"`/`"wr_3b"`,
+  `"wfifteenbar"`/`"water_retention_15_bar"`/`"wr_15b"`, or
+  (MULTI_PROPERTY_FUSION_PLAN.md task P2) `"caco3"`, `"ec"`, `"ecec"`,
+  `"gypsum"`, `"sar"`.
 
 ## Value
 

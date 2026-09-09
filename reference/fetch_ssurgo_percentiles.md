@@ -19,7 +19,9 @@ fetch_ssurgo_percentiles(
   probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
   n_mc = 1000,
   parallel = FALSE,
-  n_cores = NULL
+  n_cores = NULL,
+  requested_properties = NULL,
+  seed = NULL
 )
 ```
 
@@ -57,6 +59,23 @@ fetch_ssurgo_percentiles(
   `parallel`/`n_cores` - the per-cokey depth-trend GP fitting step is
   this function's dominant cost for AOIs with many cokeys. Default
   `parallel = FALSE` matches prior behavior exactly.
+
+- requested_properties:
+
+  Passed through to
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
+  to restrict the simulation. Default `NULL` here means "just
+  `property_id`" (this function only ever reads one property's column
+  back out), so a bare call simulates only what it needs. Pass an
+  explicit vector to keep extra properties in the shared draws (e.g. a
+  caller reusing them); pass `character(0)`-safe values only - `NULL` is
+  the "just this property" shortcut, not "all".
+
+- seed:
+
+  Optional integer for opt-in determinism, forwarded to
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md).
+  `NULL` (default) = current stochastic behavior.
 
 ## Value
 

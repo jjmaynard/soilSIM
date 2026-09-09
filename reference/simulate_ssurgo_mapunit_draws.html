@@ -94,7 +94,9 @@ depth window.</p>
 <span>  n_cores <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  config <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  mukey_raster <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  depth_windows <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  depth_windows <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  requested_properties <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">SSURGO_SIM_PROPERTY_COLUMNS</span></span></code></pre></div>
@@ -102,7 +104,7 @@ depth window.</p>
 
     <div class="section level2">
     <h2 id="format">Format<a class="anchor" aria-label="anchor" href="#format"></a></h2>
-    <p>An object of class <code>character</code> of length 10.</p>
+    <p>An object of class <code>character</code> of length 15.</p>
     </div>
     <div class="section level2">
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
@@ -154,6 +156,27 @@ aggregated once per window, returning a <strong>named list</strong> of data fram
 <code>top_depth</code>/<code>bottom_depth</code> are ignored in this mode - pass the overall span for them. Built for
 <code><a href="extract_mukey_joint_ensemble.html">extract_mukey_joint_ensemble()</a></code>, which needs the SOLUS depth windows from one simulation.</p></dd>
 
+
+<dt id="arg-requested-properties">requested_properties<a class="anchor" aria-label="anchor" href="#arg-requested-properties"></a></dt>
+<dd><p><code>NULL</code> (default) simulates every recognized property, bit-identical
+to before. Otherwise a character vector (any vocabulary <code><a href="normalize_requested_properties.html">normalize_requested_properties()</a></code>
+accepts) restricting <code><a href="simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code> to just those (plus texture coupling) -
+the per-cokey GP depth-trend fit then runs once per kept property instead of ~8 times, the
+pipeline's dominant saving. A restricted simulation is only <em>law</em>-equivalent (not
+bit-identical) to slicing the same columns from a full simulation, and only under the default
+<code>vertical_correlation_method = "joint_copula"</code>; under <code>"gp_quantile_retrofit"</code> (not
+subset-invariant - its rank retrofit keys off the first property in the list)
+<code>requested_properties</code> is ignored with a warning and all properties are simulated.</p></dd>
+
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Optional integer. <code>NULL</code> (default) keeps the current stochastic behavior. When set,
+<code>set.seed(seed)</code> runs once at the top (covering the whole sequential RNG stream: component
+composition, per-cokey property/texture draws, sequential depth-trend), and the parallel
+depth-trend path uses it as <code>future.seed</code>'s L'Ecuyer seed. Determinism is <strong>conditional</strong> on
+identical upstream SSURGO data (<code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code> can change over time) and does
+<strong>not</strong> make a <code>requested_properties</code> subset bit-identical to a full simulation.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -169,11 +192,16 @@ are included transparently here whenever an AOI sibling let them be recovered - 
     <h2 id="cache-invalidation">Cache invalidation<a class="anchor" aria-label="anchor" href="#cache-invalidation"></a></h2>
 
 
-<p>This function's own disk cache (<code><a href="build_cache_key.html">build_cache_key()</a></code>/<code><a href="cache_get.html">cache_get()</a></code>/<code><a href="cache_set.html">cache_set()</a></code>, keyed by
-<code>aoi_vect</code>/depth window) is separate from <code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code>'s own <code>cache_dir</code>
-parameter (always <code>NULL</code> here). A cache entry for a given AOI/depth-window combination written
+<p>This function's own disk cache (<code><a href="build_cache_key.html">build_cache_key()</a></code>/<code><a href="cache_get.html">cache_get()</a></code>/<code><a href="cache_set.html">cache_set()</a></code> via
+<code><a href="ssurgo_tabular_cache_key.html">ssurgo_tabular_cache_key()</a></code>, keyed by <code>aoi_vect</code> <strong>only</strong> - depth-independent as of
+MULTI_PROPERTY_FUSION_PLAN.md task L1, since <code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code> takes no depth-window
+argument and fetches every horizon for every AOI mukey regardless) is separate from
+<code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code>'s own <code>cache_dir</code> parameter (always <code>NULL</code> here). One AOI's tabular
+download is shared across every depth window/call requested for that AOI. A cache entry written
 before component recovery shipped predates it entirely - clear that cache entry (or the whole
-cache directory) to pick up recovered components.</p>
+cache directory) to pick up recovered components. Entries written before the L1 fix (keyed by
+<code>aoi_vect</code>/depth window) are simply orphaned and age out via the normal TTL - no migration
+needed.</p>
 <p>This function's own SIMULATED output (as opposed to the raw tabular SSURGO input it's cached
 from) is deliberately NOT disk-cached - every call re-simulates fresh random draws, matching
 the original contract exactly. An earlier version of <code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code>

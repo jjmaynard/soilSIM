@@ -136,7 +136,8 @@ unsuitable-horizon flagging, and data-quality validation.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/download_ssurgo_tabular.html">download_ssurgo_tabular</a></span><span class="op">(</span></span>
 <span>  <span class="va">aoi_wkt</span>,                     <span class="co"># Character. WKT representation of the area of interest.</span></span>
 <span>  properties <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"sandtotal"</span>, <span class="st">"claytotal"</span>, <span class="st">"silttotal"</span>, <span class="st">"dbovendry"</span>, <span class="st">"ph1to1h2o"</span>,</span>
-<span>                 <span class="st">"cec7"</span>, <span class="st">"om"</span>, <span class="st">"wthirdbar"</span>, <span class="st">"wfifteenbar"</span><span class="op">)</span>,</span>
+<span>                 <span class="st">"cec7"</span>, <span class="st">"om"</span>, <span class="st">"wthirdbar"</span>, <span class="st">"wfifteenbar"</span>,</span>
+<span>                 <span class="st">"caco3"</span>, <span class="st">"ec"</span>, <span class="st">"ecec"</span>, <span class="st">"gypsum"</span>, <span class="st">"sar"</span><span class="op">)</span>,  <span class="co"># last 5 added task P2, 2026-09-04</span></span>
 <span>  include_restrictions <span class="op">=</span> <span class="cn">TRUE</span>, <span class="co"># Logical. Include restriction/horizon-suitability fields.</span></span>
 <span>  cache_dir <span class="op">=</span> <span class="cn">NULL</span>,            <span class="co"># Character. Directory for caching; NULL disables caching.</span></span>
 <span>  force_download <span class="op">=</span> <span class="cn">FALSE</span>,      <span class="co"># Logical. Bypass cache and force a fresh download.</span></span>
@@ -176,16 +177,20 @@ assembles timing/quality metadata
 <strong><code>create_ssurgo_property_lookup_working()</code></strong><a class="anchor" aria-label="anchor" href="#create_ssurgo_property_lookup_working"></a>
 </h3>
 <p><strong>Purpose</strong>: Builds the property-name lookup table
-mapping the 9 default SSURGO property base names to their
+mapping the 14 default SSURGO property base names to their
 <code>_l</code>/<code>_r</code>/<code>_h</code> SSURGO column names.</p>
 <p><strong>Parameters</strong>: None.</p>
 <p><strong>Returns</strong>: A data frame with columns
 <code>Property</code>, <code>SSURGO_Label_Low</code>,
 <code>SSURGO_Label_Rep</code>, <code>SSURGO_Label_High</code>, one row
-per of the 9 known properties (<code>sandtotal</code>,
+per of the 14 known properties (<code>sandtotal</code>,
 <code>claytotal</code>, <code>silttotal</code>, <code>dbovendry</code>,
 <code>ph1to1h2o</code>, <code>cec7</code>, <code>om</code>,
-<code>wthirdbar</code>, <code>wfifteenbar</code>).</p>
+<code>wthirdbar</code>, <code>wfifteenbar</code>, plus
+<code>caco3</code>, <code>ec</code>, <code>ecec</code>,
+<code>gypsum</code>, <code>sar</code> - added
+MULTI_PROPERTY_FUSION_PLAN.md task P2, 2026-09-04, column names
+live-confirmed against a real gSSURGO chorizon query).</p>
 <p><strong>Algorithm</strong>: Static <code><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame()</a></code>
 construction - a hardcoded lookup, not derived from the input
 properties.</p>
@@ -425,7 +430,7 @@ properties, and tracks statistics at each stage.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/process_horizon_data_working_compatible.html">process_horizon_data_working_compatible</a></span><span class="op">(</span></span>
 <span>  <span class="va">raw_data</span>,</span>
 <span>  detect_unsuitable <span class="op">=</span> <span class="cn">TRUE</span>,   <span class="co"># Flag unsuitable horizons via is_unsuitable().</span></span>
-<span>  advanced_cleaning <span class="op">=</span> <span class="cn">TRUE</span>,   <span class="co"># Run clean_property_data_ssurgo_compatible() per property.</span></span>
+<span>  advanced_cleaning <span class="op">=</span> <span class="cn">TRUE</span>,   <span class="co"># Run clean_property_data(outlier_policy = "soil_aware") per property.</span></span>
 <span>  standardize_names <span class="op">=</span> <span class="cn">TRUE</span>,   <span class="co"># Run standardize_property_names(target_standard = "ssurgo").</span></span>
 <span>  remove_invalid <span class="op">=</span> <span class="cn">TRUE</span>,      <span class="co"># Drop invalid horizon rows.</span></span>
 <span>  calculate_derived <span class="op">=</span> <span class="cn">TRUE</span>,   <span class="co"># Add hzthk_r/hz_midpoint/awc_r if derivable.</span></span>
@@ -440,7 +445,7 @@ thickness, unique cokey count, property completeness).</p>
 <p><strong>Algorithm</strong>: Sequentially applies each enabled step in
 a fixed order (standardize → detect-unsuitable → per-property cleaning
 via <code><a href="../reference/identify_soil_property_columns_working.html">identify_soil_property_columns_working()</a></code> +
-<code><a href="../reference/clean_property_data_ssurgo_compatible.html">clean_property_data_ssurgo_compatible()</a></code> →
+<code>clean_property_data(outlier_policy = "soil_aware")</code> →
 <code><a href="../reference/remove_invalid_horizons_working_compatible.html">remove_invalid_horizons_working_compatible()</a></code> →
 <code><a href="../reference/calculate_derived_horizon_properties_working.html">calculate_derived_horizon_properties_working()</a></code>), recording
 counts/statistics into <code>processing_stats</code> after each stage,
@@ -485,8 +490,9 @@ depth-filtered to <code>options$max_depth %||% 250</code>, and sorted by
 <code>cokey, hzdept_r</code>.</p>
 <p><strong>Algorithm</strong>: Re-derives
 <code>unsuitable_horizon</code> and re-runs
-<code><a href="../reference/clean_property_data_ssurgo_compatible.html">clean_property_data_ssurgo_compatible()</a></code> per identified
-property column directly on <code>raw_data</code> (rather than reusing
+<code>clean_property_data(outlier_policy = "soil_aware")</code> per
+identified property column directly on <code>raw_data</code> (rather
+than reusing
 <code>horizon_processing</code>/<code>component_processing</code>’s
 outputs, which exist mainly for their statistics), then guarantees
 essential columns exist/typed, filters
@@ -494,13 +500,15 @@ essential columns exist/typed, filters
 and arranges rows by component then top depth.</p>
 </div>
 <div class="section level3">
-<h3 id="clean_property_data_ssurgo_compatibledf-property_name-validation_config-null-generate_report-true-verbose-false">11.
-<strong><code>clean_property_data_ssurgo_compatible(df, property_name, validation_config = NULL, generate_report = TRUE, verbose = FALSE)</code></strong><a class="anchor" aria-label="anchor" href="#clean_property_data_ssurgo_compatibledf-property_name-validation_config-null-generate_report-true-verbose-false"></a>
+<h3 id="clean_property_datadf-property_name-outlier_policy-csoil_aware-aggressive_iqr-none-validation_config-null-generate_report-false-verbose-false">11.
+<strong><code>clean_property_data(df, property_name, outlier_policy = c("soil_aware", "aggressive_iqr", "none"), validation_config = NULL, generate_report = FALSE, verbose = FALSE)</code></strong><a class="anchor" aria-label="anchor" href="#clean_property_datadf-property_name-outlier_policy-csoil_aware-aggressive_iqr-none-validation_config-null-generate_report-false-verbose-false"></a>
 </h3>
-<p><strong>Purpose</strong>: Per-property cleaning: string parsing, type
-conversion, infinite-value handling, statistical outlier removal, and
-SSURGO range-limit enforcement, for a property’s
-<code>_l</code>/<code>_r</code>/<code>_h</code> columns.</p>
+<p><strong>Purpose</strong>: The single property-value cleaner for the
+package: string parsing, type conversion, infinite-value handling,
+statistical outlier flagging, and physical range-limit enforcement, for
+a property’s <code>_l</code>/<code>_r</code>/<code>_h</code> columns.
+Called by both <code><a href="../reference/process_ssurgo_data.html">process_ssurgo_data()</a></code> and
+<code><a href="../reference/infill_soil_property.html">infill_soil_property()</a></code>.</p>
 <p><strong>Returns</strong>: A list with <code>data</code> (cleaned data
 frame) and, if <code>generate_report = TRUE</code>, <code>report</code>
 (cleaning actions, type-conversion success rates, outliers detected,
@@ -511,16 +519,17 @@ column: parses character/factor values via
 via <code><a href="../reference/vectorized_type_conversion.html">vectorized_type_conversion()</a></code>; coerces non-finite values
 to <code>NA</code>; for the <code>_r</code> column only, optionally
 applies caller-supplied range-rule validation
-(<code><a href="../reference/validate_numeric_ranges.html">validate_numeric_ranges()</a></code>), then IQR-based outlier
-detection via
-<code>detect_outliers(method = "iqr", threshold = 3.0)</code> (outliers
-set to <code>NA</code>), then <code><a href="../reference/apply_basic_range_limits.html">apply_basic_range_limits()</a></code>
-for hardcoded SSURGO plausibility bounds. Note (per this function’s
-<code>@seealso</code>): the string-parsing/type-conversion/range-limit
-helpers it calls live in <code>data-infilling.R</code>, not this file -
-<code>ssurgo-processing.R</code>’s own near-duplicate
-<code>*_working()</code> versions of these helpers were consolidated
-into the canonical <code>data-infilling.R</code> implementations.</p>
+(<code><a href="../reference/validate_numeric_ranges.html">validate_numeric_ranges()</a></code>), then outlier flagging per
+<code>outlier_policy</code> - <code>"soil_aware"</code> (default;
+<code><a href="../reference/detect_statistical_outliers_soil_aware.html">detect_statistical_outliers_soil_aware()</a></code> -
+physically-impossible values for pH/texture/BD, conservative
+<code>IQR x 5</code> otherwise), <code>"aggressive_iqr"</code> (generic
+<code>detect_outliers(method = "iqr", threshold = 3.0)</code>), or
+<code>"none"</code> - then <code><a href="../reference/apply_basic_range_limits.html">apply_basic_range_limits()</a></code> for
+hardcoded plausibility bounds (always).
+<code><a href="../reference/clean_property_data_ssurgo_compatible.html">clean_property_data_ssurgo_compatible()</a></code> is a deprecated
+shim forwarding here with
+<code>outlier_policy = "aggressive_iqr"</code>.</p>
 </div>
 <div class="section level3">
 <h3 id="hz_quant_prob_mukeyhz_data">12. <strong><code>hz_quant_prob_mukey(hz_data)</code></strong><a class="anchor" aria-label="anchor" href="#hz_quant_prob_mukeyhz_data"></a>
@@ -679,20 +688,22 @@ plain mean, last resort). Finishes with
 <code>_l &lt;= _r &lt;= _h</code> ordering.</p>
 </div>
 <div class="section level3">
-<h3 id="process_soil_properties_comprehensive---multi-property-workflow">15.
+<h3 id="process_soil_properties_comprehensive---the-single-infilling-orchestrator">15.
 <strong><code>process_soil_properties_comprehensive()</code></strong> -
-Multi-Property Workflow<a class="anchor" aria-label="anchor" href="#process_soil_properties_comprehensive---multi-property-workflow"></a>
+the single infilling orchestrator<a class="anchor" aria-label="anchor" href="#process_soil_properties_comprehensive---the-single-infilling-orchestrator"></a>
 </h3>
 <p><strong>Purpose</strong>: Orchestrates
 <code><a href="../reference/infill_soil_property.html">infill_soil_property()</a></code> (and RFV’s special path) across a
-whole property set in three phases, with optional post-hoc
-filtering.</p>
+whole property set in three phases, with optional post-hoc filtering.
+Both the tabular pipeline and the raster-fusion pipeline (via the
+<code><a href="../reference/infill_soil_data.html">infill_soil_data()</a></code> wrapper) route through this.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/process_soil_properties_comprehensive.html">process_soil_properties_comprehensive</a></span><span class="op">(</span></span>
 <span>  <span class="va">df</span>,</span>
 <span>  properties <span class="op">=</span> <span class="cn">NULL</span>,           <span class="co"># NULL = auto-detect via auto_detect_soil_properties().</span></span>
 <span>  max_depth <span class="op">=</span> <span class="fl">250</span>,</span>
+<span>  water_retention_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"saxton_rawls"</span>, <span class="st">"generic"</span><span class="op">)</span>,</span>
 <span>  remove_unsuitable <span class="op">=</span> <span class="cn">FALSE</span>,   <span class="co"># Drop unsuitable-horizon rows from the output.</span></span>
 <span>  remove_incomplete <span class="op">=</span> <span class="cn">FALSE</span>,   <span class="co"># Drop rows incomplete in required_properties.</span></span>
 <span>  required_properties <span class="op">=</span> <span class="cn">NULL</span>,  <span class="co"># Defaults to `properties` if remove_incomplete and NULL.</span></span>
@@ -708,15 +719,21 @@ attributes attached (<code>attr(df, ...)</code>).</p>
 ensures bookkeeping columns (<code><a href="../reference/ensure_infilling_columns.html">ensure_infilling_columns()</a></code>),
 then processes in three phases: <strong>Phase 1</strong> foundation
 properties (<code>sandtotal</code>, <code>claytotal</code>,
-<code>silttotal</code>, <code>dbovendry</code>, <code>rfv</code>) via
-<code><a href="../reference/process_single_property.html">process_single_property()</a></code>; <strong>Phase 2</strong> water
-retention (<code>wthirdbar</code>, <code>wfifteenbar</code>) via
-<code><a href="../reference/infill_water_retention_saxton_rawls_integrated.html">infill_water_retention_saxton_rawls_integrated()</a></code>, only if
-texture+bulk-density columns are all present; <strong>Phase 3</strong>
-remaining (“chemical”) properties via
-<code><a href="../reference/process_single_property.html">process_single_property()</a></code>. Optionally applies
-<code><a href="../reference/apply_data_filtering.html">apply_data_filtering()</a></code> afterward, and logs a summary
-(<code><a href="../reference/generate_processing_summary.html">generate_processing_summary()</a></code>) if verbose.</p>
+<code>silttotal</code>, <code>dbovendry</code>, <code>om</code>,
+<code>rfv</code> - <code>om</code> here so the water-retention step can
+read it) via <code><a href="../reference/process_single_property.html">process_single_property()</a></code>; <strong>Phase
+2</strong> water retention (<code>wthirdbar</code>,
+<code>wfifteenbar</code>) -
+<code>infill_water_retention_saxton_rawls_integrated(overwrite = FALSE)</code>
+where texture + bulk density are all present and
+<code>water_retention_method = "saxton_rawls"</code> (default), followed
+by a <code><a href="../reference/process_single_property.html">process_single_property()</a></code> generic-hierarchy pass for
+any remaining gaps; <code>"generic"</code> sends water retention
+straight through the hierarchy (which itself falls back to Saxton-Rawls
+at strategy 5); <strong>Phase 3</strong> remaining (“chemical”)
+properties via <code><a href="../reference/process_single_property.html">process_single_property()</a></code>. Optionally
+applies <code><a href="../reference/apply_data_filtering.html">apply_data_filtering()</a></code> afterward, and logs a
+summary (<code><a href="../reference/generate_processing_summary.html">generate_processing_summary()</a></code>) if verbose.</p>
 </div>
 <div class="section level3">
 <h3 id="infill_rfv_property_integrateddf-max_depth-250-verbose-false">16.
@@ -778,13 +795,10 @@ and writes back <code>field_capacity</code>/<code>wilting_point</code>
 </h2>
 <ul>
 <li>
-<strong><code>clean_property_data(df, property_name, validation_config = NULL, generate_report = FALSE, verbose = FALSE)</code></strong>
-- the <code><a href="../reference/infill_soil_property.html">infill_soil_property()</a></code>-side analog of
-<code><a href="../reference/clean_property_data_ssurgo_compatible.html">clean_property_data_ssurgo_compatible()</a></code>: string
-parsing/type conversion/infinite handling, plus soil-aware outlier
-detection (<code><a href="../reference/detect_statistical_outliers_soil_aware.html">detect_statistical_outliers_soil_aware()</a></code>) and
-<code><a href="../reference/apply_basic_range_limits.html">apply_basic_range_limits()</a></code> on the <code>_r</code>
-column.</li>
+<strong><code><a href="../reference/clean_property_data.html">clean_property_data()</a></code></strong> - see entry 11.
+<code><a href="../reference/infill_soil_property.html">infill_soil_property()</a></code> calls it with the default
+<code>outlier_policy = "soil_aware"</code>; the same call
+<code><a href="../reference/process_ssurgo_data.html">process_ssurgo_data()</a></code> now makes.</li>
 <li>
 <strong><code>get_default_property_config(property_name)</code></strong>
 - returns a built-in config (<code>type</code>, <code>units</code>,
@@ -978,7 +992,7 @@ process_ssurgo_data() [ssurgo-processing.R, MAIN ENTRY]
 │   ├── standardize_property_names()            [utils.R]
 │   ├── is_unsuitable()                         [utils.R]
 │   ├── identify_soil_property_columns_working()
-│   ├── clean_property_data_ssurgo_compatible()  [per property]
+│   ├── clean_property_data(outlier_policy = "soil_aware")  [per property]
 │   │   ├── advanced_string_parser_vectorized()  [data-infilling.R]
 │   │   ├── vectorized_type_conversion()         [data-infilling.R]
 │   │   ├── detect_outliers()                    [utils.R]
@@ -992,7 +1006,7 @@ process_ssurgo_data() [ssurgo-processing.R, MAIN ENTRY]
 │   └── calculate_component_stats_working()
 ├── create_infill_compatible_dataset()
 │   ├── is_unsuitable()                          [utils.R]
-│   ├── clean_property_data_ssurgo_compatible()  [per property]
+│   ├── clean_property_data(outlier_policy = "soil_aware")  [per property]
 │   └── ensure_essential_columns_working()
 ├── validate_data_quality()                      [utils.R]
 └── generate_processing_quality_report()

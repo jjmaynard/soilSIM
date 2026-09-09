@@ -91,7 +91,8 @@ after.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">simulate_cokey_generalized</span><span class="op">(</span></span>
 <span>  <span class="va">sim_cokey</span>,</span>
 <span>  <span class="va">correlation_matrices</span>,</span>
-<span>  txt_correlation_matrices <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  txt_correlation_matrices <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  requested_properties <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -107,12 +108,28 @@ after.</p>
 
 <dt id="arg-correlation-matrices">correlation_matrices<a class="anchor" aria-label="anchor" href="#arg-correlation-matrices"></a></dt>
 <dd><p>A list of correlation matrices keyed by <code>genhz</code>, with row/column
-names matching (a subset of) <code>c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc")</code>.</p></dd>
+names matching (a subset of) <code>c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc", "caco3", "ec", "ecec", "gypsum", "sar")</code>. The 5 chemistry properties added in
+MULTI_PROPERTY_FUSION_PLAN.md task P2 have no real KSSL-fit correlation data (see
+<code><a href="build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code>) - <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> builds its
+<code>correlation_matrices</code> through that function so they're present (as identity/uncorrelated)
+rather than missing; a direct caller supplying its own matrix without them will simply never
+populate <code>param_list[["caco3"]]</code> etc. (see <code>get_param_set()</code>'s per-row gating below), not error.</p></dd>
 
 
 <dt id="arg-txt-correlation-matrices">txt_correlation_matrices<a class="anchor" aria-label="anchor" href="#arg-txt-correlation-matrices"></a></dt>
 <dd><p>A list of texture correlation matrices keyed by <code>genhz</code>
 (sand/silt/clay order, matching the <code><a href="simulate_correlated_triangular.html">simulate_correlated_triangular()</a></code> call for texture).</p></dd>
+
+
+<dt id="arg-requested-properties">requested_properties<a class="anchor" aria-label="anchor" href="#arg-requested-properties"></a></dt>
+<dd><p><code>NULL</code> (default) simulates every property with a complete <code>_l/_r/_h</code>
+triplet, unchanged. Otherwise a character vector of property identifiers - in any vocabulary
+<code><a href="normalize_requested_properties.html">normalize_requested_properties()</a></code> accepts (caller ids, SSURGO stems, output column names, or
+the internal <code>param_order</code> names) - restricting the simulation to just those (plus the texture
+coupling: any texture member pulls in the full sand/silt/clay draw and both ILR axes). The
+Gaussian-copula marginals of a restricted simulation match the corresponding columns of a full
+one under the default <code>joint_copula</code> vertical-correlation method (modulo RNG-stream Monte Carlo
+noise); see <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> for the <code>gp_quantile_retrofit</code> caveat.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -120,7 +137,9 @@ names matching (a subset of) <code>c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "r
     <p>A data frame of simulated property values across all rows/realizations, with
 <code>compname</code>, <code>mukey</code>, <code>cokey</code>, <code>hzdept_r</code>, <code>hzdepb_r</code>, <code>simulation_number</code>, <code>unique_id</code>, and
 (when <code>sim_cokey</code> itself has a <code>bound_sd</code> column - see <code><a href="attach_osd_boundary_distinctness.html">attach_osd_boundary_distinctness()</a></code>)
-<code>bound_sd</code>.</p>
+<code>bound_sd</code>. The <code>soc</code> column is an SSURGO-organic-matter-<strong>derived SOC estimate</strong>
+(<code>om * OM_TO_SOC_FACTOR</code>, the inverse Van Bemmelen factor) - not a lab-measured soil organic
+carbon value. See <code>OM_TO_SOC_FACTOR</code>'s own docs (MULTI_PROPERTY_FUSION_PLAN.md task P1).</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

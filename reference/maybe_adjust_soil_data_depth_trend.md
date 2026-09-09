@@ -18,7 +18,8 @@ maybe_adjust_soil_data_depth_trend(
   min_depths = 2,
   parallel = FALSE,
   n_cores = NULL,
-  config = NULL
+  config = NULL,
+  seed = NULL
 )
 ```
 

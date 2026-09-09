@@ -47,12 +47,11 @@ whose `hzname` doesn't classify
 ([`classify_genhz()`](https://jjmaynard.github.io/soilSIM/reference/classify_genhz.md)
 returns `NA`) are dropped from averaging entirely rather than guessed
 at - verified before choosing this: no depth-or-property- based genhz
-fallback exists anywhere else in soilSIM to reuse
-([`classify_genhz()`](https://jjmaynard.github.io/soilSIM/reference/classify_genhz.md)
-itself and the separate
-[`aqp::generalizeHz()`](https://ncss-tech.github.io/aqp/reference/generalize.hz.html)
-usage in `R/depth-simulation.R` are both purely `hzname`-regex
-matchers).
+fallback exists anywhere in soilSIM.
+[`classify_genhz()`](https://jjmaynard.github.io/soilSIM/reference/classify_genhz.md)
+is the package's single hzname-to-generalized-horizon mapper (used here,
+in the SSURGO simulation path, and in the OSD boundary-distinctness
+lookup in `R/depth-simulation.R`).
 
 ## Averaging rule per genhz group
 

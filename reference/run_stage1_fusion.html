@@ -87,7 +87,8 @@ SSURGO grid onto the SOLUS grid via <code><a href="https://rspatial.github.io/te
 <span>  composition_groups <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  property_configs <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  parallel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  n_cores <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  n_cores <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -122,6 +123,15 @@ whichever path this call takes) - the SSURGO adapter's per-cokey depth-trend GP 
 this pipeline's dominant cost for AOIs with many cokeys. Default <code>parallel = FALSE</code> matches
 prior behavior exactly.</p></dd>
 
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Optional integer for opt-in determinism. <code>NULL</code> (default) keeps the current
+stochastic behavior. When set, <code>set.seed(seed)</code> runs once at the top of this call and <code>seed</code>
+is forwarded to <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>, so the whole call (SSURGO simulation,
+depth-trend GP fit, and the posterior-sampling fusion step) is reproducible given identical
+upstream SSURGO/SOLUS data. See <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>'s <code>seed</code> docs for the
+conditional-determinism caveats.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -138,6 +148,22 @@ underlying <code>fuse_*()</code> route's own default applies).</p>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Compositional properties (<code>property_config$composition_group</code> set) are detected up front and
 delegated to <code><a href="run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code> instead, since they must be fetched/fit jointly.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="ssurgo-simulation-scope">SSURGO simulation scope<a class="anchor" aria-label="anchor" href="#ssurgo-simulation-scope"></a></h2>
+
+
+<p>The SSURGO prior simulation is restricted to just this call's own property (plus the full
+sand/silt/clay draw for any texture member) via <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>'s
+<code>requested_properties</code> - the per-cokey depth-trend GP fit is the pipeline's dominant cost and
+scales with the property count. Consequences: (1) the prior is <em>statistically equivalent</em> to,
+not bit-identical to, a full-property simulation's matching column - the pipeline is unseeded by
+default (a fresh draw either way), and even with <code>seed</code> set, a subset consumes the RNG stream
+differently from a full run; (2) a map unit whose components carry no data for <em>this</em> property
+no longer benefits from
+those components' other properties being present, so a single-property prior - and hence the
+fused posterior - can be <code>NA</code> for a few cells a full-property run would have covered. Those
+cells genuinely lack data for the property in question.</p>
     </div>
     <div class="section level2">
     <h2 id="fusion-fidelity-prior-fusion-method-default-changed-at-p-">Fusion fidelity - <code>prior_fusion_method</code> (default changed at P2.10)<a class="anchor" aria-label="anchor" href="#fusion-fidelity-prior-fusion-method-default-changed-at-p-"></a></h2>

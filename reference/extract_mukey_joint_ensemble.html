@@ -97,7 +97,9 @@ pixel's marginals to a fused posterior while keeping this ensemble's empirical c
 <span>  config <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  mukey_raster <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  draws_by_window <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  properties <span class="op">=</span> <span class="va">SSURGO_SIM_PROPERTY_COLUMNS</span></span>
+<span>  properties <span class="op">=</span> <span class="va">SSURGO_SIM_PROPERTY_COLUMNS</span>,</span>
+<span>  requested_properties <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -130,6 +132,17 @@ test offline; when given, <code>aoi_vect</code>/<code>n_mc</code>/<code>parallel
 <dt id="arg-properties">properties<a class="anchor" aria-label="anchor" href="#arg-properties"></a></dt>
 <dd><p>Property columns to retain (default <code>SSURGO_SIM_PROPERTY_COLUMNS</code>); the
 returned <code>properties</code> element is the subset actually present for this AOI.</p></dd>
+
+
+<dt id="arg-requested-properties">requested_properties<a class="anchor" aria-label="anchor" href="#arg-requested-properties"></a></dt>
+<dd><p>Passed through to <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> to restrict the
+simulation itself (as opposed to <code>properties</code>, which only filters columns after the fact).
+<code>NULL</code> (default) restricts to <code>properties</code>; ignored when <code>draws_by_window</code> is supplied.</p></dd>
+
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Optional integer for opt-in determinism, forwarded to
+<code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>; ignored when <code>draws_by_window</code> is supplied.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -84,7 +84,9 @@ percentile-value rasters in the <code>list(values=, probs=)</code> shape <code><
 <span>  probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.25</span>, <span class="fl">0.5</span>, <span class="fl">0.75</span>, <span class="fl">0.95</span><span class="op">)</span>,</span>
 <span>  n_mc <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  parallel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  n_cores <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  n_cores <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  requested_properties <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -117,6 +119,19 @@ percentile-value rasters in the <code>list(values=, probs=)</code> shape <code><
 <code>parallel</code>/<code>n_cores</code> - the per-cokey depth-trend GP fitting step is this function's
 dominant cost for AOIs with many cokeys. Default <code>parallel = FALSE</code> matches prior behavior
 exactly.</p></dd>
+
+
+<dt id="arg-requested-properties">requested_properties<a class="anchor" aria-label="anchor" href="#arg-requested-properties"></a></dt>
+<dd><p>Passed through to <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> to restrict the
+simulation. Default <code>NULL</code> here means "just <code>property_id</code>" (this function only ever reads one
+property's column back out), so a bare call simulates only what it needs. Pass an explicit
+vector to keep extra properties in the shared draws (e.g. a caller reusing them); pass
+<code>character(0)</code>-safe values only - <code>NULL</code> is the "just this property" shortcut, not "all".</p></dd>
+
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Optional integer for opt-in determinism, forwarded to
+<code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>. <code>NULL</code> (default) = current stochastic behavior.</p></dd>
 
 </dl></div>
     <div class="section level2">

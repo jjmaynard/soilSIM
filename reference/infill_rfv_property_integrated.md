@@ -6,7 +6,11 @@ estimation and integration with the main workflow.
 ## Usage
 
 ``` r
-infill_rfv_property_integrated(df, max_depth = 250, verbose = FALSE)
+infill_rfv_property_integrated(
+  df,
+  max_depth = DEFAULT_MAX_DEPTH_CM,
+  verbose = FALSE
+)
 ```
 
 ## Arguments

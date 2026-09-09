@@ -922,6 +922,28 @@ the source data. Notably, <code>om -&gt; soc</code> is a caveat: the
 KSSL matrix’s <code>soc</code> column is actually populated from
 <code>om_r</code> (organic matter %), not true lab-measured soil organic
 carbon, so it should be treated as an organic-matter proxy.</p>
+<p><strong>5 chemistry properties, no KSSL data yet
+(MULTI_PROPERTY_FUSION_PLAN.md task P2, 2026-09-04)</strong>:
+<code>.kssl_property_name_map</code> also maps
+<code>caco3</code>/<code>ec</code>/<code>ecec</code>/<code>gypsum</code>/<code>sar</code>
+to themselves, but none of them has a matching column in
+<code><a href="../reference/dot-kssl_property_matrices.html">.kssl_property_matrices()</a></code>’s actual 9x9 data (fit years
+before these properties existed in this pipeline) -
+<code><a href="../reference/build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code>’s own
+<code>mapped_kssl_names %in% rownames(kssl_source)</code> filter drops
+them the same way it drops any other unmapped name, so they land on the
+identity default (uncorrelated with everything, including each other) -
+a confirmed design decision, not an oversight.
+<code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> now calls
+<code><a href="../reference/build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code> per genhz key with the full
+14-name <code>param_order</code> vocabulary (instead of indexing
+<code><a href="../reference/dot-kssl_property_matrices.html">.kssl_property_matrices()</a></code> directly) specifically so these 5
+are present (as identity) rather than missing. Upgrade path: re-fit
+<code>kssl_property_matrices</code> (via
+<code>data-raw/build_kssl_reference_correlations.R</code>) from raw KSSL
+lab data that includes these 5 properties, using the same column names -
+<code><a href="../reference/build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code> picks the real correlations up
+automatically, no code changes needed anywhere that calls it.</p>
 </div>
 </div>
 </div>

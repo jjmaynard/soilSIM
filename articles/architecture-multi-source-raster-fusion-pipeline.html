@@ -663,6 +663,24 @@ grid before fusion, since every fusion route requires cell-aligned
 rasters. Finally calls <code><a href="../reference/fuse_property_adaptive.html">fuse_property_adaptive()</a></code> with the
 aligned prior and the SOLUS likelihood, and returns both raw sides plus
 the fused posterior.</p>
+<p>The SSURGO simulation is restricted to <em>just this call’s own
+property</em> (plus the full sand/silt/clay draw for a texture member)
+via <code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>‘s
+<code>requested_properties</code> argument — the per-cokey depth-trend
+GP fit is the pipeline’s dominant cost and scales with the property
+count. Two consequences: the prior is <em>statistically equivalent</em>
+to, not bit-identical to, a full-property simulation’s matching column
+(the pipeline is unseeded — a fresh draw either way), and a map unit
+whose components carry no data for <em>this one</em> property no longer
+benefits from those components’ other properties being present, so a
+single-property prior can be <code>NA</code> for a few cells a
+full-property run would have covered. The restriction is honoured only
+under the default
+<code>vertical_correlation_method = "joint_copula"</code>;
+<code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code> never forwards a <code>config</code>,
+so it always gets that method. An optional <code>seed</code> argument
+makes the whole call reproducible given identical upstream SSURGO/SOLUS
+data; <code>NULL</code> (default) is stochastic.</p>
 </div>
 <div class="section level4">
 <h4 id="run_stage1_fusion_group-top-level-aoi-orchestrator-compositional">16. <code>run_stage1_fusion_group()</code> — top-level AOI
@@ -702,7 +720,61 @@ group. The joint result is cached under the group key, and each member’s
 own posterior is <em>also</em> seeded into a per-property
 <code>"posterior"</code> cache kind, so three sequential
 <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code> calls for clay, then sand, then silt
-trigger the joint fetch+fusion exactly once, not three times.</p>
+trigger the joint fetch+fusion exactly once, not three times. The shared
+simulation is itself restricted to the group’s members (which for
+<code>"texture"</code> normalizes to “just the sand/silt/clay draw”),
+skipping the other properties’ GP fits.</p>
+</div>
+<div class="section level4">
+<h4 id="b--run_stage1_fusion_multi-many-properties-one-simulation">16b. <code>run_stage1_fusion_multi()</code> — many properties, one
+simulation<a class="anchor" aria-label="anchor" href="#b--run_stage1_fusion_multi-many-properties-one-simulation"></a>
+</h4>
+<p><strong>Purpose</strong>: Fuse many properties (and many depth
+windows) over an AOI from a <strong>single</strong> SSURGO Monte Carlo
+simulation, instead of one <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code> call per
+property/window — each of which re-runs the full (dominant-cost)
+simulation only to keep one of its ~9 jointly-simulated columns.</p>
+<p><strong>Parameters</strong>:</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/run_stage1_fusion_multi.html">run_stage1_fusion_multi</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">property_configs</span>, <span class="va">depth_windows</span>,</span>
+<span>                         composition_groups <span class="op">=</span> <span class="cn">NULL</span>, n_mc <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>                         parallel <span class="op">=</span> <span class="cn">FALSE</span>, n_cores <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>                         verbose <span class="op">=</span> <span class="cn">FALSE</span>, simplify <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="co"># property_configs  - a NAMED list, keyed by each config's own id, of the same property_config</span></span>
+<span><span class="co">#                     lists run_stage1_fusion() takes; a config carrying composition_group is fused</span></span>
+<span><span class="co">#                     jointly per run_stage1_fusion_group(), and every member of a referenced group</span></span>
+<span><span class="co">#                     must have its own entry</span></span>
+<span><span class="co"># depth_windows     - a non-empty list of c(top, bottom) numeric pairs</span></span>
+<span><span class="co"># simplify          - TRUE reduces each leaf to list(percentiles = &lt;named SpatRasters&gt;)</span></span></code></pre></div>
+<p><strong>Returns</strong>: a nested named list
+<code>result[[config_id]][["&lt;top&gt;-&lt;bottom&gt;"]]</code>, each
+leaf a <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>-shaped list (or the
+<code>texture_ilr</code> shape for group members), <code>NULL</code> on
+that leaf’s own failure; the whole call returns <code>NULL</code> only
+if the shared simulation itself fails.</p>
+<p><strong>Behavior</strong>: Validates the configs, partitions them
+into standalone vs compositional-group, then runs
+<code>simulate_ssurgo_mapunit_draws(span, depth_windows =, requested_properties = &lt;union of every config's property&gt;)</code>
+<strong>once</strong> (skipping it entirely when every needed
+<code>"ssurgo"</code> cache is already warm and no config uses raw-draws
+fusion). SOLUS is fetched via one batched
+<code><a href="../reference/fetch_solus_percentiles_multi.html">fetch_solus_percentiles_multi()</a></code> call <strong>per
+window</strong> (covering every variable any standalone config or group
+member needs at once, S1), falling back to the per-variable scalar
+<code><a href="../reference/fetch_solus_percentiles.html">fetch_solus_percentiles()</a></code> only if that batched request
+itself errors; results are memoized. Per window then per property it
+calls the same fusion tail <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code> uses
+(<code><a href="../reference/stage1_fuse_from_prior_solus.html">stage1_fuse_from_prior_solus()</a></code>), and for texture groups
+the same one <code><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code> uses
+(<code><a href="../reference/stage1_fuse_texture_group_from_fetched.html">stage1_fuse_texture_group_from_fetched()</a></code>), <strong>seeding
+the same per-property
+<code>"ssurgo"</code>/<code>"solus"</code>/<code>"posterior"</code> disk
+caches</strong> — so a later single-property
+<code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code> for the same AOI/property/window is a
+cache hit. Every leaf therefore shares one draw set, so (unlike
+independent <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code> calls) the properties’
+<code>NA</code> masks are mutually consistent. The per-window draws are
+released as each window finishes.</p>
 </div>
 <div class="section level4">
 <h4 id="build_cache_key-cache_ttl_seconds">17. <code>build_cache_key()</code> /
@@ -712,7 +784,7 @@ trigger the joint fetch+fusion exactly once, not three times.</p>
 key for one AOI/property/depth-window/kind combination, and the default
 cache max-age (30 days) used throughout the pipeline.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/build_cache_key.html">build_cache_key</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">id</span>, <span class="va">top_depth</span>, <span class="va">bottom_depth</span>, <span class="va">kind</span><span class="op">)</span></span>
 <span><span class="co"># aoi_vect               - a terra::SpatVector (single-feature AOI)</span></span>
 <span><span class="co"># id                     - a property id or composition-group name (e.g. "ph", "texture")</span></span>
@@ -739,7 +811,7 @@ prefix, the first 12 hash characters, <code>id</code>,
 4.0 per-package cache location) — the general disk-cache mechanism every
 adapter and orchestrator above uses.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/cache_get.html">cache_get</a></span><span class="op">(</span><span class="va">key</span>, ttl_seconds <span class="op">=</span> <span class="va">CACHE_TTL_SECONDS</span><span class="op">)</span></span>
 <span><span class="co"># key         - a cache key from build_cache_key()</span></span>
 <span><span class="co"># ttl_seconds - maximum cache age in seconds before a hit is treated as stale</span></span>
@@ -774,7 +846,7 @@ its callers must handle manually.</p>
 SSURGO map unit keys covering an AOI — the first step of the SSURGO
 prior pipeline.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fetch_ssurgo_mukey_raster.html">fetch_ssurgo_mukey_raster</a></span><span class="op">(</span><span class="va">aoi_vect</span><span class="op">)</span></span>
 <span><span class="co"># aoi_vect - a terra::SpatVector (projected, e.g. EPSG:5070) - the AOI footprint itself, not</span></span>
 <span><span class="co">#            widened to its bounding box</span></span></code></pre></div>
@@ -800,18 +872,27 @@ CRS, rasterized onto it by <code>mukey</code> value via
 <p><strong>Purpose</strong>: Infill missing values across the standard
 SSURGO property set for one horizon data frame.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/infill_soil_data.html">infill_soil_data</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span></span>
-<span><span class="co"># df - a horizon data frame, as returned by download_ssurgo_tabular()</span></span></code></pre></div>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/infill_soil_data.html">infill_soil_data</a></span><span class="op">(</span><span class="va">df</span>, water_retention_method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"saxton_rawls"</span>, <span class="st">"generic"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co"># df                    - a horizon data frame, as returned by download_ssurgo_tabular()</span></span>
+<span><span class="co"># water_retention_method - how to fill wthirdbar/wfifteenbar gaps (see Behavior)</span></span></code></pre></div>
 <p><strong>Returns</strong>: <code>df</code> with missing values
 infilled where possible.</p>
-<p><strong>Behavior</strong>: Loops <code>R/data-infilling.R</code>’s
-<code><a href="../reference/infill_soil_property.html">infill_soil_property()</a></code> over
-<code>sandtotal</code>/<code>claytotal</code>/<code>silttotal</code>/<code>dbovendry</code>/<code>wthirdbar</code>/<code>wfifteenbar</code>/<code>ph1to1h2o</code>/<code>cec7</code>/<code>om</code>
-(only if each property’s <code>_r</code> column is present), then
-separately infills <code>rfv</code> if <code>rfv_r</code> is present
-(<code><a href="../reference/infill_soil_property.html">infill_soil_property()</a></code> already special-cases
-<code>"rfv"</code> internally).</p>
+<p><strong>Behavior</strong>: A thin wrapper around
+<code><a href="../reference/process_soil_properties_comprehensive.html">process_soil_properties_comprehensive()</a></code> (the single
+infilling orchestrator - see
+<code>docs/01_data_acquisition_processing.md</code> entry 15),
+restricting it to whichever of the standard SSURGO property set
+(<code>sandtotal</code>/<code>claytotal</code>/<code>silttotal</code>/<code>dbovendry</code>/
+<code>om</code>/<code>rfv</code>/<code>wthirdbar</code>/<code>wfifteenbar</code>/<code>ph1to1h2o</code>/<code>cec7</code>
++ the 5 P2 chemistry properties) is actually present in <code>df</code>,
+and passing <code>water_retention_method</code> through. That
+orchestrator runs three phases - foundation (texture/BD/OM/RFV), water
+retention (Saxton-Rawls pedotransfer where texture + BD allow,
+<code>overwrite = FALSE</code>; generic hierarchy for the rest or under
+<code>water_retention_method = "generic"</code>), then the remaining
+chemical properties - each property going through
+<code><a href="../reference/infill_soil_property.html">infill_soil_property()</a></code>’s six-strategy hierarchy.</p>
 </div>
 <div class="section level4">
 <h4 id="maybe_adjust_soil_data_depth_trend">21. <code>maybe_adjust_soil_data_depth_trend()</code><a class="anchor" aria-label="anchor" href="#maybe_adjust_soil_data_depth_trend"></a>
@@ -820,7 +901,7 @@ separately infills <code>rfv</code> if <code>rfv_r</code> is present
 adjustment per cokey, guarded by whether the <code>GPfit</code> package
 is installed.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/maybe_adjust_soil_data_depth_trend.html">maybe_adjust_soil_data_depth_trend</a></span><span class="op">(</span><span class="va">sim_long</span>, <span class="va">properties</span>, min_depths <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="co"># sim_long   - long-format simulated data with cokey, hzdept_r, and property columns</span></span>
 <span><span class="co"># properties - character vector of property column names to adjust</span></span>
@@ -844,7 +925,7 @@ unadjusted.</p>
 data down to one thickness-weighted mean row per replicate, over a
 requested depth window.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/aggregate_depth_window_by_replicate.html">aggregate_depth_window_by_replicate</a></span><span class="op">(</span><span class="va">sim_long</span>, <span class="va">top_depth</span>, <span class="va">bottom_depth</span>, <span class="va">property_cols</span>,</span>
 <span>                                     replicate_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"mukey"</span>, <span class="st">"cokey"</span>, <span class="st">"simulation_number"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co"># sim_long                - long-format simulated data with hzdept_r/hzdepb_r and replicate_cols</span></span>
@@ -868,10 +949,11 @@ weighted by that overlap.</p>
 <p><strong>Purpose</strong>: Map a caller-facing property id to
 <code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code>’s output column name.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/property_to_sim_column.html">property_to_sim_column</a></span><span class="op">(</span><span class="va">property_id</span><span class="op">)</span></span>
 <span><span class="co"># property_id - one of "ph", "bulk_density", "soc", "cec", "clay", "sand", "silt",</span></span>
-<span><span class="co">#               "rock_fragments", "wthirdbar", "wfifteenbar" (+ synonyms)</span></span></code></pre></div>
+<span><span class="co">#               "rock_fragments", "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec",</span></span>
+<span><span class="co">#               "gypsum", "sar" (+ synonyms)</span></span></code></pre></div>
 <p><strong>Returns</strong>: The corresponding column name
 (e.g. <code>"clay"</code> -&gt; <code>"clay_total"</code>);
 <code><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop()</a></code>s on an unrecognized id.</p>
@@ -881,12 +963,16 @@ weighted by that overlap.</p>
 <code>silt -&gt; silt_total</code>,
 <code>rock_fragments -&gt; rfv</code>,
 <code>wthirdbar/water_retention_third_bar -&gt; wr_3b</code>,
-<code>wfifteenbar/water_retention_15_bar -&gt; wr_15b</code>). The
-water-retention rows were added 2026-09-02 -
+<code>wfifteenbar/water_retention_15_bar -&gt; wr_15b</code>,
+<code>caco3</code>/<code>ec</code>/<code>ecec</code>/<code>gypsum</code>/<code>sar</code>
+-&gt; themselves). The water-retention rows were added 2026-09-02 -
 <code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code> already emitted those columns
 (<code>SSURGO_SIM_PROPERTY_COLUMNS</code> lists them) but the id map was
 incomplete, blocking water-retention <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>
-(needed by <code><a href="../reference/remarginalized_awc.html">remarginalized_awc()</a></code>).</p>
+(needed by <code><a href="../reference/remarginalized_awc.html">remarginalized_awc()</a></code>). The 5 chemistry-property
+rows were added 2026-09-04 (MULTI_PROPERTY_FUSION_PLAN.md task P2) -
+self-mapping since the SOLUS variable name, the SSURGO chorizon column
+stem, and the id are all identical spellings for these 5.</p>
 </div>
 <div class="section level4">
 <h4 id="simulate_ssurgo_mapunit_draws">24. <code>simulate_ssurgo_mapunit_draws()</code><a class="anchor" aria-label="anchor" href="#simulate_ssurgo_mapunit_draws"></a>
@@ -897,23 +983,44 @@ simulate, adjust, and aggregate — producing the replicate-level draws
 that <code><a href="../reference/fetch_ssurgo_percentiles.html">fetch_ssurgo_percentiles()</a></code> summarizes into percentile
 rasters.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">top_depth</span>, <span class="va">bottom_depth</span>, n_mc <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">top_depth</span>, <span class="va">bottom_depth</span>, n_mc <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>                              <span class="va">...</span>, depth_windows <span class="op">=</span> <span class="cn">NULL</span>, requested_properties <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
 <span><span class="co"># aoi_vect                 - a terra::SpatVector AOI</span></span>
 <span><span class="co"># top_depth, bottom_depth  - numeric depth window bounds in cm</span></span>
 <span><span class="co"># n_mc                     - number of triangular draws sim_component_comp() uses per</span></span>
-<span><span class="co">#                            component (default 1000)</span></span></code></pre></div>
+<span><span class="co">#                            component (default 1000)</span></span>
+<span><span class="co"># depth_windows            - optional list of c(top, bottom) pairs; simulate once, aggregate per</span></span>
+<span><span class="co">#                            window, return a named list of data frames (top_depth/bottom_depth</span></span>
+<span><span class="co">#                            then just give the overall span)</span></span>
+<span><span class="co"># requested_properties     - NULL simulates every property (unchanged); otherwise a vector (any</span></span>
+<span><span class="co">#                            vocabulary normalize_requested_properties() accepts) restricting the</span></span>
+<span><span class="co">#                            simulation - the per-cokey depth-trend GP fit then runs once per kept</span></span>
+<span><span class="co">#                            property. Ignored (with a warning) under</span></span>
+<span><span class="co">#                            vertical_correlation_method = "gp_quantile_retrofit", which is not</span></span>
+<span><span class="co">#                            subset-invariant</span></span>
+<span><span class="co"># seed                     - optional integer for opt-in determinism (NULL = current stochastic</span></span>
+<span><span class="co">#                            behavior); set.seed(seed) once up front + future.seed on the parallel</span></span>
+<span><span class="co">#                            depth-trend path. Conditional on unchanged upstream SSURGO data, and</span></span>
+<span><span class="co">#                            does not make a requested_properties subset bit-identical to a full run</span></span></code></pre></div>
 <p><strong>Returns</strong>: A data frame, one row per
 <code>mukey</code>/<code>cokey</code>/<code>simulation_number</code>
 replicate, with simulated property columns aggregated over the depth
-window — or <code>NULL</code> if the tabular fetch fails.</p>
+window — or a named list of such data frames when
+<code>depth_windows</code> is supplied — or <code>NULL</code> if the
+tabular fetch fails.</p>
 <p><strong>Behavior</strong>: Reprojects <code>aoi_vect</code> to
 EPSG:4326 first (<code><a href="../reference/download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code>’s
 <code>aoi_wkt</code> argument is hardcoded to assume lon/lat, regardless
 of <code>aoi_vect</code>’s actual CRS — extracting WKT directly from an
 already-projected AOI, e.g. EPSG:5070, would silently mislabel meter
 coordinates as degrees). Checks a <code>"ssurgo_tabular"</code>-kind
-disk cache first; on a miss, calls <code>R/ssurgo-acquisition.R</code>’s
+disk cache first, keyed by <strong>AOI alone</strong> via
+<code><a href="../reference/ssurgo_tabular_cache_key.html">ssurgo_tabular_cache_key()</a></code> (depth-independent as of task L1
+— <code><a href="../reference/download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code> takes no depth-window argument
+and fetches every horizon for every AOI mukey regardless, so one AOI’s
+tabular download is shared across every depth window/call requested for
+it); on a miss, calls <code>R/ssurgo-acquisition.R</code>’s
 <code><a href="../reference/download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code> and unwraps its
 <code>$ssurgo_data</code>, caching that data frame directly (no
 <code><a href="https://rspatial.github.io/terra/reference/wrap.html" class="external-link">wrap()</a></code> needed — it’s tabular, not a raster). Then:
@@ -928,12 +1035,21 @@ contains <code>"O"</code>; derives <code>genhz</code> via
 (already built into <code>R/sysdata.rda</code>, not re-read from raw
 files at runtime); per unique <code>cokey</code>, calls
 <code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code> (wrapped in
-<code>tryCatch</code>, skipping and messaging on a per-cokey failure)
-and row-binds all results; applies
-<code><a href="../reference/maybe_adjust_soil_data_depth_trend.html">maybe_adjust_soil_data_depth_trend()</a></code> to the property
-columns in <code>SSURGO_SIM_PROPERTY_COLUMNS</code>; and finally
-aggregates to the requested depth window via
-<code><a href="../reference/aggregate_depth_window_by_replicate.html">aggregate_depth_window_by_replicate()</a></code>.</p>
+<code>tryCatch</code>, skipping and messaging on a per-cokey failure —
+passing <code>requested_properties</code> through so each
+<code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code> call only draws the kept
+subset) and row-binds all results; applies
+<code><a href="../reference/maybe_adjust_soil_data_depth_trend.html">maybe_adjust_soil_data_depth_trend()</a></code> to whichever of
+<code>SSURGO_SIM_PROPERTY_COLUMNS</code> actually came back (so a
+restricted simulation fits fewer GP models); and finally aggregates to
+the requested depth window(s) via
+<code><a href="../reference/aggregate_depth_window_by_replicate.html">aggregate_depth_window_by_replicate()</a></code>.
+<code>property_matrices</code> (the genhz-keyed correlation matrices
+passed to <code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code>) is now built via
+<code><a href="../reference/build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code> per genhz key, sized to the
+full 14-name <code>param_order</code> vocabulary, rather than indexing
+<code><a href="../reference/dot-kssl_property_matrices.html">.kssl_property_matrices()</a></code> directly - see #25’s P2 note for
+why.</p>
 </div>
 <div class="section level4">
 <h4 id="ssurgo_sim_property_columns">25. <code>SSURGO_SIM_PROPERTY_COLUMNS</code><a class="anchor" aria-label="anchor" href="#ssurgo_sim_property_columns"></a>
@@ -941,7 +1057,43 @@ aggregates to the requested depth window via
 <p><strong>Purpose</strong>: The fixed set of simulated property column
 names this pipeline aggregates/adjusts.</p>
 <p><strong>Value</strong>:
-<code>c("db", "wr_3b", "wr_15b", "rfv", "ph", "cec", "soc", "sand_total", "silt_total", "clay_total")</code>.</p>
+<code>c("db", "wr_3b", "wr_15b", "rfv", "ph", "cec", "soc", "sand_total", "silt_total", "clay_total", "caco3", "ec", "ecec", "gypsum", "sar")</code>.</p>
+<p><strong>Note on <code>soc</code></strong>: SSURGO’s
+<code>chorizon</code> table reports organic matter
+(<code>om_l/_r/_h</code>), not organic carbon.
+<code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code> converts it to an estimated
+SOC value (<code>om * OM_TO_SOC_FACTOR</code>, the Van Bemmelen factor,
+<code>1/1.724</code>) before it enters the correlated draw, so this
+<code>soc</code> column - and everything fused against SOLUS100’s real
+<code>soc</code> variable via <code>solus_variable = "soc"</code> - is
+SOC-scale, not raw OM (fixed as of MULTI_PROPERTY_FUSION_PLAN.md task
+P1; previously it was raw <code>om</code> mislabeled <code>soc</code>).
+The KSSL reference correlation matrix’s <code>soc</code> correlations
+were still fit on OM data and needed no change (correlation is invariant
+under a linear rescale of one variable) - treat those
+<em>correlations</em> as an OM-based approximation, but the simulated
+<em>values</em> as genuine SOC estimates.</p>
+<p><strong>Note on the 5 chemistry properties
+(<code>caco3</code>/<code>ec</code>/<code>ecec</code>/<code>gypsum</code>/<code>sar</code>,
+task P2)</strong>: added 2026-09-04, SSURGO chorizon column names
+live-confirmed against a real gSSURGO query. They have
+<strong>no</strong> entry in the static KSSL reference matrices
+(<code><a href="../reference/dot-kssl_property_matrices.html">.kssl_property_matrices()</a></code>, fit years ago, predates these 5
+properties) - <code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> builds its
+per-genhz correlation matrices via
+<code><a href="../reference/build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code> (sized to the full
+<code>param_order</code> vocabulary, not just the original 9) so these 5
+simulate as <em>uncorrelated</em> with everything else (and each other)
+rather than erroring or being silently dropped - the confirmed design
+decision for this task (option (a) in the plan doc: identity fallback
+now, real correlations only after a future KSSL-data re-fit that needs
+no code changes elsewhere - see
+<code><a href="../reference/build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code>’s own docs). SSURGO coverage
+for these 5 is real but noticeably sparser than the original 9 in
+spot-checks (e.g. <code>ecec</code> was populated in only ~25% of
+sampled horizons for one AOI) - expect more <code>NA</code> in their
+fused output than the longer-established properties, a genuine SSURGO
+data-completeness gap, not a pipeline defect.</p>
 </div>
 <div class="section level4">
 <h4 id="rasterize_mukey_percentiles">26. <code>rasterize_mukey_percentiles()</code><a class="anchor" aria-label="anchor" href="#rasterize_mukey_percentiles"></a>
@@ -950,7 +1102,7 @@ names this pipeline aggregates/adjusts.</p>
 onto a mukey raster, producing one <code>SpatRaster</code> per
 percentile column.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/rasterize_mukey_percentiles.html">rasterize_mukey_percentiles</a></span><span class="op">(</span><span class="va">mukey_raster</span>, <span class="va">percentile_by_mukey</span><span class="op">)</span></span>
 <span><span class="co"># mukey_raster        - a categorical (factor) mukey terra::SpatRaster from</span></span>
 <span><span class="co">#                       fetch_ssurgo_mukey_raster()</span></span>
@@ -981,14 +1133,18 @@ Carlo-simulates the requested property, and returns per-cell
 percentile-value rasters in the <code>list(values=, probs=)</code> shape
 the fusion core expects.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fetch_ssurgo_percentiles.html">fetch_ssurgo_percentiles</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">property_id</span>, <span class="va">top_depth</span>, <span class="va">bottom_depth</span>,</span>
-<span>                          probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.25</span>, <span class="fl">0.5</span>, <span class="fl">0.75</span>, <span class="fl">0.95</span><span class="op">)</span>, n_mc <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
+<span>                          probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.25</span>, <span class="fl">0.5</span>, <span class="fl">0.75</span>, <span class="fl">0.95</span><span class="op">)</span>, n_mc <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>                          <span class="va">...</span>, requested_properties <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
 <span><span class="co"># aoi_vect                 - a terra::SpatVector AOI</span></span>
 <span><span class="co"># property_id              - one of property_to_sim_column()'s recognized ids</span></span>
 <span><span class="co"># top_depth, bottom_depth  - numeric depth window bounds in cm</span></span>
 <span><span class="co"># probs                    - percentile probabilities to compute</span></span>
-<span><span class="co"># n_mc                     - number of triangular draws per component (default 1000)</span></span></code></pre></div>
+<span><span class="co"># n_mc                     - number of triangular draws per component (default 1000)</span></span>
+<span><span class="co"># requested_properties     - NULL means "just property_id" (this function only reads one column</span></span>
+<span><span class="co">#                            back out), so a bare call simulates only what it needs; pass a vector</span></span>
+<span><span class="co">#                            to keep extra properties in the shared draws</span></span></code></pre></div>
 <p><strong>Returns</strong>:
 <code>list(values = &lt;named list of percentile-value SpatRasters&gt;, probs = probs)</code>,
 or <code>NULL</code> if the mukey raster or the Monte Carlo draws are
@@ -996,11 +1152,13 @@ unavailable for this AOI.</p>
 <p><strong>Behavior</strong>: Calls
 <code><a href="../reference/fetch_ssurgo_mukey_raster.html">fetch_ssurgo_mukey_raster()</a></code> (returning <code>NULL</code>
 early if it fails), then <code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>
-for the replicate-level Monte Carlo draws. Maps <code>property_id</code>
-to its simulated column via <code><a href="../reference/property_to_sim_column.html">property_to_sim_column()</a></code>,
-computes <code>stats::quantile(..., probs = probs)</code> per
-<code>mukey</code> group, reshapes into a <code>mukey</code> +
-one-column-per-percentile data frame, and rasterizes via
+for the replicate-level Monte Carlo draws — restricted to
+<code>requested_properties</code> (defaulting to just
+<code>property_id</code>). Maps <code>property_id</code> to its
+simulated column via <code><a href="../reference/property_to_sim_column.html">property_to_sim_column()</a></code>, computes
+<code>stats::quantile(..., probs = probs)</code> per <code>mukey</code>
+group, reshapes into a <code>mukey</code> + one-column-per-percentile
+data frame, and rasterizes via
 <code><a href="../reference/rasterize_mukey_percentiles.html">rasterize_mukey_percentiles()</a></code>.</p>
 </div>
 </div>
@@ -1018,7 +1176,7 @@ design for this port (referenced but never defined in the source it was
 ported from) — the simplest representative-point choice for an otherwise
 point-based data source.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/closest_solus_depth_slice.html">closest_solus_depth_slice</a></span><span class="op">(</span><span class="va">top_depth</span>, <span class="va">bottom_depth</span>, available_slices <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">5</span>, <span class="fl">15</span>, <span class="fl">30</span>, <span class="fl">60</span>, <span class="fl">100</span>, <span class="fl">150</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co"># top_depth, bottom_depth - numeric depth window bounds in cm</span></span>
 <span><span class="co"># available_slices        - native SOLUS depth points to snap to</span></span></code></pre></div>
@@ -1055,7 +1213,7 @@ the same estimand the SSURGO prior side computes via
 rasters for one variable and depth window — the raw three-way fetch
 underlying <code><a href="../reference/fetch_solus_percentiles.html">fetch_solus_percentiles()</a></code>.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fetch_solus_low_pred_high.html">fetch_solus_low_pred_high</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">solus_variable</span>, <span class="va">top_depth</span>, <span class="va">bottom_depth</span><span class="op">)</span></span>
 <span><span class="co"># aoi_vect                 - a terra::SpatVector AOI</span></span>
 <span><span class="co"># solus_variable           - a soilDB::fetchSOLUS()-recognized variable name (e.g. "claytotal",</span></span>
@@ -1087,7 +1245,7 @@ point<a class="anchor" aria-label="anchor" href="#fetch_solus_percentiles-solus-
 <p><strong>Purpose</strong>: The top-level SOLUS “likelihood” entry
 point for <code><a href="../reference/fuse_property_adaptive.html">fuse_property_adaptive()</a></code>.</p>
 <p><strong>Parameters</strong>:</p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fetch_solus_percentiles.html">fetch_solus_percentiles</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">solus_variable</span>, <span class="va">top_depth</span>, <span class="va">bottom_depth</span><span class="op">)</span></span>
 <span><span class="co"># aoi_vect                 - a terra::SpatVector AOI</span></span>
 <span><span class="co"># solus_variable           - a soilDB::fetchSOLUS()-recognized variable name</span></span>
@@ -1103,6 +1261,48 @@ missing; otherwise packages the three rasters directly as the
 (SOLUS100’s published 95% prediction interval bounds plus its point
 prediction), matching the <code>list(values=, probs=)</code> shape every
 fusion route expects.</p>
+</div>
+<div class="section level4">
+<h4 id="b30b--fetch_solus_low_pred_high_multi-fetch_solus_percentiles_multi-batched-multi-variable-solus-fetch-s1">29b/30b. <code>fetch_solus_low_pred_high_multi()</code> /
+<code>fetch_solus_percentiles_multi()</code> — batched multi-variable
+SOLUS fetch (S1)<a class="anchor" aria-label="anchor" href="#b30b--fetch_solus_low_pred_high_multi-fetch_solus_percentiles_multi-batched-multi-variable-solus-fetch-s1"></a>
+</h4>
+<p><strong>Purpose</strong>: Batched siblings of #29/#30 used by
+<code><a href="../reference/run_stage1_fusion_multi.html">run_stage1_fusion_multi()</a></code>.
+<code><a href="http://ncss-tech.github.io/soilDB/reference/fetchSOLUS.html" class="external-link">soilDB::fetchSOLUS()</a></code> accepts <code>variables</code>,
+<code>depth_slices</code>, and <code>output_type</code> all as vectors
+simultaneously (live-verified 2026-09-04), so every needed variable’s
+low/prediction/high rasters for one window can be fetched in
+<strong>one</strong> <code>fetchSOLUS()</code> call instead of
+<code>3 * length(solus_variables)</code> separate ones.</p>
+<p><strong>Parameters</strong>:</p>
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/fetch_solus_low_pred_high_multi.html">fetch_solus_low_pred_high_multi</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">solus_variables</span>, <span class="va">top_depth</span>, <span class="va">bottom_depth</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/fetch_solus_percentiles_multi.html">fetch_solus_percentiles_multi</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">solus_variables</span>, <span class="va">top_depth</span>, <span class="va">bottom_depth</span><span class="op">)</span></span>
+<span><span class="co"># solus_variables          - character vector of soilDB::fetchSOLUS()-recognized variable names</span></span>
+<span><span class="co"># (aoi_vect, top_depth, bottom_depth same as #29/#30)</span></span></code></pre></div>
+<p><strong>Returns</strong>: A named list, one entry per
+<code>solus_variables</code> element, in the same per-variable shape
+<code><a href="../reference/fetch_solus_low_pred_high.html">fetch_solus_low_pred_high()</a></code> /
+<code><a href="../reference/fetch_solus_percentiles.html">fetch_solus_percentiles()</a></code> return
+(<code>list(pred=,low=,high=)</code>, or
+<code>list(values=,probs=)</code> / <code>NULL</code>).</p>
+<p><strong>Behavior</strong>: Computes the depth-window weights once
+(shared across every variable and output type, since the needed native
+slices don’t depend on either), issues <strong>one</strong>
+<code>soilDB::fetchSOLUS(aoi_vect, depth_slices=, variables = solus_variables, output_type = &lt;all three&gt;, grid = TRUE)</code>
+call, then reduces per <code>(variable, output_type)</code> exactly as
+#29 does. A single <code>fetchSOLUS()</code> error fails the whole batch
+(every variable’s entry becomes
+<code>list(pred=NULL,low=NULL,high=NULL)</code>, with a
+<code><a href="https://rdrr.io/r/base/warning.html" class="external-link">warning()</a></code> — callers fall back to the scalar path, as
+<code><a href="../reference/run_stage1_fusion_multi.html">run_stage1_fusion_multi()</a></code>’s A4 SOLUS memo does); a missing
+layer for just one <code>(variable, output_type)</code> combo within an
+otherwise-successful response only nulls that one piece, with its own
+<code><a href="https://rdrr.io/r/base/warning.html" class="external-link">warning()</a></code> naming it. The scalar
+<code><a href="../reference/fetch_solus_low_pred_high.html">fetch_solus_low_pred_high()</a></code> /
+<code><a href="../reference/fetch_solus_percentiles.html">fetch_solus_percentiles()</a></code> (#29/#30) are unchanged and
+remain what single-property <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code> uses.</p>
 </div>
 </div>
 <div class="section level3">
@@ -1123,7 +1323,12 @@ multivariate realizations as <code>[n_replicate x n_property]</code>
 matrices, one per depth window, row-aligned on
 <code>(cokey, simulation_number)</code> so cross-property and
 cross-window rank structure is preserved. The multi-property /
-multi-window analogue of <code><a href="../reference/mukey_draws_lookup.html">mukey_draws_lookup()</a></code>.</p>
+multi-window analogue of <code><a href="../reference/mukey_draws_lookup.html">mukey_draws_lookup()</a></code>. Takes
+<code>properties</code> (which columns to keep) and, separately,
+<code>requested_properties</code> (which properties the simulation
+itself draws — defaulting to <code>properties</code>, so a call
+restricted to the Saxton-Rawls inputs no longer pays for the properties
+it will discard).</p>
 </div>
 <div class="section level4">
 <h4 id="remarginalize_ensemble_to_posterior">32. <code>remarginalize_ensemble_to_posterior()</code><a class="anchor" aria-label="anchor" href="#remarginalize_ensemble_to_posterior"></a>
@@ -1181,6 +1386,75 @@ a caller with a non-SOLUS water-retention likelihood.</li>
 </ul>
 <p><code>tile_rows =</code> processes the AOI in row-strips for bounded
 memory, numerically identical to the whole-grid run.</p>
+<p><strong><code>restriction_depth =</code>
+(MULTI_PROPERTY_FUSION_PLAN.md task S2, 2026-09-04) - optional
+bedrock/restriction-depth truncation.</strong> <code>NULL</code>
+(default) preserves every prior behavior exactly - each window uses its
+full nominal <code>thickness = bottom - top</code> regardless of
+bedrock, which is physically wrong for shallow soils (SOLUS predicts
+every property at every depth even where bedrock is shallower) but was
+the only behavior available before this task. When supplied (a
+single-layer <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code> of restriction depth in cm -
+typically <code>fetch_solus_restriction_depth(aoi_vect)</code>),
+resampled once (bilinear) onto the working grid, <code>NA</code> cells
+recoded to <code>Inf</code> (no evidence -&gt; don’t truncate), and each
+window’s thickness becomes the per-pixel <strong>effective</strong>
+thickness <code>pmax(0, pmin(bottom, restriction_depth) - top)</code>
+instead - via
+<code>terra::clamp(restriction_depth, upper = bottom)</code> then
+<code>terra::clamp(... - top, lower = 0)</code>, since
+<code>clamp(x, upper=)</code>/<code>clamp(x, lower=)</code> are exactly
+<code>pmin</code>/<code>pmax</code> against a scalar. A window entirely
+above the restriction keeps full thickness; one straddling it gets
+partial credit; one entirely below contributes exactly
+<strong>0</strong>, not <code>NA</code> (<code>NA</code> would
+incorrectly blank the whole pixel’s AWC, including valid shallower
+windows, rather than just that one window’s contribution). The
+single-layer effective-thickness raster is recycled across the
+multi-layer <code>fc</code>/<code>wp</code> realization stack by
+<code>terra</code>’s own arithmetic recycling, the same way the old
+scalar <code>thickness</code> value was implicitly “recycled” - no other
+code in <code>.awc_block()</code>’s per-window loop changes.</p>
+</div>
+<div class="section level4">
+<h4 id="b--fetch_solus_site_level-fetch_solus_restriction_depth-solus-simulation-r">34b. <code>fetch_solus_site_level()</code> /
+<code>fetch_solus_restriction_depth()</code> *(solus-simulation.R,<a class="anchor" aria-label="anchor" href="#b--fetch_solus_site_level-fetch_solus_restriction_depth-solus-simulation-r"></a>
+</h4>
+<p>task S2)* <strong>Purpose</strong>: Fetch a SOLUS100
+<strong>site-level</strong> (depth-independent) variable -
+<code>anylithicdpt</code> (depth to bedrock) / <code>resdept</code>
+(depth to restriction) are the two relevant ones - requested via
+<code>fetchSOLUS()</code>’s special <code>depth_slices = "all"</code>,
+and turn it into the censoring-guarded <code>restriction_depth</code>
+raster <code><a href="../reference/remarginalized_awc.html">remarginalized_awc()</a></code> consumes.</p>
+<p><strong><code>fetch_solus_site_level(aoi_vect, variable, output_types = c("prediction", "95% low prediction interval", "95% high prediction interval"))</code></strong>:
+one <code>fetchSOLUS(depth_slices = "all", ...)</code> call, parses the
+confirmed <code>&lt;variable&gt;_all_cm_&lt;p|l|h&gt;</code>
+layer-naming convention (live-verified during the S1 spike). Returns
+<code>list(pred=, low=, high=)</code> (deliberately not built on
+<code><a href="../reference/solus_depth_window_weights.html">solus_depth_window_weights()</a></code>, which only applies to numeric
+depth slices).</p>
+<p><strong><code>SOLUS_RESTRICTION_CENSOR_CM &lt;- 201</code></strong>:
+both <code>anylithicdpt</code> and <code>resdept</code> are
+right-censored at 201 cm in SOLUS100’s own training data (per gSSURGO
+convention, confirmed against the published SOLUS100 methodology,
+section 2.1.3) - a predicted value at/above this point means “no
+restriction detected within the training range,” not a literal
+depth.</p>
+<p><strong><code>fetch_solus_restriction_depth(aoi_vect, variable = "anylithicdpt")</code></strong>:
+calls <code><a href="../reference/fetch_solus_site_level.html">fetch_solus_site_level()</a></code> for the prediction only,
+then recodes every cell <code>&gt;= SOLUS_RESTRICTION_CENSOR_CM</code>
+to <code>Inf</code> (never truncates). Default
+<code>"anylithicdpt"</code> - trained (per SOLUS100’s own methodology)
+only on
+<code>reskind %in% c("Lithic bedrock", "Paralithic bedrock")</code>
+records, so it’s hard-bedrock-specific <strong>by construction</strong>
+- no separate SSURGO-side hard/soft classifier is needed, since SOLUS
+already encodes that split across its two site-level variables.
+<code>"resdept"</code> is trained on <em>every</em> restriction record
+regardless of kind (fragipans, duripans, petrocalcic, etc. included) -
+offered as a broader, more conservative (more truncation-prone)
+non-default alternative.</p>
 </div>
 <div class="section level4">
 <h4 id="saxton_rawls_raster-internal">35. <code>saxton_rawls_raster()</code> <em>(internal)</em><a class="anchor" aria-label="anchor" href="#saxton_rawls_raster-internal"></a>
@@ -1374,12 +1648,14 @@ pedotransfer-model error.</p>
 
   PER-PIXEL ENSEMBLE BRIDGE (raster-fusion-bridge.R) - optional, purely additive layer on top:
 
-  extract_mukey_joint_ensemble(aoi, depth_windows)          run_stage1_fusion() per property
-    -&gt; simulate_ssurgo_mapunit_draws(depth_windows=)          per depth window (as above)
-         (ONE joint Monte Carlo; KSSL + joint-copula                    |
-          vertical correlation; row-aligned across windows)             v
-    -&gt; per mukey: list(windows = [n_replicate x n_property]     posterior$percentiles rasters
-                       matrices, replicate_key)                  (marginal, per property x window)
+  extract_mukey_joint_ensemble(aoi, depth_windows)          run_stage1_fusion_multi(aoi, configs,
+    -&gt; simulate_ssurgo_mapunit_draws(depth_windows=)          depth_windows)  -- ONE simulation for
+         (ONE joint Monte Carlo; KSSL + joint-copula           every property x window, seeding the
+          vertical correlation; row-aligned across windows)     same per-property caches
+    -&gt; per mukey: list(windows = [n_replicate x n_property]                     |
+                       matrices, replicate_key)                                v
+                                                              posterior$percentiles rasters
+                                                               (marginal, per property x window)
                     \                                           /
                      \                                         /
                       v                                       v
@@ -1454,9 +1730,10 @@ SSURGO adapter’s Monte Carlo step: <code><a href="../reference/sim_component_c
 <code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> for the underlying tabular
 SSURGO fetch (cached separately from the raster-fusion cache’s own
 <code>"ssurgo"</code>/<code>"solus"</code> kinds, under a
-<code>"ssurgo_tabular"</code> kind). - <code>R/data-infilling.R</code> —
-<code><a href="../reference/infill_soil_property.html">infill_soil_property()</a></code> is called by
-<code><a href="../reference/infill_soil_data.html">infill_soil_data()</a></code>. -
+<code>"ssurgo_tabular"</code> kind, keyed by AOI alone - see
+<code><a href="../reference/ssurgo_tabular_cache_key.html">ssurgo_tabular_cache_key()</a></code>, <code>R/raster-cache.R</code>).
+- <code>R/data-infilling.R</code> — <code><a href="../reference/infill_soil_property.html">infill_soil_property()</a></code>
+is called by <code><a href="../reference/infill_soil_data.html">infill_soil_data()</a></code>. -
 <code>R/kssl-reference-correlations.R</code> —
 <code><a href="../reference/dot-kssl_property_matrices.html">.kssl_property_matrices()</a></code>/<code><a href="../reference/dot-kssl_texture_matrices.html">.kssl_texture_matrices()</a></code>
 (already built into <code>R/sysdata.rda</code>) and
@@ -1575,7 +1852,7 @@ water-retention likelihood.</p></li>
 <div class="section level2">
 <h2 id="usage-example">Usage Example<a class="anchor" aria-label="anchor" href="#usage-example"></a>
 </h2>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rspatial.org/" class="external-link">terra</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># AOI, already projected (e.g. EPSG:5070)</span></span>
@@ -1615,17 +1892,15 @@ water-retention likelihood.</p></li>
 <span><span class="co"># 1. one joint SSURGO Monte Carlo, retained per mukey, aligned across windows</span></span>
 <span><span class="va">ens</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/extract_mukey_joint_ensemble.html">extract_mukey_joint_ensemble</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">windows</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 2. a SOLUS-fused posterior for each Saxton-Rawls input, per property x window</span></span>
+<span><span class="co"># 2. a SOLUS-fused posterior for each Saxton-Rawls input, per property x window - one simulation</span></span>
+<span><span class="co">#    for all 5 x 3 leaves, not 15</span></span>
 <span><span class="va">sr_solus</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>sand_total <span class="op">=</span> <span class="st">"sandtotal"</span>, silt_total <span class="op">=</span> <span class="st">"silttotal"</span>,</span>
 <span>              clay_total <span class="op">=</span> <span class="st">"claytotal"</span>, db <span class="op">=</span> <span class="st">"dbovendry"</span>, soc <span class="op">=</span> <span class="st">"soc"</span><span class="op">)</span></span>
-<span><span class="va">pbpw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sr_solus</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">nm</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">windows</span>, <span class="kw">function</span><span class="op">(</span><span class="va">w</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="va">r</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_stage1_fusion.html">run_stage1_fusion</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="va">nm</span>, solus_variable <span class="op">=</span> <span class="va">sr_solus</span><span class="op">[[</span><span class="va">nm</span><span class="op">]</span><span class="op">]</span>, dist <span class="op">=</span> <span class="st">"auto"</span><span class="op">)</span>,</span>
-<span>                           <span class="va">w</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">w</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>percentiles <span class="op">=</span> <span class="va">r</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">percentiles</span><span class="op">)</span></span>
-<span>  <span class="op">}</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">windows</span>, <span class="kw">function</span><span class="op">(</span><span class="va">w</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">w</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="st">"-"</span>, <span class="va">w</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span>, <span class="st">""</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">}</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">pbpw</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sr_solus</span><span class="op">)</span></span>
+<span><span class="va">configs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sr_solus</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">nm</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="va">nm</span>, solus_variable <span class="op">=</span> <span class="va">sr_solus</span><span class="op">[[</span><span class="va">nm</span><span class="op">]</span><span class="op">]</span>, dist <span class="op">=</span> <span class="st">"auto"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sr_solus</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">pbpw</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_stage1_fusion_multi.html">run_stage1_fusion_multi</a></span><span class="op">(</span><span class="va">aoi_vect</span>, <span class="va">configs</span>, <span class="va">windows</span>, simplify <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 3. per-pixel AWC probability distribution (P5..P95 rasters), clamped at 0</span></span>
 <span><span class="va">awc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/remarginalized_awc.html">remarginalized_awc</a></span><span class="op">(</span><span class="va">ens</span>, <span class="va">pbpw</span>, n_out <span class="op">=</span> <span class="fl">250</span><span class="op">)</span>         <span class="co"># method = "saxton_rawls" by default</span></span>

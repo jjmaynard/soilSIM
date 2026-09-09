@@ -38,7 +38,8 @@ validation.
 download_ssurgo_tabular(
   aoi_wkt,                     # Character. WKT representation of the area of interest.
   properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
-                 "cec7", "om", "wthirdbar", "wfifteenbar"),
+                 "cec7", "om", "wthirdbar", "wfifteenbar",
+                 "caco3", "ec", "ecec", "gypsum", "sar"),  # last 5 added task P2, 2026-09-04
   include_restrictions = TRUE, # Logical. Include restriction/horizon-suitability fields.
   cache_dir = NULL,            # Character. Directory for caching; NULL disables caching.
   force_download = FALSE,      # Logical. Bypass cache and force a fresh download.
@@ -80,15 +81,19 @@ and finally assembles timing/quality metadata
 
 ### 2. **`create_ssurgo_property_lookup_working()`**
 
-**Purpose**: Builds the property-name lookup table mapping the 9 default
-SSURGO property base names to their `_l`/`_r`/`_h` SSURGO column names.
+**Purpose**: Builds the property-name lookup table mapping the 14
+default SSURGO property base names to their `_l`/`_r`/`_h` SSURGO column
+names.
 
 **Parameters**: None.
 
 **Returns**: A data frame with columns `Property`, `SSURGO_Label_Low`,
-`SSURGO_Label_Rep`, `SSURGO_Label_High`, one row per of the 9 known
+`SSURGO_Label_Rep`, `SSURGO_Label_High`, one row per of the 14 known
 properties (`sandtotal`, `claytotal`, `silttotal`, `dbovendry`,
-`ph1to1h2o`, `cec7`, `om`, `wthirdbar`, `wfifteenbar`).
+`ph1to1h2o`, `cec7`, `om`, `wthirdbar`, `wfifteenbar`, plus `caco3`,
+`ec`, `ecec`, `gypsum`, `sar` - added MULTI_PROPERTY_FUSION_PLAN.md task
+P2, 2026-09-04, column names live-confirmed against a real gSSURGO
+chorizon query).
 
 **Algorithm**: Static
 [`data.frame()`](https://rdrr.io/r/base/data.frame.html) construction -
@@ -311,7 +316,7 @@ each stage.
 process_horizon_data_working_compatible(
   raw_data,
   detect_unsuitable = TRUE,   # Flag unsuitable horizons via is_unsuitable().
-  advanced_cleaning = TRUE,   # Run clean_property_data_ssurgo_compatible() per property.
+  advanced_cleaning = TRUE,   # Run clean_property_data(outlier_policy = "soil_aware") per property.
   standardize_names = TRUE,   # Run standardize_property_names(target_standard = "ssurgo").
   remove_invalid = TRUE,      # Drop invalid horizon rows.
   calculate_derived = TRUE,   # Add hzthk_r/hz_midpoint/awc_r if derivable.
@@ -329,8 +334,7 @@ completeness).
 **Algorithm**: Sequentially applies each enabled step in a fixed order
 (standardize → detect-unsuitable → per-property cleaning via
 [`identify_soil_property_columns_working()`](https://jjmaynard.github.io/soilSIM/reference/identify_soil_property_columns_working.md) +
-[`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md)
-→
+`clean_property_data(outlier_policy = "soil_aware")` →
 [`remove_invalid_horizons_working_compatible()`](https://jjmaynard.github.io/soilSIM/reference/remove_invalid_horizons_working_compatible.md)
 →
 [`calculate_derived_horizon_properties_working()`](https://jjmaynard.github.io/soilSIM/reference/calculate_derived_horizon_properties_working.md)),
@@ -373,18 +377,22 @@ depth-filtered to `options$max_depth %||% 250`, and sorted by
 `cokey, hzdept_r`.
 
 **Algorithm**: Re-derives `unsuitable_horizon` and re-runs
-[`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md)
-per identified property column directly on `raw_data` (rather than
-reusing `horizon_processing`/`component_processing`’s outputs, which
-exist mainly for their statistics), then guarantees essential columns
+`clean_property_data(outlier_policy = "soil_aware")` per identified
+property column directly on `raw_data` (rather than reusing
+`horizon_processing`/`component_processing`’s outputs, which exist
+mainly for their statistics), then guarantees essential columns
 exist/typed, filters `hzdepb_r <= max_depth` (keeping `NA` depths), and
 arranges rows by component then top depth.
 
-### 11. **`clean_property_data_ssurgo_compatible(df, property_name, validation_config = NULL, generate_report = TRUE, verbose = FALSE)`**
+### 11. **`clean_property_data(df, property_name, outlier_policy = c("soil_aware", "aggressive_iqr", "none"), validation_config = NULL, generate_report = FALSE, verbose = FALSE)`**
 
-**Purpose**: Per-property cleaning: string parsing, type conversion,
-infinite-value handling, statistical outlier removal, and SSURGO
-range-limit enforcement, for a property’s `_l`/`_r`/`_h` columns.
+**Purpose**: The single property-value cleaner for the package: string
+parsing, type conversion, infinite-value handling, statistical outlier
+flagging, and physical range-limit enforcement, for a property’s
+`_l`/`_r`/`_h` columns. Called by both
+[`process_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_data.md)
+and
+[`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md).
 
 **Returns**: A list with `data` (cleaned data frame) and, if
 `generate_report = TRUE`, `report` (cleaning actions, type-conversion
@@ -398,16 +406,16 @@ or numerically converts via
 coerces non-finite values to `NA`; for the `_r` column only, optionally
 applies caller-supplied range-rule validation
 ([`validate_numeric_ranges()`](https://jjmaynard.github.io/soilSIM/reference/validate_numeric_ranges.md)),
-then IQR-based outlier detection via
-`detect_outliers(method = "iqr", threshold = 3.0)` (outliers set to
-`NA`), then
+then outlier flagging per `outlier_policy` - `"soil_aware"` (default;
+[`detect_statistical_outliers_soil_aware()`](https://jjmaynard.github.io/soilSIM/reference/detect_statistical_outliers_soil_aware.md) -
+physically-impossible values for pH/texture/BD, conservative `IQR x 5`
+otherwise), `"aggressive_iqr"` (generic
+`detect_outliers(method = "iqr", threshold = 3.0)`), or `"none"` - then
 [`apply_basic_range_limits()`](https://jjmaynard.github.io/soilSIM/reference/apply_basic_range_limits.md)
-for hardcoded SSURGO plausibility bounds. Note (per this function’s
-`@seealso`): the string-parsing/type-conversion/range-limit helpers it
-calls live in `data-infilling.R`, not this file -
-`ssurgo-processing.R`’s own near-duplicate `*_working()` versions of
-these helpers were consolidated into the canonical `data-infilling.R`
-implementations.
+for hardcoded plausibility bounds (always).
+[`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md)
+is a deprecated shim forwarding here with
+`outlier_policy = "aggressive_iqr"`.
 
 ### 12. **`hz_quant_prob_mukey(hz_data)`**
 
@@ -552,12 +560,15 @@ clay/OM-based CEC); **Strategy 6**
 [`infill_property_range_values()`](https://jjmaynard.github.io/soilSIM/reference/infill_property_range_values.md)
 to fill `_l`/`_h` and enforce `_l <= _r <= _h` ordering.
 
-### 15. **`process_soil_properties_comprehensive()`** - Multi-Property Workflow
+### 15. **`process_soil_properties_comprehensive()`** - the single infilling orchestrator
 
 **Purpose**: Orchestrates
 [`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)
 (and RFV’s special path) across a whole property set in three phases,
-with optional post-hoc filtering.
+with optional post-hoc filtering. Both the tabular pipeline and the
+raster-fusion pipeline (via the
+[`infill_soil_data()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_data.md)
+wrapper) route through this.
 
 **Parameters**:
 
@@ -567,6 +578,7 @@ process_soil_properties_comprehensive(
   df,
   properties = NULL,           # NULL = auto-detect via auto_detect_soil_properties().
   max_depth = 250,
+  water_retention_method = c("saxton_rawls", "generic"),
   remove_unsuitable = FALSE,   # Drop unsuitable-horizon rows from the output.
   remove_incomplete = FALSE,   # Drop rows incomplete in required_properties.
   required_properties = NULL,  # Defaults to `properties` if remove_incomplete and NULL.
@@ -585,12 +597,18 @@ validates them
 warnings only), ensures bookkeeping columns
 ([`ensure_infilling_columns()`](https://jjmaynard.github.io/soilSIM/reference/ensure_infilling_columns.md)),
 then processes in three phases: **Phase 1** foundation properties
-(`sandtotal`, `claytotal`, `silttotal`, `dbovendry`, `rfv`) via
+(`sandtotal`, `claytotal`, `silttotal`, `dbovendry`, `om`, `rfv` - `om`
+here so the water-retention step can read it) via
 [`process_single_property()`](https://jjmaynard.github.io/soilSIM/reference/process_single_property.md);
-**Phase 2** water retention (`wthirdbar`, `wfifteenbar`) via
-[`infill_water_retention_saxton_rawls_integrated()`](https://jjmaynard.github.io/soilSIM/reference/infill_water_retention_saxton_rawls_integrated.md),
-only if texture+bulk-density columns are all present; **Phase 3**
-remaining (“chemical”) properties via
+**Phase 2** water retention (`wthirdbar`, `wfifteenbar`) -
+`infill_water_retention_saxton_rawls_integrated(overwrite = FALSE)`
+where texture + bulk density are all present and
+`water_retention_method = "saxton_rawls"` (default), followed by a
+[`process_single_property()`](https://jjmaynard.github.io/soilSIM/reference/process_single_property.md)
+generic-hierarchy pass for any remaining gaps; `"generic"` sends water
+retention straight through the hierarchy (which itself falls back to
+Saxton-Rawls at strategy 5); **Phase 3** remaining (“chemical”)
+properties via
 [`process_single_property()`](https://jjmaynard.github.io/soilSIM/reference/process_single_property.md).
 Optionally applies
 [`apply_data_filtering()`](https://jjmaynard.github.io/soilSIM/reference/apply_data_filtering.md)
@@ -654,17 +672,13 @@ spreads if `add_ranges`), annotating `infill_method`.
 
 ## Utility Functions (data-infilling.R)
 
-- **`clean_property_data(df, property_name, validation_config = NULL, generate_report = FALSE, verbose = FALSE)`** -
-  the
-  [`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)-side
-  analog of
-  [`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md):
-  string parsing/type conversion/infinite handling, plus soil-aware
-  outlier detection
-  ([`detect_statistical_outliers_soil_aware()`](https://jjmaynard.github.io/soilSIM/reference/detect_statistical_outliers_soil_aware.md))
-  and
-  [`apply_basic_range_limits()`](https://jjmaynard.github.io/soilSIM/reference/apply_basic_range_limits.md)
-  on the `_r` column.
+- **[`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md)** -
+  see entry 11.
+  [`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)
+  calls it with the default `outlier_policy = "soil_aware"`; the same
+  call
+  [`process_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_data.md)
+  now makes.
 - **`get_default_property_config(property_name)`** - returns a built-in
   config (`type`, `units`, `typical_range`, `fallback_range`, and
   property-specific flags like
@@ -837,7 +851,7 @@ spreads if `add_ranges`), annotating `infill_method`.
     │   ├── standardize_property_names()            [utils.R]
     │   ├── is_unsuitable()                         [utils.R]
     │   ├── identify_soil_property_columns_working()
-    │   ├── clean_property_data_ssurgo_compatible()  [per property]
+    │   ├── clean_property_data(outlier_policy = "soil_aware")  [per property]
     │   │   ├── advanced_string_parser_vectorized()  [data-infilling.R]
     │   │   ├── vectorized_type_conversion()         [data-infilling.R]
     │   │   ├── detect_outliers()                    [utils.R]
@@ -851,7 +865,7 @@ spreads if `add_ranges`), annotating `infill_method`.
     │   └── calculate_component_stats_working()
     ├── create_infill_compatible_dataset()
     │   ├── is_unsuitable()                          [utils.R]
-    │   ├── clean_property_data_ssurgo_compatible()  [per property]
+    │   ├── clean_property_data(outlier_policy = "soil_aware")  [per property]
     │   └── ensure_essential_columns_working()
     ├── validate_data_quality()                      [utils.R]
     └── generate_processing_quality_report()

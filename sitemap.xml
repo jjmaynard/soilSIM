@@ -31,6 +31,8 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/FUSE_POSTERIOR_DEFAULT_PROBS.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/OM_TO_SOC_FACTOR.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/SOLUS_RESTRICTION_CENSOR_CM.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/add_range_rule.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/add_relationship_rule.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/add_restriction_indicators_working.html</loc></url>
@@ -172,6 +174,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/evaluate_simulated_depths.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/execute_ssurgo_query_working.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/export_workflow_metadata.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/extend_corr_matrix_with_identity.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/extract_component_parameters.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/extract_depth_length_scale.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/extract_mukey_joint_ensemble.html</loc></url>
@@ -181,7 +184,11 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/extract_property_parameters.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_osd_horizons_cached.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high_multi.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles_multi.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_solus_restriction_depth.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_solus_site_level.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_all_components_working.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_mukey_raster.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_percentiles.html</loc></url>
@@ -297,6 +304,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/multivariate_adjustment.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/normal_to_lognormal_params.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/normalize_monte_carlo_config.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/normalize_requested_properties.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/normalize_values.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/optimize_gp_hyperparameters.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/parallel_utils.html</loc></url>
@@ -363,6 +371,7 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/run_parallel_simulation.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/safe_coalesce.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/safe_correlation.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/sample_ilr_posterior.html</loc></url>
@@ -405,6 +414,9 @@
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/ssurgo_data.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/ssurgo_processing.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/ssurgo_simulation.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/ssurgo_tabular_cache_key.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/stage1_fuse_from_prior_solus.html</loc></url>
+<url><loc>https://jjmaynard.github.io/soilSIM/reference/stage1_fuse_texture_group_from_fetched.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/standardize_horizon_name.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/standardize_property_names.html</loc></url>
 <url><loc>https://jjmaynard.github.io/soilSIM/reference/summarize_constraint_violations.html</loc></url>

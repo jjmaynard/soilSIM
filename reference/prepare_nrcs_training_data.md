@@ -11,7 +11,7 @@ prepare_nrcs_training_data(
   min_profiles_per_group = 3,
   min_observations_per_group = 15,
   target_min_groups = 3,
-  max_depth = 250,
+  max_depth = DEFAULT_MAX_DEPTH_CM,
   validation_config = NULL,
   verbose = getOption("ssurgo.verbose", FALSE)
 )

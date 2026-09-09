@@ -16,7 +16,8 @@ simulation, then converted back after.
 simulate_cokey_generalized(
   sim_cokey,
   correlation_matrices,
-  txt_correlation_matrices = NULL
+  txt_correlation_matrices = NULL,
+  requested_properties = NULL
 )
 ```
 
@@ -33,7 +34,16 @@ simulate_cokey_generalized(
 
   A list of correlation matrices keyed by `genhz`, with row/column names
   matching (a subset of)
-  `c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc")`.
+  `c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc", "caco3", "ec", "ecec", "gypsum", "sar")`.
+  The 5 chemistry properties added in MULTI_PROPERTY_FUSION_PLAN.md task
+  P2 have no real KSSL-fit correlation data (see
+  [`build_kssl_fallback_matrix()`](https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.md)) -
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
+  builds its `correlation_matrices` through that function so they're
+  present (as identity/uncorrelated) rather than missing; a direct
+  caller supplying its own matrix without them will simply never
+  populate `param_list[["caco3"]]` etc. (see `get_param_set()`'s per-row
+  gating below), not error.
 
 - txt_correlation_matrices:
 
@@ -42,6 +52,22 @@ simulate_cokey_generalized(
   [`simulate_correlated_triangular()`](https://jjmaynard.github.io/soilSIM/reference/simulate_correlated_triangular.md)
   call for texture).
 
+- requested_properties:
+
+  `NULL` (default) simulates every property with a complete `_l/_r/_h`
+  triplet, unchanged. Otherwise a character vector of property
+  identifiers - in any vocabulary
+  [`normalize_requested_properties()`](https://jjmaynard.github.io/soilSIM/reference/normalize_requested_properties.md)
+  accepts (caller ids, SSURGO stems, output column names, or the
+  internal `param_order` names) - restricting the simulation to just
+  those (plus the texture coupling: any texture member pulls in the full
+  sand/silt/clay draw and both ILR axes). The Gaussian-copula marginals
+  of a restricted simulation match the corresponding columns of a full
+  one under the default `joint_copula` vertical-correlation method
+  (modulo RNG-stream Monte Carlo noise); see
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
+  for the `gp_quantile_retrofit` caveat.
+
 ## Value
 
 A data frame of simulated property values across all rows/realizations,
@@ -49,4 +75,7 @@ with `compname`, `mukey`, `cokey`, `hzdept_r`, `hzdepb_r`,
 `simulation_number`, `unique_id`, and (when `sim_cokey` itself has a
 `bound_sd` column - see
 [`attach_osd_boundary_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/attach_osd_boundary_distinctness.md))
-`bound_sd`.
+`bound_sd`. The `soc` column is an SSURGO-organic-matter-**derived SOC
+estimate** (`om * OM_TO_SOC_FACTOR`, the inverse Van Bemmelen factor) -
+not a lab-measured soil organic carbon value. See `OM_TO_SOC_FACTOR`'s
+own docs (MULTI_PROPERTY_FUSION_PLAN.md task P1).

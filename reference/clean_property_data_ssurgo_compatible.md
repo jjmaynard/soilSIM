@@ -1,7 +1,15 @@
-# Clean Property Data (SSURGO Compatible)
+# Clean Property Data (SSURGO Compatible) - deprecated
 
-Enhanced version incorporating SSURGO-specific cleaning logic while
-using Module 8 utilities
+**Deprecated.** Superseded by
+[`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md),
+which is now the single property-value cleaner for the package. This
+shim forwards to it with `outlier_policy = "aggressive_iqr"` (the
+generic `IQR x 3` this function used to apply) and
+`generate_report = TRUE`, so existing callers keep their exact behavior.
+New code should call
+[`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md)
+directly and choose an `outlier_policy` explicitly - `"soil_aware"` is
+the recommended default.
 
 ## Usage
 
@@ -19,35 +27,29 @@ clean_property_data_ssurgo_compatible(
 
 - df:
 
-  Input data frame
+  Input data frame.
 
 - property_name:
 
-  Name of the property to clean
+  Name of the property to clean.
 
 - validation_config:
 
-  Optional validation configuration
+  Optional per-property range rule (a `list(min=, max=)`-shaped entry);
+  violations are counted into the report, values are not changed.
 
 - generate_report:
 
-  Whether to generate detailed quality report
+  Whether to return a cleaning report alongside the data.
 
 - verbose:
 
-  Logical; provide progress messages
+  Whether to provide progress messages.
 
 ## Value
 
-List containing cleaned data and optional quality report
+List containing cleaned data and (by default) a quality report.
 
 ## See also
 
-[`advanced_string_parser_vectorized()`](https://jjmaynard.github.io/soilSIM/reference/advanced_string_parser_vectorized.md),
-[`vectorized_type_conversion()`](https://jjmaynard.github.io/soilSIM/reference/vectorized_type_conversion.md),
-and
-[`apply_basic_range_limits()`](https://jjmaynard.github.io/soilSIM/reference/apply_basic_range_limits.md) -
-the string-parsing/range-limit helpers this function calls are defined
-in `data-infilling.R` (migrated from mod03), not in this file, after
-consolidating this file's near-duplicate `*_working()`/`*_ssurgo()`
-versions into those canonical implementations.
+[`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md)

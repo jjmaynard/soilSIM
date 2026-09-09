@@ -3,13 +3,15 @@
 A mukey raster/list depends only on the AOI, not on any depth window -
 unlike
 [`build_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/build_cache_key.md)'s
-other callers (percentile-value rasters, tabular horizon data), which
-are genuinely depth-window-specific. Rather than changing
+other callers whose cached *content* is genuinely depth-window-specific
+(percentile-value rasters, aggregated draws). Rather than changing
 [`build_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/build_cache_key.md)'s
 signature (every other call site would need a depth argument that means
 nothing there), this calls it with a fixed sentinel depth so every
 mukey-grid request for the same AOI maps to the same key regardless of
-what depth window the caller happens to be working with.
+what depth window the caller happens to be working with. See
+[`ssurgo_tabular_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/ssurgo_tabular_cache_key.md)
+below for the same pattern applied to the raw tabular download.
 
 ## Usage
 

@@ -727,6 +727,32 @@ caveat: the KSSL matrix’s `soc` column is actually populated from `om_r`
 (organic matter %), not true lab-measured soil organic carbon, so it
 should be treated as an organic-matter proxy.
 
+**5 chemistry properties, no KSSL data yet
+(MULTI_PROPERTY_FUSION_PLAN.md task P2, 2026-09-04)**:
+`.kssl_property_name_map` also maps `caco3`/`ec`/`ecec`/`gypsum`/`sar`
+to themselves, but none of them has a matching column in
+[`.kssl_property_matrices()`](https://jjmaynard.github.io/soilSIM/reference/dot-kssl_property_matrices.md)’s
+actual 9x9 data (fit years before these properties existed in this
+pipeline) -
+[`build_kssl_fallback_matrix()`](https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.md)’s
+own `mapped_kssl_names %in% rownames(kssl_source)` filter drops them the
+same way it drops any other unmapped name, so they land on the identity
+default (uncorrelated with everything, including each other) - a
+confirmed design decision, not an oversight.
+[`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
+now calls
+[`build_kssl_fallback_matrix()`](https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.md)
+per genhz key with the full 14-name `param_order` vocabulary (instead of
+indexing
+[`.kssl_property_matrices()`](https://jjmaynard.github.io/soilSIM/reference/dot-kssl_property_matrices.md)
+directly) specifically so these 5 are present (as identity) rather than
+missing. Upgrade path: re-fit `kssl_property_matrices` (via
+`data-raw/build_kssl_reference_correlations.R`) from raw KSSL lab data
+that includes these 5 properties, using the same column names -
+[`build_kssl_fallback_matrix()`](https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.md)
+picks the real correlations up automatically, no code changes needed
+anywhere that calls it.
+
 ## Internal Connections
 
     distributions.R

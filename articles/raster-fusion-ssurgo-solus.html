@@ -163,9 +163,9 @@ m resolution:</p>
 <span><span class="co">#&gt; extent      : -2246800, -2244500, 1810700, 1813300  (xmin, xmax, ymin, ymax)</span></span>
 <span><span class="co">#&gt; coord. ref. : NAD83 / Conus Albers (EPSG:5070)</span></span>
 <span><span class="co">#&gt; source(s)   : memory</span></span>
-<span><span class="co">#&gt; name        :     lyr.1</span></span>
-<span><span class="co">#&gt; min value   :   3.23677</span></span>
-<span><span class="co">#&gt; max value   : 42.577457</span></span>
+<span><span class="co">#&gt; name        :    lyr.1</span></span>
+<span><span class="co">#&gt; min value   : 2.981308</span></span>
+<span><span class="co">#&gt; max value   : 42.31139</span></span>
 <span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">mu</span>, main <span class="op">=</span> <span class="st">"Fused posterior mean clay content (%)"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-5-1.png" class="r-plt" alt="" width="576"></p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
@@ -358,7 +358,7 @@ fused clay + sand + silt sums to 100:</p>
 <code class="sourceCode R"><span><span class="va">means</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">fusion_texture</span>, <span class="kw">function</span><span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/global.html" class="external-link">global</a></span><span class="op">(</span><span class="va">m</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">value</span>, <span class="st">"mean"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="va">means</span></span>
 <span><span class="co">#&gt;     clay     sand     silt </span></span>
-<span><span class="co">#&gt; 16.36699 55.60234 28.03068</span></span>
+<span><span class="co">#&gt; 14.36195 57.12898 28.50907</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">means</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 100</span></span></code></pre></div>
 <p>Mean fused clay/sand/silt percentages sum to 100 across the AOI - the
@@ -385,7 +385,7 @@ this isn’t a bug:</p>
 <code class="sourceCode R"><span><span class="va">p95_sum</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Reduce</a></span><span class="op">(</span><span class="va">`+`</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">fusion_texture</span>, <span class="kw">function</span><span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="va">m</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">percentiles</span><span class="op">$</span><span class="va">P95</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/global.html" class="external-link">global</a></span><span class="op">(</span><span class="va">p95_sum</span>, fun <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"min"</span>, <span class="st">"max"</span><span class="op">)</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="co">#&gt;            min      max</span></span>
-<span><span class="co">#&gt; lyr.8 111.1252 183.2736</span></span></code></pre></div>
+<span><span class="co">#&gt; lyr.8 108.1308 201.6155</span></span></code></pre></div>
 <p>The P95 percentiles across clay/sand/silt sum well above 100 in this
 AOI - percentiles of correlated marginals don’t add linearly the way
 means do (a cell can simultaneously see a high-tail clay draw and a

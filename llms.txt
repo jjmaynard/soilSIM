@@ -104,7 +104,7 @@ pipeline.
 - [`create_infill_compatible_dataset()`](https://jjmaynard.github.io/soilSIM/reference/create_infill_compatible_dataset.md)
   : Create Infill-Compatible Dataset
 - [`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md)
-  : Clean Property Data (SSURGO Compatible)
+  : Clean Property Data (SSURGO Compatible) - deprecated
 - [`hz_quant_prob_mukey()`](https://jjmaynard.github.io/soilSIM/reference/hz_quant_prob_mukey.md)
   : Calculate Horizon Quantiles and Probabilities by Mukey
 - [`process_soil_properties_comprehensive()`](https://jjmaynard.github.io/soilSIM/reference/process_soil_properties_comprehensive.md)
@@ -112,7 +112,7 @@ pipeline.
 - [`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)
   : Main Soil Property Infilling Function
 - [`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md)
-  : Enhanced Property Data Cleaning
+  : Property Data Cleaning
 - [`get_default_property_config()`](https://jjmaynard.github.io/soilSIM/reference/get_default_property_config.md)
   : Get Default Property Configuration
 - [`create_custom_property_config()`](https://jjmaynard.github.io/soilSIM/reference/create_custom_property_config.md)
@@ -679,6 +679,10 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
 - [`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
   : Run Stage 1 Fusion for a Whole Compositional Group Jointly
 
+- [`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md)
+  : Run Stage 1 Fusion for Many Properties over an AOI in One Simulation
+  Pass
+
 - [`CACHE_TTL_SECONDS`](https://jjmaynard.github.io/soilSIM/reference/raster_cache.md)
   : Disk Cache for Raster Fusion Fetch Results
 
@@ -706,7 +710,7 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
   : Fetch a Raster of SSURGO Map Unit Keys for an AOI
 
 - [`infill_soil_data()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_data.md)
-  : Infill Missing Soil Property Values
+  : Infill Missing Soil Property Values (raster-fusion entry point)
 
 - [`maybe_adjust_soil_data_depth_trend()`](https://jjmaynard.github.io/soilSIM/reference/maybe_adjust_soil_data_depth_trend.md)
   :
@@ -743,8 +747,24 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
   : Fetch SOLUS100 Low/Prediction/High Rasters for One Variable and
   Depth Window
 
+- [`fetch_solus_low_pred_high_multi()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high_multi.md)
+  : Fetch SOLUS100 Low/Prediction/High Rasters for Multiple Variables,
+  One Depth Window (S1)
+
 - [`fetch_solus_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.md)
   : Fetch SOLUS100 Percentile-Value Rasters for an AOI
+
+- [`fetch_solus_percentiles_multi()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles_multi.md)
+  : Fetch SOLUS100 Percentile-Value Rasters for Multiple Variables, One
+  Depth Window (S1)
+
+- [`fetch_solus_restriction_depth()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_restriction_depth.md)
+  : Fetch a SOLUS100 Restriction-Depth Raster, Right-Censoring-Guarded
+  (S2)
+
+- [`fetch_solus_site_level()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_site_level.md)
+  : Fetch SOLUS100 Rasters for a Site-Level (Depth-Independent) Variable
+  (S2)
 
 - [`extract_mukey_joint_ensemble()`](https://jjmaynard.github.io/soilSIM/reference/extract_mukey_joint_ensemble.md)
   : Per-Mukey Joint Multivariate Profile Ensemble at Several Depth

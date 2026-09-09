@@ -29,7 +29,8 @@ run_stage1_fusion_group(
   top_depth,
   bottom_depth,
   parallel = FALSE,
-  n_cores = NULL
+  n_cores = NULL,
+  seed = NULL
 )
 ```
 
@@ -69,6 +70,13 @@ run_stage1_fusion_group(
   `parallel`/`n_cores` for the shared draws computation below (only
   relevant when at least one member isn't already disk-cached). Default
   `parallel = FALSE` matches prior behavior exactly.
+
+- seed:
+
+  Optional integer for opt-in determinism, forwarded to
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
+  (and [`set.seed()`](https://rdrr.io/r/base/Random.html) once up
+  front). `NULL` (default) = current stochastic behavior.
 
 ## Value
 

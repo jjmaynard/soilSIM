@@ -90,9 +90,9 @@ one per depth window:
 
 round(head(ens$by_mukey[[1]]$windows[["0-5"]], 3), 1)
 #>      sand_total silt_total clay_total  db soc
-#> [1,]       86.5       12.2        0.7 1.6 1.6
-#> [2,]       80.1       20.0        0.3 1.6 1.3
-#> [3,]       88.9        9.1        0.5 1.7 1.1
+#> [1,]       78.3       19.1        2.1 1.6 1.0
+#> [2,]       80.6       17.8        0.9 1.6 1.0
+#> [3,]       75.7       24.2        0.4 1.7 0.9
 ```
 
 Rows are realizations (each a simulated profile draw), columns are
@@ -106,30 +106,42 @@ profile coherent:
 vapply(ens$window_names,
        function(w) ens$by_mukey[[1]]$windows[[w]][1, "clay_total"],
        numeric(1))
-#>       0-5      5-15     15-30 
-#> 0.6721025 0.6721025 0.5805061
+#>      0-5     5-15    15-30 
+#> 2.086044 2.086044 1.823574
 ```
 
-## Step 2: fuse each Saxton-Rawls input against SOLUS
+## Step 2: fuse every Saxton-Rawls input against SOLUS in one pass
 
+[`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md)
+produces a per-cell SSURGO x SOLUS posterior for **many** properties
+across **many** depth windows, running the (expensive) SSURGO Monte
+Carlo simulation just once and reusing that one draw set for every
+property/window. Calling the single-property
 [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
-produces a per-cell SSURGO x SOLUS posterior for one property and one
-depth window. We need one for each Saxton-Rawls input. `dist = "auto"`
-lets the fusion core pick the distribution family per property.
+in a loop instead would re-run the full simulation for each of the
+`5 inputs x 3 windows = 15` combinations, each discarding all but one of
+the ~9 jointly simulated properties. `dist = "auto"` lets the fusion
+core pick the distribution family per property.
+
+Because every leaf comes from the *same* simulation, the sand/silt/clay
+posteriors share an exact `NA` mask (they are one joint texture draw),
+and each property’s coverage is a stable, reproducible consequence of
+that one run rather than of five independent ones. Texture and bulk
+density can still differ: a map unit whose components have complete
+bulk-density data but no texture triplet contributes `db` but drops out
+of the texture columns entirely.
 
 ``` r
 
-# The real calls this vignette's cached data came from (one per property x window):
+# The real call this vignette's cached data came from - one simulation for all 5 x 3 leaves:
 cfg <- function(id, solus_var) list(id = id, solus_variable = solus_var, dist = "auto")
 sr_inputs <- c(sand_total = "sandtotal", silt_total = "silttotal", clay_total = "claytotal",
                db = "dbovendry", soc = "soc")
-post <- lapply(names(sr_inputs), function(nm) {
-  setNames(lapply(windows, function(w) {
-    r <- run_stage1_fusion(aoi, cfg(nm, sr_inputs[[nm]]), w[1], w[2])
-    list(percentiles = r$posterior$percentiles)
-  }), vapply(windows, function(w) paste0(w[1], "-", w[2]), ""))
-})
-names(post) <- names(sr_inputs)
+property_configs <- setNames(
+  lapply(names(sr_inputs), function(nm) cfg(nm, sr_inputs[[nm]])),
+  names(sr_inputs)
+)
+post <- run_stage1_fusion_multi(aoi, property_configs, windows, simplify = TRUE)
 ```
 
 ``` r
@@ -211,7 +223,7 @@ round(c(
   transformed = stats::cor(tr_sand,             tr_clay,             method = "spearman")
 ), 3)
 #>      source transformed 
-#>       0.463       0.463
+#>       0.343       0.342
 ```
 
 The two values match: the re-marginalization changed each property’s
@@ -266,6 +278,36 @@ terra::plot(awc$awc_cm$P95 - awc$awc_cm$P5,
 is computed per source realization from vertically- and
 cross-property-consistent inputs, then combined per pixel.
 
+## Optional: bedrock/restriction-depth-aware AWC
+
+SOLUS100 predicts every property at every depth even where bedrock is
+shallower - nothing above truncates the 30 cm profile at an actual
+restriction, so a shallow-soil pixel can be credited with water storage
+below bedrock.
+[`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)’s
+optional `restriction_depth` argument fixes this: pass a
+restriction-depth raster (typically
+[`fetch_solus_restriction_depth()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_restriction_depth.md),
+which defaults to SOLUS’s `anylithicdpt` - depth to bedrock, trained
+specifically on lithic/paralithic restriction records - and is already
+right-censoring-guarded at 201 cm) and each window’s thickness
+contribution becomes the per-pixel *effective* thickness instead of its
+nominal one.
+
+This step needs a live SOLUS100 fetch, so it is not part of this
+vignette’s cached pipeline - shown for reference, not executed here.
+`restriction_depth` is opt-in (`NULL` by default preserves every result
+above exactly):
+
+``` r
+
+restriction_depth <- fetch_solus_restriction_depth(aoi)  # default variable = "anylithicdpt"
+awc_truncated <- remarginalized_awc(ens, post, n_out = 150, restriction_depth = restriction_depth)
+terra::plot(awc_truncated$awc_cm$P50,
+            main = "Median AWC, 0-30 cm, truncated at bedrock (cm)",
+            col = grDevices::hcl.colors(50, "Blues 3", rev = TRUE))
+```
+
 ## Reading the uncertainty band
 
 | Aspect | Treatment |
@@ -300,7 +342,7 @@ between <- terra::zonal(p50, mkr, fun = "mean", na.rm = TRUE)
 c(mean_within_mapunit_sd = mean(within[[2]], na.rm = TRUE),
   between_mapunit_sd     = stats::sd(between[[2]], na.rm = TRUE))
 #> mean_within_mapunit_sd     between_mapunit_sd 
-#>              0.1253799              1.4765877
+#>              0.1322606              1.2337473
 ```
 
 Whether the ratio is negligible is **property-dependent**: benchmarking
@@ -319,7 +361,7 @@ The cached objects this vignette loads
 `data-raw/build_vignette_data.R`, which runs
 [`extract_mukey_joint_ensemble()`](https://jjmaynard.github.io/soilSIM/reference/extract_mukey_joint_ensemble.md)
 and
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md)
 live against NRCS Soil Data Access and SOLUS100 for the AOI above, trims
 each map unit’s ensemble to 250 realizations, wraps the rasters via
 [`terra::wrap()`](https://rspatial.github.io/terra/reference/wrap.html)

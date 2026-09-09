@@ -87,7 +87,8 @@ per (pixel, realization).</p>
 <span>  probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.25</span>, <span class="fl">0.5</span>, <span class="fl">0.75</span>, <span class="fl">0.95</span><span class="op">)</span>,</span>
 <span>  rock_fragment <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  soc_to_om <span class="op">=</span> <span class="fl">1.724</span>,</span>
-<span>  tile_rows <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  tile_rows <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  restriction_depth <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -128,6 +129,24 @@ posterior is available.</p></dd>
 <dd><p>Optional. Process the AOI in horizontal row-strips, releasing each strip's
 realization stack before the next. Per-pixel quantiles are cell-independent, so a tiled run is
 numerically identical to <code>tile_rows = NULL</code>. <code>NULL</code> (default) / <code>&gt;= nrow</code> disables tiling.</p></dd>
+
+
+<dt id="arg-restriction-depth">restriction_depth<a class="anchor" aria-label="anchor" href="#arg-restriction-depth"></a></dt>
+<dd><p>Optional single-layer <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code> of restriction depth in cm -
+typically <code>fetch_solus_restriction_depth(aoi_vect)</code> (MULTI_PROPERTY_FUSION_PLAN.md task S2),
+already right-censoring-guarded (cells with no detected restriction are <code>Inf</code>, never
+<code>SOLUS_RESTRICTION_CENSOR_CM</code> itself). <code>NULL</code> (default) preserves today's behavior exactly -
+every window contributes its full nominal thickness, regardless of bedrock. When supplied,
+resampled once (bilinear - a continuous depth value, not a category) onto the working grid,
+and each window's contribution is scaled by its <strong>effective</strong> thickness
+<code>pmax(0, pmin(bottom, restriction_depth) - top)</code> instead of the nominal <code>bottom - top</code>: a
+window entirely above the restriction keeps its full thickness, one straddling it gets partial
+credit, one entirely below it contributes exactly <strong>0</strong> (not <code>NA</code> - <code>NA</code> would incorrectly
+blank the whole pixel's AWC, including valid shallower windows, rather than just this window's
+contribution). A pixel with <code>restriction_depth</code> missing/<code>NA</code> (e.g. no coverage at the AOI edge)
+is treated the same as <code>Inf</code> - no truncation - the same "no evidence -&gt; don't truncate"
+convention this pipeline already uses for other SSURGO/SOLUS coverage gaps, rather than
+propagating <code>NA</code> into the AWC total.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -171,7 +190,8 @@ bridge" for the full treatment.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="remarginalize_ensemble_to_posterior.html">remarginalize_ensemble_to_posterior()</a></code>, <code><a href="saxton_rawls_raster.html">saxton_rawls_raster()</a></code>, <code><a href="calculate_aws_df.html">calculate_aws_df()</a></code></p></div>
+    <div class="dont-index"><p><code><a href="remarginalize_ensemble_to_posterior.html">remarginalize_ensemble_to_posterior()</a></code>, <code><a href="saxton_rawls_raster.html">saxton_rawls_raster()</a></code>, <code><a href="calculate_aws_df.html">calculate_aws_df()</a></code>,
+<code><a href="fetch_solus_restriction_depth.html">fetch_solus_restriction_depth()</a></code></p></div>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

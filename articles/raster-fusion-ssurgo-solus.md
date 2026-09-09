@@ -78,9 +78,9 @@ fusion_clay$posterior$mu
 #> extent      : -2246800, -2244500, 1810700, 1813300  (xmin, xmax, ymin, ymax)
 #> coord. ref. : NAD83 / Conus Albers (EPSG:5070)
 #> source(s)   : memory
-#> name        :     lyr.1
-#> min value   :   3.23677
-#> max value   : 42.577457
+#> name        :    lyr.1
+#> min value   : 2.981308
+#> max value   : 42.31139
 terra::plot(fusion_clay$posterior$mu, main = "Fused posterior mean clay content (%)")
 ```
 
@@ -306,7 +306,7 @@ fusion_texture$clay$dist   # "texture_ilr" for every member - not the per-proper
 means <- sapply(fusion_texture, function(m) terra::global(m$posterior$value, "mean", na.rm = TRUE)[1, 1])
 means
 #>     clay     sand     silt 
-#> 16.36699 55.60234 28.03068
+#> 14.36195 57.12898 28.50907
 sum(means)
 #> [1] 100
 ```
@@ -345,7 +345,7 @@ guarantee, and this isn’t a bug:
 p95_sum <- Reduce(`+`, lapply(fusion_texture, function(m) m$posterior$percentiles$P95))
 terra::global(p95_sum, fun = c("min", "max"), na.rm = TRUE)
 #>            min      max
-#> lyr.8 111.1252 183.2736
+#> lyr.8 108.1308 201.6155
 ```
 
 The P95 percentiles across clay/sand/silt sum well above 100 in this

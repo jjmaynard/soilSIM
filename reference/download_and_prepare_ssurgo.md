@@ -12,7 +12,7 @@ ready for simulation" path.
 download_and_prepare_ssurgo(
   aoi_wkt,
   properties = c("clay", "sand", "silt", "db", "ph", "cec", "rfv", "w3b", "w15b"),
-  max_depth = 250,
+  max_depth = DEFAULT_MAX_DEPTH_CM,
   cache_dir = NULL,
   verbose = FALSE
 )
