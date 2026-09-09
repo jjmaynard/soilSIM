@@ -125,7 +125,7 @@ Default `processing_options` (each independently overridable): `detect_unsuitabl
 process_horizon_data_working_compatible(
   raw_data,
   detect_unsuitable = TRUE,   # Flag unsuitable horizons via is_unsuitable().
-  advanced_cleaning = TRUE,   # Run clean_property_data_ssurgo_compatible() per property.
+  advanced_cleaning = TRUE,   # Run clean_property_data(outlier_policy = "soil_aware") per property.
   standardize_names = TRUE,   # Run standardize_property_names(target_standard = "ssurgo").
   remove_invalid = TRUE,      # Drop invalid horizon rows.
   calculate_derived = TRUE,   # Add hzthk_r/hz_midpoint/awc_r if derivable.
@@ -136,7 +136,7 @@ process_horizon_data_working_compatible(
 
 **Returns**: A list with `processed_data` (cleaned horizon data frame) and `processing_stats` (initial/final row counts, retention rate, unsuitable-horizon count, per-property cleaning reports, removed-invalid count, depth range/avg thickness, unique cokey count, property completeness).
 
-**Algorithm**: Sequentially applies each enabled step in a fixed order (standardize &rarr; detect-unsuitable &rarr; per-property cleaning via `identify_soil_property_columns_working()` + `clean_property_data_ssurgo_compatible()` &rarr; `remove_invalid_horizons_working_compatible()` &rarr; `calculate_derived_horizon_properties_working()`), recording counts/statistics into `processing_stats` after each stage, finishing with `calculate_property_completeness_working()`.
+**Algorithm**: Sequentially applies each enabled step in a fixed order (standardize &rarr; detect-unsuitable &rarr; per-property cleaning via `identify_soil_property_columns_working()` + `clean_property_data(outlier_policy = "soil_aware")` &rarr; `remove_invalid_horizons_working_compatible()` &rarr; `calculate_derived_horizon_properties_working()`), recording counts/statistics into `processing_stats` after each stage, finishing with `calculate_property_completeness_working()`.
 
 ### 9. **`process_component_data_working_compatible(raw_data, standardize_names = TRUE, remove_invalid = TRUE, verbose = FALSE)`**
 
@@ -152,15 +152,15 @@ process_horizon_data_working_compatible(
 
 **Returns**: A processed data frame: unsuitable-horizon flagged (if `options$detect_unsuitable`), property-cleaned (if `options$advanced_cleaning`), with essential columns guaranteed (`ensure_essential_columns_working()`), depth-filtered to `options$max_depth %||% 250`, and sorted by `cokey, hzdept_r`.
 
-**Algorithm**: Re-derives `unsuitable_horizon` and re-runs `clean_property_data_ssurgo_compatible()` per identified property column directly on `raw_data` (rather than reusing `horizon_processing`/`component_processing`'s outputs, which exist mainly for their statistics), then guarantees essential columns exist/typed, filters `hzdepb_r <= max_depth` (keeping `NA` depths), and arranges rows by component then top depth.
+**Algorithm**: Re-derives `unsuitable_horizon` and re-runs `clean_property_data(outlier_policy = "soil_aware")` per identified property column directly on `raw_data` (rather than reusing `horizon_processing`/`component_processing`'s outputs, which exist mainly for their statistics), then guarantees essential columns exist/typed, filters `hzdepb_r <= max_depth` (keeping `NA` depths), and arranges rows by component then top depth.
 
-### 11. **`clean_property_data_ssurgo_compatible(df, property_name, validation_config = NULL, generate_report = TRUE, verbose = FALSE)`**
+### 11. **`clean_property_data(df, property_name, outlier_policy = c("soil_aware", "aggressive_iqr", "none"), validation_config = NULL, generate_report = FALSE, verbose = FALSE)`**
 
-**Purpose**: Per-property cleaning: string parsing, type conversion, infinite-value handling, statistical outlier removal, and SSURGO range-limit enforcement, for a property's `_l`/`_r`/`_h` columns.
+**Purpose**: The single property-value cleaner for the package: string parsing, type conversion, infinite-value handling, statistical outlier flagging, and physical range-limit enforcement, for a property's `_l`/`_r`/`_h` columns. Called by both `process_ssurgo_data()` and `infill_soil_property()`.
 
 **Returns**: A list with `data` (cleaned data frame) and, if `generate_report = TRUE`, `report` (cleaning actions, type-conversion success rates, outliers detected, string-parsing metadata).
 
-**Algorithm**: For each available `_l/_r/_h` column: parses character/factor values via `advanced_string_parser_vectorized()` or numerically converts via `vectorized_type_conversion()`; coerces non-finite values to `NA`; for the `_r` column only, optionally applies caller-supplied range-rule validation (`validate_numeric_ranges()`), then IQR-based outlier detection via `detect_outliers(method = "iqr", threshold = 3.0)` (outliers set to `NA`), then `apply_basic_range_limits()` for hardcoded SSURGO plausibility bounds. Note (per this function's `@seealso`): the string-parsing/type-conversion/range-limit helpers it calls live in `data-infilling.R`, not this file - `ssurgo-processing.R`'s own near-duplicate `*_working()` versions of these helpers were consolidated into the canonical `data-infilling.R` implementations.
+**Algorithm**: For each available `_l/_r/_h` column: parses character/factor values via `advanced_string_parser_vectorized()` or numerically converts via `vectorized_type_conversion()`; coerces non-finite values to `NA`; for the `_r` column only, optionally applies caller-supplied range-rule validation (`validate_numeric_ranges()`), then outlier flagging per `outlier_policy` - `"soil_aware"` (default; `detect_statistical_outliers_soil_aware()` - physically-impossible values for pH/texture/BD, conservative `IQR x 5` otherwise), `"aggressive_iqr"` (generic `detect_outliers(method = "iqr", threshold = 3.0)`), or `"none"` - then `apply_basic_range_limits()` for hardcoded plausibility bounds (always). `clean_property_data_ssurgo_compatible()` is a deprecated shim forwarding here with `outlier_policy = "aggressive_iqr"`.
 
 ### 12. **`hz_quant_prob_mukey(hz_data)`**
 
@@ -210,9 +210,9 @@ infill_soil_property(
 
 **Algorithm**: Delegates to `infill_rfv_property_integrated()` for `property_name == "rfv"`. Otherwise: ensures bookkeeping columns exist (`ensure_infilling_columns()`), cleans the property (`clean_property_data()`), computes `unsuitable_horizon` via `is_unsuitable()`, resolves `property_config` via `get_default_property_config()` if not supplied, and identifies "problematic" cells (missing, suitable, within `max_depth`). If nothing is problematic, only applies range infilling and returns early. Otherwise groups by `cokey` (or `compname`, via `determine_grouping_column()`) and applies, in order: **Strategy 1-3** inside `process_property_group()` &rarr; `infill_missing_property_data()` (horizon-name matching, then depth-weighted averaging, then within-component interpolation - each only proceeding if the prior strategy left cells unfilled); **Strategy 4** `cross_component_property_interpolation()` (whole-dataset level, uses other components' data at similar depths); **Strategy 5** `related_property_estimation()` (whole-dataset level, pedological relationships e.g. texture-sum, clay/OM-based CEC); **Strategy 6** `process_property_group_fallback()` &rarr; `apply_group_fallback_mean()` (per-group depth-weighted or plain mean, last resort). Finishes with `infill_property_range_values()` to fill `_l`/`_h` and enforce `_l <= _r <= _h` ordering.
 
-### 15. **`process_soil_properties_comprehensive()`** - Multi-Property Workflow
+### 15. **`process_soil_properties_comprehensive()`** - the single infilling orchestrator
 
-**Purpose**: Orchestrates `infill_soil_property()` (and RFV's special path) across a whole property set in three phases, with optional post-hoc filtering.
+**Purpose**: Orchestrates `infill_soil_property()` (and RFV's special path) across a whole property set in three phases, with optional post-hoc filtering. Both the tabular pipeline and the raster-fusion pipeline (via the `infill_soil_data()` wrapper) route through this.
 
 **Parameters**:
 
@@ -221,6 +221,7 @@ process_soil_properties_comprehensive(
   df,
   properties = NULL,           # NULL = auto-detect via auto_detect_soil_properties().
   max_depth = 250,
+  water_retention_method = c("saxton_rawls", "generic"),
   remove_unsuitable = FALSE,   # Drop unsuitable-horizon rows from the output.
   remove_incomplete = FALSE,   # Drop rows incomplete in required_properties.
   required_properties = NULL,  # Defaults to `properties` if remove_incomplete and NULL.
@@ -230,7 +231,7 @@ process_soil_properties_comprehensive(
 
 **Returns**: `df` with all requested properties infilled, plus `processing_log`, `processing_time`, and `properties_processed` attributes attached (`attr(df, ...)`).
 
-**Algorithm**: Auto-detects properties if not given (`auto_detect_soil_properties()`), validates them (`validate_properties_with_synonyms()`, warnings only), ensures bookkeeping columns (`ensure_infilling_columns()`), then processes in three phases: **Phase 1** foundation properties (`sandtotal`, `claytotal`, `silttotal`, `dbovendry`, `rfv`) via `process_single_property()`; **Phase 2** water retention (`wthirdbar`, `wfifteenbar`) via `infill_water_retention_saxton_rawls_integrated()`, only if texture+bulk-density columns are all present; **Phase 3** remaining ("chemical") properties via `process_single_property()`. Optionally applies `apply_data_filtering()` afterward, and logs a summary (`generate_processing_summary()`) if verbose.
+**Algorithm**: Auto-detects properties if not given (`auto_detect_soil_properties()`), validates them (`validate_properties_with_synonyms()`, warnings only), ensures bookkeeping columns (`ensure_infilling_columns()`), then processes in three phases: **Phase 1** foundation properties (`sandtotal`, `claytotal`, `silttotal`, `dbovendry`, `om`, `rfv` - `om` here so the water-retention step can read it) via `process_single_property()`; **Phase 2** water retention (`wthirdbar`, `wfifteenbar`) - `infill_water_retention_saxton_rawls_integrated(overwrite = FALSE)` where texture + bulk density are all present and `water_retention_method = "saxton_rawls"` (default), followed by a `process_single_property()` generic-hierarchy pass for any remaining gaps; `"generic"` sends water retention straight through the hierarchy (which itself falls back to Saxton-Rawls at strategy 5); **Phase 3** remaining ("chemical") properties via `process_single_property()`. Optionally applies `apply_data_filtering()` afterward, and logs a summary (`generate_processing_summary()`) if verbose.
 
 ### 16. **`infill_rfv_property_integrated(df, max_depth = 250, verbose = FALSE)`**
 
@@ -262,7 +263,7 @@ infill_water_retention_saxton_rawls_integrated(
 
 ## Utility Functions (data-infilling.R)
 
-- **`clean_property_data(df, property_name, validation_config = NULL, generate_report = FALSE, verbose = FALSE)`** - the `infill_soil_property()`-side analog of `clean_property_data_ssurgo_compatible()`: string parsing/type conversion/infinite handling, plus soil-aware outlier detection (`detect_statistical_outliers_soil_aware()`) and `apply_basic_range_limits()` on the `_r` column.
+- **`clean_property_data()`** - see entry 11. `infill_soil_property()` calls it with the default `outlier_policy = "soil_aware"`; the same call `process_ssurgo_data()` now makes.
 - **`get_default_property_config(property_name)`** - returns a built-in config (`type`, `units`, `typical_range`, `fallback_range`, and property-specific flags like `clay_dependent`/`horizon_effects`/`related_properties`) for texture, bulk density, water retention, RFV, CEC, pH, and organic-matter/carbon properties, or a generic fallback.
 - **`create_custom_property_config(property_name, property_type = "generic", units = "unknown", typical_range = NULL, fallback_range = 5, related_properties = NULL, special_options = NULL)`** - builds a custom property config with input validation.
 - **`validate_property_config(config, property_name)`** - checks a config has `type`/`units`/`fallback_range` and well-formed `typical_range`; stops with an error otherwise.
@@ -318,7 +319,7 @@ process_ssurgo_data() [ssurgo-processing.R, MAIN ENTRY]
 │   ├── standardize_property_names()            [utils.R]
 │   ├── is_unsuitable()                         [utils.R]
 │   ├── identify_soil_property_columns_working()
-│   ├── clean_property_data_ssurgo_compatible()  [per property]
+│   ├── clean_property_data(outlier_policy = "soil_aware")  [per property]
 │   │   ├── advanced_string_parser_vectorized()  [data-infilling.R]
 │   │   ├── vectorized_type_conversion()         [data-infilling.R]
 │   │   ├── detect_outliers()                    [utils.R]
@@ -332,7 +333,7 @@ process_ssurgo_data() [ssurgo-processing.R, MAIN ENTRY]
 │   └── calculate_component_stats_working()
 ├── create_infill_compatible_dataset()
 │   ├── is_unsuitable()                          [utils.R]
-│   ├── clean_property_data_ssurgo_compatible()  [per property]
+│   ├── clean_property_data(outlier_policy = "soil_aware")  [per property]
 │   └── ensure_essential_columns_working()
 ├── validate_data_quality()                      [utils.R]
 └── generate_processing_quality_report()

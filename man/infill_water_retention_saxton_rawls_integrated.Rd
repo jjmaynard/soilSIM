@@ -6,7 +6,7 @@
 \usage{
 infill_water_retention_saxton_rawls_integrated(
   df,
-  max_depth = 250,
+  max_depth = DEFAULT_MAX_DEPTH_CM,
   add_ranges = TRUE,
   overwrite = FALSE,
   verbose = FALSE

@@ -4,7 +4,11 @@
 \alias{infill_rfv_property_integrated}
 \title{Enhanced RFV Property Infilling}
 \usage{
-infill_rfv_property_integrated(df, max_depth = 250, verbose = FALSE)
+infill_rfv_property_integrated(
+  df,
+  max_depth = DEFAULT_MAX_DEPTH_CM,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{df}{Input data frame}

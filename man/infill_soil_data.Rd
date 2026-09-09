@@ -2,17 +2,23 @@
 % Please edit documentation in R/ssurgo-simulation.R
 \name{infill_soil_data}
 \alias{infill_soil_data}
-\title{Infill Missing Soil Property Values}
+\title{Infill Missing Soil Property Values (raster-fusion entry point)}
 \usage{
-infill_soil_data(df)
+infill_soil_data(df, water_retention_method = c("saxton_rawls", "generic"))
 }
 \arguments{
 \item{df}{A horizon data frame, as returned by \code{download_ssurgo_tabular()}.}
+
+\item{water_retention_method}{Passed through to \code{\link[=process_soil_properties_comprehensive]{process_soil_properties_comprehensive()}}:
+\code{"saxton_rawls"} (default) derives \code{wthirdbar}/\code{wfifteenbar} via the pedotransfer function
+where texture + bulk density allow; \code{"generic"} sends them through the six-strategy hierarchy.}
 }
 \value{
 \code{df} with missing values infilled where possible.
 }
 \description{
-Loops \code{infill_soil_property()} (\code{R/data-infilling.R}, which already special-cases \code{"rfv"}
-internally) over the standard SSURGO property set.
+Thin wrapper: infills the standard SSURGO property set present in \code{df} via
+\code{\link[=process_soil_properties_comprehensive]{process_soil_properties_comprehensive()}} - the single infilling orchestrator - restricted to
+the columns actually present. Kept as a named entry point because the raster-fusion pipeline
+(\code{simulate_ssurgo_mapunit_draws()}) calls it with a fixed property vocabulary.
 }

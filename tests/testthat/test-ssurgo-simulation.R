@@ -63,6 +63,70 @@ test_that("infill_soil_data() infills the 5 P2 chemistry properties when their _
   expect_true(all(c("caco3_r", "ec_r", "ecec_r", "gypsum_r", "sar_r") %in% names(result)))
 })
 
+make_wr_gap_df <- function() {
+  # Two 1-horizon components with complete texture + BD but an entirely-missing
+  # water-retention triplet: a sandy component and a clayey one. Nothing to borrow a
+  # water-retention value FROM, so the generic hierarchy is stuck - only a pedotransfer
+  # estimate can fill these.
+  sandy <- make_horizon_row(properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "om"),
+                            cokey = "1", mukey = "1",
+                            sandtotal_r = 80, sandtotal_l = 75, sandtotal_h = 85,
+                            claytotal_r = 5, claytotal_l = 3, claytotal_h = 8,
+                            silttotal_r = 15, silttotal_l = 10, silttotal_h = 20)
+  clayey <- make_horizon_row(properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "om"),
+                             cokey = "2", mukey = "1",
+                             sandtotal_r = 15, sandtotal_l = 10, sandtotal_h = 20,
+                             claytotal_r = 55, claytotal_l = 50, claytotal_h = 60,
+                             silttotal_r = 30, silttotal_l = 25, silttotal_h = 35)
+  df <- rbind(sandy, clayey)
+  df$hzname <- c("A", "Bt")
+  df$comppct_r <- c(60, 40)
+  for (col in c("wthirdbar_l", "wthirdbar_r", "wthirdbar_h",
+                "wfifteenbar_l", "wfifteenbar_r", "wfifteenbar_h")) df[[col]] <- NA_real_
+  df
+}
+
+test_that("infill_soil_data() fills water-retention gaps via Saxton-Rawls, texture-consistently", {
+  result <- infill_soil_data(make_wr_gap_df())
+
+  expect_false(anyNA(result$wthirdbar_r))
+  expect_false(anyNA(result$wfifteenbar_r))
+  # texture-consistent: the clay component holds more water than the sand component
+  expect_gt(result$wthirdbar_r[2], result$wthirdbar_r[1])
+  expect_gt(result$wfifteenbar_r[2], result$wfifteenbar_r[1])
+  # _l/_h ranges populated too
+  expect_false(anyNA(result$wthirdbar_l))
+  expect_false(anyNA(result$wthirdbar_h))
+})
+
+test_that("infill_soil_data() water-retention estimate equals the Saxton-Rawls PTF exactly", {
+  df <- make_wr_gap_df()
+  res <- infill_soil_data(df, water_retention_method = "saxton_rawls")
+
+  for (i in 1:2) {
+    expected <- calculate_saxton_rawls_single(
+      sand_pct = df$sandtotal_r[i], clay_pct = df$claytotal_r[i], silt_pct = df$silttotal_r[i],
+      bulk_density = df$dbovendry_r[i], rfv_pct = 0, om_pct = df$om_r[i]
+    )$field_capacity
+    expect_equal(res$wthirdbar_r[i], expected, info = paste("row", i))
+  }
+
+  # With Strategy 5 now also using Saxton-Rawls, the "generic" route converges to the same
+  # values here (no neighbouring horizon has a real wr value to borrow first).
+  gen <- infill_soil_data(df, water_retention_method = "generic")
+  expect_equal(gen$wthirdbar_r, res$wthirdbar_r)
+})
+
+test_that("infill_soil_data() keeps genuine SSURGO water-retention values (overwrite = FALSE)", {
+  df <- make_wr_gap_df()
+  df$wthirdbar_l[1] <- 0.20; df$wthirdbar_r[1] <- 0.25; df$wthirdbar_h[1] <- 0.30
+
+  result <- infill_soil_data(df)
+
+  expect_equal(result$wthirdbar_r[1], 0.25)          # real value untouched
+  expect_false(is.na(result$wthirdbar_r[2]))         # gap filled by Saxton-Rawls
+})
+
 test_that("maybe_adjust_soil_data_depth_trend() passes through cokeys with fewer than min_depths distinct depths", {
   sim_long <- data.frame(
     cokey = "1", hzdept_r = 0, hzdepb_r = 20, simulation_number = 1:5,

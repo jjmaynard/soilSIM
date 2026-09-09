@@ -33,7 +33,7 @@ NULL
 process_ssurgo_data <- function(raw_data,
                                 processing_options = list(),
                                 validate_results = TRUE,
-                                max_depth = 250,
+                                max_depth = DEFAULT_MAX_DEPTH_CM,
                                 verbose = getOption("ssurgo.verbose", FALSE)) {
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -180,7 +180,7 @@ process_horizon_data_working_compatible <- function(raw_data,
                                                     standardize_names = TRUE,
                                                     remove_invalid = TRUE,
                                                     calculate_derived = TRUE,
-                                                    max_depth = 250,
+                                                    max_depth = DEFAULT_MAX_DEPTH_CM,
                                                     verbose = FALSE) {
 
   processing_stats <- list()
@@ -221,8 +221,13 @@ process_horizon_data_working_compatible <- function(raw_data,
     for (prop_base in property_columns) {
       if (verbose) log_message("DEBUG", paste("Cleaning", prop_base), category = "HorizonProcessing")
 
-      cleaning_result <- clean_property_data_ssurgo_compatible(
+      # Soil-aware outlier policy (physically-impossible values only, IQR x 5 otherwise) - the
+      # same policy infill_soil_property() applies. The old generic IQR x 3 here nulled real
+      # tail values that the infilling then had to re-estimate, narrowing the distributions the
+      # Monte Carlo is meant to characterise. "aggressive_iqr" stays available as an opt-in.
+      cleaning_result <- clean_property_data(
         horizon_data, prop_base,
+        outlier_policy = "soil_aware",
         generate_report = TRUE,
         verbose = FALSE
       )
@@ -414,8 +419,9 @@ create_infill_compatible_dataset <- function(raw_data,
     property_columns <- identify_soil_property_columns_working(processed_data)
 
     for (prop_base in property_columns) {
-      cleaning_result <- clean_property_data_ssurgo_compatible(
+      cleaning_result <- clean_property_data(
         processed_data, prop_base,
+        outlier_policy = "soil_aware",
         generate_report = FALSE,
         verbose = FALSE
       )
@@ -428,7 +434,7 @@ create_infill_compatible_dataset <- function(raw_data,
 
   # Apply depth filtering if needed
   if ("hzdepb_r" %in% names(processed_data)) {
-    max_depth <- options$max_depth %||% 250
+    max_depth <- options$max_depth %||% DEFAULT_MAX_DEPTH_CM
     processed_data <- processed_data |>
       dplyr::filter(is.na(hzdepb_r) | hzdepb_r <= max_depth)
   }
@@ -455,125 +461,33 @@ create_infill_compatible_dataset <- function(raw_data,
 # SSURGO-SPECIFIC CLEANING FUNCTIONS
 # ==============================================================================
 
-#' Clean Property Data (SSURGO Compatible)
+#' Clean Property Data (SSURGO Compatible) - deprecated
 #'
-#' Enhanced version incorporating SSURGO-specific cleaning logic while using Module 8 utilities
+#' @description
+#' **Deprecated.** Superseded by [clean_property_data()], which is now the
+#' single property-value cleaner for the package. This shim forwards to it with
+#' `outlier_policy = "aggressive_iqr"` (the generic `IQR x 3` this function used to apply) and
+#' `generate_report = TRUE`, so existing callers keep their exact behavior. New code should call
+#' [clean_property_data()] directly and choose an `outlier_policy` explicitly - `"soil_aware"`
+#' is the recommended default.
 #'
-#' @param df Input data frame
-#' @param property_name Name of the property to clean
-#' @param validation_config Optional validation configuration
-#' @param generate_report Whether to generate detailed quality report
-#' @param verbose Logical; provide progress messages
-#'
-#' @return List containing cleaned data and optional quality report
-#'
-#' @seealso [advanced_string_parser_vectorized()], [vectorized_type_conversion()],
-#'   and [apply_basic_range_limits()] - the string-parsing/range-limit helpers
-#'   this function calls are defined in `data-infilling.R` (migrated from mod03),
-#'   not in this file, after consolidating this file's near-duplicate
-#'   `*_working()`/`*_ssurgo()` versions into those canonical implementations.
+#' @inheritParams clean_property_data
+#' @return List containing cleaned data and (by default) a quality report.
+#' @seealso [clean_property_data()]
+#' @keywords internal
 #' @export
 clean_property_data_ssurgo_compatible <- function(df, property_name,
                                                   validation_config = NULL,
                                                   generate_report = TRUE,
                                                   verbose = FALSE) {
-
-  start_time <- Sys.time()
-  original_df <- df
-
-  property_cols <- paste0(property_name, c("_r", "_l", "_h"))
-  available_cols <- intersect(property_cols, names(df))
-
-  if (length(available_cols) == 0) {
-    if (verbose) log_message("DEBUG", paste("No property columns found for", property_name), category = "Cleaning")
-    return(list(data = df))
-  }
-
-  # Initialize tracking
-  cleaning_actions <- list()
-  type_conversions <- list()
-  outliers_detected <- list()
-  parsing_results <- list()
-
-  for (col in available_cols) {
-    original_vals <- df[[col]]
-    original_type <- class(original_vals)[1]
-
-    # Advanced string parsing for character/factor data using Module 8 utilities
-    if (is.character(original_vals) || is.factor(original_vals)) {
-      parsing_result <- advanced_string_parser_vectorized(original_vals)
-      df[[col]] <- parsing_result$values
-      parsing_results[[col]] <- parsing_result$metadata
-    } else {
-      # Standard numeric conversion
-      df[[col]] <- vectorized_type_conversion(original_vals)
-    }
-
-    # Track type conversions
-    type_conversions[[col]] <- list(
-      from = original_type,
-      to = "numeric",
-      success_rate = sum(is.finite(df[[col]])) / length(df[[col]])
-    )
-
-    # Handle infinite values
-    infinite_mask <- !is.finite(df[[col]])
-    df[[col]][infinite_mask] <- NA
-
-    if (sum(infinite_mask) > 0) {
-      cleaning_actions[[paste0(col, "_infinite")]] <- sum(infinite_mask)
-    }
-
-    # Statistical outlier detection using Module 8 (for _r columns)
-    if (col == paste0(property_name, "_r")) {
-
-      # Apply validation rules if provided
-      if (!is.null(validation_config)) {
-        property_ranges <- list()
-        property_ranges[[property_name]] <- validation_config
-        validation_result <- validate_numeric_ranges(df[col], property_ranges, action = "warn")
-        if (length(validation_result$range_violations) > 0) {
-          n_violations <- validation_result$range_violations[[property_name]]$n_violations
-          cleaning_actions[[paste0(col, "_rule_violations")]] <- n_violations
-        }
-      }
-
-      # Use Module 8 outlier detection
-      outliers <- detect_outliers(df[[col]], method = "iqr", threshold = 3.0)
-      df[[col]][outliers] <- NA
-      outliers_detected[[col]] <- list(
-        outliers = outliers,
-        n_outliers = sum(outliers, na.rm = TRUE)
-      )
-
-      if (sum(outliers, na.rm = TRUE) > 0) {
-        cleaning_actions[[paste0(col, "_statistical_outliers")]] <- sum(outliers, na.rm = TRUE)
-      }
-
-      # Apply basic range limits using SSURGO-specific ranges
-      df[[col]] <- apply_basic_range_limits(df[[col]], property_name)
-    }
-  }
-
-  # Generate quality report if requested
-  if (generate_report) {
-    end_time <- Sys.time()
-
-    report <- list(
-      property = property_name,
-      timestamp = end_time,
-      processing_time = difftime(end_time, start_time, units = "secs"),
-      rows_processed = nrow(df),
-      cleaning_actions = cleaning_actions,
-      type_conversions = type_conversions,
-      outliers_detected = outliers_detected,
-      parsing_results = parsing_results
-    )
-
-    return(list(data = df, report = report))
-  }
-
-  return(list(data = df))
+  .Deprecated("clean_property_data", package = "soilSIM",
+              msg = paste("clean_property_data_ssurgo_compatible() is deprecated;",
+                          "use clean_property_data(..., outlier_policy = \"soil_aware\")."))
+  clean_property_data(df, property_name,
+                      outlier_policy = "aggressive_iqr",
+                      validation_config = validation_config,
+                      generate_report = generate_report,
+                      verbose = verbose)
 }
 
 # ==============================================================================
@@ -639,7 +553,7 @@ calculate_property_completeness_working <- function(df) {
 #' @param max_depth Maximum plausible depth (cm).
 #' @param verbose Logical; log the number of rows removed.
 #' @return `df` with invalid rows removed.
-remove_invalid_horizons_working_compatible <- function(df, max_depth = 250, verbose = FALSE) {
+remove_invalid_horizons_working_compatible <- function(df, max_depth = DEFAULT_MAX_DEPTH_CM, verbose = FALSE) {
   initial_rows <- nrow(df)
 
   # Remove records with invalid depths

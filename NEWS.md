@@ -1,5 +1,34 @@
 # soilSIM 0.1.0.9000 (development version)
 
+## Data infilling consolidation
+
+* **One property-value cleaner.** `clean_property_data()` gains an `outlier_policy` argument
+  (`"soil_aware"` default, `"aggressive_iqr"`, `"none"`) and is now called by both
+  `process_ssurgo_data()` and `infill_soil_property()`.
+  `clean_property_data_ssurgo_compatible()` is **deprecated** - a shim forwarding with
+  `outlier_policy = "aggressive_iqr"`.
+* **`process_ssurgo_data()` now cleans with the soil-aware outlier policy** (physically-impossible
+  values only, conservative `IQR x 5` otherwise) instead of a generic `IQR x 3` on every property.
+  The old policy nulled genuine distribution-tail values that the infilling then re-estimated,
+  narrowing the very distributions the Monte Carlo is meant to characterise. This changes
+  `process_ssurgo_data()` output for AOIs with legitimately wide-spread properties.
+* **Correctness fix**: `simulate_cokey_generalized()` no longer silently disables texture
+  simulation for horizons whose `hzname` doesn't map to a master horizon (e.g. the generic
+  `H1`/`H2`/`H3` designations some SSURGO components use). An `NA` generalized-horizon value used
+  as a list key is write-only, which fed a `NULL` correlation matrix into the texture draw and
+  produced whole map units of `NA` in the raster-fusion output. Such horizons now fall back to the
+  pooled genhz-agnostic correlation matrices.
+* `infill_soil_data()` (the raster-fusion infiller) now mirrors
+  `process_soil_properties_comprehensive()`'s phase structure and derives `wthirdbar`/`wfifteenbar`
+  via the Saxton-Rawls pedotransfer function (`water_retention_method = "saxton_rawls"`, default)
+  rather than the generic recovery hierarchy.
+* `learn_property_ranges()` no longer errors on a tibble whose property has an `_r` column but no
+  `_l`/`_h` columns.
+* New internal constants: `DEFAULT_MAX_DEPTH_CM` (250), `RANGE_FALLBACK_HALFWIDTH` (2),
+  `SAXTON_RAWLS_RANGE_FRAC` (0.15), replacing repeated bare literals.
+
+## Other changes
+
 * Multi-property raster fusion. `simulate_cokey_generalized()`, `simulate_ssurgo_mapunit_draws()`,
   `fetch_ssurgo_percentiles()`, and `extract_mukey_joint_ensemble()` gain a `requested_properties`
   argument that restricts the SSURGO Monte Carlo simulation to the properties actually needed - the

@@ -174,22 +174,28 @@ test_that("remarginalize_ensemble_to_posterior() gives NA (not fabricated values
   list("0-5" = .const_posterior(tmpl, m, s), "5-15" = .const_posterior(tmpl, m, s))
 }
 
-test_that("saxton_rawls_raster() matches calculate_saxton_rawls_single() cell-for-cell", {
+test_that("saxton_rawls_raster() matches calculate_saxton_rawls_single() across a texture x BD x OM x RFV grid", {
+  # Both call the shared coefficient core .saxton_rawls_gravimetric(); the only remaining
+  # difference is the clamp/renorm container ops, which must be numerically identical.
   tmpl <- terra::rast(nrows = 2, ncols = 2, vals = 1)
-  cases <- list(
-    c(45, 18, 37, 1.4, 5, 1.0), c(25, 32, 43, 1.3, 15, 2.5), c(70, 8, 22, 1.6, 0, 0.5),
-    c(50, 25, 40, 1.4, 5, 1.0),   # sand+silt+clay = 115 -> renormalization branch
-    c(30, 20, 35, 1.35, 8, 2.0)   # = 85 -> renormalization branch
-  )
-  for (cc in cases) {
-    single <- calculate_saxton_rawls_single(cc[1], cc[2], cc[3], cc[4], cc[5], cc[6])
-    r <- saxton_rawls_raster(terra::setValues(tmpl, cc[1]), terra::setValues(tmpl, cc[2]),
-                             terra::setValues(tmpl, cc[3]), terra::setValues(tmpl, cc[4]),
-                             terra::setValues(tmpl, cc[5]), terra::setValues(tmpl, cc[6]))
-    expect_equal(terra::values(r$fc)[1], single$field_capacity, tolerance = 0.05,
-                 info = paste(cc, collapse = ","))
-    expect_equal(terra::values(r$wp)[1], single$wilting_point, tolerance = 0.05,
-                 info = paste(cc, collapse = ","))
+  set.seed(3)
+  grid <- expand.grid(sand = c(10, 40, 70, 92), clay = c(3, 15, 35, 58),
+                      bd = c(0.9, 1.4, 1.9), rfv = c(0, 12, 60), om = c(0.2, 2, 8))
+  grid$silt <- pmax(0, 100 - grid$sand - grid$clay)
+  # a handful of rows whose texture triple is deliberately off 100 to exercise renormalisation
+  grid <- rbind(grid, data.frame(sand = c(50, 30), clay = c(25, 20), bd = 1.4, rfv = 5, om = 2,
+                                 silt = c(40, 35)))
+
+  for (i in sample(nrow(grid), 40)) {
+    g <- grid[i, ]
+    single <- calculate_saxton_rawls_single(g$sand, g$clay, g$silt, g$bd, g$rfv, g$om)
+    r <- saxton_rawls_raster(terra::setValues(tmpl, g$sand), terra::setValues(tmpl, g$clay),
+                             terra::setValues(tmpl, g$silt), terra::setValues(tmpl, g$bd),
+                             terra::setValues(tmpl, g$rfv), terra::setValues(tmpl, g$om))
+    info <- paste(unlist(g), collapse = ",")
+    # calculate_saxton_rawls_single() rounds its return to 2dp; the raster path doesn't.
+    expect_equal(round(terra::values(r$fc)[1], 2), single$field_capacity, tolerance = 1e-8, info = info)
+    expect_equal(round(terra::values(r$wp)[1], 2), single$wilting_point, tolerance = 1e-8, info = info)
     expect_lt(terra::values(r$wp)[1], terra::values(r$fc)[1])
   }
 })

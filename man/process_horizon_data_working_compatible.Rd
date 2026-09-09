@@ -11,7 +11,7 @@ process_horizon_data_working_compatible(
   standardize_names = TRUE,
   remove_invalid = TRUE,
   calculate_derived = TRUE,
-  max_depth = 250,
+  max_depth = DEFAULT_MAX_DEPTH_CM,
   verbose = FALSE
 )
 }

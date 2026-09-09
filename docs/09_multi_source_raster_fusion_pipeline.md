@@ -582,15 +582,21 @@ frame.
 
 **Parameters**:
 ```r
-infill_soil_data(df)
-# df - a horizon data frame, as returned by download_ssurgo_tabular()
+infill_soil_data(df, water_retention_method = c("saxton_rawls", "generic"))
+# df                    - a horizon data frame, as returned by download_ssurgo_tabular()
+# water_retention_method - how to fill wthirdbar/wfifteenbar gaps (see Behavior)
 ```
 **Returns**: `df` with missing values infilled where possible.
 
-**Behavior**: Loops `R/data-infilling.R`'s `infill_soil_property()` over
-`sandtotal`/`claytotal`/`silttotal`/`dbovendry`/`wthirdbar`/`wfifteenbar`/`ph1to1h2o`/`cec7`/`om`
-(only if each property's `_r` column is present), then separately infills `rfv` if `rfv_r` is
-present (`infill_soil_property()` already special-cases `"rfv"` internally).
+**Behavior**: A thin wrapper around `process_soil_properties_comprehensive()` (the single
+infilling orchestrator - see `docs/01_data_acquisition_processing.md` entry 15), restricting it
+to whichever of the standard SSURGO property set (`sandtotal`/`claytotal`/`silttotal`/`dbovendry`/
+`om`/`rfv`/`wthirdbar`/`wfifteenbar`/`ph1to1h2o`/`cec7` + the 5 P2 chemistry properties) is
+actually present in `df`, and passing `water_retention_method` through. That orchestrator runs
+three phases - foundation (texture/BD/OM/RFV), water retention (Saxton-Rawls pedotransfer where
+texture + BD allow, `overwrite = FALSE`; generic hierarchy for the rest or under
+`water_retention_method = "generic"`), then the remaining chemical properties - each property
+going through `infill_soil_property()`'s six-strategy hierarchy.
 
 #### 21. `maybe_adjust_soil_data_depth_trend()`
 **Purpose**: Apply depth-trend GP (Gaussian process) adjustment per cokey, guarded by whether the

@@ -300,6 +300,7 @@ reference:
   - fuse_texture_group
   - run_stage1_fusion
   - run_stage1_fusion_group
+  - run_stage1_fusion_multi
   - CACHE_TTL_SECONDS
   - build_cache_key
   - cache_get
@@ -319,7 +320,11 @@ reference:
   - closest_solus_depth_slice
   - solus_depth_window_weights
   - fetch_solus_low_pred_high
+  - fetch_solus_low_pred_high_multi
   - fetch_solus_percentiles
+  - fetch_solus_percentiles_multi
+  - fetch_solus_restriction_depth
+  - fetch_solus_site_level
   - extract_mukey_joint_ensemble
   - remarginalize_ensemble_to_posterior
   - remarginalized_awc

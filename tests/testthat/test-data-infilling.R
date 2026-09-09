@@ -89,13 +89,32 @@ test_that("related_property_estimation() applies the texture sum-to-100 constrai
   expect_equal(res$claytotal_r, 25)  # 100 - 40 - 35
 })
 
-test_that("related_property_estimation() applies clay-based water retention formulas", {
+test_that("related_property_estimation() estimates water retention via Saxton-Rawls when texture + BD are present", {
+  # make_horizon_row() supplies sand/silt/clay/dbovendry by default, so Saxton-Rawls can run -
+  # the strategy uses the pedotransfer function, not the crude clay-linear model, keeping it
+  # consistent with process_soil_properties_comprehensive()'s water-retention phase.
   group <- make_horizon_row(claytotal_r = 30)
   group$wthirdbar_r <- NA_real_
   group$unsuitable_horizon <- FALSE
   config <- get_default_property_config("wthirdbar")
   res <- related_property_estimation(group, "wthirdbar", config)
+
+  expected <- calculate_saxton_rawls_single(
+    sand_pct = group$sandtotal_r, clay_pct = 30, silt_pct = group$silttotal_r,
+    bulk_density = group$dbovendry_r, rfv_pct = 0, om_pct = 2
+  )$field_capacity
+  expect_equal(res$wthirdbar_r, expected)
+  expect_match(res$infill_method, "saxton_rawls")
+})
+
+test_that("related_property_estimation() falls back to the crude clay-linear model only when Saxton-Rawls cannot run", {
+  # No sand / silt / bulk density -> Saxton-Rawls has no inputs -> last-resort clay-linear.
+  group <- data.frame(hzname = "A", claytotal_r = 30, wthirdbar_r = NA_real_,
+                      unsuitable_horizon = FALSE, stringsAsFactors = FALSE)
+  config <- get_default_property_config("wthirdbar")
+  res <- related_property_estimation(group, "wthirdbar", config)
   expect_equal(res$wthirdbar_r, 0.3 * 30 + 10)
+  expect_match(res$infill_method, "clay_linear_lastresort")
 })
 
 test_that("related_property_estimation() applies clay/OM-based CEC estimation", {
@@ -200,21 +219,6 @@ test_that("related_property_estimation()'s vectorized branches match the origina
           }
         }
       }
-    } else if (property_config$type == 'water_retention' && 'claytotal_r' %in% names(group)) {
-      for (idx in which(missing_mask)) {
-        clay_content <- group[['claytotal_r']][idx]
-        if (!is.na(clay_content)) {
-          estimated_value <- if (property_name == 'wthirdbar') {
-            max(0, min(60, 0.3 * clay_content + 10))
-          } else if (property_name == 'wfifteenbar') {
-            max(0, min(40, 0.4 * clay_content + 2))
-          } else NA_real_
-          if (!is.na(estimated_value)) {
-            group[[property_col]][idx] <- estimated_value
-            group <- mark_estimated(group, idx, "related_clay")
-          }
-        }
-      }
     } else if (property_config$type == 'cec') {
       for (idx in which(missing_mask)) {
         clay <- if ('claytotal_r' %in% names(group)) group$claytotal_r[idx] else NA_real_
@@ -296,9 +300,11 @@ test_that("related_property_estimation()'s vectorized branches match the origina
     group
   }
 
+  # water_retention is deliberately excluded here: it is no longer a straight vectorization of the
+  # old per-row loop (it now runs Saxton-Rawls first, clay-linear only as a last resort) - covered
+  # by its own dedicated tests above.
   configs <- list(
     claytotal = get_default_property_config("claytotal"),
-    wthirdbar = get_default_property_config("wthirdbar"),
     cec7 = { c <- get_default_property_config("cec7"); c },
     om = get_default_property_config("om")
   )
@@ -309,7 +315,6 @@ test_that("related_property_estimation()'s vectorized branches match the origina
 
   cases <- list(
     list(property = "claytotal", config = configs$claytotal),
-    list(property = "wthirdbar", config = configs$wthirdbar),
     list(property = "cec7", config = configs$cec7),
     list(property = "ph1to1h2o", config = ph_config),
     list(property = "om", config = configs$om),
@@ -466,4 +471,19 @@ test_that("infill_property_range_values() classifies depth zones correctly (regr
   # Correct (depth_surface) classification -> spread 2, not the depth_deep spread of 10.
   expect_equal(result$testprop_l[target_idx], 8)
   expect_equal(result$testprop_h[target_idx], 12)
+})
+
+test_that("learn_property_ranges() returns the fallback spread (not an error) when _l/_h columns are absent", {
+  # Regression: a point-estimate source has only _r. Without the guard, `df[[l_col]]` is NULL,
+  # `complete_mask` collapses to logical(0), and `df[complete_mask, ]` errors on a tibble.
+  cfg <- get_default_property_config("claytotal")
+  for (ctor in list(data.frame, tibble::tibble)) {
+    df <- ctor(claytotal_r = c(15, 22, 30))
+    r <- learn_property_ranges(df, "claytotal", cfg)
+    expect_equal(r$default_spread, as.numeric(cfg$fallback_range))
+  }
+  # infill_property_range_values() then still produces _l/_h from that fallback
+  out <- infill_property_range_values(tibble::tibble(hzname = "A", claytotal_r = 20), "claytotal", cfg)
+  expect_false(is.na(out$claytotal_l))
+  expect_false(is.na(out$claytotal_h))
 })

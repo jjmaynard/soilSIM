@@ -2,7 +2,7 @@
 % Please edit documentation in R/ssurgo-processing.R
 \name{clean_property_data_ssurgo_compatible}
 \alias{clean_property_data_ssurgo_compatible}
-\title{Clean Property Data (SSURGO Compatible)}
+\title{Clean Property Data (SSURGO Compatible) - deprecated}
 \usage{
 clean_property_data_ssurgo_compatible(
   df,
@@ -13,26 +13,29 @@ clean_property_data_ssurgo_compatible(
 )
 }
 \arguments{
-\item{df}{Input data frame}
+\item{df}{Input data frame.}
 
-\item{property_name}{Name of the property to clean}
+\item{property_name}{Name of the property to clean.}
 
-\item{validation_config}{Optional validation configuration}
+\item{validation_config}{Optional per-property range rule (a \code{list(min=, max=)}-shaped entry);
+violations are counted into the report, values are not changed.}
 
-\item{generate_report}{Whether to generate detailed quality report}
+\item{generate_report}{Whether to return a cleaning report alongside the data.}
 
-\item{verbose}{Logical; provide progress messages}
+\item{verbose}{Whether to provide progress messages.}
 }
 \value{
-List containing cleaned data and optional quality report
+List containing cleaned data and (by default) a quality report.
 }
 \description{
-Enhanced version incorporating SSURGO-specific cleaning logic while using Module 8 utilities
+\strong{Deprecated.} Superseded by \code{\link[=clean_property_data]{clean_property_data()}}, which is now the
+single property-value cleaner for the package. This shim forwards to it with
+\code{outlier_policy = "aggressive_iqr"} (the generic \verb{IQR x 3} this function used to apply) and
+\code{generate_report = TRUE}, so existing callers keep their exact behavior. New code should call
+\code{\link[=clean_property_data]{clean_property_data()}} directly and choose an \code{outlier_policy} explicitly - \code{"soil_aware"}
+is the recommended default.
 }
 \seealso{
-\code{\link[=advanced_string_parser_vectorized]{advanced_string_parser_vectorized()}}, \code{\link[=vectorized_type_conversion]{vectorized_type_conversion()}},
-and \code{\link[=apply_basic_range_limits]{apply_basic_range_limits()}} - the string-parsing/range-limit helpers
-this function calls are defined in \code{data-infilling.R} (migrated from mod03),
-not in this file, after consolidating this file's near-duplicate
-\verb{*_working()}/\verb{*_ssurgo()} versions into those canonical implementations.
+\code{\link[=clean_property_data]{clean_property_data()}}
 }
+\keyword{internal}

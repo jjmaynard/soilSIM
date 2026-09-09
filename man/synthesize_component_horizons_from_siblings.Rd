@@ -33,9 +33,9 @@ Horizons are aligned by \code{classify_genhz(hzname)} group (\code{O}/\code{A}/\
 position or depth bin - robust to sibling profiles having different horizon counts or depths.
 Sibling rows whose \code{hzname} doesn't classify (\code{classify_genhz()} returns \code{NA}) are dropped from
 averaging entirely rather than guessed at - verified before choosing this: no depth-or-property-
-based genhz fallback exists anywhere else in soilSIM to reuse (\code{classify_genhz()} itself and the
-separate \code{aqp::generalizeHz()} usage in \code{R/depth-simulation.R} are both purely \code{hzname}-regex
-matchers).
+based genhz fallback exists anywhere in soilSIM. \code{classify_genhz()} is the package's single
+hzname-to-generalized-horizon mapper (used here, in the SSURGO simulation path, and in the
+OSD boundary-distinctness lookup in \code{R/depth-simulation.R}).
 }
 
 \section{Averaging rule per genhz group}{

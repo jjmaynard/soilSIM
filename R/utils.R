@@ -1567,7 +1567,7 @@ get_default_configuration <- function(config_type = "full") {
     ),
 
     data_processing = list(
-      max_depth = 250,
+      max_depth = DEFAULT_MAX_DEPTH_CM,
       exclude_unsuitable_horizons = TRUE,
       depth_units = "cm",
       missing_value_strategy = "interpolate"

@@ -147,19 +147,11 @@ saxton_rawls_raster <- function(sand, clay, silt, db, rfv, om) {
   rfvf <- terra::clamp(rfv, 0, 95) / 100
   omf <- terra::clamp(om, 0.1, 50) / 100
 
-  theta_s <- -0.251 * s + 0.195 * cl + 0.011 * omf + 0.006 * s * omf -
-    0.027 * cl * omf + 0.452 * s * cl + 0.299
+  # Shared coefficient core - identical arithmetic to calculate_saxton_rawls_single(), one copy.
+  core <- .saxton_rawls_gravimetric(s, cl, omf)
 
-  A <- exp(log(33) + 1.54 * s + 0.95 * cl + 0.025 * omf - 0.351 * s * omf -
-             0.023 * cl * omf - 0.427 * s * cl + 0.015 * s^2 * cl^2)
-  fc_g <- theta_s * (A / (A + 0.31))^0.17
-
-  B <- exp(log(1500) + 0.02 * cl^2 + 0.14 * s - 0.0002 * s^2 * cl -
-             0.002 * cl^2 * s - 0.0002 * cl^2 * omf + 0.0003 * cl^2 * s * omf)
-  wp_g <- theta_s * (B / (B + 0.31))^0.17
-
-  fc_v <- terra::clamp(fc_g * dbc * (1 - rfvf) * 100, 3, 65)
-  wp_v <- terra::clamp(wp_g * dbc * (1 - rfvf) * 100, 1, 45)
+  fc_v <- terra::clamp(core$fc_g * dbc * (1 - rfvf) * 100, 3, 65)
+  wp_v <- terra::clamp(core$wp_g * dbc * (1 - rfvf) * 100, 1, 45)
   wp_v <- terra::ifel(wp_v >= fc_v, fc_v * 0.6, wp_v)
   list(fc = fc_v, wp = wp_v)
 }

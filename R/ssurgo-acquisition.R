@@ -554,9 +554,9 @@ fetch_ssurgo_all_components_working <- function(mukey_list, verbose = FALSE) {
 #' position or depth bin - robust to sibling profiles having different horizon counts or depths.
 #' Sibling rows whose `hzname` doesn't classify (`classify_genhz()` returns `NA`) are dropped from
 #' averaging entirely rather than guessed at - verified before choosing this: no depth-or-property-
-#' based genhz fallback exists anywhere else in soilSIM to reuse (`classify_genhz()` itself and the
-#' separate `aqp::generalizeHz()` usage in `R/depth-simulation.R` are both purely `hzname`-regex
-#' matchers).
+#' based genhz fallback exists anywhere in soilSIM. `classify_genhz()` is the package's single
+#' hzname-to-generalized-horizon mapper (used here, in the SSURGO simulation path, and in the
+#' OSD boundary-distinctness lookup in `R/depth-simulation.R`).
 #'
 #' @section Averaging rule per genhz group:
 #' \itemize{
@@ -1678,7 +1678,7 @@ create_download_metadata <- function(start_time, end_time, aoi_wkt, properties, 
 #' @export
 download_and_prepare_ssurgo <- function(aoi_wkt,
                                         properties = c("clay", "sand", "silt", "db", "ph", "cec", "rfv", "w3b", "w15b"),
-                                        max_depth = 250,
+                                        max_depth = DEFAULT_MAX_DEPTH_CM,
                                         cache_dir = NULL,
                                         verbose = FALSE) {
 

@@ -9,12 +9,19 @@ NULL
 
 #' Comprehensive Soil Property Processing
 #'
-#' Complete soil property processing workflow that handles multiple properties
-#' with automatic exclusion of unsuitable horizons and intelligent infilling strategies.
+#' The single property-infilling orchestrator. Infills a whole property set in three phases -
+#' foundation (texture, bulk density, organic matter, rock fragments), water retention, then the
+#' remaining chemical properties - each property going through [infill_soil_property()]'s
+#' six-strategy hierarchy, with unsuitable horizons excluded throughout.
+#' [infill_soil_data()] is a thin wrapper that calls this with the standard SSURGO property set.
 #'
 #' @param df Input soil data frame
 #' @param properties Vector of properties to process (NULL = auto-detect)
 #' @param max_depth Maximum depth for processing (default: 250 cm)
+#' @param water_retention_method How to fill `wthirdbar`/`wfifteenbar`: `"saxton_rawls"` (default)
+#'   runs the Saxton-Rawls pedotransfer function where texture + bulk density allow and the
+#'   generic hierarchy elsewhere; `"generic"` sends water retention through the six-strategy
+#'   hierarchy like any other property (which itself falls back to Saxton-Rawls at strategy 5).
 #' @param remove_unsuitable Whether to remove unsuitable horizons from output
 #' @param remove_incomplete Whether to remove incomplete rows
 #' @param required_properties Vector of properties that must be complete
@@ -25,11 +32,13 @@ NULL
 #' @export
 process_soil_properties_comprehensive <- function(df,
                                                   properties = NULL,
-                                                  max_depth = 250,
+                                                  max_depth = DEFAULT_MAX_DEPTH_CM,
+                                                  water_retention_method = c("saxton_rawls", "generic"),
                                                   remove_unsuitable = FALSE,
                                                   remove_incomplete = FALSE,
                                                   required_properties = NULL,
                                                   verbose = getOption("ssurgo.verbose", FALSE)) {
+  water_retention_method <- match.arg(water_retention_method)
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
@@ -65,8 +74,10 @@ process_soil_properties_comprehensive <- function(df,
   # Step 3: Process properties by category for optimal results
   processing_log <- list()
 
-  # Phase 1: Foundation properties (texture, bulk density, rock fragments)
-  foundation_props <- intersect(c("sandtotal", "claytotal", "silttotal", "dbovendry", "rfv"), properties)
+  # Phase 1: Foundation properties (texture, bulk density, organic matter, rock fragments).
+  # `om` is here (not with the chemical properties in Phase 3) so the Saxton-Rawls water-retention
+  # step below - which reads `om_r`/`rfv_r` - sees infilled values, not the raw gaps.
+  foundation_props <- intersect(c("sandtotal", "claytotal", "silttotal", "dbovendry", "om", "rfv"), properties)
 
   if (length(foundation_props) > 0) {
     if (verbose) log_message("INFO", "Phase 1: Processing foundation properties", category = "Infilling")
@@ -80,26 +91,29 @@ process_soil_properties_comprehensive <- function(df,
     }
   }
 
-  # Phase 2: Water retention estimation (if texture + BD available)
+  # Phase 2: Water retention.
   water_ret_props <- intersect(c("wthirdbar", "wfifteenbar"), properties)
 
   if (length(water_ret_props) > 0) {
     texture_bd_available <- all(paste0(c("sandtotal", "claytotal", "silttotal", "dbovendry"), "_r") %in% names(df))
 
-    if (texture_bd_available) {
+    if (water_retention_method == "saxton_rawls" && texture_bd_available) {
       if (verbose) log_message("INFO", "Phase 2: Estimating water retention using Saxton-Rawls", category = "Infilling")
+      df <- infill_water_retention_saxton_rawls_integrated(df, max_depth = max_depth,
+                                                          overwrite = FALSE, verbose = verbose)
+    }
 
-      df <- infill_water_retention_saxton_rawls_integrated(df, max_depth = max_depth, verbose = verbose)
-
-      # Track water retention results
-      for (prop in water_ret_props) {
-        r_col <- paste0(prop, "_r")
-        if (r_col %in% names(df)) {
-          processing_log[[prop]] <- list(
-            method = "saxton_rawls",
-            estimated_values = sum(!is.na(df[[r_col]]))
-          )
-        }
+    # Generic-hierarchy pass for any gaps Saxton-Rawls could not reach (incomplete texture/BD),
+    # or for the whole set under water_retention_method = "generic".
+    for (prop in water_ret_props) {
+      r_col <- paste0(prop, "_r")
+      if (r_col %in% names(df) && any(is.na(df[[r_col]]))) {
+        result <- process_single_property(df, prop, max_depth, verbose)
+        df <- result$data
+        processing_log[[prop]] <- result$log
+      } else if (r_col %in% names(df)) {
+        processing_log[[prop]] <- list(method = "saxton_rawls",
+                                       estimated_values = sum(!is.na(df[[r_col]])))
       }
     }
   }
@@ -157,7 +171,7 @@ process_soil_properties_comprehensive <- function(df,
 infill_soil_property <- function(df,
                                  property_name,
                                  property_config = NULL,
-                                 max_depth = 250,
+                                 max_depth = DEFAULT_MAX_DEPTH_CM,
                                  verbose = getOption("ssurgo.verbose", FALSE)) {
 
   if (!is.character(property_name) || length(property_name) != 1) {
@@ -203,12 +217,12 @@ infill_soil_property <- function(df,
     depth_mask <- rep(TRUE, nrow(df))
   }
 
-  # Identify problematic horizons (missing data in suitable horizons within depth limit)
-  problematic_mask <- is.na(df[[r_col]]) &
-    !df$unsuitable_horizon &
-    depth_mask
+  # Any problematic horizons at all? (missing data in a suitable, in-depth horizon.) Only used
+  # for the fast-path early return below - process_property_group() and the whole-dataset
+  # Strategy 4/5/6 passes each compute their own mask for the rows they actually see.
+  any_problematic <- any(is.na(df[[r_col]]) & !df$unsuitable_horizon & depth_mask)
 
-  if (!any(problematic_mask)) {
+  if (!any_problematic) {
     if (verbose) {
       log_message("INFO", "No missing values found in suitable horizons", category = "Infilling")
     }
@@ -228,12 +242,12 @@ infill_soil_property <- function(df,
 
     df <- df |>
       dplyr::group_by(!!rlang::sym(group_col)) |>
-      dplyr::group_modify(~ process_property_group(.x, property_name, problematic_mask,
+      dplyr::group_modify(~ process_property_group(.x, property_name,
                                                    property_config, max_depth, verbose)) |>
       dplyr::ungroup()
   } else {
     # Process entire dataset as one group
-    df <- process_property_group(df, property_name, problematic_mask,
+    df <- process_property_group(df, property_name,
                                  property_config, max_depth, verbose)
   }
 
@@ -279,32 +293,48 @@ infill_soil_property <- function(df,
 # 2. HORIZON SUITABILITY AND DATA CLEANING
 # ==============================================================================
 
-#' Enhanced Property Data Cleaning
+#' Property Data Cleaning
 #'
-#' Advanced data cleaning with statistical outlier detection, string parsing,
-#' and quality reporting optimized for soil property infilling.
+#' The single property-value cleaner for the whole package: parse string/factor cells to
+#' numeric, null non-finite values, optionally flag statistical outliers, then clamp to
+#' hardcoded physical-plausibility bounds. Both the tabular pipeline
+#' (`process_ssurgo_data()`) and the infilling hierarchy (`infill_soil_property()`) call this.
 #'
-#' @param df Input data frame
-#' @param property_name Name of the property to clean
-#' @param validation_config Optional validation configuration
-#' @param generate_report Whether to generate cleaning report
-#' @param verbose Whether to provide progress messages
+#' @param df Input data frame.
+#' @param property_name Name of the property to clean.
+#' @param outlier_policy How to flag statistical outliers on the `_r` column, before the
+#'   physical-bound clamp:
+#'   \describe{
+#'     \item{`"soil_aware"` (default)}{[detect_statistical_outliers_soil_aware()] - flags only
+#'       physically impossible values for pH / texture / bulk density, and a very conservative
+#'       `IQR x 5` for everything else. The right default for a package whose job is uncertainty
+#'       propagation: a real tail value is signal, not noise.}
+#'     \item{`"aggressive_iqr"`}{generic `IQR x 3` for every property alike (the legacy
+#'       `clean_property_data_ssurgo_compatible()` behavior). Opt-in only.}
+#'     \item{`"none"`}{skip outlier flagging; still parse, null non-finite, and clamp.}
+#'   }
+#' @param validation_config Optional per-property range rule (a `list(min=, max=)`-shaped entry);
+#'   violations are counted into the report, values are not changed.
+#' @param generate_report Whether to return a cleaning report alongside the data.
+#' @param verbose Whether to provide progress messages.
 #'
-#' @return List containing cleaned data and optional report
+#' @return `list(data = <cleaned df>)`, plus `report` when `generate_report = TRUE`.
 #'
 #' @export
 clean_property_data <- function(df,
-                                         property_name,
-                                         validation_config = NULL,
-                                         generate_report = FALSE,
-                                         verbose = FALSE) {
+                                property_name,
+                                outlier_policy = c("soil_aware", "aggressive_iqr", "none"),
+                                validation_config = NULL,
+                                generate_report = FALSE,
+                                verbose = FALSE) {
+
+  outlier_policy <- match.arg(outlier_policy)
 
   if (verbose) {
     log_message("DEBUG", paste("Cleaning property data for:", property_name), category = "DataCleaning")
   }
 
   start_time <- Sys.time()
-  original_df <- df
 
   property_cols <- paste0(property_name, c("_r", "_l", "_h"))
   available_cols <- intersect(property_cols, names(df))
@@ -320,6 +350,7 @@ clean_property_data <- function(df,
   cleaning_actions <- list()
   type_conversions <- list()
   outliers_detected <- list()
+  parsing_results <- list()
 
   for (col in available_cols) {
     original_vals <- df[[col]]
@@ -329,6 +360,7 @@ clean_property_data <- function(df,
     if (is.character(original_vals) || is.factor(original_vals)) {
       parsing_result <- advanced_string_parser_vectorized(original_vals)
       df[[col]] <- parsing_result$values
+      parsing_results[[col]] <- parsing_result$metadata
 
       if (verbose && parsing_result$metadata$success_rate < 0.9) {
         log_message("WARN", paste("Low parsing success rate for", col, ":",
@@ -355,22 +387,41 @@ clean_property_data <- function(df,
       cleaning_actions[[paste0(col, "_infinite")]] <- sum(infinite_mask)
     }
 
-    # Statistical outlier detection for _r columns only
+    # Outlier flagging + physical-bound clamp, for the _r column only
     if (col == paste0(property_name, "_r")) {
-      outlier_result <- detect_statistical_outliers_soil_aware(df[[col]], df, property_name)
 
-      if (outlier_result$statistics$total_outliers > 0) {
-        df[[col]][outlier_result$outliers] <- NA
-        outliers_detected[[col]] <- outlier_result
-        cleaning_actions[[paste0(col, "_outliers")]] <- outlier_result$statistics$total_outliers
-
-        if (verbose) {
-          log_message("DEBUG", paste("Removed", outlier_result$statistics$total_outliers,
-                                     "outliers from", col), category = "DataCleaning")
+      if (!is.null(validation_config)) {
+        property_ranges <- stats::setNames(list(validation_config), property_name)
+        validation_result <- validate_numeric_ranges(df[col], property_ranges, action = "warn")
+        if (length(validation_result$range_violations) > 0) {
+          cleaning_actions[[paste0(col, "_rule_violations")]] <-
+            validation_result$range_violations[[property_name]]$n_violations
         }
       }
 
-      # Apply basic range limits
+      if (outlier_policy == "soil_aware") {
+        outlier_result <- detect_statistical_outliers_soil_aware(df[[col]], df, property_name)
+        n_out <- outlier_result$statistics$total_outliers
+        if (n_out > 0) {
+          df[[col]][outlier_result$outliers] <- NA
+          outliers_detected[[col]] <- outlier_result
+          cleaning_actions[[paste0(col, "_outliers")]] <- n_out
+          if (verbose) {
+            log_message("DEBUG", paste("Removed", n_out, "outliers from", col), category = "DataCleaning")
+          }
+        }
+      } else if (outlier_policy == "aggressive_iqr") {
+        outliers <- detect_outliers(df[[col]], method = "iqr", threshold = 3.0)
+        n_out <- sum(outliers, na.rm = TRUE)
+        df[[col]][outliers] <- NA
+        outliers_detected[[col]] <- list(outliers = outliers, n_outliers = n_out)
+        if (n_out > 0) {
+          cleaning_actions[[paste0(col, "_statistical_outliers")]] <- n_out
+        }
+      }
+
+      # Always: clamp to hardcoded physical-plausibility bounds (this is a sanity clamp, not
+      # an outlier policy - both legacy cleaners ran it unconditionally).
       df[[col]] <- apply_basic_range_limits(df[[col]], property_name)
     }
   }
@@ -386,7 +437,8 @@ clean_property_data <- function(df,
       rows_processed = nrow(df),
       cleaning_actions = cleaning_actions,
       type_conversions = type_conversions,
-      outliers_detected = outliers_detected
+      outliers_detected = outliers_detected,
+      parsing_results = parsing_results
     )
 
     return(list(data = df, report = report))
@@ -949,11 +1001,19 @@ learn_property_ranges <- function(df, property_name, property_config) {
   l_col <- paste0(property_name, "_l")
   h_col <- paste0(property_name, "_h")
 
-  # Ensure columns exist and are numeric
+  fallback_range <- if (is.null(property_config$fallback_range)) 5 else property_config$fallback_range
+
+  # Nothing to learn from unless all three of the _l/_r/_h triplet columns are present. A
+  # point-estimate source (only _r) or a partially-built frame reaches here before
+  # infill_property_range_values() has created _l/_h - guard so `df[[l_col]]` isn't NULL, which
+  # would make `complete_mask` collapse to logical(0) and error on a tibble.
+  if (!all(c(r_col, l_col, h_col) %in% names(df))) {
+    return(list(default_spread = as.numeric(fallback_range)))
+  }
+
+  # Ensure columns are numeric
   for (col in c(r_col, l_col, h_col)) {
-    if (col %in% names(df)) {
-      df[[col]] <- as.numeric(df[[col]])
-    }
+    df[[col]] <- as.numeric(df[[col]])
   }
 
   # Get complete records from suitable horizons only
@@ -969,7 +1029,6 @@ learn_property_ranges <- function(df, property_name, property_config) {
   complete_data <- df[complete_mask, ]
 
   if (nrow(complete_data) == 0) {
-    fallback_range <- ifelse(is.null(property_config$fallback_range), 5, property_config$fallback_range)
     return(list(default_spread = as.numeric(fallback_range)))
   }
 
@@ -1344,7 +1403,7 @@ horizon_name_property_infill <- function(group, property_col, problematic_mask) 
 #' @return Data frame with infilled RFV values
 #'
 #' @export
-infill_rfv_property_integrated <- function(df, max_depth = 250, verbose = FALSE) {
+infill_rfv_property_integrated <- function(df, max_depth = DEFAULT_MAX_DEPTH_CM, verbose = FALSE) {
 
   if (verbose) {
     log_message("INFO", "Processing RFV with specialized handling", category = "RFV")
@@ -1424,7 +1483,7 @@ infill_rfv_property_integrated <- function(df, max_depth = 250, verbose = FALSE)
 #'
 #' @export
 infill_water_retention_saxton_rawls_integrated <- function(df,
-                                                           max_depth = 250,
+                                                           max_depth = DEFAULT_MAX_DEPTH_CM,
                                                            add_ranges = TRUE,
                                                            overwrite = FALSE,
                                                            verbose = FALSE) {
@@ -2414,6 +2473,34 @@ impute_rfv_values <- function(row) {
   return(as.data.frame(row))
 }
 
+#' Saxton-Rawls gravimetric water-retention core (single source of truth)
+#'
+#' The coefficient-bearing heart of the Saxton-Rawls pedotransfer equations, factored out so the
+#' scalar [calculate_saxton_rawls_single()] and the `terra`-native `saxton_rawls_raster()`
+#' (`R/raster-fusion-bridge.R`) share exactly one copy of the regression coefficients. Pure
+#' `Arith`/`Math`-group arithmetic, so it evaluates identically on plain numerics and on
+#' `SpatRaster`s.
+#'
+#' @param s,cl,omf Sand fraction, clay fraction, organic-matter fraction (each 0-1), already
+#'   clamped - and, for the texture pair, renormalized to sum with silt to 1 - by the caller.
+#' @return `list(theta_s =, fc_g =, wp_g =)`: saturation water content and *gravimetric* field
+#'   capacity / wilting point, before any bulk-density / rock-fragment volumetric conversion.
+#' @noRd
+.saxton_rawls_gravimetric <- function(s, cl, omf) {
+  theta_s <- -0.251 * s + 0.195 * cl + 0.011 * omf + 0.006 * s * omf -
+    0.027 * cl * omf + 0.452 * s * cl + 0.299
+
+  A <- exp(log(33) + 1.54 * s + 0.95 * cl + 0.025 * omf - 0.351 * s * omf -
+             0.023 * cl * omf - 0.427 * s * cl + 0.015 * s^2 * cl^2)
+  fc_g <- theta_s * (A / (A + 0.31))^0.17
+
+  B <- exp(log(1500) + 0.02 * cl^2 + 0.14 * s - 0.0002 * s^2 * cl -
+             0.002 * cl^2 * s - 0.0002 * cl^2 * omf + 0.0003 * cl^2 * s * omf)
+  wp_g <- theta_s * (B / (B + 0.31))^0.17
+
+  list(theta_s = theta_s, fc_g = fc_g, wp_g = wp_g)
+}
+
 #' Saxton-Rawls Water Retention Pedotransfer Function (Single Horizon)
 #'
 #' Estimates field capacity and wilting point water content from texture,
@@ -2421,7 +2508,8 @@ impute_rfv_values <- function(row) {
 #' Saxton-Rawls pedotransfer equations (simplified/RFV-corrected variant).
 #' Real, checkable math (not a placeholder) - inputs are clamped to
 #' physically plausible ranges and texture percentages are renormalized to
-#' sum to 100 when off by more than 5 points.
+#' sum to 100 when off by more than 5 points. The coefficient-bearing core is
+#' [.saxton_rawls_gravimetric()], shared with the raster path.
 #'
 #' @param sand_pct,clay_pct,silt_pct Texture percentages (0-100).
 #' @param bulk_density Bulk density (g/cm^3), clamped to `[0.6, 2.5]`.
@@ -2449,24 +2537,10 @@ calculate_saxton_rawls_single <- function(sand_pct, clay_pct, silt_pct, bulk_den
     silt_pct <- silt_pct / texture_sum * 100
   }
 
-  # Convert to fractions
-  sand <- sand_pct / 100
-  clay <- clay_pct / 100
-  om <- om_pct / 100
-
-  # Saxton-Rawls equations (simplified)
-  theta_s <- -0.251 * sand + 0.195 * clay + 0.011 * om + 0.006 * sand * om -
-    0.027 * clay * om + 0.452 * sand * clay + 0.299
-
-  # Field capacity
-  A <- exp(log(33) + 1.54 * sand + 0.95 * clay + 0.025 * om - 0.351 * sand * om -
-             0.023 * clay * om - 0.427 * sand * clay + 0.015 * sand^2 * clay^2)
-  fc_gravimetric <- theta_s * (A / (A + 0.31))^0.17
-
-  # Wilting point
-  B <- exp(log(1500) + 0.02 * clay^2 + 0.14 * sand - 0.0002 * sand^2 * clay -
-             0.002 * clay^2 * sand - 0.0002 * clay^2 * om + 0.0003 * clay^2 * sand * om)
-  wp_gravimetric <- theta_s * (B / (B + 0.31))^0.17
+  # Convert to fractions and run the shared coefficient core
+  core <- .saxton_rawls_gravimetric(sand_pct / 100, clay_pct / 100, om_pct / 100)
+  fc_gravimetric <- core$fc_g
+  wp_gravimetric <- core$wp_g
 
   # Convert to volumetric and apply RFV correction
   rfv_fraction <- rfv_pct / 100
@@ -2481,9 +2555,9 @@ calculate_saxton_rawls_single <- function(sand_pct, clay_pct, silt_pct, bulk_den
     wilting_point <- field_capacity * 0.6
   }
 
-  # Calculate ranges (+/-15% uncertainty)
-  fc_spread <- field_capacity * 0.15
-  wp_spread <- wilting_point * 0.15
+  # Nominal +/- band around the pedotransfer point estimate (a PTF output has no native interval)
+  fc_spread <- field_capacity * SAXTON_RAWLS_RANGE_FRAC
+  wp_spread <- wilting_point * SAXTON_RAWLS_RANGE_FRAC
 
   return(list(
     field_capacity = round(field_capacity, 2),
@@ -2805,21 +2879,55 @@ related_property_estimation <- function(group, property_name, property_config) {
     }
   }
 
-  # Water retention - use clay relationship if available
-  else if (property_config$type == 'water_retention' && 'claytotal_r' %in% names(group)) {
-    clay_content <- group[['claytotal_r']][idx_all]
-    estimated_value <- if (property_name == 'wthirdbar') {
-      pmax(0, pmin(60, 0.3 * clay_content + 10))
-    } else if (property_name == 'wfifteenbar') {
-      pmax(0, pmin(40, 0.4 * clay_content + 2))
-    } else {
-      rep(NA_real_, length(idx_all))
-    }
-    can_estimate <- !is.na(estimated_value)
+  # Water retention. Preferred: the Saxton-Rawls pedotransfer function, per row, wherever the
+  # inputs (sand + silt + clay + bulk density) are present - the same PTF
+  # process_soil_properties_comprehensive() / infill_soil_data() run in their dedicated
+  # water-retention phase, so this strategy stays consistent with them. The crude clay-linear
+  # model is kept ONLY as the genuine last resort, for rows where Saxton-Rawls cannot run.
+  else if (property_config$type == 'water_retention' &&
+           property_name %in% c('wthirdbar', 'wfifteenbar') &&
+           'claytotal_r' %in% names(group)) {
 
-    update_idx <- idx_all[can_estimate]
-    group[[property_col]][update_idx] <- estimated_value[can_estimate]
-    group <- mark_estimated_vec(group, update_idx, "related_clay")
+    sr_cols <- c('sandtotal_r', 'silttotal_r', 'claytotal_r', 'dbovendry_r')
+    have_sr <- all(sr_cols %in% names(group))
+    om_vec  <- if ('om_r'  %in% names(group)) group$om_r[idx_all]  else rep(NA_real_, length(idx_all))
+    rfv_vec <- if ('rfv_r' %in% names(group)) group$rfv_r[idx_all] else rep(NA_real_, length(idx_all))
+    clay_vec <- group[['claytotal_r']][idx_all]
+
+    estimated_value <- rep(NA_real_, length(idx_all))
+    method_tag      <- rep(NA_character_, length(idx_all))
+
+    for (j in seq_along(idx_all)) {
+      i <- idx_all[j]
+      sr_ok <- have_sr && all(is.finite(c(group$sandtotal_r[i], group$silttotal_r[i],
+                                          group$claytotal_r[i], group$dbovendry_r[i])))
+      if (sr_ok) {
+        sr <- tryCatch(calculate_saxton_rawls_single(
+          sand_pct = group$sandtotal_r[i], clay_pct = group$claytotal_r[i],
+          silt_pct = group$silttotal_r[i], bulk_density = group$dbovendry_r[i],
+          rfv_pct = if (is.finite(rfv_vec[j])) rfv_vec[j] else 0,
+          om_pct  = if (is.finite(om_vec[j]))  om_vec[j]  else 2
+        ), error = function(e) NULL)
+        if (!is.null(sr)) {
+          estimated_value[j] <- if (property_name == 'wthirdbar') sr$field_capacity else sr$wilting_point
+          method_tag[j] <- "saxton_rawls"
+        }
+      }
+      if (is.na(estimated_value[j]) && is.finite(clay_vec[j])) {
+        estimated_value[j] <- if (property_name == 'wthirdbar') {
+          max(0, min(60, 0.3 * clay_vec[j] + 10))
+        } else {
+          max(0, min(40, 0.4 * clay_vec[j] + 2))
+        }
+        method_tag[j] <- "clay_linear_lastresort"
+      }
+    }
+
+    for (tag in stats::na.omit(unique(method_tag))) {
+      sel <- idx_all[which(method_tag == tag)]
+      group[[property_col]][sel] <- estimated_value[method_tag == tag]
+      group <- mark_estimated_vec(group, sel, paste0("related_", tag))
+    }
   }
 
   # CEC - use clay and organic matter relationships
@@ -2948,18 +3056,21 @@ calculate_depth_weighted_mean <- function(group, property_col) {
 
 #' Process Property Group Function
 #'
+#' Per-group (`dplyr::group_modify()`-invoked) wrapper for Strategies 1-3. Computes the
+#' problematic-cell mask for *this group* - a group-modify reorders rows into single-group
+#' subsets, so a whole-frame mask can't be passed in - then delegates to
+#' [infill_missing_property_data()].
+#'
 #' @param group Data frame group to process
 #' @param property_name Name of the property to infill
-#' @param problematic_mask Logical vector for problematic horizons (IGNORED - recalculated)
 #' @param property_config Property configuration
 #' @param max_depth Maximum depth for processing
 #' @param verbose Whether to provide progress messages
 #'
 #' @return Data frame with infilled property data
-process_property_group <- function(group, property_name, problematic_mask,
+process_property_group <- function(group, property_name,
                                    property_config, max_depth, verbose) {
 
-  # RECALCULATE problematic_mask for this group to avoid length mismatch
   property_col <- paste0(property_name, "_r")
 
   # Ensure unsuitable horizon detection for this group

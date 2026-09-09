@@ -67,32 +67,32 @@ fetch_ssurgo_mukey_raster <- function(aoi_vect) {
   mukey_raster
 }
 
-#' Infill Missing Soil Property Values
+#' Infill Missing Soil Property Values (raster-fusion entry point)
 #'
-#' Loops `infill_soil_property()` (`R/data-infilling.R`, which already special-cases `"rfv"`
-#' internally) over the standard SSURGO property set.
+#' Thin wrapper: infills the standard SSURGO property set present in `df` via
+#' [process_soil_properties_comprehensive()] - the single infilling orchestrator - restricted to
+#' the columns actually present. Kept as a named entry point because the raster-fusion pipeline
+#' (`simulate_ssurgo_mapunit_draws()`) calls it with a fixed property vocabulary.
 #'
 #' @param df A horizon data frame, as returned by `download_ssurgo_tabular()`.
+#' @param water_retention_method Passed through to [process_soil_properties_comprehensive()]:
+#'   `"saxton_rawls"` (default) derives `wthirdbar`/`wfifteenbar` via the pedotransfer function
+#'   where texture + bulk density allow; `"generic"` sends them through the six-strategy hierarchy.
 #' @return `df` with missing values infilled where possible.
 #' @export
-infill_soil_data <- function(df) {
-  properties <- c("sandtotal", "claytotal", "silttotal", "dbovendry", "wthirdbar",
-                   "wfifteenbar", "ph1to1h2o", "cec7", "om",
-                   # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2) - infilled the
-                   # same way as every other property here (infill_soil_property() is generic over
-                   # any "<name>_l/_r/_h" triplet; get_default_property_config()'s "generic"
-                   # fallback already covers caco3/gypsum/sar, and its "cec" branch already
-                   # recognizes ecec explicitly - see R/data-infilling.R).
-                   "caco3", "ec", "ecec", "gypsum", "sar")
-  for (p in properties) {
-    if (paste0(p, "_r") %in% names(df)) {
-      df <- infill_soil_property(df, p)
-    }
-  }
-  if ("rfv_r" %in% names(df)) {
-    df <- infill_soil_property(df, "rfv")
-  }
-  df
+infill_soil_data <- function(df, water_retention_method = c("saxton_rawls", "generic")) {
+  water_retention_method <- match.arg(water_retention_method)
+
+  standard_props <- c("sandtotal", "claytotal", "silttotal", "dbovendry", "om", "rfv",
+                      "wthirdbar", "wfifteenbar", "ph1to1h2o", "cec7",
+                      "caco3", "ec", "ecec", "gypsum", "sar")
+  present <- standard_props[paste0(standard_props, "_r") %in% names(df)]
+
+  process_soil_properties_comprehensive(
+    df, properties = present,
+    water_retention_method = water_retention_method,
+    verbose = FALSE
+  )
 }
 
 #' Depth-Trend GP Adjustment for a Single Cokey's Data

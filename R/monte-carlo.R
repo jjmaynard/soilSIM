@@ -1668,7 +1668,7 @@ get_monte_carlo_defaults <- function(verbose = getOption("ssurgo.verbose", FALSE
     composition_groups = list(
       texture = list(members = c("sandtotal", "silttotal", "claytotal"), pseudo = c("ilr1", "ilr2"))
     ),
-    max_depth = 250,
+    max_depth = DEFAULT_MAX_DEPTH_CM,
     auto_correlation = FALSE,
     # When auto_correlation estimation can't produce a matrix (too little
     # data), what to fall back to: "identity" (independent simulation,
@@ -2111,12 +2111,12 @@ extract_component_parameters <- function(component_row, config) {
 
   comppct_l <- component_row$comppct_l
   if (is.null(comppct_l) || length(comppct_l) == 0 || is.na(comppct_l)) {
-    comppct_l <- comppct_r - 2
+    comppct_l <- comppct_r - RANGE_FALLBACK_HALFWIDTH
   }
 
   comppct_h <- component_row$comppct_h
   if (is.null(comppct_h) || length(comppct_h) == 0 || is.na(comppct_h)) {
-    comppct_h <- comppct_r + 2
+    comppct_h <- comppct_r + RANGE_FALLBACK_HALFWIDTH
   }
 
   list(min = max(0, comppct_l), mode = comppct_r, max = comppct_h)

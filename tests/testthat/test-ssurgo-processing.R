@@ -88,9 +88,9 @@ test_that("ensure_essential_columns_working() synthesizes cokey/hzname and coerc
   expect_equal(result$hzname, c("Unknown", "Unknown"))
 })
 
-test_that("clean_property_data_ssurgo_compatible() parses character values via the consolidated canonical helpers", {
+test_that("clean_property_data() parses character values via the consolidated canonical helpers", {
   df <- make_raw_ssurgo_fixture()
-  result <- clean_property_data_ssurgo_compatible(df, "sandtotal", generate_report = FALSE)
+  result <- clean_property_data(df, "sandtotal", generate_report = FALSE)
   cleaned_vals <- result$data$sandtotal_r
   expect_true(is.numeric(cleaned_vals))
   # "35-45" -> range midpoint 40; "30" -> 30; "60" -> 60; ">70" -> 70*1.5=105
@@ -100,16 +100,28 @@ test_that("clean_property_data_ssurgo_compatible() parses character values via t
   expect_equal(cleaned_vals[5], 0.1)
 })
 
-test_that("clean_property_data_ssurgo_compatible() applies the union-merged range limits (mod02 partdensity/sand_* bounds now live in apply_basic_range_limits())", {
+test_that("clean_property_data() applies the union-merged range limits regardless of outlier_policy", {
   df <- data.frame(cokey = "1", hzname = "A", hzdept_r = 0, hzdepb_r = 20,
                     partdensity_r = 5.0, sand_vc_r = 95, stringsAsFactors = FALSE)
-  out_pd <- clean_property_data_ssurgo_compatible(df, "partdensity", generate_report = FALSE)$data
+  out_pd <- clean_property_data(df, "partdensity", outlier_policy = "none", generate_report = FALSE)$data
   # 5.0 is outside the merged (2.0, 3.2) bound -> clamped to NA by apply_basic_range_limits()
   expect_true(is.na(out_pd$partdensity_r))
 
-  out_sand_vc <- clean_property_data_ssurgo_compatible(df, "sand_vc", generate_report = FALSE)$data
+  out_sand_vc <- clean_property_data(df, "sand_vc", outlier_policy = "none", generate_report = FALSE)$data
   # 95 is outside the merged (0, 80) bound -> clamped to NA
   expect_true(is.na(out_sand_vc$sand_vc_r))
+})
+
+test_that("clean_property_data() outlier_policy switches between soil-aware and generic IQR", {
+  # a legitimately high but physically-possible clay value: soil-aware keeps it, aggressive_iqr may not
+  df <- data.frame(cokey = "1", hzname = rep("A", 12), hzdept_r = 0, hzdepb_r = 20,
+                   claytotal_r = c(rep(20, 11), 58), stringsAsFactors = FALSE)
+  keep <- clean_property_data(df, "claytotal", outlier_policy = "soil_aware")$data$claytotal_r
+  expect_false(is.na(keep[12]))                       # 58% clay is possible -> kept
+  drop <- clean_property_data(df, "claytotal", outlier_policy = "aggressive_iqr")$data$claytotal_r
+  expect_true(is.na(drop[12]))                        # generic IQR x 3 nulls it
+
+  expect_warning(clean_property_data_ssurgo_compatible(df, "claytotal"), "deprecated")
 })
 
 test_that("process_ssurgo_data() runs end-to-end on the synthetic raw fixture and returns the documented shape", {

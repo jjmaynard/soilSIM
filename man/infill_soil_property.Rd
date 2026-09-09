@@ -8,7 +8,7 @@ infill_soil_property(
   df,
   property_name,
   property_config = NULL,
-  max_depth = 250,
+  max_depth = DEFAULT_MAX_DEPTH_CM,
   verbose = getOption("ssurgo.verbose", FALSE)
 )
 }

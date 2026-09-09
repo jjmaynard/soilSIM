@@ -222,8 +222,8 @@ sim_component_comp <- function(data, n_simulations = 1000) {
     dplyr::select(mukey, cokey, compname, comppct_l, comppct_r, comppct_h) |>
     dplyr::distinct()
 
-  data$comppct_l[is.na(data$comppct_l)] <- data$comppct_r[is.na(data$comppct_l)] - 2
-  data$comppct_h[is.na(data$comppct_h)] <- data$comppct_r[is.na(data$comppct_h)] + 2
+  data$comppct_l[is.na(data$comppct_l)] <- data$comppct_r[is.na(data$comppct_l)] - RANGE_FALLBACK_HALFWIDTH
+  data$comppct_h[is.na(data$comppct_h)] <- data$comppct_r[is.na(data$comppct_h)] + RANGE_FALLBACK_HALFWIDTH
 
   n_components <- nrow(data)
   compositions <- matrix(NA, nrow = n_simulations, ncol = n_components)
@@ -457,6 +457,17 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
   for (i in seq_len(nrow(sim_cokey))) {
     row <- sim_cokey[i, ]
     genhz_val <- as.character(row$genhz)
+    # classify_genhz() returns NA for a raw hzname that doesn't parse into a KSSL-covered
+    # master-horizon category (e.g. the generic "H1"/"H2"/"H3" designations some SSURGO
+    # components use). `as.character(NA)` is NA_character_, and an NA_character_ key is
+    # write-only in a base list: `l[[NA_character_]] <- x` creates an element that
+    # `l[[NA_character_]]` then reads back as NULL. That silently defeated the per-genhz
+    # `pd_txt_corr_cache` below - `txt_corr` came back NULL, `simulate_correlated_triangular()`
+    # got a NULL correlation matrix, and the texture draw failed for EVERY such row (contained
+    # by the tryCatch, but the row then contributed no texture at all). Normalize to a real
+    # string key so all the `[[genhz_val]]` lookups miss cleanly and degrade to the pooled,
+    # genhz-agnostic matrices, which is the intended graceful-degrade behavior.
+    if (is.na(genhz_val) || !nzchar(genhz_val)) genhz_val <- "__unclassified__"
 
     local_corr <- correlation_matrices[[genhz_val]]
     if (is.null(local_corr)) {

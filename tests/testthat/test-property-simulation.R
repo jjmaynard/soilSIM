@@ -226,6 +226,36 @@ test_that("simulate_cokey_generalized() falls back to a pooled texture matrix fo
   expect_true(all(abs(totals - 100) < 1e-6))
 })
 
+test_that("simulate_cokey_generalized() simulates texture for an NA genhz (unclassifiable hzname like 'H1')", {
+  # Regression: as.character(classify_genhz("H1")) is NA_character_, and an NA_character_ list
+  # key is write-only - `pd_txt_corr_cache[[NA]] <- m` then `pd_txt_corr_cache[[NA]]` reads back
+  # NULL. That fed a NULL correlation matrix into simulate_correlated_triangular() and the
+  # texture draw failed for EVERY such row (SSURGO map units with generic H1/H2/H3 designations
+  # ended up with no texture -> NA prior -> white pixels after raster fusion). Distinct from the
+  # genhz = "Z" case above: "Z" is a readable key, NA_character_ is not.
+  set.seed(6)
+  sim_cokey <- make_sim_cokey_data(texture = TRUE, sim_comppct = 30)
+  sim_cokey$genhz <- NA_character_
+  corr <- make_property_correlation_matrices()
+  txt_corr <- make_texture_correlation_matrices()
+
+  result <- expect_no_message(
+    simulate_cokey_generalized(sim_cokey, corr, txt_corr),
+    message = "texture simulation failed"
+  )
+  expect_equal(nrow(result), 30)
+  expect_true(all(c("sand_total", "silt_total", "clay_total") %in% names(result)))
+  totals <- result$sand_total + result$silt_total + result$clay_total
+  expect_true(all(abs(totals - 100) < 1e-6))
+
+  # clay-only request: texture is the only output, so a failed texture draw would drop the
+  # whole cokey (this is exactly the raster-fusion single-property path).
+  set.seed(6)
+  only_clay <- simulate_cokey_generalized(sim_cokey, corr, txt_corr, requested_properties = "clay")
+  expect_equal(nrow(only_clay), 30)
+  expect_true("clay_total" %in% names(only_clay))
+})
+
 test_that("simulate_cokey_generalized()'s per-genhz PD-matrix caching matches the original uncached-per-row computation bit-for-bit", {
   # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4: ensure_positive_definite_matrix(txt_corr) is now
   # cached per genhz_val instead of recomputed identically on every row (Rprof() profiling found

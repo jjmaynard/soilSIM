@@ -7,7 +7,8 @@
 process_soil_properties_comprehensive(
   df,
   properties = NULL,
-  max_depth = 250,
+  max_depth = DEFAULT_MAX_DEPTH_CM,
+  water_retention_method = c("saxton_rawls", "generic"),
   remove_unsuitable = FALSE,
   remove_incomplete = FALSE,
   required_properties = NULL,
@@ -21,6 +22,11 @@ process_soil_properties_comprehensive(
 
 \item{max_depth}{Maximum depth for processing (default: 250 cm)}
 
+\item{water_retention_method}{How to fill \code{wthirdbar}/\code{wfifteenbar}: \code{"saxton_rawls"} (default)
+runs the Saxton-Rawls pedotransfer function where texture + bulk density allow and the
+generic hierarchy elsewhere; \code{"generic"} sends water retention through the six-strategy
+hierarchy like any other property (which itself falls back to Saxton-Rawls at strategy 5).}
+
 \item{remove_unsuitable}{Whether to remove unsuitable horizons from output}
 
 \item{remove_incomplete}{Whether to remove incomplete rows}
@@ -33,6 +39,9 @@ process_soil_properties_comprehensive(
 Data frame with processed and infilled properties
 }
 \description{
-Complete soil property processing workflow that handles multiple properties
-with automatic exclusion of unsuitable horizons and intelligent infilling strategies.
+The single property-infilling orchestrator. Infills a whole property set in three phases -
+foundation (texture, bulk density, organic matter, rock fragments), water retention, then the
+remaining chemical properties - each property going through \code{\link[=infill_soil_property]{infill_soil_property()}}'s
+six-strategy hierarchy, with unsuitable horizons excluded throughout.
+\code{\link[=infill_soil_data]{infill_soil_data()}} is a thin wrapper that calls this with the standard SSURGO property set.
 }

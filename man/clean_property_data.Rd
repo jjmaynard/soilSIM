@@ -2,31 +2,47 @@
 % Please edit documentation in R/data-infilling.R
 \name{clean_property_data}
 \alias{clean_property_data}
-\title{Enhanced Property Data Cleaning}
+\title{Property Data Cleaning}
 \usage{
 clean_property_data(
   df,
   property_name,
+  outlier_policy = c("soil_aware", "aggressive_iqr", "none"),
   validation_config = NULL,
   generate_report = FALSE,
   verbose = FALSE
 )
 }
 \arguments{
-\item{df}{Input data frame}
+\item{df}{Input data frame.}
 
-\item{property_name}{Name of the property to clean}
+\item{property_name}{Name of the property to clean.}
 
-\item{validation_config}{Optional validation configuration}
+\item{outlier_policy}{How to flag statistical outliers on the \verb{_r} column, before the
+physical-bound clamp:
+\describe{
+\item{\code{"soil_aware"} (default)}{\code{\link[=detect_statistical_outliers_soil_aware]{detect_statistical_outliers_soil_aware()}} - flags only
+physically impossible values for pH / texture / bulk density, and a very conservative
+\verb{IQR x 5} for everything else. The right default for a package whose job is uncertainty
+propagation: a real tail value is signal, not noise.}
+\item{\code{"aggressive_iqr"}}{generic \verb{IQR x 3} for every property alike (the legacy
+\code{clean_property_data_ssurgo_compatible()} behavior). Opt-in only.}
+\item{\code{"none"}}{skip outlier flagging; still parse, null non-finite, and clamp.}
+}}
 
-\item{generate_report}{Whether to generate cleaning report}
+\item{validation_config}{Optional per-property range rule (a \code{list(min=, max=)}-shaped entry);
+violations are counted into the report, values are not changed.}
 
-\item{verbose}{Whether to provide progress messages}
+\item{generate_report}{Whether to return a cleaning report alongside the data.}
+
+\item{verbose}{Whether to provide progress messages.}
 }
 \value{
-List containing cleaned data and optional report
+\verb{list(data = <cleaned df>)}, plus \code{report} when \code{generate_report = TRUE}.
 }
 \description{
-Advanced data cleaning with statistical outlier detection, string parsing,
-and quality reporting optimized for soil property infilling.
+The single property-value cleaner for the whole package: parse string/factor cells to
+numeric, null non-finite values, optionally flag statistical outliers, then clamp to
+hardcoded physical-plausibility bounds. Both the tabular pipeline
+(\code{process_ssurgo_data()}) and the infilling hierarchy (\code{infill_soil_property()}) call this.
 }

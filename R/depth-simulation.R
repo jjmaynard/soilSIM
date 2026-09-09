@@ -126,12 +126,7 @@ query_osd_distinctness <- function(horizon_data) {
 
   # Ensure 'genhz' column exists in ssurgo_horizon_data
   if (!"genhz" %in% colnames(ssurgo_horizon_data)) {
-    ssurgo_horizon_data$genhz <- aqp::generalizeHz(
-      ssurgo_horizon_data$hzname,
-      new = c('O', 'A', 'B', 'C', 'Cr', 'R'),
-      pattern = c('O', '^A', '^B', '^C', '^Cr', '^R'),
-      ordered = TRUE
-    )
+    ssurgo_horizon_data$genhz <- classify_genhz(ssurgo_horizon_data$hzname)
   }
 
   # Rename 'compname' to 'id'
@@ -145,12 +140,7 @@ query_osd_distinctness <- function(horizon_data) {
   osd_horizon_data <- fetch_osd_horizons_cached(unique(horizon_data$compname))
 
   # Generate generalized horizon codes for the OSD data
-  osd_horizon_data$genhz <- aqp::generalizeHz(
-    osd_horizon_data$hzname,
-    new = c('O', 'A', 'B', 'C', 'Cr', 'R'),
-    pattern = c('O', '^\\d*A', '^\\d*B', '^\\d*C', '^\\d*Cr', '^\\d*R'),
-    ordered = TRUE
-  )
+  osd_horizon_data$genhz <- classify_genhz(osd_horizon_data$hzname)
 
   # Identify missing genhz values in ssurgo_horizon_data that are not in osd_horizon_data
   missing_genhz <- setdiff(ssurgo_horizon_data$genhz, osd_horizon_data$genhz)
@@ -339,12 +329,7 @@ infill_missing_distinctness <- function(horizon_data) {
 
   # Assign a generalized horizon group (genhz) if it's not already present
   if (!"genhz" %in% colnames(horizon_data)) {
-    horizon_data$genhz <- aqp::generalizeHz(
-      horizon_data$hzname,
-      new = c('O', 'A', 'E', 'B', 'C', 'Cr', 'R'),
-      pattern = c('O', '^\\d*A', '^\\d*E', '^\\d*B', '^\\d*C', '^\\d*Cr', '^\\d*R'),
-      ordered = TRUE
-    )
+    horizon_data$genhz <- classify_genhz(horizon_data$hzname)
   }
 
   # Function to assign default distinctness based on horizon name or generalized horizon group
@@ -405,31 +390,30 @@ infill_missing_distinctness <- function(horizon_data) {
 #' infill_missing_depth_variability(data)
 #' @export
 infill_missing_depth_variability <- function(horizon_data) {
-  # Infill missing top low values (hzdept_l) with hzdept_r - 2, ensuring non-negative results
+  hw <- RANGE_FALLBACK_HALFWIDTH
+
+  # Missing low/high depth bounds -> representative -/+ hw cm, ensuring non-negative results.
   horizon_data$hzdept_l <- ifelse(
     is.na(horizon_data$hzdept_l),
-    pmax(horizon_data$hzdept_r - 2, 0),
+    pmax(horizon_data$hzdept_r - hw, 0),
     horizon_data$hzdept_l
   )
 
-  # Infill missing top high values (hzdept_h) with hzdept_r + 2
   horizon_data$hzdept_h <- ifelse(
     is.na(horizon_data$hzdept_h),
-    pmax(horizon_data$hzdept_r + 2, 0),
+    pmax(horizon_data$hzdept_r + hw, 0),
     horizon_data$hzdept_h
   )
 
-  # Infill missing bottom low values (hzdepb_l) with hzdepb_r - 2
   horizon_data$hzdepb_l <- ifelse(
     is.na(horizon_data$hzdepb_l),
-    pmax(horizon_data$hzdepb_r - 2, 0),
+    pmax(horizon_data$hzdepb_r - hw, 0),
     horizon_data$hzdepb_l
   )
 
-  # Infill missing bottom high values (hzdepb_h) with hzdepb_r + 2
   horizon_data$hzdepb_h <- ifelse(
     is.na(horizon_data$hzdepb_h),
-    pmax(horizon_data$hzdepb_r + 2, 0),
+    pmax(horizon_data$hzdepb_r + hw, 0),
     horizon_data$hzdepb_h
   )
 
@@ -754,12 +738,7 @@ simulate_and_perturb_soil_profiles <- function(soil_profile) {
                   hzdept_l, hzdept_r, hzdept_h, hzdepb_l, hzdepb_r, hzdepb_h, hzthk_l, sim_comppct)
 
   horizon_data <- aqp::horizons(soil_profile)
-  horizon_data$genhz <- aqp::generalizeHz(
-    horizon_data$hzname,
-    new = c('O','A','B','C','Cr','R'),
-    pattern = c('O', '^\\d*A','^\\d*B','^\\d*C','^\\d*Cr','^\\d*R'),
-    ordered = TRUE
-  )
+  horizon_data$genhz <- classify_genhz(horizon_data$hzname)
   n_simulations <- unique(horizon_data$sim_comppct)  # Set number of simulations based on sim_comppct
 
   # Check if there's only one horizon (e.g., R horizon only)
@@ -780,12 +759,7 @@ simulate_and_perturb_soil_profiles <- function(soil_profile) {
 
   # Step 1 (continued): Simulate soil profile thickness
   simulated_thickness <- simulate_soil_profile_thickness(horizon_data, n_simulations)
-  simulated_thickness$genhz <- aqp::generalizeHz(
-    simulated_thickness$hzname,
-    new = c('O','A','B','C','Cr','R'),
-    pattern = c('O', '^\\d*A','^\\d*B','^\\d*C','^\\d*Cr','^\\d*R'),
-    ordered = TRUE
-  )
+  simulated_thickness$genhz <- classify_genhz(simulated_thickness$hzname)
 
   # Step 2: Query OSD distinctness and get bound_sd values
   distinctness_data <- query_osd_distinctness(horizon_data)

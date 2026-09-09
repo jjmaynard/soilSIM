@@ -7,7 +7,6 @@
 process_property_group(
   group,
   property_name,
-  problematic_mask,
   property_config,
   max_depth,
   verbose
@@ -17,8 +16,6 @@ process_property_group(
 \item{group}{Data frame group to process}
 
 \item{property_name}{Name of the property to infill}
-
-\item{problematic_mask}{Logical vector for problematic horizons (IGNORED - recalculated)}
 
 \item{property_config}{Property configuration}
 
@@ -30,5 +27,8 @@ process_property_group(
 Data frame with infilled property data
 }
 \description{
-Process Property Group Function
+Per-group (\code{dplyr::group_modify()}-invoked) wrapper for Strategies 1-3. Computes the
+problematic-cell mask for \emph{this group} - a group-modify reorders rows into single-group
+subsets, so a whole-frame mask can't be passed in - then delegates to
+\code{\link[=infill_missing_property_data]{infill_missing_property_data()}}.
 }
