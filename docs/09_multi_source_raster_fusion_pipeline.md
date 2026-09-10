@@ -389,13 +389,13 @@ point-estimate output layer per member; the full `ilr_mu`/`ilr_Sigma` rasters ar
 (shared across all three members) so callers can draw posterior samples for a specific fraction/
 cell via `sample_ilr_posterior()`.
 
-#### 15. `run_stage1_fusion()` — top-level AOI orchestrator (non-compositional)
+#### 15. `run_fusion()` — top-level AOI orchestrator (non-compositional)
 **Purpose**: Run the complete prior-fetch → likelihood-fetch → align → fuse pipeline for one
 property/depth window over an AOI, with disk caching at every fetch step.
 
 **Parameters**:
 ```r
-run_stage1_fusion(aoi_vect, property_config, top_depth, bottom_depth,
+run_fusion(aoi_vect, property_config, top_depth, bottom_depth,
                    composition_groups = NULL, property_configs = NULL)
 # aoi_vect            - a terra::SpatVector AOI (projected, e.g. EPSG:5070)
 # property_config     - list with id (used as fetch_ssurgo_percentiles()'s property id and as
@@ -404,14 +404,14 @@ run_stage1_fusion(aoi_vect, property_config, top_depth, bottom_depth,
 #                        composition_group as needed by fuse_property_adaptive()
 # top_depth, bottom_depth - numeric depth bounds in cm
 # composition_groups, property_configs - only needed when property_config$composition_group
-#                        is set; passed through to run_stage1_fusion_group()
+#                        is set; passed through to run_fusion_group()
 ```
 **Returns**: `list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=,
 route_detail=, n_fallback_cells=)`, or `NULL` if the SSURGO or SOLUS side failed. `posterior`'s
 shape depends on `dist` — see `fuse_property_adaptive()`.
 
 **Behavior**: If `property_config$composition_group` is set, delegates entirely to
-`run_stage1_fusion_group()` and slices out this property's own result. Otherwise: builds a cache key
+`run_fusion_group()` and slices out this property's own result. Otherwise: builds a cache key
 via `build_cache_key(..., "ssurgo")`, checks `cache_get()`/`unwrap_percentile_list()`, and on a miss
 calls `fetch_ssurgo_percentiles()` and caches the result (`wrap_percentile_list()` first, per
 `cache.R`'s known limitation); repeats the same cache-or-fetch pattern for the SOLUS side
@@ -429,18 +429,18 @@ not bit-identical to, a full-property simulation's matching column (the pipeline
 fresh draw either way), and a map unit whose components carry no data for *this one* property no
 longer benefits from those components' other properties being present, so a single-property prior
 can be `NA` for a few cells a full-property run would have covered. The restriction is honoured
-only under the default `vertical_correlation_method = "joint_copula"`; `run_stage1_fusion()` never
+only under the default `vertical_correlation_method = "joint_copula"`; `run_fusion()` never
 forwards a `config`, so it always gets that method. An optional `seed` argument makes the whole
 call reproducible given identical upstream SSURGO/SOLUS data; `NULL` (default) is stochastic.
 
-#### 16. `run_stage1_fusion_group()` — top-level AOI orchestrator (compositional)
-**Purpose**: Run the same fetch → align → fuse pipeline as `run_stage1_fusion()`, but for a whole
+#### 16. `run_fusion_group()` — top-level AOI orchestrator (compositional)
+**Purpose**: Run the same fetch → align → fuse pipeline as `run_fusion()`, but for a whole
 compositional group (currently only `"texture"`: clay/sand/silt) jointly, since independent fusion
 per member measurably breaks sum-to-100.
 
 **Parameters**:
 ```r
-run_stage1_fusion_group(aoi_vect, group, composition_groups, property_configs,
+run_fusion_group(aoi_vect, group, composition_groups, property_configs,
                          top_depth, bottom_depth)
 # aoi_vect                 - a terra::SpatVector AOI
 # group                    - a composition group name (e.g. "texture")
@@ -457,37 +457,37 @@ properties get — or `NULL` if any member's SSURGO/SOLUS fetch failed.
 
 **Behavior**: Resolves member ids via `group_members()`. Checks a group-level cache entry (kind
 `"texture_group"`) first; on a miss, fetches each member's SSURGO prior and SOLUS likelihood
-(cache-or-fetch, exactly as in `run_stage1_fusion()`, one `"ssurgo"`/`"solus"` cache entry per
+(cache-or-fetch, exactly as in `run_fusion()`, one `"ssurgo"`/`"solus"` cache entry per
 member so a later single-property request still hits cache), resamples each member's prior onto its
 own SOLUS grid, and — only if every member's fetch succeeded — calls `fuse_texture_group()` once for
 the whole group. The joint result is cached under the group key, and each member's own posterior is
 *also* seeded into a per-property `"posterior"` cache kind, so three sequential
-`run_stage1_fusion()` calls for clay, then sand, then silt trigger the joint fetch+fusion exactly
+`run_fusion()` calls for clay, then sand, then silt trigger the joint fetch+fusion exactly
 once, not three times. The shared simulation is itself restricted to the group's members (which for
 `"texture"` normalizes to "just the sand/silt/clay draw"), skipping the other properties' GP fits.
 
-#### 16b. `run_stage1_fusion_multi()` — many properties, one simulation
+#### 16b. `run_fusion_multiproperty()` — many properties, one simulation
 
 **Purpose**: Fuse many properties (and many depth windows) over an AOI from a **single** SSURGO
-Monte Carlo simulation, instead of one `run_stage1_fusion()` call per property/window — each of
+Monte Carlo simulation, instead of one `run_fusion()` call per property/window — each of
 which re-runs the full (dominant-cost) simulation only to keep one of its ~9 jointly-simulated
 columns.
 
 **Parameters**:
 ```r
-run_stage1_fusion_multi(aoi_vect, property_configs, depth_windows,
+run_fusion_multiproperty(aoi_vect, property_configs, depth_windows,
                          composition_groups = NULL, n_mc = 1000,
                          parallel = FALSE, n_cores = NULL,
                          verbose = FALSE, simplify = FALSE)
 # property_configs  - a NAMED list, keyed by each config's own id, of the same property_config
-#                     lists run_stage1_fusion() takes; a config carrying composition_group is fused
-#                     jointly per run_stage1_fusion_group(), and every member of a referenced group
+#                     lists run_fusion() takes; a config carrying composition_group is fused
+#                     jointly per run_fusion_group(), and every member of a referenced group
 #                     must have its own entry
 # depth_windows     - a non-empty list of c(top, bottom) numeric pairs
 # simplify          - TRUE reduces each leaf to list(percentiles = <named SpatRasters>)
 ```
 **Returns**: a nested named list `result[[config_id]][["<top>-<bottom>"]]`, each leaf a
-`run_stage1_fusion()`-shaped list (or the `texture_ilr` shape for group members), `NULL` on that
+`run_fusion()`-shaped list (or the `texture_ilr` shape for group members), `NULL` on that
 leaf's own failure; the whole call returns `NULL` only if the shared simulation itself fails.
 
 **Behavior**: Validates the configs, partitions them into standalone vs compositional-group, then
@@ -497,12 +497,12 @@ warm and no config uses raw-draws fusion). SOLUS is fetched via one batched
 `fetch_solus_percentiles_multi()` call **per window** (covering every variable any standalone
 config or group member needs at once, S1), falling back to the per-variable scalar
 `fetch_solus_percentiles()` only if that batched request itself errors; results are memoized. Per
-window then per property it calls the same fusion tail `run_stage1_fusion()` uses
-(`stage1_fuse_from_prior_solus()`), and for texture groups the same one `run_stage1_fusion_group()`
+window then per property it calls the same fusion tail `run_fusion()` uses
+(`stage1_fuse_from_prior_solus()`), and for texture groups the same one `run_fusion_group()`
 uses (`stage1_fuse_texture_group_from_fetched()`), **seeding the same per-property
-`"ssurgo"`/`"solus"`/`"posterior"` disk caches** — so a later single-property `run_stage1_fusion()`
+`"ssurgo"`/`"solus"`/`"posterior"` disk caches** — so a later single-property `run_fusion()`
 for the same AOI/property/window is a cache hit. Every leaf therefore shares one draw set, so
-(unlike independent `run_stage1_fusion()` calls) the properties' `NA` masks are mutually
+(unlike independent `run_fusion()` calls) the properties' `NA` masks are mutually
 consistent. The per-window draws are released as each window finishes.
 
 #### 17. `build_cache_key()` / `CACHE_TTL_SECONDS`
@@ -574,13 +574,13 @@ for the map-unit polygons (wrapped in `tryCatch` — a real, encountered failure
 a hypothetical). The polygons are reprojected to the grid's CRS, rasterized onto it by `mukey`
 value via `terra::rasterize()`, and cast to a factor raster via `terra::as.factor()`.
 
-#### 20. `infill_soil_data()`
+#### 20. `infill_ssurgo_data()`
 **Purpose**: Infill missing values across the standard SSURGO property set for one horizon data
 frame.
 
 **Parameters**:
 ```r
-infill_soil_data(df, water_retention_method = c("saxton_rawls", "generic"))
+infill_ssurgo_data(df, water_retention_method = c("saxton_rawls", "generic"))
 # df                    - a horizon data frame, as returned by download_ssurgo_tabular()
 # water_retention_method - how to fill wthirdbar/wfifteenbar gaps (see Behavior)
 ```
@@ -655,7 +655,7 @@ unrecognized id.
 `wthirdbar/water_retention_third_bar -> wr_3b`, `wfifteenbar/water_retention_15_bar -> wr_15b`,
 `caco3`/`ec`/`ecec`/`gypsum`/`sar` -> themselves). The water-retention rows were added 2026-09-02 -
 `simulate_cokey_generalized()` already emitted those columns (`SSURGO_SIM_PROPERTY_COLUMNS` lists
-them) but the id map was incomplete, blocking water-retention `run_stage1_fusion()` (needed by
+them) but the id map was incomplete, blocking water-retention `run_fusion()` (needed by
 `remarginalized_awc()`). The 5 chemistry-property rows self-map, since the SOLUS variable name, the SSURGO
 chorizon column stem, and the id are all identical spellings for these 5.
 
@@ -670,7 +670,7 @@ simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
                               ..., depth_windows = NULL, requested_properties = NULL)
 # aoi_vect                 - a terra::SpatVector AOI
 # top_depth, bottom_depth  - numeric depth window bounds in cm
-# n_mc                     - number of triangular draws sim_component_comp() uses per
+# n_mc                     - number of triangular draws simulate_component_composition() uses per
 #                            component (default 1000)
 # depth_windows            - optional list of c(top, bottom) pairs; simulate once, aggregate per
 #                            window, return a named list of data frames (top_depth/bottom_depth
@@ -698,9 +698,9 @@ via `ssurgo_tabular_cache_key()` (depth-independent as of task L1 — `download_
 takes no depth-window argument and fetches every horizon for every AOI mukey regardless, so one
 AOI's tabular download is shared across every depth window/call requested for it); on a miss, calls
 `R/adapter-ssurgo-acquire.R`'s `download_ssurgo_tabular()` and unwraps its `$ssurgo_data`, caching that
-data frame directly (no `wrap()` needed — it's tabular, not a raster). Then: `infill_soil_data()`;
+data frame directly (no `wrap()` needed — it's tabular, not a raster). Then: `infill_ssurgo_data()`;
 removes organic horizons (`remove_organic_layer()`) if any `hzname` contains `"O"`; derives `genhz`
-via `classify_genhz()`; simulates component composition via `sim_component_comp()` and left-joins
+via `classify_genhz()`; simulates component composition via `simulate_component_composition()` and left-joins
 `sim_comppct` back onto the horizon data by `cokey`; loads the KSSL reference correlation matrices
 via `.kssl_property_matrices()`/`.kssl_texture_matrices()` (already built into `R/sysdata.rda`, not
 re-read from raw files at runtime); per unique `cokey`, calls `simulate_cokey_generalized()`
@@ -863,7 +863,7 @@ the `list(values=, probs=)` shape every fusion route expects.
 
 #### 29b/30b. `fetch_solus_low_pred_high_multi()` / `fetch_solus_percentiles_multi()` — batched multi-variable SOLUS fetch (S1)
 
-**Purpose**: Batched siblings of #29/#30 used by `run_stage1_fusion_multi()`. `soilDB::fetchSOLUS()`
+**Purpose**: Batched siblings of #29/#30 used by `run_fusion_multiproperty()`. `soilDB::fetchSOLUS()`
 accepts `variables`, `depth_slices`, and `output_type` all as vectors simultaneously
 (live-verified 2026-09-04), so every needed variable's low/prediction/high rasters for one window
 can be fetched in **one** `fetchSOLUS()` call instead of `3 * length(solus_variables)` separate
@@ -886,11 +886,11 @@ type, since the needed native slices don't depend on either), issues **one**
 three>, grid = TRUE)` call, then reduces per `(variable, output_type)` exactly as #29 does. A
 single `fetchSOLUS()` error fails the whole batch (every variable's entry becomes
 `list(pred=NULL,low=NULL,high=NULL)`, with a `warning()` — callers fall back to the scalar path,
-as `run_stage1_fusion_multi()`'s A4 SOLUS memo does); a missing layer for just one
+as `run_fusion_multiproperty()`'s A4 SOLUS memo does); a missing layer for just one
 `(variable, output_type)` combo within an otherwise-successful response only nulls that one piece,
 with its own `warning()` naming it. The scalar `fetch_solus_low_pred_high()` /
 `fetch_solus_percentiles()` (#29/#30) are unchanged and remain what single-property
-`run_stage1_fusion()` uses.
+`run_fusion()` uses.
 
 ### Per-pixel ensemble bridge (core-fusion.R)
 
@@ -926,7 +926,7 @@ mukey-collapsed comparison arm for the benchmark; gated `internal` pending
 
 #### 34. `remarginalized_awc()`
 Per-pixel available water capacity from the re-marginalized stacks, per realization, then per-pixel
-percentiles, clamped at 0. Does **not** use `calculate_aws_df()` (ROSETTA network POST + own MC -
+percentiles, clamped at 0. Does **not** use `compute_aws()` (ROSETTA network POST + own MC -
 can't run per pixel).
 
 - `method = "saxton_rawls"` (**default**): `fetchSOLUS()` publishes no water-retention variable, so
@@ -1050,8 +1050,8 @@ pedotransfer-model error.
      -> soilDB::mukey.wcs() + soilDB::SDA_spatialQuery()        fetch_solus_low_pred_high()
    simulate_ssurgo_mapunit_draws()                                -> soilDB::fetchSOLUS() x3
      -> download_ssurgo_tabular() [R/adapter-ssurgo-acquire.R, cached]    (low / pred / high)
-     -> infill_soil_data() -> classify_genhz()                 fetch_solus_percentiles()
-     -> sim_component_comp() [R/core-simulation.R]            -> list(values=list(P025,P50,P975),
+     -> infill_ssurgo_data() -> classify_genhz()                 fetch_solus_percentiles()
+     -> simulate_component_composition() [R/core-simulation.R]            -> list(values=list(P025,P50,P975),
      -> simulate_cokey_generalized() [property-simulation.R]           probs=c(.025,.5,.975))
      -> maybe_adjust_soil_data_depth_trend()
      -> aggregate_depth_window_by_replicate()
@@ -1065,7 +1065,7 @@ pedotransfer-model error.
                     |                                                           |
                     +--------------------- terra::resample() ------------------+
                               (prior bilinear-resampled onto the SOLUS grid,
-                               inside run_stage1_fusion()/run_stage1_fusion_group())
+                               inside run_fusion()/run_fusion_group())
                                                   |
                                                   v
                              fuse_property_adaptive()  [raster-fusion.R - GENERIC CORE]
@@ -1090,7 +1090,7 @@ pedotransfer-model error.
                                   fused posterior SpatRaster(s)
                             (mu/sigma, alpha/beta, or shape/rate, per resolved `dist`)
 
-  Compositional (texture) path: run_stage1_fusion_group() fetches clay/sand/silt priors+
+  Compositional (texture) path: run_fusion_group() fetches clay/sand/silt priors+
   likelihoods per member (same adapters as above), then fuse_texture_group() fuses all three
   JOINTLY via ILR (estimate_ilr_moments_mc()/fuse_bivariate_normal()/ilr_inverse()) instead of
   three independent fuse_property_adaptive() calls, to preserve sum-to-100.
@@ -1104,7 +1104,7 @@ pedotransfer-model error.
 
   PER-PIXEL ENSEMBLE BRIDGE (core-fusion.R) - optional, purely additive layer on top:
 
-  extract_mukey_joint_ensemble(aoi, depth_windows)          run_stage1_fusion_multi(aoi, configs,
+  extract_mukey_joint_ensemble(aoi, depth_windows)          run_fusion_multiproperty(aoi, configs,
     -> simulate_ssurgo_mapunit_draws(depth_windows=)          depth_windows)  -- ONE simulation for
          (ONE joint Monte Carlo; KSSL + joint-copula           every property x window, seeding the
           vertical correlation; row-aligned across windows)     same per-property caches
@@ -1163,14 +1163,14 @@ pedotransfer-model error.
   `normal_to_lognormal_params()`/`lognormal_to_normal_params()`, `bayesian_update()`, and
   `fuse_bivariate_normal()` directly, unmodified — all are pure elementwise arithmetic, so they
   already work unchanged on `SpatRaster` inputs exactly as they do on plain numerics.
-- `R/core-simulation.R` — feeds the SSURGO adapter's Monte Carlo step: `sim_component_comp()`
+- `R/core-simulation.R` — feeds the SSURGO adapter's Monte Carlo step: `simulate_component_composition()`
   and `simulate_cokey_generalized()` are called directly from
   `simulate_ssurgo_mapunit_draws()`.
 - `R/adapter-ssurgo-acquire.R` — `download_ssurgo_tabular()` is called by
   `simulate_ssurgo_mapunit_draws()` for the underlying tabular SSURGO fetch (cached separately from
   the raster-fusion cache's own `"ssurgo"`/`"solus"` kinds, under a `"ssurgo_tabular"` kind, keyed
   by AOI alone - see `ssurgo_tabular_cache_key()`, `R/cache.R`).
-- `R/adapter-ssurgo-infill.R` — `infill_soil_property()` is called by `infill_soil_data()`.
+- `R/adapter-ssurgo-infill.R` — `infill_soil_property()` is called by `infill_ssurgo_data()`.
 - `R/core-correlations.R` — `.kssl_property_matrices()`/`.kssl_texture_matrices()`
   (already built into `R/sysdata.rda`) and `classify_genhz()` are called by
   `simulate_ssurgo_mapunit_draws()`.
@@ -1183,7 +1183,7 @@ pedotransfer-model error.
   this file's `calculate_saxton_rawls_single()` (the equations are duplicated, not called, because
   the scalar function's `max()`/`min()`/`if` do not vectorize over a raster stack).
 
-`run_stage1_fusion()`/`run_stage1_fusion_group()` (`R/core-fusion.R`) are the top-level AOI
+`run_fusion()`/`run_fusion_group()` (`R/core-fusion.R`) are the top-level AOI
 orchestrators tying all of the above together — the single entry points a downstream caller
 needs, hiding the fetch/cache/align/fuse sequence behind one call per property (or
 per compositional group) per AOI/depth window.
@@ -1204,9 +1204,9 @@ per compositional group) per AOI/depth window.
   parameter rasters — `mu`/`sigma`, `alpha`/`beta`, or `shape`/`rate` — per the resolved `dist`),
   plus the raw prior/likelihood rasters, routing diagnostics (`route`, `route_detail`,
   `n_fallback_cells`), and distribution-resolution diagnostics (`dist`, `dist_source`,
-  `skew_proxy`) — from `run_stage1_fusion()`.
+  `skew_proxy`) — from `run_fusion()`.
 - For a compositional group: each member's fused texture posterior (`value` point-estimate raster
-  plus shared `ilr_mu`/`ilr_Sigma` rasters for posterior sampling) — from `run_stage1_fusion_group()`.
+  plus shared `ilr_mu`/`ilr_Sigma` rasters for posterior sampling) — from `run_fusion_group()`.
 - Intermediate cached artifacts on disk (under `tools::R_user_dir("soilSIM", "cache")`): raw SSURGO
   tabular data, SSURGO/SOLUS percentile rasters (`terra::wrap()`ped), texture-group fusion results,
   and per-property posterior results, each keyed by AOI + id + depth window + kind via
@@ -1225,8 +1225,8 @@ per compositional group) per AOI/depth window.
    value is a raster (e.g. Monte Carlo draw data frames aren't). Callers caching raster values must
    call `terra::wrap()` before `cache_set()` and `terra::unwrap()` after `cache_get()` — which is
    exactly what `wrap_percentile_list()`/`unwrap_percentile_list()` do for the
-   `list(values=<SpatRasters>, probs=)` percentile shape, and what `run_stage1_fusion()`/
-   `run_stage1_fusion_group()` call around every SSURGO/SOLUS cache read and write.
+   `list(values=<SpatRasters>, probs=)` percentile shape, and what `run_fusion()`/
+   `run_fusion_group()` call around every SSURGO/SOLUS cache read and write.
 
 3. **Per-pixel bridge — dependence structure is not re-estimated from SOLUS.** The bridge fuses only
    the *marginals*; the cross-property and cross-depth dependence carried into the per-pixel product
@@ -1253,7 +1253,7 @@ library(terra)
 aoi_vect <- vect("aoi_polygon.gpkg")
 
 # --- Using the top-level orchestrator (fetches + caches both sides internally) ---
-result <- run_stage1_fusion(
+result <- run_fusion(
   aoi_vect = aoi_vect,
   property_config = list(id = "clay", solus_variable = "claytotal", dist = "auto"),
   top_depth = 0, bottom_depth = 30
@@ -1294,7 +1294,7 @@ configs <- setNames(
   lapply(names(sr_solus), function(nm) list(id = nm, solus_variable = sr_solus[[nm]], dist = "auto")),
   names(sr_solus)
 )
-pbpw <- run_stage1_fusion_multi(aoi_vect, configs, windows, simplify = TRUE)
+pbpw <- run_fusion_multiproperty(aoi_vect, configs, windows, simplify = TRUE)
 
 # 3. per-pixel AWC probability distribution (P5..P95 rasters), clamped at 0
 awc <- remarginalized_awc(ens, pbpw, n_out = 250)         # method = "saxton_rawls" by default

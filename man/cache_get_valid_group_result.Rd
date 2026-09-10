@@ -2,7 +2,7 @@
 % Please edit documentation in R/cache.R
 \name{cache_get_valid_group_result}
 \alias{cache_get_valid_group_result}
-\title{Cache-hit lookup for a \code{run_stage1_fusion_group()} result, with shape validation}
+\title{Cache-hit lookup for a \code{run_fusion_group()} result, with shape validation}
 \usage{
 cache_get_valid_group_result(key, member_ids, ttl_seconds = CACHE_TTL_SECONDS)
 }

@@ -1661,7 +1661,7 @@ create_download_metadata <- function(start_time, end_time, aoi_wkt, properties, 
 #'   depth-filtered and a `preparation_metadata` element added.
 #'
 #' @export
-download_and_prepare_ssurgo <- function(aoi_wkt,
+fetch_ssurgo_data <- function(aoi_wkt,
                                         properties = c("clay", "sand", "silt", "db", "ph", "cec", "rfv", "w3b", "w15b"),
                                         max_depth = DEFAULT_MAX_DEPTH_CM,
                                         cache_dir = NULL,

@@ -14,7 +14,7 @@ validate_joint_correlation_structure(
 \arguments{
 \item{simulated_list}{A named list of matrices (rows = depths, columns = simulations), the same
 shape consumed/produced by \code{preserve_correlation_structure()}/
-\code{adjust_multivariate_depthwise_GP()}.}
+\code{adjust_simulation_depthwise()}.}
 
 \item{target_property_corr}{Optional k x k target property-correlation matrix (row/column names
 matching \code{names(simulated_list)}, or unnamed matching order). If supplied, per-depth and
@@ -47,7 +47,7 @@ across all depths/properties respectively.}
 \description{
 Diagnostic helper for the joint depth x property correlation structure. Unlike
 \code{validate_correlation_preservation()}, which only checks cross-property correlation and (via
-its caller \code{adjust_multivariate_depthwise_GP()}) only at the first 5 depths, this reports BOTH
+its caller \code{adjust_simulation_depthwise()}) only at the first 5 depths, this reports BOTH
 halves of the joint structure - cross-property correlation at every depth, and depth-lag
 (across-depth, within-property) correlation for every property - against explicit target
 matrices when supplied. This is the acceptance test any vertical-correlation method

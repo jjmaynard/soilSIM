@@ -22,7 +22,7 @@ NULL
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Comprehensive validation results
 #' @export
-validate_complete_workflow <- function(workflow_results,
+diagnose_workflow <- function(workflow_results,
                                        original_data = NULL,
                                        validation_config = NULL,
                                        generate_plots = TRUE,
@@ -65,7 +65,7 @@ validate_complete_workflow <- function(workflow_results,
 #' Generate Validation Report
 #'
 #'
-#' @param validation_results Results from validate_complete_workflow()
+#' @param validation_results Results from diagnose_workflow()
 #' @param output_format Format for report: "html", "pdf", or "markdown"
 #' @param output_file Output file path
 #' @param include_plots Whether to include diagnostic plots
@@ -244,7 +244,7 @@ validate_monte_carlo_quality <- function(monte_carlo_results,
     # generate_simulation_diagnostics() takes 5 args (original_data, simulation_results,
     # properties, correlation_config, config) - a prior 2-arg call here always errored and was
     # silently swallowed by the tryCatch below into a validation_failed placeholder. Sourced from
-    # monte_carlo_results, mirroring generate_monte_carlo_realizations()'s own call convention.
+    # monte_carlo_results, mirroring simulate_monte_carlo()'s own call convention.
     "diagnostics" = function() generate_simulation_diagnostics(
       original_data,
       simulation_data,

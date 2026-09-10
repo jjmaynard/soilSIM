@@ -35,7 +35,7 @@ wrapped in `as.numeric()` to strip any attributes carried by vectorized inputs. 
 ```r
 simulate_vg_aws(data, n_simulations = 100)
 ```
-- `data` - A data frame with one row per soil layer/component, and columns `alpha`, `sd_alpha`, `npar`, `sd_npar`, `theta_r`, `sd_theta_r`, `theta_s`, `sd_theta_s`, `layerID` - exactly the shape produced by `soilDB::ROSETTA(..., include.sd = TRUE)` plus a caller-added `layerID` (see `calculate_aws_df()`).
+- `data` - A data frame with one row per soil layer/component, and columns `alpha`, `sd_alpha`, `npar`, `sd_npar`, `theta_r`, `sd_theta_r`, `theta_s`, `sd_theta_s`, `layerID` - exactly the shape produced by `soilDB::ROSETTA(..., include.sd = TRUE)` plus a caller-added `layerID` (see `compute_aws()`).
 - `n_simulations` - Number of Monte Carlo draws per row (default `100`).
 
 **Returns**: A named list (one element per row, keyed `paste(layerID, i, sep = "_")`), each element a data frame of `n_simulations` draws with columns `alpha`, `n`, `theta_r`, `theta_s`, `sim_num`, `theta_fc`, `theta_pwp`, `AWHC`. Rows with any missing van Genuchten parameter are skipped entirely (absent from the result list, not present as `NA` rows).
@@ -48,7 +48,7 @@ simulate_vg_aws(data, n_simulations = 100)
 
 ### 3. `.aws_slab_mean()` - Internal `slab.fun` Helper (not exported)
 
-**Purpose**: A minimal `slab.fun` returning a single na.rm mean per slab in a `value` column. `aqp::slab()`'s current default `slab.fun` (`slab_function(method = "numeric")`) returns quantile columns instead, which `tidyr::pivot_wider()` in `calculate_aws_df()` cannot consume.
+**Purpose**: A minimal `slab.fun` returning a single na.rm mean per slab in a `value` column. `aqp::slab()`'s current default `slab.fun` (`slab_function(method = "numeric")`) returns quantile columns instead, which `tidyr::pivot_wider()` in `compute_aws()` cannot consume.
 
 **Parameters**:
 ```r
@@ -59,15 +59,15 @@ simulate_vg_aws(data, n_simulations = 100)
 
 **Returns**: A single numeric value, `mean(values, na.rm = TRUE)`.
 
-**Algorithm/behavior**: One-line pass-through to `mean(values, na.rm = TRUE)`. It exists so `calculate_aws_df()`'s call to `aqp::slab()` yields a single `value` column that `tidyr::pivot_wider()` can consume; `aqp::slab()`'s current default `slab.fun` returns quantile columns instead.
+**Algorithm/behavior**: One-line pass-through to `mean(values, na.rm = TRUE)`. It exists so `compute_aws()`'s call to `aqp::slab()` yields a single `value` column that `tidyr::pivot_wider()` can consume; `aqp::slab()`'s current default `slab.fun` returns quantile columns instead.
 
-### 4. `calculate_aws_df()` - Master AWS-by-Depth-Interval Function
+### 4. `compute_aws()` - Master AWS-by-Depth-Interval Function
 
 **Purpose**: Runs `soilDB::ROSETTA()` on soil texture/bulk-density/water-retention inputs to derive van Genuchten pedotransfer parameters, Monte Carlo-simulates AWHC per horizon via `simulate_vg_aws()`, then depth-slices and summarizes mean AWHC per component over standard depth intervals via `aqp::slab()`.
 
 **Parameters**:
 ```r
-calculate_aws_df(sim_data_df)
+compute_aws(sim_data_df)
 ```
 - `sim_data_df` - A data frame with one row per horizon, with columns `sand_total`, `silt_total`, `clay_total`, `bulk_density_third_bar`, `water_retention_third_bar`, `water_retention_15_bar` (ROSETTA's expected input variable names - note these differ from the rest of `soilSIM`'s `sandtotal_r`/`claytotal_r`/etc. SSURGO-derived naming convention, since they're ROSETTA's own API contract), plus `compname`, `hzdept_r`, `hzdepb_r`, `cokey`.
 
@@ -78,7 +78,7 @@ calculate_aws_df(sim_data_df)
 ## Internal Connections
 
 ```
-calculate_aws_df(sim_data_df)
+compute_aws(sim_data_df)
 ├── soilDB::ROSETTA(sim_data_df, vars, v = "3", include.sd = TRUE)   [live network call to handbook60.org]
 │   └── (internally uses httr::POST())
 ├── layerID construction (paste(compname, hzdept_r, sep = "_"))
@@ -109,12 +109,12 @@ soilSIM (model-aws.R)
 ├── tidyr::pivot_wider()- reshapes aqp::slab()'s long output to a value-per-row shape
 └── httr                - Suggests-guarded: not called directly by this file, but required
                            transitively because soilDB::ROSETTA() uses it internally for the
-                           HTTP POST; calculate_aws_df() checks requireNamespace("httr", ...)
+                           HTTP POST; compute_aws() checks requireNamespace("httr", ...)
                            up front and stops with a clear message if it's absent
 ```
 
 ### soilSIM dependencies / consumers
-This is a leaf group within `soilSIM`: it does not call into any other `soilSIM` helper. Upstream, component-level texture, bulk-density, and water-retention data produced by SSURGO acquisition/property-simulation steps elsewhere in `soilSIM` can be reshaped into the `sand_total`/`silt_total`/`clay_total`/`bulk_density_third_bar`/`water_retention_third_bar`/`water_retention_15_bar`/`compname`/`hzdept_r`/`hzdepb_r`/`cokey` shape `calculate_aws_df()` expects, but no such wiring exists inside this file - the caller is responsible for producing `sim_data_df` in the expected shape.
+This is a leaf group within `soilSIM`: it does not call into any other `soilSIM` helper. Upstream, component-level texture, bulk-density, and water-retention data produced by SSURGO acquisition/property-simulation steps elsewhere in `soilSIM` can be reshaped into the `sand_total`/`silt_total`/`clay_total`/`bulk_density_third_bar`/`water_retention_third_bar`/`water_retention_15_bar`/`compname`/`hzdept_r`/`hzdepb_r`/`cokey` shape `compute_aws()` expects, but no such wiring exists inside this file - the caller is responsible for producing `sim_data_df` in the expected shape.
 
 ## Data Flow In/Out
 
@@ -124,7 +124,7 @@ This is a leaf group within `soilSIM`: it does not call into any other `soilSIM`
 
 ## Known Limitations
 
-- **Live network dependency**: `calculate_aws_df()` requires live network access. `soilDB::ROSETTA()` POSTs to `https://www.handbook60.org/api/v1/rosetta/<version>` via `httr::POST()` rather than computing pedotransfer parameters locally. Calling this function without internet connectivity, or if `handbook60.org` is unreachable or down, will fail. There is no offline/local fallback path in this file.
+- **Live network dependency**: `compute_aws()` requires live network access. `soilDB::ROSETTA()` POSTs to `https://www.handbook60.org/api/v1/rosetta/<version>` via `httr::POST()` rather than computing pedotransfer parameters locally. Calling this function without internet connectivity, or if `handbook60.org` is unreachable or down, will fail. There is no offline/local fallback path in this file.
 - **Per-row `set.seed(123)` re-seeding** (`simulate_vg_aws()`): the random seed is reset inside the per-row loop rather than once before it, so each row's Monte Carlo draws come from an identically-seeded random stream.
 - **`10^(...)` back-transformation of `alpha`/`npar`** (`simulate_vg_aws()`): sampled `alpha` and `n` values are exponentiated, treating the input means/SDs as supplied in log10 space. This keeps the van Genuchten shape parameters positive.
 - **`.aws_slab_mean()` as `slab.fun`**: `aqp::slab()`'s current default `slab.fun` returns quantile columns rather than a single `value` column, so `.aws_slab_mean()` supplies a single na.rm mean per slab; if `aqp`'s API changes, this helper may need revisiting.
@@ -153,7 +153,7 @@ sim_data_df <- data.frame(
 # NOTE: requires live network access - calls soilDB::ROSETTA(), which POSTs
 # to https://www.handbook60.org via httr::POST(). Will fail if offline or
 # if handbook60.org is unreachable.
-aws_by_depth <- calculate_aws_df(sim_data_df)
+aws_by_depth <- compute_aws(sim_data_df)
 
 # aws_by_depth: long-format data frame with columns cokey, top, bottom, AWHC
 # - one row per depth slab (0-5, 5-15, 15-30, 30-60, 60-100 cm) actually

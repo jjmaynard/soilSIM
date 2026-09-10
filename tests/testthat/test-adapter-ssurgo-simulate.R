@@ -50,13 +50,13 @@ test_that("SSURGO_SIM_PROPERTY_COLUMNS includes the 5 P2 chemistry properties", 
   expect_true(all(c("caco3", "ec", "ecec", "gypsum", "sar") %in% SSURGO_SIM_PROPERTY_COLUMNS))
 })
 
-test_that("infill_soil_data() infills the 5 P2 chemistry properties when their _r columns are present", {
+test_that("infill_ssurgo_data() infills the 5 P2 chemistry properties when their _r columns are present", {
   df <- make_horizon_row(properties = c("dbovendry", "caco3", "ec", "ecec", "gypsum", "sar"))
   df <- rbind(df, df)
   df$caco3_r[1] <- NA
   df$hzname <- "A"
 
-  result <- infill_soil_data(df)
+  result <- infill_ssurgo_data(df)
   # infill_soil_property() is generic over any "<name>_l/_r/_h" triplet - just confirm it ran
   # without error and the columns survive (full infilling-strategy coverage is
   # infill_soil_property()'s own concern, tested elsewhere).
@@ -86,8 +86,8 @@ make_wr_gap_df <- function() {
   df
 }
 
-test_that("infill_soil_data() fills water-retention gaps via Saxton-Rawls, texture-consistently", {
-  result <- infill_soil_data(make_wr_gap_df())
+test_that("infill_ssurgo_data() fills water-retention gaps via Saxton-Rawls, texture-consistently", {
+  result <- infill_ssurgo_data(make_wr_gap_df())
 
   expect_false(anyNA(result$wthirdbar_r))
   expect_false(anyNA(result$wfifteenbar_r))
@@ -99,9 +99,9 @@ test_that("infill_soil_data() fills water-retention gaps via Saxton-Rawls, textu
   expect_false(anyNA(result$wthirdbar_h))
 })
 
-test_that("infill_soil_data() water-retention estimate equals the Saxton-Rawls PTF exactly", {
+test_that("infill_ssurgo_data() water-retention estimate equals the Saxton-Rawls PTF exactly", {
   df <- make_wr_gap_df()
-  res <- infill_soil_data(df, water_retention_method = "saxton_rawls")
+  res <- infill_ssurgo_data(df, water_retention_method = "saxton_rawls")
 
   for (i in 1:2) {
     expected <- calculate_saxton_rawls_single(
@@ -113,15 +113,15 @@ test_that("infill_soil_data() water-retention estimate equals the Saxton-Rawls P
 
   # With Strategy 5 now also using Saxton-Rawls, the "generic" route converges to the same
   # values here (no neighbouring horizon has a real wr value to borrow first).
-  gen <- infill_soil_data(df, water_retention_method = "generic")
+  gen <- infill_ssurgo_data(df, water_retention_method = "generic")
   expect_equal(gen$wthirdbar_r, res$wthirdbar_r)
 })
 
-test_that("infill_soil_data() keeps genuine SSURGO water-retention values (overwrite = FALSE)", {
+test_that("infill_ssurgo_data() keeps genuine SSURGO water-retention values (overwrite = FALSE)", {
   df <- make_wr_gap_df()
   df$wthirdbar_l[1] <- 0.20; df$wthirdbar_r[1] <- 0.25; df$wthirdbar_h[1] <- 0.30
 
-  result <- infill_soil_data(df)
+  result <- infill_ssurgo_data(df)
 
   expect_equal(result$wthirdbar_r[1], 0.25)          # real value untouched
   expect_false(is.na(result$wthirdbar_r[2]))         # gap filled by Saxton-Rawls

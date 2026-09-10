@@ -22,11 +22,11 @@ unusable.}
 }
 \value{
 List with \code{properties} (character vector) and \code{correlation_matrix}
-(a matrix or \code{NULL}, letting \code{\link[=generate_monte_carlo_realizations]{generate_monte_carlo_realizations()}}
+(a matrix or \code{NULL}, letting \code{\link[=simulate_monte_carlo]{simulate_monte_carlo()}}
 estimate one empirically).
 }
 \description{
 Chooses a single flat correlation matrix (and its associated property set)
-to hand to \code{\link[=generate_monte_carlo_realizations]{generate_monte_carlo_realizations()}} for one cokey's data,
+to hand to \code{\link[=simulate_monte_carlo]{simulate_monte_carlo()}} for one cokey's data,
 from either a plain matrix or a genhz-keyed list of matrices.
 }

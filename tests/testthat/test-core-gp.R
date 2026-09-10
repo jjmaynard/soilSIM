@@ -245,7 +245,7 @@ test_that("simulate_soil_properties() runs end-to-end through the real Monte Car
   expect_false(is.null(attr(result, "validation")))
 })
 
-test_that("adjust_multivariate_depthwise_GP() preserves matrix dimensions and validates mismatched inputs", {
+test_that("adjust_simulation_depthwise() preserves matrix dimensions and validates mismatched inputs", {
   set.seed(42)
   n_depths <- 3
   n_sims <- 20
@@ -260,7 +260,7 @@ test_that("adjust_multivariate_depthwise_GP() preserves matrix dimensions and va
     clay_pct = list(gp_model = list(mean = "flat"), predictions_override = c(20, 22, 25)),
     sand_pct = list(gp_model = list(mean = "flat"), predictions_override = c(40, 38, 35))
   )
-  # adjust_multivariate_depthwise_GP() calls predict_gp_depth_trends() when the
+  # adjust_simulation_depthwise() calls predict_gp_depth_trends() when the
   # element has a $gp_model - stub it here via a minimal fake to avoid needing
   # a real fitted GPfit object for this dimension/validation-focused test.
   testthat::local_mocked_bindings(
@@ -268,17 +268,17 @@ test_that("adjust_multivariate_depthwise_GP() preserves matrix dimensions and va
     .package = "soilSIM"
   )
 
-  result <- adjust_multivariate_depthwise_GP(simulated_list, gp_models, depths)
+  result <- adjust_simulation_depthwise(simulated_list, gp_models, depths)
   expect_named(result, c("clay_pct", "sand_pct"))
   expect_equal(dim(result$clay_pct), c(n_depths, n_sims))
   expect_equal(dim(result$sand_pct), c(n_depths, n_sims))
 
-  expect_error(adjust_multivariate_depthwise_GP(list(), gp_models, depths), "cannot be empty")
-  expect_error(adjust_multivariate_depthwise_GP(simulated_list, gp_models, c(0, 50)), "Length of depths")
+  expect_error(adjust_simulation_depthwise(list(), gp_models, depths), "cannot be empty")
+  expect_error(adjust_simulation_depthwise(simulated_list, gp_models, c(0, 50)), "Length of depths")
 })
 
-test_that("adjust_multivariate_depthwise_GP()'s vectorized quantile() call matches the original per-replicate loop", {
-  # Regression test for the PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3 adjust_multivariate_depthwise_GP()
+test_that("adjust_simulation_depthwise()'s vectorized quantile() call matches the original per-replicate loop", {
+  # Regression test for the PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3 adjust_simulation_depthwise()
   # fix: quantile(curr_values, probs = q) was previously called once per replicate (recomputing
   # the full quantile of the same vector at a different single probability each time) - now one
   # call with a probs vector. Reimplements the ORIGINAL per-replicate loop here and checks the
@@ -336,7 +336,7 @@ test_that("adjust_multivariate_depthwise_GP()'s vectorized quantile() call match
 
   gp_predictions <- list(clay_pct = c(20, 21, 23, 26), sand_pct = c(40, 39, 36, 33))
   expected <- old_adjust(simulated_list, gp_predictions, "clay_pct", depths)
-  actual <- adjust_multivariate_depthwise_GP(simulated_list, gp_models, depths, primary_property = "clay_pct")
+  actual <- adjust_simulation_depthwise(simulated_list, gp_models, depths, primary_property = "clay_pct")
 
   expect_equal(unname(actual$clay_pct), unname(expected$clay_pct), tolerance = 1e-10)
   expect_equal(unname(actual$sand_pct), unname(expected$sand_pct), tolerance = 1e-10)
@@ -424,7 +424,7 @@ test_that("validate_joint_correlation_structure() reports achieved property and 
 
   # Data actually constructed to match both targets - achieved deviation should be small at
   # n_sims = 4000, well under the 0.1 "large correlation change" threshold
-  # adjust_multivariate_depthwise_GP() itself warns on.
+  # adjust_simulation_depthwise() itself warns on.
   expect_true(result$overall_property_max_diff < 0.1)
   expect_true(result$overall_depth_max_diff < 0.1)
   expect_true(all(result$property_correlation_max_diff < 0.1))

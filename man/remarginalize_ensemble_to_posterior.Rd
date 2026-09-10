@@ -15,7 +15,7 @@ remarginalize_ensemble_to_posterior(
 \arguments{
 \item{mukey_ensemble}{An \code{extract_mukey_joint_ensemble()} result.}
 
-\item{posterior_by_property_window}{Named list \verb{[[property]][[window]]} of \code{run_stage1_fusion()}
+\item{posterior_by_property_window}{Named list \verb{[[property]][[window]]} of \code{run_fusion()}
 posteriors (each \code{list(percentiles = , ...)}), on a common grid. Only properties present in
 BOTH this and the ensemble, and windows present in both, are produced.}
 

@@ -27,7 +27,7 @@ library(ggplot2)
 
 ## Step 1: Real texture/bulk-density input
 
-`calculate_aws_df()` expects ROSETTA's own input variable names (`sand_total`, `silt_total`,
+`compute_aws()` expects ROSETTA's own input variable names (`sand_total`, `silt_total`,
 `clay_total`, `bulk_density_third_bar`, `water_retention_third_bar`, `water_retention_15_bar`) -
 different from soilSIM's usual `sandtotal_r`/`claytotal_r` SSURGO convention, since these are
 ROSETTA's own API contract. This vignette's cached input was built directly from the real SSURGO
@@ -43,18 +43,18 @@ rosetta_input[1:6, c("compname", "hzdept_r", "hzdepb_r", "sand_total", "clay_tot
 
 These are `r nrow(rosetta_input)` real horizons across `r length(unique(rosetta_input$compname))`
 real components from the Amador-area AOI, each with complete real texture, bulk density, and
-water-retention data (`calculate_aws_df()` requires all six ROSETTA input variables present).
+water-retention data (`compute_aws()` requires all six ROSETTA input variables present).
 
 ## Step 2: Run ROSETTA and simulate available water storage
 
-`calculate_aws_df()` (1) calls `soilDB::ROSETTA()` - a live POST to `handbook60.org` - to derive van
+`compute_aws()` (1) calls `soilDB::ROSETTA()` - a live POST to `handbook60.org` - to derive van
 Genuchten shape parameters from the texture/bulk-density inputs, (2) Monte Carlo-simulates field
 capacity and permanent wilting point water content via `simulate_vg_aws()`, and (3) depth-slices the
 result to standard intervals via `aqp::slab()`:
 
 ```{r, eval = FALSE}
 # The real call this vignette's cached data came from (requires live network access):
-aws_result <- calculate_aws_df(rosetta_input)
+aws_result <- compute_aws(rosetta_input)
 ```
 
 ```{r}
@@ -101,7 +101,7 @@ ggplot(plot_data, aes(x = mid_depth, y = AWHC, color = cokey)) +
 
 ## Step 3: The underlying water-retention curve
 
-`van_genuchten()` is the closed-form curve `calculate_aws_df()` evaluates internally at field
+`van_genuchten()` is the closed-form curve `compute_aws()` evaluates internally at field
 capacity (-33 kPa) and permanent wilting point (-1500 kPa) matric potentials. The three curves below
 use illustrative shape parameters only - representative of the ranges ROSETTA typically returns for
 a sandy, loamy, and clayey texture respectively - not values derived from this vignette's real data:
@@ -149,5 +149,5 @@ ggplot(vg_curves, aes(x = -h, y = theta, color = texture)) +
 
 The cached data this vignette loads (`inst/extdata/aws_rosetta_example.rds`) was produced once by
 `data-raw/build_vignette_data.R`, which builds the ROSETTA input from the same real Amador-area
-SSURGO download as the "Getting Started" vignette, then calls `calculate_aws_df()` live (requiring
+SSURGO download as the "Getting Started" vignette, then calls `compute_aws()` live (requiring
 network access to `handbook60.org`). Re-run that script to refresh it.

@@ -13,5 +13,5 @@ new_soilSIM_fusion(x)
 An object of class \code{soilSIM_fusion}.
 }
 \description{
-Wraps the list returned by \code{\link[=run_stage1_fusion]{run_stage1_fusion()}} / \code{\link[=run_stage1_fusion_group]{run_stage1_fusion_group()}}.
+Wraps the list returned by \code{\link[=run_fusion]{run_fusion()}} / \code{\link[=run_fusion_group]{run_fusion_group()}}.
 }

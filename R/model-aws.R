@@ -51,7 +51,7 @@ van_genuchten <- function(h, alpha, n, theta_r, theta_s) {
 #'   columns `alpha`, `sd_alpha`, `npar`, `sd_npar`, `theta_r`, `sd_theta_r`,
 #'   `theta_s`, `sd_theta_s`, `layerID` - exactly the shape produced by
 #'   `soilDB::ROSETTA(..., include.sd = TRUE)` plus a caller-added `layerID`
-#'   (see `calculate_aws_df()`).
+#'   (see `compute_aws()`).
 #' @param n_simulations Number of Monte Carlo draws per row (default 100).
 #'
 #' @return A named list (one element per row, keyed `paste(layerID, i,
@@ -129,7 +129,7 @@ simulate_vg_aws <- function(data, n_simulations = 100) {
 #'
 #' Returns a single na.rm mean per slab in a `value` column. `aqp::slab()`'s
 #' current default `slab.fun` (`slab_function(method = "numeric")`) returns
-#' quantile columns instead, which `calculate_aws_df()`'s `pivot_wider()`
+#' quantile columns instead, which `compute_aws()`'s `pivot_wider()`
 #' step cannot consume.
 #'
 #' @param values Numeric vector of observations within one depth slab.
@@ -171,9 +171,9 @@ simulate_vg_aws <- function(data, n_simulations = 100) {
 #'   long output shape to a plain `value`-column contract.
 #'
 #' @export
-calculate_aws_df <- function(sim_data_df) {
+compute_aws <- function(sim_data_df) {
   if (!requireNamespace("httr", quietly = TRUE)) {
-    stop("calculate_aws_df() requires the 'httr' package (used internally by soilDB::ROSETTA()) to be installed.")
+    stop("compute_aws() requires the 'httr' package (used internally by soilDB::ROSETTA()) to be installed.")
   }
 
   # Run Rosetta using soil properties

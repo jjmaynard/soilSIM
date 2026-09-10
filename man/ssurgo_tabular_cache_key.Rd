@@ -19,8 +19,8 @@ it fetches every horizon for every AOI mukey; depth filtering happens later, per
 the AOI (and the fixed default \code{properties} list every call site uses - never varied), not on
 any depth window. Keying the tabular cache on \code{top_depth}/\code{bottom_depth} (as it was before this
 function existed -) fragments one AOI's cache into one
-unusable copy per distinct window ever requested for it, so e.g. \code{run_stage1_fusion_multi()}'s
-wide-span simulation and a later single-window \code{run_stage1_fusion()} call for the same AOI never
+unusable copy per distinct window ever requested for it, so e.g. \code{run_fusion_multiproperty()}'s
+wide-span simulation and a later single-window \code{run_fusion()} call for the same AOI never
 shared a tabular download. Mirrors \code{mukey_grid_cache_key()}'s fixed-sentinel pattern.
 }
 \keyword{internal}

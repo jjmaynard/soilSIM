@@ -79,7 +79,7 @@ reference:
   - generate_validation_report_ssurgo
   - check_ssurgo_cache
   - cache_ssurgo_data
-  - download_and_prepare_ssurgo
+  - fetch_ssurgo_data
   - process_ssurgo_data
   - process_horizon_data_working_compatible
   - process_component_data_working_compatible
@@ -126,7 +126,7 @@ reference:
   - compute_property_statistics
   - get_appropriate_distributions
   - analyze_texture_correlations
-  - validate_complete_workflow
+  - diagnose_workflow
   - generate_validation_report
   - assess_workflow_quality
   - validate_monte_carlo_quality
@@ -183,7 +183,7 @@ reference:
 - title: Monte Carlo Simulation
   desc: Correlated Monte Carlo simulation engine (core).
   contents:
-  - generate_monte_carlo_realizations
+  - simulate_monte_carlo
   - simulate_correlated_properties
   - sim_component_compositions
   - setup_distributions
@@ -206,15 +206,15 @@ reference:
   - prepare_nrcs_training_data
   - select_optimal_grouping
   - validate_training_groups
-  - build_stratified_gp_models
+  - fit_depth_gp_models
   - fit_individual_gp_model
-  - adjust_multivariate_depthwise_GP
+  - adjust_simulation_depthwise
   - validate_correlation_preservation
   - simulate_soil_properties
   - match_soils_to_gp_models
   - predict_gp_depth_trends
   - validate_gp_models
-  - integrate_monte_carlo_with_gp
+  - apply_depth_gp_to_simulation
   - apply_gp_depth_trends
   - preserve_correlation_structure
   - apply_nrcs_trend_adjustments
@@ -234,7 +234,7 @@ reference:
   contents:
   - remove_organic_layer
   - slice_and_aggregate_soil_data
-  - sim_component_comp
+  - simulate_component_composition
   - simulate_correlated_triangular
   - calculate_mode
   - simulate_cokey_generalized
@@ -256,7 +256,7 @@ reference:
   contents:
   - van_genuchten
   - simulate_vg_aws
-  - calculate_aws_df
+  - compute_aws
 
 - title: Bayesian Updating
   desc: Scalar Bayesian updating/fusion of a prior and observed data (core).
@@ -298,9 +298,9 @@ reference:
   - fuse_property_adaptive
   - group_members
   - fuse_texture_group
-  - run_stage1_fusion
-  - run_stage1_fusion_group
-  - run_stage1_fusion_multi
+  - run_fusion
+  - run_fusion_group
+  - run_fusion_multiproperty
   - CACHE_TTL_SECONDS
   - build_cache_key
   - cache_get
@@ -308,7 +308,7 @@ reference:
   - wrap_nested_rasters
   - unwrap_nested_rasters
   - fetch_ssurgo_mukey_raster
-  - infill_soil_data
+  - infill_ssurgo_data
   - maybe_adjust_soil_data_depth_trend
   - aggregate_depth_window_by_replicate
   - property_to_sim_column
@@ -546,3 +546,10 @@ reference:
   - raster_fusion_bridge
   - sample_joint_depth_property_copula
   - validate_joint_correlation_structure
+
+- title: Deprecated
+  desc: >
+    Renamed in 0.2.0. These still work (forwarding to their replacement with a
+    soft deprecation warning) and will be removed in 0.4.0.
+  contents:
+  - soilSIM-deprecated

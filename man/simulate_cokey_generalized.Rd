@@ -14,7 +14,7 @@ simulate_cokey_generalized(
 \arguments{
 \item{sim_cokey}{A data frame of horizon rows for one cokey, with a \code{genhz} column and a
 \code{sim_comppct} column (number of realizations to simulate for that row - see
-\code{sim_component_comp()}).}
+\code{simulate_component_composition()}).}
 
 \item{correlation_matrices}{A list of correlation matrices keyed by \code{genhz}, with row/column
 names matching (a subset of) \code{c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc", "caco3", "ec", "ecec", "gypsum", "sar")}. The 5 chemistry properties

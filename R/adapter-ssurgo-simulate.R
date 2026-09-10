@@ -3,7 +3,7 @@
 #' @description The SSURGO half of the raster fusion prior/likelihood pipeline (see
 #'   `R/core-fusion.R`): given a `terra::SpatVector` AOI, rasterizes SSURGO map units,
 #'   Monte Carlo-simulates per-component soil properties (via
-#'   `sim_component_comp()`/`simulate_cokey_generalized()` in `R/core-simulation.R`),
+#'   `simulate_component_composition()`/`simulate_cokey_generalized()` in `R/core-simulation.R`),
 #'   aggregates to a requested depth window, and rasterizes per-mukey percentiles for
 #'   `fuse_property_adaptive()` to consume.
 #'
@@ -16,7 +16,7 @@
 #'
 #'   `download_ssurgo_tabular()`'s (`R/adapter-ssurgo-acquire.R`) default `properties` and always-included
 #'   base columns (`comppct_l/r/h`, all `_l/_r/_h` horizon triplets) already match
-#'   `sim_component_comp()`/`simulate_cokey_generalized()`'s expected SSURGO-stem input vocabulary
+#'   `simulate_component_composition()`/`simulate_cokey_generalized()`'s expected SSURGO-stem input vocabulary
 #'   directly - the only translation table genuinely needed is `property_to_sim_column()`, mapping
 #'   a caller-facing property id to `simulate_cokey_generalized()`'s short-code *output* column
 #'   name.
@@ -72,7 +72,7 @@ fetch_ssurgo_mukey_raster <- function(aoi_vect) {
 #'   where texture + bulk density allow; `"generic"` sends them through the six-strategy hierarchy.
 #' @return `df` with missing values infilled where possible.
 #' @export
-infill_soil_data <- function(df, water_retention_method = c("saxton_rawls", "generic")) {
+infill_ssurgo_data <- function(df, water_retention_method = c("saxton_rawls", "generic")) {
   water_retention_method <- match.arg(water_retention_method)
 
   standard_props <- c("sandtotal", "claytotal", "silttotal", "dbovendry", "om", "rfv",
@@ -246,7 +246,7 @@ property_to_sim_column <- function(property_id) {
     # Water retention: simulate_cokey_generalized() already emits `wr_3b`/`wr_15b`
     # (`.kssl_property_name_map` in R/core-correlations.R maps wthirdbar/wfifteenbar to
     # them) and SSURGO_SIM_PROPERTY_COLUMNS lists them, but this id->column map was missing the
-    # entries - added so run_stage1_fusion()/percentiles_from_draws() can produce water-retention
+    # entries - added so run_fusion()/percentiles_from_draws() can produce water-retention
     # posteriors (needed by remarginalized_awc()).
     water_retention_third_bar = "wr_3b", wthirdbar = "wr_3b", wr_3b = "wr_3b",
     water_retention_15_bar = "wr_15b", wfifteenbar = "wr_15b", wr_15b = "wr_15b",
@@ -308,14 +308,14 @@ normalize_requested_properties <- function(requested_properties) {
 #'
 #' Orchestrates the full SSURGO percentile-prior pipeline for one AOI/depth-window: fetch (cached)
 #' tabular SSURGO data, infill missing values, derive `genhz`, simulate component composition
-#' (`sim_component_comp()`) and join it onto horizons, simulate correlated properties per cokey
+#' (`simulate_component_composition()`) and join it onto horizons, simulate correlated properties per cokey
 #' (`simulate_cokey_generalized()`, using the KSSL reference correlation matrices), optionally
 #' remove organic horizons and apply depth-trend GP adjustment, then aggregate to the requested
 #' depth window.
 #'
 #' @param aoi_vect A `terra::SpatVector` AOI.
 #' @param top_depth,bottom_depth Numeric depth window bounds in cm.
-#' @param n_mc Number of triangular draws `sim_component_comp()` uses per component (default 1000).
+#' @param n_mc Number of triangular draws `simulate_component_composition()` uses per component (default 1000).
 #' @param parallel,n_cores Passed through to `maybe_adjust_soil_data_depth_trend()`'s
 #'   `parallel`/`n_cores` - the depth-trend GP adjustment step is this function's dominant cost
 #'   for AOIs with many cokeys, and each cokey's GP fitting is independent of every other cokey's.
@@ -368,16 +368,16 @@ normalize_requested_properties <- function(requested_properties) {
 #' Clear the cache entry (or the whole cache directory) to force a fresh fetch.
 #'
 #' This function's SIMULATED output is not disk-cached: every call re-simulates fresh random
-#' draws. Raw-draws fusion reuses draws in memory within one `run_stage1_fusion()` call
+#' draws. Raw-draws fusion reuses draws in memory within one `run_fusion()` call
 #' (computed once, used for both the percentile cache and `mukey_draws_lookup()`); see also
-#' `run_stage1_fusion_group()`'s `shared_draws` pattern.
+#' `run_fusion_group()`'s `shared_draws` pattern.
 #' @export
 simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
                                            parallel = FALSE, n_cores = NULL, config = NULL,
                                            mukey_raster = NULL, depth_windows = NULL,
                                            requested_properties = NULL, seed = NULL) {
   # Opt-in determinism: seed the global RNG stream once, up front. R's RNG is a single stream, so
-  # this one call covers sim_component_comp(), every per-cokey simulate_cokey_generalized(), the
+  # this one call covers simulate_component_composition(), every per-cokey simulate_cokey_generalized(), the
   # texture sub-sim, and the sequential joint-copula depth-trend step. The parallel depth-trend
   # path is seeded separately via maybe_adjust_soil_data_depth_trend(seed=) -> future.seed.
   # Determinism is conditional on identical upstream SSURGO data (download_ssurgo_tabular() can
@@ -421,7 +421,7 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
     cache_set(cache_key, "ssurgo_tabular", hz_data)
   }
 
-  hz_data <- infill_soil_data(hz_data)
+  hz_data <- infill_ssurgo_data(hz_data)
 
   if (any(grepl("O", hz_data$hzname))) {
     hz_data <- remove_organic_layer(hz_data)
@@ -438,7 +438,7 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
   # available.
   hz_data <- attach_osd_boundary_distinctness(hz_data)
 
-  component_data <- sim_component_comp(hz_data, n_simulations = n_mc)
+  component_data <- simulate_component_composition(hz_data, n_simulations = n_mc)
   hz_data <- dplyr::left_join(
     hz_data, component_data[, c("cokey", "sim_comppct")],
     by = "cokey"
@@ -551,7 +551,7 @@ rasterize_mukey_percentiles <- function(mukey_raster, percentile_by_mukey) {
 #' [simulate_ssurgo_mapunit_draws()] result can be reused across multiple properties instead of
 #' resimulating once per property - `simulate_cokey_generalized()` already simulates every
 #' recognized property jointly in one pass per cokey, so a caller that needs several properties
-#' from the same AOI/depth window (e.g. `run_stage1_fusion_group()`'s texture members) only needs
+#' from the same AOI/depth window (e.g. `run_fusion_group()`'s texture members) only needs
 #' to run the (expensive) simulation once and call this per property afterward.
 #'
 #' @param mukey_raster A categorical (factor) mukey `terra::SpatRaster` from

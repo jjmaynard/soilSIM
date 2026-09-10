@@ -1,7 +1,7 @@
 #' @title Disk Cache for Raster Fusion Fetch Results
 #'
 #' @description `build_cache_key()`/`cache_get()`/`cache_set()`/`CACHE_TTL_SECONDS` are called by
-#'   `run_stage1_fusion()`/`run_stage1_fusion_group()` (`R/core-fusion.R`) and
+#'   `run_fusion()`/`run_fusion_group()` (`R/core-fusion.R`) and
 #'   `simulate_ssurgo_mapunit_draws()` (`R/adapter-ssurgo-simulate.R`).
 #'
 #'   The implementation adapts the disk-RDS cache pattern from
@@ -11,7 +11,7 @@
 #'
 #'   Cache files live under `tools::R_user_dir("soilSIM", "cache")` (the standard R >= 4.0
 #'   per-package cache location) rather than a caller-supplied directory, since
-#'   `run_stage1_fusion()`'s own calls (`cache_get(key, CACHE_TTL_SECONDS)`,
+#'   `run_fusion()`'s own calls (`cache_get(key, CACHE_TTL_SECONDS)`,
 #'   `cache_set(key, "ssurgo", data)`) don't thread a directory argument through at all.
 #' @name raster_cache
 NULL
@@ -67,8 +67,8 @@ mukey_grid_cache_key <- function(aoi_vect) {
 #' the AOI (and the fixed default `properties` list every call site uses - never varied), not on
 #' any depth window. Keying the tabular cache on `top_depth`/`bottom_depth` (as it was before this
 #' function existed -) fragments one AOI's cache into one
-#' unusable copy per distinct window ever requested for it, so e.g. `run_stage1_fusion_multi()`'s
-#' wide-span simulation and a later single-window `run_stage1_fusion()` call for the same AOI never
+#' unusable copy per distinct window ever requested for it, so e.g. `run_fusion_multiproperty()`'s
+#' wide-span simulation and a later single-window `run_fusion()` call for the same AOI never
 #' shared a tabular download. Mirrors `mukey_grid_cache_key()`'s fixed-sentinel pattern.
 #' @param aoi_vect A `terra::SpatVector` (single-feature AOI).
 #' @return A character string, safe for use as a filename.
@@ -193,7 +193,7 @@ cache_get_valid_percentiles <- function(key, ttl_seconds = CACHE_TTL_SECONDS) {
 #'
 #' A generic counterpart to `wrap_percentile_list()`/`unwrap_percentile_list()`, for result
 #' structures whose shape isn't the fixed `list(values=, probs=)` percentile form - e.g.
-#' `run_stage1_fusion()`'s return value, which nests `SpatRaster`s at `prior$values`,
+#' `run_fusion()`'s return value, which nests `SpatRaster`s at `prior$values`,
 #' `likelihood$values`, and inside `posterior` (whose own shape varies by `dist`). Recurses into
 #' every list element, replacing each `SpatRaster` with `terra::wrap()`'s `PackedSpatRaster`
 #' representation (or the reverse via `terra::unwrap()`) and leaving everything else untouched -
@@ -224,12 +224,12 @@ unwrap_nested_rasters <- function(x) {
   }
 }
 
-#' Validate a `run_stage1_fusion_group()`-shaped cached group result
+#' Validate a `run_fusion_group()`-shaped cached group result
 #'
-#' The `run_stage1_fusion_group()` counterpart to `is_valid_percentile_list()` - see its docs for
+#' The `run_fusion_group()` counterpart to `is_valid_percentile_list()` - see its docs for
 #' why an unvalidated cache hit is dangerous. A valid group result is a named list keyed by every
 #' `member_ids` entry, each element carrying a non-`NULL` `posterior`/`dist` (see
-#' `run_stage1_fusion_group()`'s return-value docs for the full per-member shape).
+#' `run_fusion_group()`'s return-value docs for the full per-member shape).
 #' @param x A candidate value read from `cache_get()`, already `unwrap_nested_rasters()`-ed.
 #' @param member_ids Character vector of expected member ids (from `group_members()`).
 #' @return `TRUE` if `x` has the expected shape, else `FALSE`.
@@ -241,7 +241,7 @@ is_valid_group_result <- function(x, member_ids) {
   }, logical(1)))
 }
 
-#' Cache-hit lookup for a `run_stage1_fusion_group()` result, with shape validation
+#' Cache-hit lookup for a `run_fusion_group()` result, with shape validation
 #'
 #' The nested-group counterpart to `cache_get_valid_percentiles()` - see its docs for the general
 #' rationale. Combines `cache_get()` + `unwrap_nested_rasters()` + `is_valid_group_result()`.

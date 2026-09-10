@@ -76,9 +76,9 @@ test_that("slice_and_aggregate_soil_data()'s vectorized depth expansion matches 
   }
 })
 
-test_that("sim_component_comp() adds a sim_comppct column, one row per distinct component", {
+test_that("simulate_component_composition() adds a sim_comppct column, one row per distinct component", {
   data <- make_component_data()
-  result <- sim_component_comp(data, n_simulations = 500)
+  result <- simulate_component_composition(data, n_simulations = 500)
   expect_equal(nrow(result), 2)
   expect_true("sim_comppct" %in% names(result))
   expect_true(all(result$sim_comppct > 0))
@@ -86,20 +86,20 @@ test_that("sim_component_comp() adds a sim_comppct column, one row per distinct 
   expect_equal(result$sim_comppct[1], round(500 * 55 / 100), tolerance = 20)
 })
 
-test_that("sim_component_comp() fills missing comppct_l/comppct_h from comppct_r +/- 2", {
+test_that("simulate_component_composition() fills missing comppct_l/comppct_h from comppct_r +/- 2", {
   data <- data.frame(
     mukey = "1", cokey = "1", compname = "compA",
     comppct_l = NA_real_, comppct_r = 50, comppct_h = NA_real_,
     stringsAsFactors = FALSE
   )
-  result <- sim_component_comp(data, n_simulations = 200)
+  result <- simulate_component_composition(data, n_simulations = 200)
   expect_equal(nrow(result), 1)
   expect_true(result$sim_comppct > 0)
 })
 
-test_that("sim_component_comp() output joins onto horizon data by cokey (documented grain-mismatch fix)", {
+test_that("simulate_component_composition() output joins onto horizon data by cokey (documented grain-mismatch fix)", {
   component_data <- make_component_data()
-  comp_result <- sim_component_comp(component_data, n_simulations = 100)
+  comp_result <- simulate_component_composition(component_data, n_simulations = 100)
 
   horizon_data <- data.frame(
     cokey = c("1", "1", "2"), hzname = c("A", "Bt", "A"),
@@ -634,7 +634,7 @@ test_that("simulate_profile_depths_by_mukey() derives and joins sim_comppct inte
   # Regression test for the sim_comppct integration gap: simulate_profile_depths_by_mukey()
   # used to require callers to derive/join sim_comppct themselves before it reached
   # simulate_and_perturb_soil_profiles(), erroring on a missing-column condition otherwise.
-  # It now calls sim_component_comp() and joins the result onto mu_data by cokey internally.
+  # It now calls simulate_component_composition() and joins the result onto mu_data by cokey internally.
   # comppct_l = comppct_r = comppct_h = 100 makes tri_dist() degenerate to a point mass at
   # 100 (a == b == c), so sim_comppct = round(n_simulations * 100 / 100) = n_simulations
   # exactly - a fully deterministic, offline-testable case (single horizon, so the

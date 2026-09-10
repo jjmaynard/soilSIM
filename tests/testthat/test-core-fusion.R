@@ -171,7 +171,7 @@ test_that("structural boundary: core-fusion.R never calls back into core-monteca
     "fuse_texture_group_from_triplets", "fuse_property"
   )
   monte_carlo_only_functions <- c(
-    "generate_monte_carlo_realizations", "simulate_correlated_properties", "sim_component_compositions",
+    "simulate_monte_carlo", "simulate_correlated_properties", "sim_component_compositions",
     "setup_distributions", "prepare_simulation_parameters", "configure_correlation_structure",
     "apply_simulation_constraints", "extract_property_parameters", "estimate_property_correlations",
     "prepare_simulation_data", "run_sequential_simulation", "run_parallel_simulation",
@@ -204,7 +204,7 @@ test_that("structural boundary: fuse_observed_data_into_priors()/fuse_one_proper
     "fuse_texture_group_from_triplets", "fuse_property"
   )
   other_monte_carlo_functions <- c(
-    "generate_monte_carlo_realizations", "simulate_correlated_properties", "sim_component_compositions",
+    "simulate_monte_carlo", "simulate_correlated_properties", "sim_component_compositions",
     "setup_distributions", "prepare_simulation_parameters", "configure_correlation_structure",
     "apply_simulation_constraints", "extract_property_parameters", "estimate_property_correlations",
     "prepare_simulation_data", "run_sequential_simulation", "run_parallel_simulation",
@@ -750,11 +750,11 @@ test_that("fuse_texture_group() default output is unaffected by the new mukey_ra
   expect_equal(terra::values(a$claytotal$posterior$value), terra::values(b$claytotal$posterior$value))
 })
 
-test_that("run_stage1_fusion_group() uses distinct cache kinds for prior_fusion_method='raw_draws' vs the default", {
+test_that("run_fusion_group() uses distinct cache kinds for prior_fusion_method='raw_draws' vs the default", {
   # Regression test for a real bug found live while verifying P2.5 (MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md):
   # the group-level result cache key didn't encode prior_fusion_method at all, so switching it for
   # the same AOI/depth-window silently returned a STALE, method-mismatched cached fusion result -
-  # unlike run_stage1_fusion()'s own "ssurgo" cache, which only stores the pre-fusion prior
+  # unlike run_fusion()'s own "ssurgo" cache, which only stores the pre-fusion prior
   # (re-fused fresh every call), the group cache stores the final fused POSTERIOR, so this staleness
   # risk was specific to the group path. Offline/pure - no network needed, since this tests the
   # cache-key/routing logic directly by pre-seeding both kinds and mocking the fetch functions to
@@ -798,8 +798,8 @@ test_that("run_stage1_fusion_group() uses distinct cache kinds for prior_fusion_
     .package = "soilSIM"
   )
 
-  default_result <- run_stage1_fusion_group(aoi, "texture", composition_groups, base_configs, top_depth, bottom_depth)
-  raw_result <- run_stage1_fusion_group(aoi, "texture", composition_groups, raw_configs, top_depth, bottom_depth)
+  default_result <- run_fusion_group(aoi, "texture", composition_groups, base_configs, top_depth, bottom_depth)
+  raw_result <- run_fusion_group(aoi, "texture", composition_groups, raw_configs, top_depth, bottom_depth)
 
   expect_equal(default_result$clay$tag, "default")
   expect_equal(raw_result$clay$tag, "raw_draws")
@@ -864,7 +864,7 @@ test_that("fuse_texture_group_batch() vectorized path matches the original per-c
   expect_equal(actual, expected, tolerance = 1e-9)
 })
 
-test_that("run_stage1_fusion() fetches, caches, aligns, and fuses SSURGO x SOLUS for a real AOI", {
+test_that("run_fusion() fetches, caches, aligns, and fuses SSURGO x SOLUS for a real AOI", {
   testthat::skip_if_offline()
   # See test-solus-simulation.R's live test for why PROJ_LIB is unset defensively here too - a
   # stray PROJ_LIB (documented in HANDOFF_NOTES.md) can poison terra's PROJ context before
@@ -881,7 +881,7 @@ test_that("run_stage1_fusion() fetches, caches, aligns, and fuses SSURGO x SOLUS
 
   property_config <- list(id = "test_clay", solus_variable = "claytotal", dist = "normal")
 
-  result <- run_stage1_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5)
+  result <- run_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5)
   expect_true(is.null(result) || is.list(result))
   if (!is.null(result)) {
     expect_true(result$dist %in% c("normal", "beta", "gamma", "lognormal", "metalog"))
@@ -890,7 +890,7 @@ test_that("run_stage1_fusion() fetches, caches, aligns, and fuses SSURGO x SOLUS
   }
 })
 
-test_that("run_stage1_fusion() with a composition_group dispatches to run_stage1_fusion_group() and slices to the requested member", {
+test_that("run_fusion() with a composition_group dispatches to run_fusion_group() and slices to the requested member", {
   testthat::skip_if_offline()
   Sys.unsetenv("PROJ_LIB")
   aoi <- terra::vect(
@@ -909,7 +909,7 @@ test_that("run_stage1_fusion() with a composition_group dispatches to run_stage1
     test_silt2 = list(id = "test_silt2", solus_variable = "silttotal", composition_group = "texture")
   )
 
-  result <- run_stage1_fusion(
+  result <- run_fusion(
     aoi, property_configs$test_clay2, top_depth = 0, bottom_depth = 5,
     composition_groups = composition_groups, property_configs = property_configs
   )
@@ -1321,7 +1321,7 @@ test_that("resolve_want_raw_draws() honors explicit prior_fusion_method override
   expect_false(resolve_want_raw_draws("bogus", "metalog"))
 })
 
-test_that("run_stage1_fusion() defaults to raw_draws for dist='normal' and to percentile for dist='metalog' - MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P2.10", {
+test_that("run_fusion() defaults to raw_draws for dist='normal' and to percentile for dist='metalog' - MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P2.10", {
   # Offline, no live network: mock every fetch/simulate call to prove WHICH branch each dist takes,
   # not to exercise the real fusion math (already covered by this file's other tests).
   aoi <- terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070")
@@ -1361,7 +1361,7 @@ test_that("run_stage1_fusion() defaults to raw_draws for dist='normal' and to pe
     # synthetic property_config (e.g. dist="metalog" needing its own term configuration) -
     # swallow any such error since it's irrelevant to what this test checks.
     tryCatch(
-      run_stage1_fusion(aoi, property_config, top_depth = 0, bottom_depth = 30),
+      run_fusion(aoi, property_config, top_depth = 0, bottom_depth = 30),
       error = function(e) NULL
     )
     expect_equal(simulate_called, simulate_should_be_called)
@@ -1527,7 +1527,7 @@ test_that("fuse_general_kde(raw_draws) degrades a cell with no matching mukey dr
 # core-fusion.R : A.3 zonal_distribution_from_posterior(),
 #                          A.4 remarginalize_ensemble_to_posterior(),
 #                          A.5 remarginalized_awc()
-# All offline: synthetic mukey rasters + synthetic run_stage1_fusion()-shaped posteriors.
+# All offline: synthetic mukey rasters + synthetic run_fusion()-shaped posteriors.
 # ---------------------------------------------------------------------------
 
 .default_probs <- c(0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99)
@@ -1898,7 +1898,7 @@ test_that("remarginalized_awc(restriction_depth=) treats NA cells as unrestricte
 # A.7 - live end-to-end (real AOI -> ensemble -> stage-1 fusion -> re-marginalize -> AWC)
 # ---------------------------------------------------------------------------
 
-test_that("end-to-end: extract_mukey_joint_ensemble -> run_stage1_fusion -> remarginalized_awc (live)", {
+test_that("end-to-end: extract_mukey_joint_ensemble -> run_fusion -> remarginalized_awc (live)", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
   Sys.unsetenv("PROJ_LIB")   # documented terra/PROJ env quirk - see HANDOFF_NOTES.md / .onLoad()
@@ -1923,7 +1923,7 @@ test_that("end-to-end: extract_mukey_joint_ensemble -> run_stage1_fusion -> rema
   for (nm in names(props)) {
     per_w <- list()
     for (w in windows) {
-      r <- tryCatch(run_stage1_fusion(aoi, cfg(nm, props[[nm]]), w[1], w[2]), error = function(e) NULL)
+      r <- tryCatch(run_fusion(aoi, cfg(nm, props[[nm]]), w[1], w[2]), error = function(e) NULL)
       if (!is.null(r)) per_w[[paste0(w[1], "-", w[2])]] <- list(percentiles = r$posterior$percentiles)
     }
     post[[nm]] <- per_w
@@ -1945,7 +1945,7 @@ test_that("end-to-end: extract_mukey_joint_ensemble -> run_stage1_fusion -> rema
 
 # --- merged from test-raster-fusion-multi.R (P1 reorg) ---
 
-# Offline tests for run_stage1_fusion_multi() (MULTI_PROPERTY_FUSION_PLAN.md Change A).
+# Offline tests for run_fusion_multiproperty() (MULTI_PROPERTY_FUSION_PLAN.md Change A).
 # Every fetch/simulate is mocked - the point is orchestration (one simulation, per-leaf fusion,
 # cache seeding, partial-failure handling), not the fusion math (covered in test-raster-fusion.R).
 
@@ -1960,7 +1960,7 @@ probs5 <- c(0.05, 0.25, 0.5, 0.75, 0.95)
 .mp_prior <- function(v = 20) list(values = .mp_pct(v), probs = probs5)
 .mp_solus <- function(v = 22) list(values = .mp_pct(v), probs = probs5)
 
-# S1: run_stage1_fusion_multi() fetches SOLUS via the batched fetch_solus_percentiles_multi()
+# S1: run_fusion_multiproperty() fetches SOLUS via the batched fetch_solus_percentiles_multi()
 # (one call per window, every variable at once), not the scalar fetch_solus_percentiles() per
 # (variable, window) - default mock mirrors .mp_solus() for every requested variable.
 .mp_solus_multi <- function(solus_variables, v = 22) {
@@ -1988,7 +1988,7 @@ probs5 <- c(0.05, 0.25, 0.5, 0.75, 0.95)
   )
 }
 
-test_that("run_stage1_fusion_multi() runs the SSURGO simulation exactly once for N x M leaves", {
+test_that("run_fusion_multiproperty() runs the SSURGO simulation exactly once for N x M leaves", {
   sim_n <- 0L
   windows <- list(c(0, 5), c(5, 15), c(15, 30))
   cfgs <- list(
@@ -2014,7 +2014,7 @@ test_that("run_stage1_fusion_multi() runs the SSURGO simulation exactly once for
     .package = "soilSIM"
   )
 
-  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)
+  res <- run_fusion_multiproperty(.mp_aoi(), cfgs, windows)
 
   expect_equal(sim_n, 1L)
   expect_named(res, c("ph", "db", "soc"))
@@ -2023,7 +2023,7 @@ test_that("run_stage1_fusion_multi() runs the SSURGO simulation exactly once for
   expect_true(all(c("prior", "likelihood", "posterior", "dist", "route") %in% names(res$ph[["0-5"]])))
 })
 
-test_that("run_stage1_fusion_multi() seeds the per-(id, window) 'ssurgo' and 'solus' caches", {
+test_that("run_fusion_multiproperty() seeds the per-(id, window) 'ssurgo' and 'solus' caches", {
   rec <- .mp_cache_recorder()
   windows <- list(c(0, 5), c(5, 15))
   cfgs <- list(ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal"))
@@ -2044,7 +2044,7 @@ test_that("run_stage1_fusion_multi() seeds the per-(id, window) 'ssurgo' and 'so
     .package = "soilSIM"
   )
 
-  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)
+  run_fusion_multiproperty(.mp_aoi(), cfgs, windows)
 
   kinds_by_key <- vapply(rec$env$calls, function(c) paste(c$key, c$kind), character(1))
   expect_true("ph_0_5_ssurgo ssurgo" %in% kinds_by_key)
@@ -2053,22 +2053,22 @@ test_that("run_stage1_fusion_multi() seeds the per-(id, window) 'ssurgo' and 'so
   expect_true("ph_5_15_solus solus" %in% kinds_by_key)
 })
 
-test_that("run_stage1_fusion_multi() validates property_configs and composition-group inputs", {
+test_that("run_fusion_multiproperty() validates property_configs and composition-group inputs", {
   aoi <- .mp_aoi()
   w <- list(c(0, 5))
 
-  expect_error(run_stage1_fusion_multi(aoi, list(list(id = "ph")), w), "named list")
+  expect_error(run_fusion_multiproperty(aoi, list(list(id = "ph")), w), "named list")
   expect_error(
-    run_stage1_fusion_multi(aoi, list(ph = list(id = "clay", solus_variable = "claytotal")), w),
+    run_fusion_multiproperty(aoi, list(ph = list(id = "clay", solus_variable = "claytotal")), w),
     "\\$id must match"
   )
   expect_error(
-    run_stage1_fusion_multi(aoi, list(clay = list(id = "clay", solus_variable = "claytotal",
+    run_fusion_multiproperty(aoi, list(clay = list(id = "clay", solus_variable = "claytotal",
                                                   composition_group = "texture")), w),
     "composition_groups.*is NULL"
   )
   expect_error(
-    run_stage1_fusion_multi(
+    run_fusion_multiproperty(
       aoi,
       list(clay = list(id = "clay", solus_variable = "claytotal", composition_group = "texture")),
       w,
@@ -2076,10 +2076,10 @@ test_that("run_stage1_fusion_multi() validates property_configs and composition-
     ),
     "member\\(s\\) missing.*sand"
   )
-  expect_error(run_stage1_fusion_multi(aoi, list(ph = list(id = "ph")), list(c(5, 5))), "bottom > top")
+  expect_error(run_fusion_multiproperty(aoi, list(ph = list(id = "ph")), list(c(5, 5))), "bottom > top")
 })
 
-test_that("run_stage1_fusion_multi() returns NULL leaves on a per-leaf SOLUS failure and keeps the rest", {
+test_that("run_fusion_multiproperty() returns NULL leaves on a per-leaf SOLUS failure and keeps the rest", {
   windows <- list(c(0, 5))
   cfgs <- list(
     ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal"),
@@ -2109,12 +2109,12 @@ test_that("run_stage1_fusion_multi() returns NULL leaves on a per-leaf SOLUS fai
     .package = "soilSIM"
   )
 
-  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)
+  res <- run_fusion_multiproperty(.mp_aoi(), cfgs, windows)
   expect_false(is.null(res$ph[["0-5"]]))
   expect_null(res$db[["0-5"]])
 })
 
-test_that("run_stage1_fusion_multi() is quiet by default and honors simplify = TRUE", {
+test_that("run_fusion_multiproperty() is quiet by default and honors simplify = TRUE", {
   windows <- list(c(0, 5))
   cfgs <- list(ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal"))
 
@@ -2134,14 +2134,14 @@ test_that("run_stage1_fusion_multi() is quiet by default and honors simplify = T
     .package = "soilSIM"
   )
 
-  expect_silent(res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows))
+  expect_silent(res <- run_fusion_multiproperty(.mp_aoi(), cfgs, windows))
 
-  res_s <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, simplify = TRUE)
+  res_s <- run_fusion_multiproperty(.mp_aoi(), cfgs, windows, simplify = TRUE)
   expect_named(res_s$ph[["0-5"]], "percentiles")
   expect_true(all(grepl("^P", names(res_s$ph[["0-5"]]$percentiles))))
 })
 
-test_that("run_stage1_fusion_multi(seed=) seeds up front and forwards the seed to the simulation", {
+test_that("run_fusion_multiproperty(seed=) seeds up front and forwards the seed to the simulation", {
   seen_seed <- NULL
   windows <- list(c(0, 5))
   cfgs <- list(ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal"))
@@ -2164,24 +2164,24 @@ test_that("run_stage1_fusion_multi(seed=) seeds up front and forwards the seed t
   )
 
   # forwards the seed to the shared simulation
-  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, seed = 11)
+  run_fusion_multiproperty(.mp_aoi(), cfgs, windows, seed = 11)
   expect_identical(seen_seed, 11)
 
   # top-of-function set.seed(seed) makes the whole call (incl. the RNG-using fusion step)
   # reproducible: two runs at the same seed leave the stream in the same place.
   runif(1)
-  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, seed = 11)
+  run_fusion_multiproperty(.mp_aoi(), cfgs, windows, seed = 11)
   s1 <- .Random.seed
   runif(3)
-  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, seed = 11)
+  run_fusion_multiproperty(.mp_aoi(), cfgs, windows, seed = 11)
   expect_identical(.Random.seed, s1)
 
   seen_seed <- NULL
-  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)  # no seed
+  run_fusion_multiproperty(.mp_aoi(), cfgs, windows)  # no seed
   expect_null(seen_seed)
 })
 
-test_that("run_stage1_fusion_multi() skips the simulation when nothing needs it (all caches warm, no raw_draws)", {
+test_that("run_fusion_multiproperty() skips the simulation when nothing needs it (all caches warm, no raw_draws)", {
   sim_n <- 0L
   windows <- list(c(0, 5))
   # prior_fusion_method = "percentile" -> resolve_want_raw_draws() FALSE for dist = "normal"
@@ -2201,12 +2201,12 @@ test_that("run_stage1_fusion_multi() skips the simulation when nothing needs it 
     .package = "soilSIM"
   )
 
-  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)
+  res <- run_fusion_multiproperty(.mp_aoi(), cfgs, windows)
   expect_equal(sim_n, 0L)
   expect_false(is.null(res$ph[["0-5"]]$posterior))
 })
 
-test_that("run_stage1_fusion_multi() distributes a compositional group's members and fuses the group once", {
+test_that("run_fusion_multiproperty() distributes a compositional group's members and fuses the group once", {
   fuse_n <- 0L
   windows <- list(c(0, 5), c(5, 15))
   comp <- list(texture = list(members = c("clay", "sand", "silt")))
@@ -2243,7 +2243,7 @@ test_that("run_stage1_fusion_multi() distributes a compositional group's members
     .package = "soilSIM"
   )
 
-  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, composition_groups = comp)
+  res <- run_fusion_multiproperty(.mp_aoi(), cfgs, windows, composition_groups = comp)
 
   expect_equal(fuse_n, 2L)  # once per window, not once per member
   expect_equal(res$clay[["0-5"]]$dist, "texture_ilr")
@@ -2257,7 +2257,7 @@ test_that("run_stage1_fusion_multi() distributes a compositional group's members
 # call per (variable, window).
 # ---------------------------------------------------------------------------
 
-test_that("run_stage1_fusion_multi() fetches SOLUS once per window (batched), not once per variable", {
+test_that("run_fusion_multiproperty() fetches SOLUS once per window (batched), not once per variable", {
   batch_calls <- list()
   windows <- list(c(0, 5), c(5, 15), c(15, 30))
   comp <- list(texture = list(members = c("clay", "sand", "silt")))
@@ -2296,7 +2296,7 @@ test_that("run_stage1_fusion_multi() fetches SOLUS once per window (batched), no
     .package = "soilSIM"
   )
 
-  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, composition_groups = comp)
+  res <- run_fusion_multiproperty(.mp_aoi(), cfgs, windows, composition_groups = comp)
 
   # One batch call per window (3), not one per (variable, window) (would be 5 * 3 = 15).
   expect_equal(length(batch_calls), 3L)
@@ -2307,7 +2307,7 @@ test_that("run_stage1_fusion_multi() fetches SOLUS once per window (batched), no
   expect_equal(res$clay[["5-15"]]$dist, "texture_ilr")
 })
 
-test_that("run_stage1_fusion_multi() falls back to the scalar SOLUS fetch when the batched request errors", {
+test_that("run_fusion_multiproperty() falls back to the scalar SOLUS fetch when the batched request errors", {
   scalar_calls <- 0L
   windows <- list(c(0, 5))
   cfgs <- list(ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal"))
@@ -2328,7 +2328,7 @@ test_that("run_stage1_fusion_multi() falls back to the scalar SOLUS fetch when t
     .package = "soilSIM"
   )
 
-  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)
+  res <- run_fusion_multiproperty(.mp_aoi(), cfgs, windows)
 
   expect_equal(scalar_calls, 1L)
   expect_false(is.null(res$ph[["0-5"]]))

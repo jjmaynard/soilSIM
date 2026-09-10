@@ -305,7 +305,7 @@ test_that("recover_missing_horizon_components() is a no-op when every real compo
   expect_equal(nrow(result$components_recovered), 0)
 })
 
-test_that("recover_missing_horizon_components() end-to-end: a recovered component gets a real sim_comppct via sim_component_comp()", {
+test_that("recover_missing_horizon_components() end-to-end: a recovered component gets a real sim_comppct via simulate_component_composition()", {
   fx <- make_component_recovery_fixture()
   result <- recover_missing_horizon_components(fx$ssurgo_data, fx$all_components, verbose = FALSE)
 
@@ -313,7 +313,7 @@ test_that("recover_missing_horizon_components() end-to-end: a recovered componen
   hz_data$genhz <- classify_genhz(hz_data$hzname)
   expect_false(any(is.na(hz_data$genhz)))
 
-  comp_draws <- sim_component_comp(hz_data, n_simulations = 50)
+  comp_draws <- simulate_component_composition(hz_data, n_simulations = 50)
   recovered_comp <- comp_draws[comp_draws$cokey == "20", ]
   expect_equal(nrow(recovered_comp), 1)
   expect_false(is.na(recovered_comp$sim_comppct))

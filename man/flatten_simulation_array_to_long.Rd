@@ -19,7 +19,7 @@ Long-format data frame.
 }
 \description{
 Converts the \verb{[horizon, property, realization]} array returned by
-\code{\link[=generate_monte_carlo_realizations]{generate_monte_carlo_realizations()}} (as \code{result$simulation_data}) into a
+\code{\link[=simulate_monte_carlo]{simulate_monte_carlo()}} (as \code{result$simulation_data}) into a
 long-format data frame with one row per horizon-realization combination,
 matching the shape \code{\link[=apply_local_gp_adjustments]{apply_local_gp_adjustments()}}, \code{\link[=apply_nrcs_trend_adjustments]{apply_nrcs_trend_adjustments()}},
 and \code{\link[=convert_to_property_matrices]{convert_to_property_matrices()}} expect (a \code{simulation_number} column

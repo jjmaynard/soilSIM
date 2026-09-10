@@ -13,6 +13,6 @@ new_soilSIM_simulation(x)
 An object of class \code{soilSIM_simulation}.
 }
 \description{
-Wraps the list returned by \code{\link[=generate_monte_carlo_realizations]{generate_monte_carlo_realizations()}}. Nothing
+Wraps the list returned by \code{\link[=simulate_monte_carlo]{simulate_monte_carlo()}}. Nothing
 about the contents changes; the class only adds \code{print}/\code{summary}.
 }

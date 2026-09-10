@@ -2,7 +2,7 @@
 % Please edit documentation in R/cache.R
 \name{is_valid_group_result}
 \alias{is_valid_group_result}
-\title{Validate a \code{run_stage1_fusion_group()}-shaped cached group result}
+\title{Validate a \code{run_fusion_group()}-shaped cached group result}
 \usage{
 is_valid_group_result(x, member_ids)
 }
@@ -15,9 +15,9 @@ is_valid_group_result(x, member_ids)
 \code{TRUE} if \code{x} has the expected shape, else \code{FALSE}.
 }
 \description{
-The \code{run_stage1_fusion_group()} counterpart to \code{is_valid_percentile_list()} - see its docs for
+The \code{run_fusion_group()} counterpart to \code{is_valid_percentile_list()} - see its docs for
 why an unvalidated cache hit is dangerous. A valid group result is a named list keyed by every
 \code{member_ids} entry, each element carrying a non-\code{NULL} \code{posterior}/\code{dist} (see
-\code{run_stage1_fusion_group()}'s return-value docs for the full per-member shape).
+\code{run_fusion_group()}'s return-value docs for the full per-member shape).
 }
 \keyword{internal}

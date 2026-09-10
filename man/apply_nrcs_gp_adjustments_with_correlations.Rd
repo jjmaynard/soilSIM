@@ -14,7 +14,7 @@ apply_nrcs_gp_adjustments_with_correlations(
 \arguments{
 \item{simulation_data}{Simulated soil property data for one cokey.}
 
-\item{nrcs_gp_models}{Fitted NRCS GP models (see \code{\link[=build_stratified_gp_models]{build_stratified_gp_models()}}).}
+\item{nrcs_gp_models}{Fitted NRCS GP models (see \code{\link[=fit_depth_gp_models]{fit_depth_gp_models()}}).}
 
 \item{model_group}{GP model group to apply.}
 

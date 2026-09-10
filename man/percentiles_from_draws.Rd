@@ -31,7 +31,7 @@ The quantile/rasterize half of \code{\link[=fetch_ssurgo_percentiles]{fetch_ssur
 \code{\link[=simulate_ssurgo_mapunit_draws]{simulate_ssurgo_mapunit_draws()}} result can be reused across multiple properties instead of
 resimulating once per property - \code{simulate_cokey_generalized()} already simulates every
 recognized property jointly in one pass per cokey, so a caller that needs several properties
-from the same AOI/depth window (e.g. \code{run_stage1_fusion_group()}'s texture members) only needs
+from the same AOI/depth window (e.g. \code{run_fusion_group()}'s texture members) only needs
 to run the (expensive) simulation once and call this per property afterward.
 }
 \keyword{internal}

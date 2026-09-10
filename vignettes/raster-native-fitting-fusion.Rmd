@@ -14,8 +14,8 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height
 ## Overview
 
 `raster-fusion-ssurgo-solus.Rmd` shows the *pipeline* view of soilSIM's multi-source raster fusion:
-call `run_stage1_fusion()`/`run_stage1_fusion_group()` and get back a fused posterior. This
-vignette opens the hood. `run_stage1_fusion()` is a thin fetch-and-cache wrapper around a handful
+call `run_fusion()`/`run_fusion_group()` and get back a fused posterior. This
+vignette opens the hood. `run_fusion()` is a thin fetch-and-cache wrapper around a handful
 of small, composable, raster-native building blocks - distribution fitting functions
 (`R/core-distributions-raster.R`), a fusion core (`R/core-fusion.R`), and a disk cache
 (`R/cache.R`) - each of which does exactly one thing to a `terra::SpatRaster` (or list of
@@ -43,7 +43,7 @@ that originally produced this cached object are shown for reference only and not
 salinas_wkt <- "POLYGON((-121.66 36.60, -121.64 36.60, -121.64 36.62, -121.66 36.62, -121.66 36.60))"
 aoi <- terra::project(terra::vect(salinas_wkt, crs = "epsg:4326"), "epsg:5070")
 property_config <- list(id = "clay", solus_variable = "claytotal", dist = "normal")
-fusion_clay <- run_stage1_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5)
+fusion_clay <- run_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5)
 ```
 
 ```{r}
@@ -282,7 +282,7 @@ resolve_property_dist(list(dist = "normal"), prior_values, prior_probs)$dist_sou
 ## 7. Adaptive fusion dispatch: `fuse_adaptive()`
 
 `fuse_adaptive()` is the size-adaptive engine `fuse_property_adaptive()` (and therefore
-`run_stage1_fusion()`) delegates to for `"normal"`/`"beta"`/`"gamma"` families. It picks the fusion
+`run_fusion()`) delegates to for `"normal"`/`"beta"`/`"gamma"` families. It picks the fusion
 *route* from the AOI's own cell count rather than requiring the caller to choose: at or below
 `threshold_cells` (default 80,000), it uses a fully general per-cell KDE route
 (`bayesian_update()` on samples drawn from each side's percentiles); above it, a much faster
@@ -340,7 +340,7 @@ did anything sensible at all relative to its two *inputs*: does the posterior me
 actually sit somewhere between the SSURGO prior and the SOLUS100 likelihood, sharpened by combining
 them? `fusion_clay` (loaded back in "Reusing real data instead of fetching") already holds the real,
 full-pipeline answer for this AOI - its `prior`/`likelihood`/`posterior` are the actual objects
-`run_stage1_fusion()` produced, not the toy `aligned`/`fuse_adaptive()` example from Section 7:
+`run_fusion()` produced, not the toy `aligned`/`fuse_adaptive()` example from Section 7:
 
 ```{r, fig.width = 7, fig.height = 4.5}
 dist_df <- data.frame(
@@ -514,7 +514,7 @@ how far the posterior moves, including pixels where the likelihood dominates ins
 
 ## 10. Caching internals
 
-`run_stage1_fusion()`/`run_stage1_fusion_group()` disk-cache every fetch step under
+`run_fusion()`/`run_fusion_group()` disk-cache every fetch step under
 `tools::R_user_dir("soilSIM", "cache")`, keyed by AOI + property/group id + depth window + kind.
 
 `build_cache_key()` builds a deterministic, filename-safe key from an AOI's WKT geometry (hashed via
@@ -579,7 +579,7 @@ actually caches:
 - `wrap_percentile_list()`/`unwrap_percentile_list()` - for the fixed `list(values = <SpatRasters>,
   probs = )` percentile shape `fetch_ssurgo_percentiles()`/`fetch_solus_percentiles()` return.
 - `wrap_nested_rasters()`/`unwrap_nested_rasters()` - a fully generic version for result structures
-  whose shape isn't that fixed form, e.g. `run_stage1_fusion()`'s own return value, which nests
+  whose shape isn't that fixed form, e.g. `run_fusion()`'s own return value, which nests
   `SpatRaster`s at `prior$values`, `likelihood$values`, and inside `posterior` (whose shape varies
   by `dist`). It recurses into every list element, replacing each `SpatRaster` it finds with its
   wrapped/unwrapped equivalent and leaving everything else untouched - which is exactly how this

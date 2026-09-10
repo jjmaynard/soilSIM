@@ -14,7 +14,7 @@ stage1_fuse_from_prior_solus(
 )
 }
 \arguments{
-\item{property_config}{As in \code{\link[=run_stage1_fusion]{run_stage1_fusion()}}.}
+\item{property_config}{As in \code{\link[=run_fusion]{run_fusion()}}.}
 
 \item{prior, solus}{The pre-alignment \code{list(values=, probs=)} percentile lists for the SSURGO
 prior and SOLUS likelihood.}
@@ -29,14 +29,14 @@ raw-draws path.}
 original inline behavior).}
 }
 \value{
-\code{run_stage1_fusion()}'s return list
+\code{run_fusion()}'s return list
 (\code{list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=, route_detail=, n_fallback_cells=)}).
 }
 \description{
-The portion of \code{\link[=run_stage1_fusion]{run_stage1_fusion()}} that runs once its SSURGO prior and SOLUS likelihood
+The portion of \code{\link[=run_fusion]{run_fusion()}} that runs once its SSURGO prior and SOLUS likelihood
 percentile lists are in hand: resample the prior onto the SOLUS grid, optionally attach the real
 per-mukey Monte Carlo draws for raw-draws fusion, fuse via \code{\link[=fuse_property_adaptive]{fuse_property_adaptive()}}, and
-assemble the standard \code{run_stage1_fusion()} return list. Factored out so \code{run_stage1_fusion()}
-and \code{run_stage1_fusion_multi()} share exactly one non-compositional fusion code path.
+assemble the standard \code{run_fusion()} return list. Factored out so \code{run_fusion()}
+and \code{run_fusion_multiproperty()} share exactly one non-compositional fusion code path.
 }
 \keyword{internal}

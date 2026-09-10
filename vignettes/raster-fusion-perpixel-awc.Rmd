@@ -93,10 +93,10 @@ vapply(ens$window_names,
 
 ## Step 2: fuse every Saxton-Rawls input against SOLUS in one pass
 
-`run_stage1_fusion_multi()` produces a per-cell SSURGO x SOLUS posterior for **many** properties
+`run_fusion_multiproperty()` produces a per-cell SSURGO x SOLUS posterior for **many** properties
 across **many** depth windows, running the (expensive) SSURGO Monte Carlo simulation just once and
 reusing that one draw set for every property/window. Calling the single-property
-`run_stage1_fusion()` in a loop instead would re-run the full simulation for each of the
+`run_fusion()` in a loop instead would re-run the full simulation for each of the
 `5 inputs x 3 windows = 15` combinations, each discarding all but one of the ~9 jointly simulated
 properties. `dist = "auto"` lets the fusion core pick the distribution family per property.
 
@@ -115,7 +115,7 @@ property_configs <- setNames(
   lapply(names(sr_inputs), function(nm) cfg(nm, sr_inputs[[nm]])),
   names(sr_inputs)
 )
-post <- run_stage1_fusion_multi(aoi, property_configs, windows, simplify = TRUE)
+post <- run_fusion_multiproperty(aoi, property_configs, windows, simplify = TRUE)
 ```
 
 ```{r}
@@ -281,7 +281,7 @@ right default for it - `zonal_distribution_from_posterior()` is kept internal.
 The cached objects this vignette loads (`inst/extdata/perpixel_ensemble_salinas.rds`,
 `inst/extdata/perpixel_posteriors_salinas.rds`) were produced once by
 `data-raw/build_vignette_data.R`, which runs `extract_mukey_joint_ensemble()` and
-`run_stage1_fusion_multi()` live against NRCS Soil Data Access and SOLUS100 for the AOI above, trims
+`run_fusion_multiproperty()` live against NRCS Soil Data Access and SOLUS100 for the AOI above, trims
 each map unit's ensemble to 250 realizations, wraps the rasters via `terra::wrap()` /
 `wrap_nested_rasters()`, and saves. The re-marginalization and AWC steps shown above run live in
 this vignette - they are deterministic and need no network access.

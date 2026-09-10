@@ -60,7 +60,7 @@ AWC clamped at 0.
 }
 \description{
 Plant-available water capacity (cm, summed over the ensemble's depth windows), per realization,
-then summarized per pixel. Deliberately does NOT use \code{calculate_aws_df()} (ROSETTA + van
+then summarized per pixel. Deliberately does NOT use \code{compute_aws()} (ROSETTA + van
 Genuchten): that needs a live network POST and its own Monte Carlo per call, so it cannot run
 per (pixel, realization).
 }
@@ -102,6 +102,6 @@ bridge" for the full treatment.
 }
 
 \seealso{
-\code{remarginalize_ensemble_to_posterior()}, \code{saxton_rawls_raster()}, \code{calculate_aws_df()},
+\code{remarginalize_ensemble_to_posterior()}, \code{saxton_rawls_raster()}, \code{compute_aws()},
 \code{fetch_solus_restriction_depth()}
 }

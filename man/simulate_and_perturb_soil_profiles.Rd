@@ -25,10 +25,10 @@ horizon, the function simply replicates the profile.
 
 This function requires \code{soil_profile}'s horizons to already carry a
 \code{sim_comppct} column (it derives the number of simulations to run from
-\code{unique(horizons(soil_profile)$sim_comppct)}). \code{sim_component_comp()}
+\code{unique(horizons(soil_profile)$sim_comppct)}). \code{simulate_component_composition()}
 (\code{R/core-simulation.R}) produces this column, but at component
 (\code{cokey}) grain, not horizon grain - callers must
-\code{dplyr::left_join(horizon_data, sim_component_comp(component_data), by = "cokey")}
+\code{dplyr::left_join(horizon_data, simulate_component_composition(component_data), by = "cokey")}
 before calling this function; it will still error with a missing-column
 condition if that join hasn't been done first.
 }

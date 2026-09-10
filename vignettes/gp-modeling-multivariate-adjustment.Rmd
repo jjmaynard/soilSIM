@@ -26,10 +26,10 @@ Functions covered, in order:
 
 1. `prepare_nrcs_training_data()` - shape raw NRCS/SSURGO data into GP training data
 2. `select_optimal_grouping()` - choose a soil-grouping strategy for stratified GP fitting
-3. `build_stratified_gp_models()` and `fit_individual_gp_model()` - fit the depth-trend GPs
+3. `fit_depth_gp_models()` and `fit_individual_gp_model()` - fit the depth-trend GPs
 4. `predict_gp_depth_trends()` - predict a fitted model at new depths, with an uncertainty band
 5. `validate_gp_models()` - diagnostic pass over a fitted model set
-6. `adjust_multivariate_depthwise_GP()` - why correlation-preserving adjustment matters
+6. `adjust_simulation_depthwise()` - why correlation-preserving adjustment matters
 7. `preserve_correlation_structure()` / `apply_gp_depth_trends()` - the long-format production path
 8. `apply_nrcs_trend_adjustments()` vs. `apply_local_gp_adjustments()` - regional vs. local trends
 9. `preserve_correlation_structure_joint()` - the joint depth x property copula method (the
@@ -49,12 +49,12 @@ library(ggplot2)
 
 `prepare_nrcs_training_data()` (below) takes the same *processed but not-yet-infilled* SSURGO
 horizon data that `getting-started-monte-carlo.Rmd` calls `horizon_data` - the output of
-`process_ssurgo_data()`, before any missing-value infilling. `download_and_prepare_ssurgo()` is the
+`process_ssurgo_data()`, before any missing-value infilling. `fetch_ssurgo_data()` is the
 real, live call that produced the cached data (shown for reference only - not run here):
 
 ```{r, eval = FALSE}
 # The real call the cached data came from:
-ssurgo_amador <- download_and_prepare_ssurgo(
+ssurgo_amador <- fetch_ssurgo_data(
   aoi_wkt = "POLYGON((-120.5 38.5, -120.4 38.5, -120.4 38.6, -120.5 38.6, -120.5 38.5))",
   properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
                  "cec7", "om", "wthirdbar", "wfifteenbar"),
@@ -74,7 +74,7 @@ dim(horizon_data)
 ## Step 1: `prepare_nrcs_training_data()` - shaping raw data for GP fitting
 
 **Purpose**: turn raw combined NRCS component/horizon data into a cleaned, grouped training set
-ready for `build_stratified_gp_models()`.
+ready for `fit_depth_gp_models()`.
 
 **Parameters that matter**:
 
@@ -129,7 +129,7 @@ grouping resolution against data adequacy per group.
 
 ## Step 3: Fitting depth-trend GP models
 
-### `build_stratified_gp_models()` - the master fitting function
+### `fit_depth_gp_models()` - the master fitting function
 
 **Concept**: for each requested property, and separately within each soil group, this fits a 1-D
 Gaussian Process regression of the property against (scaled) depth - i.e., a smooth, flexible
@@ -151,7 +151,7 @@ group that reaches `fit_individual_gp_model()` has enough training points.
   families.
 
 ```{r}
-gp_models <- build_stratified_gp_models(
+gp_models <- fit_depth_gp_models(
   gp_train,
   properties = c("clay_pct", "sand_pct", "pH", "organic_matter"),
   min_profiles_per_group = 3,
@@ -168,13 +168,13 @@ properties) from this AOI's real data.
 
 ### `fit_individual_gp_model()` - the per-group fit, called directly
 
-This is the function `build_stratified_gp_models()` calls once per (property, group) combination.
+This is the function `fit_depth_gp_models()` calls once per (property, group) combination.
 Calling it directly on a single group's data shows what it actually does: aggregate to one mean
 value per depth (across profiles, then across horizons at that depth), min-max scale depths to
 `[0, 1]` (so the GP's length-scale hyperparameter is on a comparable footing across groups with
 different depth ranges), and fit `GPfit::GP_fit()`. It returns `NULL` rather than erroring when
 there's too little data to fit (fewer than 3 aggregated depth points, no variance in values, or no
-depth range) - `build_stratified_gp_models()` relies on this to skip ungroupable data gracefully.
+depth range) - `fit_depth_gp_models()` relies on this to skip ungroupable data gracefully.
 
 ```{r}
 # Pick a soil_group that already has a successfully-fit clay_pct AND
@@ -182,7 +182,7 @@ depth range) - `build_stratified_gp_models()` relies on this to skip ungroupable
 # most training points among those - guarantees the direct, un-fallback-ed
 # fit_individual_gp_model() call below actually succeeds (fitting can return
 # NULL for groups whose raw soil_group data - as opposed to
-# build_stratified_gp_models()'s internal hierarchical-fallback final_group -
+# fit_depth_gp_models()'s internal hierarchical-fallback final_group -
 # turns out to have no depth variation for this property).
 candidate_groups <- intersect(names(gp_models$clay_pct$models), names(gp_models$organic_matter$models))
 candidate_groups <- candidate_groups[order(
@@ -258,7 +258,7 @@ extrapolating - exactly the behavior a GP is meant to provide over a plain regre
 ## Step 5: `validate_gp_models()` - diagnosing a fitted model set
 
 **Purpose**: a diagnostic pass over an entire fitted GP model set (the output of
-`build_stratified_gp_models()`), checking three things per (property, group) model: whether
+`fit_depth_gp_models()`), checking three things per (property, group) model: whether
 predictions come back at all (`model_valid`), whether the depth trend is reasonably monotonic
 (`>= 70%` of consecutive depth-to-depth differences share the same sign, via
 `assess_trend_monotonicity()`), and whether predictions fall inside a property-specific realistic
@@ -282,14 +282,14 @@ realizations toward those depth trends. The naive way to do this - adjust each p
 realizations independently to match its own GP trend - breaks the *cross-property* correlation that
 the Monte Carlo engine worked to preserve in the first place (e.g. clay and sand content are
 naturally anti-correlated within a horizon; adjusting each to its own trend independently reshuffles
-which simulated clay value is paired with which simulated sand value). `adjust_multivariate_depthwise_GP()`
+which simulated clay value is paired with which simulated sand value). `adjust_simulation_depthwise()`
 avoids this by computing a single *reference quantile* per simulation (from the primary property's
 surface-depth distribution) and using that same quantile - not each property's own independent
 quantile - to drive every property's adjustment, so realization *j*'s properties all move together.
 
 To demonstrate concretely with real fitted models, build a small synthetic set of "before
 adjustment" Monte Carlo-style realizations for clay and sand content at a few depths, correlated
-within each simulation (mimicking what `generate_monte_carlo_realizations()` produces before any
+within each simulation (mimicking what `simulate_monte_carlo()` produces before any
 depth-trend adjustment is applied) but with no depth trend yet:
 
 ```{r}
@@ -320,25 +320,25 @@ cor(clay_mat[1, ], sand_mat[1, ])  # starting correlation, ~ target_rho
 ```
 
 Now adjust toward the two real fitted GP depth trends two different ways: **jointly** (the
-correlation-preserving way `adjust_multivariate_depthwise_GP()` is designed for) and **naively**,
+correlation-preserving way `adjust_simulation_depthwise()` is designed for) and **naively**,
 by calling the same function separately on each property in isolation - which forces each property
 to use *its own* surface distribution as the reference quantile ordering instead of sharing one:
 
 ```{r}
-joint_adjusted <- adjust_multivariate_depthwise_GP(
+joint_adjusted <- adjust_simulation_depthwise(
   simulated_list = simulated_list,
   gp_models = list(clay_pct = clay_gp_model, sand_pct = sand_gp_model),
   depths = demo_depths,
   primary_property = "clay_pct"
 )
 
-naive_clay <- adjust_multivariate_depthwise_GP(
+naive_clay <- adjust_simulation_depthwise(
   simulated_list = simulated_list["clay_pct"],
   gp_models = list(clay_pct = clay_gp_model),
   depths = demo_depths
 )
 
-naive_sand <- adjust_multivariate_depthwise_GP(
+naive_sand <- adjust_simulation_depthwise(
   simulated_list = simulated_list["sand_pct"],
   gp_models = list(sand_pct = sand_gp_model),
   depths = demo_depths
@@ -348,8 +348,8 @@ deep_idx <- length(demo_depths)
 
 cor_comparison <- data.frame(
   stage = factor(
-    c("Original\n(unadjusted)", "Naive\n(each property adjusted alone)", "Correlation-preserving\n(adjust_multivariate_depthwise_GP)"),
-    levels = c("Original\n(unadjusted)", "Naive\n(each property adjusted alone)", "Correlation-preserving\n(adjust_multivariate_depthwise_GP)")
+    c("Original\n(unadjusted)", "Naive\n(each property adjusted alone)", "Correlation-preserving\n(adjust_simulation_depthwise)"),
+    levels = c("Original\n(unadjusted)", "Naive\n(each property adjusted alone)", "Correlation-preserving\n(adjust_simulation_depthwise)")
   ),
   correlation = c(
     cor(clay_mat[deep_idx, ], sand_mat[deep_idx, ]),
@@ -382,9 +382,9 @@ correlation survives the depth-trend adjustment nearly intact.
 
 ## Step 7: `preserve_correlation_structure()` / `apply_gp_depth_trends()` - the long-format path
 
-`adjust_multivariate_depthwise_GP()` above (from `core-gp.R`) operates directly on
+`adjust_simulation_depthwise()` above (from `core-gp.R`) operates directly on
 `[depth x simulation]` matrices - the array-based form of this algorithm.
-The pipeline `integrate_monte_carlo_with_gp()` actually calls works on long-format Monte Carlo
+The pipeline `apply_depth_gp_to_simulation()` actually calls works on long-format Monte Carlo
 output instead, via `core-gp.R`'s `apply_gp_depth_trends()` (reshapes long-format
 rows into matrices, dispatches to `preserve_correlation_structure()` when
 `preserve_correlations = TRUE`, at least two properties are present, and
@@ -412,7 +412,7 @@ package, and they're used via two different functions:
   required). It captures whatever depth pattern this specific cokey's own horizons show, but with
   very few training points it is much more sensitive to noise in that one profile.
 
-`integrate_monte_carlo_with_gp(integration_method = "hybrid")` (the default) actually applies both,
+`apply_depth_gp_to_simulation(integration_method = "hybrid")` (the default) actually applies both,
 in sequence, per cokey. Demonstrate the two independently on the synthetic `demo_cokey_data`
 built from Step 6's matrices (which, by construction, has *no* real depth trend - just noise around
 a constant mean at each depth - so any trend either function introduces is coming entirely from the
@@ -649,7 +649,7 @@ should have.
 This is real AOI data (Amador County SSURGO, via the same cached data and fitted GP models used
 throughout this vignette) run through both methods with identical synthetic Monte Carlo-style
 inputs - offline-reproducible without a live network call. `joint_copula` is the package
-default and is reachable through `simulate_ssurgo_mapunit_draws()`/`integrate_monte_carlo_with_gp()`'s
+default and is reachable through `simulate_ssurgo_mapunit_draws()`/`apply_depth_gp_to_simulation()`'s
 own top-level config as well as via `apply_gp_depth_trends()` directly. The depth kernel's
 discontinuity-gating defaults (`distinctness_range`/`min_gate_weight`) are off by default
 (`vertical_correlation_gating = FALSE`), pending calibration against real KSSL/SSURGO profile
@@ -658,6 +658,6 @@ lag-correlations.
 ## Where this data came from
 
 The cached data this vignette loads (`inst/extdata/ssurgo_amador.rds`) was produced once by
-`data-raw/build_vignette_data.R`, which calls `download_and_prepare_ssurgo()` live against NRCS Soil
+`data-raw/build_vignette_data.R`, which calls `fetch_ssurgo_data()` live against NRCS Soil
 Data Access for the AOI used above - the same cached file `getting-started-monte-carlo.Rmd` uses.
 Re-run that script to refresh it.

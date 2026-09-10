@@ -6,13 +6,13 @@
 \description{
 Transforms the per-mukey joint Monte Carlo ensemble from
 \code{extract_mukey_joint_ensemble()} (\code{R/adapter-ssurgo-simulate.R}) onto the SOLUS grid so that each
-pixel's marginal distributions match \code{run_stage1_fusion()}'s SOLUS-fused posterior, while
+pixel's marginal distributions match \code{run_fusion()}'s SOLUS-fused posterior, while
 preserving the ensemble's empirical copula (cross-property and cross-depth-window rank
 structure). This is the "per-pixel" answer to wiring raster fusion into the modelling
 framework.
 
 \code{zonal_distribution_from_posterior()} is the cheap mukey-collapsed comparison arm (feeds
-\code{observed_data_by_mukey} in \code{generate_monte_carlo_realizations()}); \code{remarginalize_ensemble_to_posterior()}
+\code{observed_data_by_mukey} in \code{simulate_monte_carlo()}); \code{remarginalize_ensemble_to_posterior()}
 is the per-pixel transform; \code{remarginalized_awc()} is the first derived-quantity consumer
 (available water capacity, via \code{saxton_rawls_raster()} since SOLUS100 has no water-retention
 variable). Nothing here touches either existing pipeline - purely additive.

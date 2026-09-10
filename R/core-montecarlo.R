@@ -42,14 +42,14 @@ NULL
 #' @examples
 #' \dontrun{
 #' # Basic simulation
-#' mc_results <- generate_monte_carlo_realizations(
+#' mc_results <- simulate_monte_carlo(
 #'   soil_data = soil_data,
 #'   properties = c("sandtotal", "claytotal", "silttotal"),
 #'   n_realizations = 1000
 #' )
 #'
 #' # Advanced simulation with configuration
-#' mc_results <- generate_monte_carlo_realizations(
+#' mc_results <- simulate_monte_carlo(
 #'   soil_data = soil_data,
 #'   properties = c("sandtotal", "claytotal", "dbovendry"),
 #'   correlation_matrix = cor_matrix,
@@ -66,7 +66,7 @@ NULL
 #' }
 #'
 #' @export
-generate_monte_carlo_realizations <- function(soil_data,
+simulate_monte_carlo <- function(soil_data,
                                               properties,
                                               correlation_matrix = NULL,
                                               n_realizations = 1000,
@@ -1733,7 +1733,7 @@ get_monte_carlo_defaults <- function(verbose = getOption("ssurgo.verbose", FALSE
 
 #' Normalize a Monte Carlo `simulation_config` to be Properly Nested
 #'
-#' `generate_monte_carlo_realizations()`'s own `@examples` have always shown
+#' `simulate_monte_carlo()`'s own `@examples` have always shown
 #' a FLAT `simulation_config` (e.g. `list(distribution_type = "normal", max_depth = 200)`),
 #' but `get_monte_carlo_defaults()` nests every Monte Carlo setting under
 #' `$monte_carlo`, and `merge_configurations()` merges strictly by matching

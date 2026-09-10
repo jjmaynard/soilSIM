@@ -1861,7 +1861,7 @@ create_detailed_results <- function(validation_results) {
 #' matching column of `training_data`, aggregating mean CV RMSE and an
 #' R-squared derived from it.
 #'
-#' @param gp_models GP models from `build_stratified_gp_models()`.
+#' @param gp_models GP models from `fit_depth_gp_models()`.
 #' @param training_data Original training data with `hzdept_r` and one
 #'   column per property in `gp_models`.
 #' @param criteria List, optionally with `n_folds` (default 5).

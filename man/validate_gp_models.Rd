@@ -12,7 +12,7 @@ validate_gp_models(
 )
 }
 \arguments{
-\item{gp_models}{List of GP models from build_stratified_gp_models()}
+\item{gp_models}{List of GP models from fit_depth_gp_models()}
 
 \item{nrcs_data}{Original NRCS training data}
 

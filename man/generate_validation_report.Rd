@@ -13,7 +13,7 @@ generate_validation_report(
 )
 }
 \arguments{
-\item{validation_results}{Results from validate_complete_workflow()}
+\item{validation_results}{Results from diagnose_workflow()}
 
 \item{output_format}{Format for report: "html", "pdf", or "markdown"}
 

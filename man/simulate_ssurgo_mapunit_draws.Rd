@@ -30,7 +30,7 @@ SSURGO_SIM_PROPERTY_COLUMNS
 
 \item{top_depth, bottom_depth}{Numeric depth window bounds in cm.}
 
-\item{n_mc}{Number of triangular draws \code{sim_component_comp()} uses per component (default 1000).}
+\item{n_mc}{Number of triangular draws \code{simulate_component_composition()} uses per component (default 1000).}
 
 \item{parallel, n_cores}{Passed through to \code{maybe_adjust_soil_data_depth_trend()}'s
 \code{parallel}/\code{n_cores} - the depth-trend GP adjustment step is this function's dominant cost
@@ -86,7 +86,7 @@ are included transparently here whenever an AOI sibling let them be recovered - 
 \description{
 Orchestrates the full SSURGO percentile-prior pipeline for one AOI/depth-window: fetch (cached)
 tabular SSURGO data, infill missing values, derive \code{genhz}, simulate component composition
-(\code{sim_component_comp()}) and join it onto horizons, simulate correlated properties per cokey
+(\code{simulate_component_composition()}) and join it onto horizons, simulate correlated properties per cokey
 (\code{simulate_cokey_generalized()}, using the KSSL reference correlation matrices), optionally
 remove organic horizons and apply depth-trend GP adjustment, then aggregate to the requested
 depth window.
@@ -101,9 +101,9 @@ One AOI's tabular download is shared across every depth window/call requested fo
 Clear the cache entry (or the whole cache directory) to force a fresh fetch.
 
 This function's SIMULATED output is not disk-cached: every call re-simulates fresh random
-draws. Raw-draws fusion reuses draws in memory within one \code{run_stage1_fusion()} call
+draws. Raw-draws fusion reuses draws in memory within one \code{run_fusion()} call
 (computed once, used for both the percentile cache and \code{mukey_draws_lookup()}); see also
-\code{run_stage1_fusion_group()}'s \code{shared_draws} pattern.
+\code{run_fusion_group()}'s \code{shared_draws} pattern.
 }
 
 \keyword{datasets}

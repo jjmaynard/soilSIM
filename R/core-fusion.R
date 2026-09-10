@@ -467,7 +467,7 @@ fuse_property <- function(prior, likelihood, family = NULL, bounds = NULL, metho
 #'   work unchanged on `SpatRaster` inputs.
 #'
 #' @section Entry points:
-#' `run_stage1_fusion()`/`run_stage1_fusion_group()` are the top-level
+#' `run_fusion()`/`run_fusion_group()` are the top-level
 #' orchestrators, wiring the fetch-and-cache layer (`R/cache.R`,
 #' `R/adapter-ssurgo-simulate.R`, `R/adapter-solus.R`) to the fusion core.
 #' `fuse_property_adaptive()` is the lower-level entry point for callers
@@ -1181,7 +1181,7 @@ fuse_adaptive <- function(prior_value_rasters, lik_value_rasters, percentile_pro
     # %.0f / format(): `ncell` and `threshold_cells` are doubles, and `fuse_lognormal_adaptive()`
     # passes threshold_cells = Inf to force the general route - sprintf("%d", Inf) errors
     # ("invalid format '%d' ... use %f/%e/%g/%a"), which blocked every dist = "auto"/lognormal
-    # run_stage1_fusion() call whenever verbose = TRUE.
+    # run_fusion() call whenever verbose = TRUE.
     cat(sprintf(
       "[fuse_adaptive] AOI: %.0f cells (threshold: %s) -> route: %s\n",
       ncell, format(threshold_cells), route
@@ -1436,7 +1436,7 @@ resolve_property_dist <- function(property_config, prior_value_rasters, prior_pr
 #' The raster-native counterpart of `core-fusion.R`'s `fuse_property()`,
 #' and this toolkit's top-level entry point for non-compositional properties
 #' (see `fuse_texture_group()` for the compositional/texture case) - the
-#' raster analogue of `run_stage1_fusion()` minus the SSURGO/SOLUS
+#' raster analogue of `run_fusion()` minus the SSURGO/SOLUS
 #' fetch-and-cache wrapper (see this file's `@section Deliberately out of
 #' scope:` above).
 #'
@@ -1936,7 +1936,7 @@ fuse_texture_group <- function(fetched, mukey_raster = NULL, mukey_texture_draws
 # Top-level orchestrators: fetch (cached) SSURGO prior + SOLUS likelihood, align, fuse
 # ---------------------------------------------------------------------------
 
-#' Resolve whether a `run_stage1_fusion()` call should fuse against real per-mukey Monte Carlo
+#' Resolve whether a `run_fusion()` call should fuse against real per-mukey Monte Carlo
 #' draws (`prior_fusion_method = "raw_draws"`) or the percentile-reconstructed approximation.
 #'
 #' An explicit `prior_fusion_method` value ("raw_draws" or "percentile") always wins; this
@@ -1968,13 +1968,13 @@ resolve_want_raw_draws <- function(prior_fusion_method, dist) {
 
 #' Fuse an Already-Fetched Prior and Likelihood (Stage 1 fusion tail)
 #'
-#' The portion of [run_stage1_fusion()] that runs once its SSURGO prior and SOLUS likelihood
+#' The portion of [run_fusion()] that runs once its SSURGO prior and SOLUS likelihood
 #' percentile lists are in hand: resample the prior onto the SOLUS grid, optionally attach the real
 #' per-mukey Monte Carlo draws for raw-draws fusion, fuse via [fuse_property_adaptive()], and
-#' assemble the standard `run_stage1_fusion()` return list. Factored out so `run_stage1_fusion()`
-#' and `run_stage1_fusion_multi()` share exactly one non-compositional fusion code path.
+#' assemble the standard `run_fusion()` return list. Factored out so `run_fusion()`
+#' and `run_fusion_multiproperty()` share exactly one non-compositional fusion code path.
 #'
-#' @param property_config As in [run_stage1_fusion()].
+#' @param property_config As in [run_fusion()].
 #' @param prior,solus The pre-alignment `list(values=, probs=)` percentile lists for the SSURGO
 #'   prior and SOLUS likelihood.
 #' @param draws Optional in-memory draws data frame (already simulated by the caller) for the
@@ -1983,7 +1983,7 @@ resolve_want_raw_draws <- function(prior_fusion_method, dist) {
 #'   raw-draws path.
 #' @param verbose Passed through to [fuse_property_adaptive()] (default `TRUE`, matching the
 #'   original inline behavior).
-#' @return `run_stage1_fusion()`'s return list
+#' @return `run_fusion()`'s return list
 #'   (`list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=,
 #'   route_detail=, n_fallback_cells=)`).
 #' @keywords internal
@@ -1999,7 +1999,7 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
   reference_grid <- solus$values[[1]]
   prior_aligned <- lapply(prior$values, terra::resample, y = reference_grid, method = "bilinear")
 
-  # Opt-in raw-draws fusion (see run_stage1_fusion()'s @section): `draws` is already in memory from
+  # Opt-in raw-draws fusion (see run_fusion()'s @section): `draws` is already in memory from
   # the caller whenever want_raw_draws is TRUE, so this never triggers a further simulation. Align
   # the mukey raster to the SOLUS grid via NEAREST-NEIGHBOR resampling (not bilinear, which would
   # fabricate nonsensical interpolated mukey codes between categories).
@@ -2038,7 +2038,7 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 #' `fuse_property_adaptive()`.
 #'
 #' Compositional properties (`property_config$composition_group` set) are detected up front and
-#' delegated to `run_stage1_fusion_group()` instead, since they must be fetched/fit jointly.
+#' delegated to `run_fusion_group()` instead, since they must be fetched/fit jointly.
 #'
 #' @param aoi_vect A `terra::SpatVector` AOI (projected, e.g. EPSG:5070).
 #' @param property_config A list with `id` (used as `fetch_ssurgo_percentiles()`'s property id and
@@ -2047,9 +2047,9 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 #'   `fuse_property_adaptive()`.
 #' @param top_depth,bottom_depth Numeric depth bounds in cm.
 #' @param composition_groups,property_configs Only needed when `property_config$composition_group`
-#'   is set - passed through to `run_stage1_fusion_group()` (see its docs).
+#'   is set - passed through to `run_fusion_group()` (see its docs).
 #' @param parallel,n_cores Passed through to `simulate_ssurgo_mapunit_draws()`'s
-#'   `parallel`/`n_cores` (via `fetch_ssurgo_percentiles()` or `run_stage1_fusion_group()`,
+#'   `parallel`/`n_cores` (via `fetch_ssurgo_percentiles()` or `run_fusion_group()`,
 #'   whichever path this call takes) - the SSURGO adapter's per-cokey depth-trend GP fitting is
 #'   this pipeline's dominant cost for AOIs with many cokeys. Default `parallel = FALSE` matches
 #'   prior behavior exactly.
@@ -2096,7 +2096,7 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 #' kept). That simulation still runs at most once per call regardless of cache state - it is shared
 #' with the percentile-cache-population step when both are needed in the same call.
 #' @export
-run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth,
+run_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth,
                                composition_groups = NULL, property_configs = NULL,
                                parallel = FALSE, n_cores = NULL, seed = NULL) {
   # Opt-in determinism: seed once up front so the whole call - including a fusion-sampling step
@@ -2106,7 +2106,7 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
   if (!is.null(seed)) set.seed(seed)
 
   if (!is.null(property_config$composition_group)) {
-    group_result <- run_stage1_fusion_group(
+    group_result <- run_fusion_group(
       aoi_vect, property_config$composition_group, composition_groups, property_configs,
       top_depth, bottom_depth, parallel = parallel, n_cores = n_cores, seed = seed
     )
@@ -2134,7 +2134,7 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
     # depth-trend fit is the pipeline's dominant cost and scales with the property count. Only
     # ever law-equivalent (not bit-identical) to a full simulation's matching column, and only
     # under the default joint_copula vertical method - see simulate_ssurgo_mapunit_draws()'s
-    # `requested_properties` docs. run_stage1_fusion() never forwards `config`, so it always gets
+    # `requested_properties` docs. run_fusion() never forwards `config`, so it always gets
     # joint_copula. A cokey with no data for this one property no longer rides along on the
     # others, so a single-property prior can be NA for a mukey a full-property run would have
     # covered - documented in this function's @return.
@@ -2168,10 +2168,10 @@ run_stage1_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth
 
 #' Fuse an Already-Fetched Texture Group (Stage 1 group-fusion tail)
 #'
-#' The portion of [run_stage1_fusion_group()] that runs once every member's aligned SSURGO prior
+#' The portion of [run_fusion_group()] that runs once every member's aligned SSURGO prior
 #' and SOLUS likelihood are assembled into `fetched`: optionally prepare the real joint per-mukey
 #' texture draws for raw-draws fusion, then fuse the group via [fuse_texture_group()]. Factored out
-#' so `run_stage1_fusion_group()` and `run_stage1_fusion_multi()` share one group-fusion code path.
+#' so `run_fusion_group()` and `run_fusion_multiproperty()` share one group-fusion code path.
 #'
 #' @param fetched A list (one entry per group member, in `group_members()` order) of
 #'   `list(id=, prior=<aligned percentile-value rasters>, prior_probs=, lik=<value rasters>,
@@ -2205,14 +2205,14 @@ stage1_fuse_texture_group_from_fetched <- function(fetched, want_raw_draws = FAL
 #' Run Stage 1 Fusion for a Whole Compositional Group Jointly
 #'
 #' Fuses a compositional group's members (currently only `"texture"`: clay/sand/silt) jointly via
-#' `fuse_texture_group()`, instead of one independent `run_stage1_fusion()` call per member -
+#' `fuse_texture_group()`, instead of one independent `run_fusion()` call per member -
 #' independent fusion measurably breaks sum-to-100. Each member's SSURGO/SOLUS percentiles are
 #' still fetched/cached per-property (so a later request for just one member's raw percentiles
 #' still hits cache), but the fusion itself runs once for the whole group, under a `"texture_group"`
 #' cache kind (`"texture_group_raw_draws"` when `prior_fusion_method = "raw_draws"` was requested -
 #' see the section below for why these must be distinct kinds), with each member's resulting
 #' posterior also seeded into a per-property `"posterior"`/`"posterior_raw_draws"` cache kind - so
-#' three sequential `run_stage1_fusion()` calls for clay, then sand, then silt trigger the joint
+#' three sequential `run_fusion()` calls for clay, then sand, then silt trigger the joint
 #' fetch+fusion exactly once, not three times.
 #'
 #' @param aoi_vect A `terra::SpatVector` AOI.
@@ -2234,7 +2234,7 @@ stage1_fuse_texture_group_from_fetched <- function(fetched, want_raw_draws = FAL
 #'   "closed_form_ilr_group", route_detail = NULL, n_fallback_cells = 0)` (see
 #'   `fuse_texture_group()`'s docs - NOT the uniform `(mu,sigma)`/`(alpha,beta)` contract
 #'   non-compositional properties get) - or `NULL` if any member's SSURGO/SOLUS fetch failed.
-#'   `run_stage1_fusion()`'s own dispatch slices this down to the single requested member
+#'   `run_fusion()`'s own dispatch slices this down to the single requested member
 #'   (`group_result[[property_config$id]]`) to keep its own per-property return contract
 #'   consistent regardless of `dist`. `percentiles` is THIS member's own fraction's
 #'   percentiles (a named list of `SpatRaster`s) - see `fuse_texture_group()`'s `@section
@@ -2248,10 +2248,10 @@ stage1_fuse_texture_group_from_fetched <- function(fetched, want_raw_draws = FAL
 #' member's config carries the setting. This forces the shared simulation to run even when every
 #' member's own `"ssurgo"` percentile cache is already warm (the draws that produced those cached
 #' percentiles are not kept - see `simulate_ssurgo_mapunit_draws()`'s docs). Unset on every
-#' member (default) uses the percentile-reconstruction path; unlike `run_stage1_fusion()`, the
+#' member (default) uses the percentile-reconstruction path; unlike `run_fusion()`, the
 #' joint texture-group route does not default to raw draws.
 #' @export
-run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, property_configs,
+run_fusion_group <- function(aoi_vect, group, composition_groups, property_configs,
                                      top_depth, bottom_depth, parallel = FALSE, n_cores = NULL,
                                      seed = NULL) {
   if (!is.null(seed)) set.seed(seed)
@@ -2264,7 +2264,7 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
   # silently served back to a caller requesting the other: without
   # this, switching prior_fusion_method for the same AOI/depth-window returned a stale,
   # method-mismatched cached group result (the group-level cache stores the fused POSTERIOR, unlike
-  # run_stage1_fusion()'s own "ssurgo" cache, which only stores the pre-fusion PRIOR - re-fused
+  # run_fusion()'s own "ssurgo" cache, which only stores the pre-fusion PRIOR - re-fused
   # fresh every call - so this staleness risk is specific to the group path).
   group_kind <- if (want_raw_draws) "texture_group_raw_draws" else "texture_group"
   member_kind <- if (want_raw_draws) "posterior_raw_draws" else "posterior"
@@ -2357,23 +2357,23 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
 
 #' Run Stage 1 Fusion for Many Properties over an AOI in One Simulation Pass
 #'
-#' The multi-property / multi-depth-window counterpart of [run_stage1_fusion()]: runs the
+#' The multi-property / multi-depth-window counterpart of [run_fusion()]: runs the
 #' expensive SSURGO Monte Carlo simulation **once** - covering every requested property and every
 #' depth window via [simulate_ssurgo_mapunit_draws()]'s `depth_windows` argument - then fuses each
 #' property/window against SOLUS, seeding the same per-property `"ssurgo"`/`"solus"`/`"posterior"`
-#' disk caches [run_stage1_fusion()] reads. A later single-property `run_stage1_fusion()` call for
+#' disk caches [run_fusion()] reads. A later single-property `run_fusion()` call for
 #' the same AOI/property/window therefore hits cache instead of re-simulating.
 #'
-#' Calling `run_stage1_fusion()` in a loop over N properties x M windows runs the (dominant-cost)
+#' Calling `run_fusion()` in a loop over N properties x M windows runs the (dominant-cost)
 #' per-cokey simulation N*M times, each discarding all but one of the ~9 jointly-simulated
 #' properties; this runs it once. Every leaf shares that one draw set, so - unlike independent
-#' `run_stage1_fusion()` calls - their `NA` masks are mutually consistent.
+#' `run_fusion()` calls - their `NA` masks are mutually consistent.
 #'
 #' @param aoi_vect A `terra::SpatVector` AOI (projected, e.g. EPSG:5070).
 #' @param property_configs A **named** list, keyed by each config's own `id`, of `property_config`
-#'   lists exactly as [run_stage1_fusion()] takes them (each needs `id`/`solus_variable`, optionally
+#'   lists exactly as [run_fusion()] takes them (each needs `id`/`solus_variable`, optionally
 #'   `dist`/`bounds`/`composition_group`/`prior_fusion_method`/...). Configs carrying a
-#'   `composition_group` are fused jointly per [run_stage1_fusion_group()]; **every** member of any
+#'   `composition_group` are fused jointly per [run_fusion_group()]; **every** member of any
 #'   referenced group must have its own entry here.
 #' @param depth_windows A non-empty list of `c(top, bottom)` numeric pairs (cm, `bottom > top`).
 #' @param composition_groups A `config$monte_carlo$composition_groups`-shaped list (see
@@ -2387,14 +2387,14 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
 #'   otherwise noisy with per-route messages).
 #' @param simplify If `TRUE`, each leaf is reduced to `list(percentiles = <named SpatRasters>)`
 #'   (what per-pixel re-marginalization consumes); default `FALSE` returns the full
-#'   [run_stage1_fusion()]-shaped list per leaf.
+#'   [run_fusion()]-shaped list per leaf.
 #' @return A nested named list `result[[config_id]][["<top>-<bottom>"]]`. Each leaf is a
-#'   [run_stage1_fusion()] return list (or, for group members, the `texture_ilr`-shaped list from
-#'   [run_stage1_fusion_group()]), or `NULL` on that leaf's own failure; the whole call returns
+#'   [run_fusion()] return list (or, for group members, the `texture_ilr`-shaped list from
+#'   [run_fusion_group()]), or `NULL` on that leaf's own failure; the whole call returns
 #'   `NULL` only if the shared simulation itself fails.
-#' @seealso [run_stage1_fusion()], [run_stage1_fusion_group()], [extract_mukey_joint_ensemble()]
+#' @seealso [run_fusion()], [run_fusion_group()], [extract_mukey_joint_ensemble()]
 #' @export
-run_stage1_fusion_multi <- function(aoi_vect, property_configs, depth_windows,
+run_fusion_multiproperty <- function(aoi_vect, property_configs, depth_windows,
                                      composition_groups = NULL,
                                      n_mc = 1000, parallel = FALSE, n_cores = NULL,
                                      seed = NULL, verbose = FALSE, simplify = FALSE) {
@@ -2403,18 +2403,18 @@ run_stage1_fusion_multi <- function(aoi_vect, property_configs, depth_windows,
   ## --- validate ---------------------------------------------------------------
   if (!is.list(property_configs) || length(property_configs) == 0 ||
       is.null(names(property_configs)) || any(!nzchar(names(property_configs)))) {
-    stop("run_stage1_fusion_multi(): `property_configs` must be a non-empty named list keyed by config id.")
+    stop("run_fusion_multiproperty(): `property_configs` must be a non-empty named list keyed by config id.")
   }
   if (!all(vapply(seq_along(property_configs),
                   function(i) identical(property_configs[[i]]$id, names(property_configs)[i]),
                   logical(1)))) {
-    stop("run_stage1_fusion_multi(): each `property_configs` entry's $id must match its list name.")
+    stop("run_fusion_multiproperty(): each `property_configs` entry's $id must match its list name.")
   }
   ok_pair <- function(w) length(w) == 2 && is.numeric(w) && is.finite(w[[1]]) &&
     is.finite(w[[2]]) && w[[2]] > w[[1]]
   if (!is.list(depth_windows) || length(depth_windows) == 0 ||
       !all(vapply(depth_windows, ok_pair, logical(1)))) {
-    stop("run_stage1_fusion_multi(): `depth_windows` must be a non-empty list of c(top, bottom) pairs with bottom > top.")
+    stop("run_fusion_multiproperty(): `depth_windows` must be a non-empty list of c(top, bottom) pairs with bottom > top.")
   }
   window_names <- vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), character(1))
 
@@ -2423,12 +2423,12 @@ run_stage1_fusion_multi <- function(aoi_vect, property_configs, depth_windows,
   group_names <- unique(vapply(property_configs[is_group],
                                function(cfg) cfg$composition_group, character(1)))
   if (length(group_names) && is.null(composition_groups)) {
-    stop("run_stage1_fusion_multi(): a config sets `composition_group` but `composition_groups` is NULL.")
+    stop("run_fusion_multiproperty(): a config sets `composition_group` but `composition_groups` is NULL.")
   }
   for (g in group_names) {
     miss <- setdiff(group_members(g, composition_groups), names(property_configs))
     if (length(miss)) {
-      stop(sprintf("run_stage1_fusion_multi(): composition group '%s' member(s) missing from property_configs: %s",
+      stop(sprintf("run_fusion_multiproperty(): composition group '%s' member(s) missing from property_configs: %s",
                    g, paste(miss, collapse = ", ")))
     }
   }
@@ -2604,21 +2604,21 @@ run_stage1_fusion_multi <- function(aoi_vect, property_configs, depth_windows,
 #'
 #' @description Transforms the per-mukey joint Monte Carlo ensemble from
 #'   `extract_mukey_joint_ensemble()` (`R/adapter-ssurgo-simulate.R`) onto the SOLUS grid so that each
-#'   pixel's marginal distributions match `run_stage1_fusion()`'s SOLUS-fused posterior, while
+#'   pixel's marginal distributions match `run_fusion()`'s SOLUS-fused posterior, while
 #'   preserving the ensemble's empirical copula (cross-property and cross-depth-window rank
 #'   structure). This is the "per-pixel" answer to wiring raster fusion into the modelling
 #'   framework.
 #'
 #'   `zonal_distribution_from_posterior()` is the cheap mukey-collapsed comparison arm (feeds
-#'   `observed_data_by_mukey` in `generate_monte_carlo_realizations()`); `remarginalize_ensemble_to_posterior()`
+#'   `observed_data_by_mukey` in `simulate_monte_carlo()`); `remarginalize_ensemble_to_posterior()`
 #'   is the per-pixel transform; `remarginalized_awc()` is the first derived-quantity consumer
 #'   (available water capacity, via `saxton_rawls_raster()` since SOLUS100 has no water-retention
 #'   variable). Nothing here touches either existing pipeline - purely additive.
 #' @name raster_fusion_bridge
 NULL
 
-#' Probabilities behind a `run_stage1_fusion()` posterior's percentile layers
-#' @param posterior A `run_stage1_fusion()`-style `list(percentiles = <named P.. rasters>, ...)`.
+#' Probabilities behind a `run_fusion()` posterior's percentile layers
+#' @param posterior A `run_fusion()`-style `list(percentiles = <named P.. rasters>, ...)`.
 #' @return Numeric probabilities in (0, 1), ascending, parsed from the `"P<pct>"` layer names.
 #' @keywords internal
 posterior_percentile_probs <- function(posterior) {
@@ -2633,7 +2633,7 @@ posterior_percentile_probs <- function(posterior) {
 
 #' Zonal (per-mukey) Reduction of a Fused Posterior Raster - Benchmark Baseline
 #'
-#' Collapses `run_stage1_fusion()`'s per-pixel posterior to one distribution per mukey by taking
+#' Collapses `run_fusion()`'s per-pixel posterior to one distribution per mukey by taking
 #' `terra::zonal()` means of its percentile layers, in the `low`/`rep`/`high` shape
 #' `fuse_observed_data_into_priors()`'s `observed_data_by_mukey` accepts. **Percentile-based only -
 #' there is deliberately no point-estimate ("mean") path**, which would narrow the fed-back prior
@@ -2644,7 +2644,7 @@ posterior_percentile_probs <- function(posterior) {
 #' via `observed_data_by_mukey`. Kept `@keywords internal` until that benchmark says whether the
 #' cheap path is adequate for production (then promote) or not (then delete).
 #'
-#' @param posterior A `run_stage1_fusion()`-style `list(percentiles = , ...)`.
+#' @param posterior A `run_fusion()`-style `list(percentiles = , ...)`.
 #' @param mukey_raster A categorical mukey `terra::SpatRaster` (any grid - resampled to the
 #'   posterior grid via nearest-neighbour internally).
 #' @param probs Length-3 ascending probabilities for the `low`/`rep`/`high` triplet; each must be
@@ -2779,7 +2779,7 @@ saxton_rawls_raster <- function(sand, clay, silt, db, rfv, om) {
 #' the per-pixel bridge" for how this shapes a derived-quantity uncertainty band.
 #'
 #' @param mukey_ensemble An `extract_mukey_joint_ensemble()` result.
-#' @param posterior_by_property_window Named list `[[property]][[window]]` of `run_stage1_fusion()`
+#' @param posterior_by_property_window Named list `[[property]][[window]]` of `run_fusion()`
 #'   posteriors (each `list(percentiles = , ...)`), on a common grid. Only properties present in
 #'   BOTH this and the ensemble, and windows present in both, are produced.
 #' @param n_out Max source realizations to carry per pixel (default 250). If a mukey has more
@@ -2869,7 +2869,7 @@ remarginalize_ensemble_to_posterior <- function(mukey_ensemble, posterior_by_pro
 #' Per-Pixel Available Water Capacity from a Re-Marginalized Ensemble
 #'
 #' Plant-available water capacity (cm, summed over the ensemble's depth windows), per realization,
-#' then summarized per pixel. Deliberately does NOT use `calculate_aws_df()` (ROSETTA + van
+#' then summarized per pixel. Deliberately does NOT use `compute_aws()` (ROSETTA + van
 #' Genuchten): that needs a live network POST and its own Monte Carlo per call, so it cannot run
 #' per (pixel, realization).
 #'
@@ -2935,7 +2935,7 @@ remarginalize_ensemble_to_posterior <- function(mukey_ensemble, posterior_by_pro
 #'   propagating `NA` into the AWC total.
 #' @return `list(awc_cm = <named list of P.. SpatRasters>, n_kept =, windows_used =, n_tiles =)`.
 #'   AWC clamped at 0.
-#' @seealso `remarginalize_ensemble_to_posterior()`, `saxton_rawls_raster()`, `calculate_aws_df()`,
+#' @seealso `remarginalize_ensemble_to_posterior()`, `saxton_rawls_raster()`, `compute_aws()`,
 #'   `fetch_solus_restriction_depth()`
 #' @export
 remarginalized_awc <- function(mukey_ensemble, posterior_by_property_window,

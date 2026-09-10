@@ -91,7 +91,7 @@ download_ssurgo_tabular(
 - **`cache_ssurgo_data(data, mu, aoi_wkt, properties, include_restrictions, cache_dir, compress = TRUE, verbose = FALSE)`** - writes an `.rds` cache file (creating `cache_dir` if needed) containing the data, spatial `mu`, and metadata (timestamp, request parameters, row/cokey counts, R version).
 - **`generate_ssurgo_cache_key(aoi_wkt, properties, include_restrictions)`** - builds a filename-safe cache key from truncated `digest::digest()` hashes of the AOI WKT and sorted property list, plus a restrictions-flag suffix.
 - **`create_download_metadata(start_time, end_time, aoi_wkt, properties, include_restrictions, mukey_count, data_rows, unique_cokeys, spatial_result, validation_results)`** - assembles the timing, request, spatial-area, and validation-pass/fail metadata list returned alongside downloaded data.
-- **`download_and_prepare_ssurgo(aoi_wkt, properties = c("clay","sand","silt","db","ph","cec","rfv","w3b","w15b"), max_depth = 250, cache_dir = NULL, verbose = FALSE)`** - convenience wrapper that always downloads with restrictions + validation on, then depth-filters `ssurgo_data` to `hzdepb_r <= max_depth` and attaches a `preparation_metadata` element (`max_depth_applied`, `ready_for_simulation = TRUE`, `compatible_with_infill_functions = TRUE`).
+- **`fetch_ssurgo_data(aoi_wkt, properties = c("clay","sand","silt","db","ph","cec","rfv","w3b","w15b"), max_depth = 250, cache_dir = NULL, verbose = FALSE)`** - convenience wrapper that always downloads with restrictions + validation on, then depth-filters `ssurgo_data` to `hzdepb_r <= max_depth` and attaches a `preparation_metadata` element (`max_depth_applied`, `ready_for_simulation = TRUE`, `compatible_with_infill_functions = TRUE`).
 
 ### 7. **`process_ssurgo_data()`** - Main Processing Entry Point
 
@@ -212,7 +212,7 @@ infill_soil_property(
 
 ### 15. **`process_soil_properties_comprehensive()`** - the single infilling orchestrator
 
-**Purpose**: Orchestrates `infill_soil_property()` (and RFV's special path) across a whole property set in three phases, with optional post-hoc filtering. Both the tabular pipeline and the raster-fusion pipeline (via the `infill_soil_data()` wrapper) route through this.
+**Purpose**: Orchestrates `infill_soil_property()` (and RFV's special path) across a whole property set in three phases, with optional post-hoc filtering. Both the tabular pipeline and the raster-fusion pipeline (via the `infill_ssurgo_data()` wrapper) route through this.
 
 **Parameters**:
 
@@ -311,7 +311,7 @@ download_ssurgo_tabular() [ssurgo-acquisition.R, MASTER]
 │   └── generate_ssurgo_cache_key()
 └── create_download_metadata()
 
-download_and_prepare_ssurgo() [ssurgo-acquisition.R, convenience wrapper]
+fetch_ssurgo_data() [ssurgo-acquisition.R, convenience wrapper]
 └── download_ssurgo_tabular()
 
 process_ssurgo_data() [ssurgo-processing.R, MAIN ENTRY]

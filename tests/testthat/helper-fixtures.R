@@ -164,7 +164,7 @@ make_rosetta_shaped_data <- function() {
 #' variable names (`sand_total`/`silt_total`/`clay_total`/
 #' `bulk_density_third_bar`/`water_retention_third_bar`/
 #' `water_retention_15_bar`) plus `compname`/`hzdept_r`/`hzdepb_r`/`cokey`,
-#' for the live `calculate_aws_df()` test (`R/model-aws.R`).
+#' for the live `compute_aws()` test (`R/model-aws.R`).
 make_aws_texture_data <- function() {
   data.frame(
     cokey = c("1", "1"), compname = c("testseries", "testseries"),
@@ -197,7 +197,7 @@ make_percentile_rasters <- function(values_by_prob, nrow = 2, ncol = 2) {
   )
 }
 
-#' Build synthetic component-level data for `sim_component_comp()` testing
+#' Build synthetic component-level data for `simulate_component_composition()` testing
 #' (`R/core-simulation.R`) - `mukey`/`cokey`/`compname`/`comppct_l/r/h`,
 #' one row per component.
 make_component_data <- function() {

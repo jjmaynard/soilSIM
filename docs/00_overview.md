@@ -95,10 +95,10 @@ AOI (WKT) + property list
 │    with_gp                 │
 └───────────────────────────┘
         │
-        ├──► 06 sim_component_comp / simulate_profile_depths_by_mukey
+        ├──► 06 simulate_component_composition / simulate_profile_depths_by_mukey
         │    (component composition + horizon depth/thickness variability)
         │
-        ├──► 07 calculate_aws_df (available water storage via ROSETTA/Van Genuchten)
+        ├──► 07 compute_aws (available water storage via ROSETTA/Van Genuchten)
         │
         ▼
 ┌───────────────────────────┐        ┌───────────────────────────┐

@@ -1,5 +1,29 @@
 # soilSIM 0.1.0.9000 (development version)
 
+## Naming and package-structure re-architecture (in progress)
+
+* **`R/` reorganized** into a generic core + data-source adapters layout
+  (`core-*.R`, `adapter-ssurgo-*.R`, `adapter-solus.R`, `model-aws.R`, plus
+  `geometry.R` / `logging.R` / `config.R` / `io.R` / `property-names.R` split out
+  of the old `utils.R`, and `diagnostics.R` / `diagnostics-checks.R` out of
+  `validation-diagnostics.R`). No user-visible change from the move itself.
+* **S3 result objects.** `simulate_monte_carlo()`, `analyze_soil_statistics()` and
+  `fit_depth_gp_models()` now return classed lists (`soilSIM_simulation`,
+  `soilSIM_statistics`, `soilSIM_gp_models`) with `print()` / `summary()` methods.
+  `$`-access is unchanged.
+* **Tier-1 entry points renamed** (old names soft-deprecated, forwarding shims kept
+  until 0.4.0):
+  * `generate_monte_carlo_realizations()` -> `simulate_monte_carlo()`
+  * `build_stratified_gp_models()` -> `fit_depth_gp_models()`
+  * `adjust_multivariate_depthwise_GP()` -> `adjust_simulation_depthwise()`
+  * `integrate_monte_carlo_with_gp()` -> `apply_depth_gp_to_simulation()`
+  * `run_stage1_fusion()` / `_group()` / `_multi()` -> `run_fusion()` / `run_fusion_group()` / `run_fusion_multiproperty()`
+  * `download_and_prepare_ssurgo()` -> `fetch_ssurgo_data()`
+  * `infill_soil_data()` -> `infill_ssurgo_data()`
+  * `sim_component_comp()` -> `simulate_component_composition()`
+  * `calculate_aws_df()` -> `compute_aws()`
+  * `validate_complete_workflow()` -> `diagnose_workflow()`
+
 ## Data infilling consolidation
 
 * **One property-value cleaner.** `clean_property_data()` gains an `outlier_policy` argument
@@ -18,7 +42,7 @@
   as a list key is write-only, which fed a `NULL` correlation matrix into the texture draw and
   produced whole map units of `NA` in the raster-fusion output. Such horizons now fall back to the
   pooled genhz-agnostic correlation matrices.
-* `infill_soil_data()` (the raster-fusion infiller) now mirrors
+* `infill_ssurgo_data()` (the raster-fusion infiller) now mirrors
   `process_soil_properties_comprehensive()`'s phase structure and derives `wthirdbar`/`wfifteenbar`
   via the Saxton-Rawls pedotransfer function (`water_retention_method = "saxton_rawls"`, default)
   rather than the generic recovery hierarchy.
@@ -33,31 +57,31 @@
   `fetch_ssurgo_percentiles()`, and `extract_mukey_joint_ensemble()` gain a `requested_properties`
   argument that restricts the SSURGO Monte Carlo simulation to the properties actually needed - the
   per-cokey depth-trend GP fit is the pipeline's dominant cost and scales with the property count.
-* `run_stage1_fusion()` now simulates **only** its own property (plus the full sand/silt/clay draw
+* `run_fusion()` now simulates **only** its own property (plus the full sand/silt/clay draw
   for texture members) by default. The prior is statistically equivalent to - not bit-identical to -
   the previous all-property simulation (the pipeline was already unseeded), and a single-property
   map can show marginally more `NA` where a map unit's components carry no data for that one
   property. Restriction is honoured only under the default `vertical_correlation_method =
   "joint_copula"`; `"gp_quantile_retrofit"` falls back to a full simulation with a warning.
-* New `run_stage1_fusion_multi()`: fuses many properties over an AOI (and multiple depth windows)
+* New `run_fusion_multiproperty()`: fuses many properties over an AOI (and multiple depth windows)
   from a **single** SSURGO simulation, seeding the same per-property disk caches
-  `run_stage1_fusion()` reads. Replaces an N-properties x M-windows loop of `run_stage1_fusion()`
+  `run_fusion()` reads. Replaces an N-properties x M-windows loop of `run_fusion()`
   calls (each of which re-ran the full simulation); every leaf now shares one draw set, so their
   `NA` masks are mutually consistent.
 * New optional `seed` argument on `simulate_ssurgo_mapunit_draws()`, `fetch_ssurgo_percentiles()`,
-  `extract_mukey_joint_ensemble()`, `run_stage1_fusion()`, `run_stage1_fusion_group()`, and
-  `run_stage1_fusion_multi()` for opt-in reproducibility (default `NULL` = unchanged stochastic
+  `extract_mukey_joint_ensemble()`, `run_fusion()`, `run_fusion_group()`, and
+  `run_fusion_multiproperty()` for opt-in reproducibility (default `NULL` = unchanged stochastic
   behavior). Seeds the sequential RNG stream and the parallel depth-trend `future.seed`;
   determinism is conditional on the live SSURGO/SOLUS data being unchanged.
 * `simulate_ssurgo_mapunit_draws()`'s raw SSURGO tabular-download cache is now keyed by AOI alone
   instead of AOI + depth window (`download_ssurgo_tabular()` never depth-filters, so the cached
   content was already depth-window-independent) - one AOI's tabular download is now shared across
-  every depth window/call requested for it, including between `run_stage1_fusion_multi()`'s
-  wide-span simulation and a later single-window `run_stage1_fusion()` call.
+  every depth window/call requested for it, including between `run_fusion_multiproperty()`'s
+  wide-span simulation and a later single-window `run_fusion()` call.
 * **Correctness fix**: `simulate_cokey_generalized()`'s simulated `soc` property is now a genuine
   soil-organic-carbon estimate (`om * OM_TO_SOC_FACTOR`, the Van Bemmelen factor) instead of raw
   SSURGO organic matter passed through unconverted. Previously every `"soc"` fusion result (via
-  `run_stage1_fusion()`/`run_stage1_fusion_multi()` with `solus_variable = "soc"`) fused SSURGO
+  `run_fusion()`/`run_fusion_multiproperty()` with `solus_variable = "soc"`) fused SSURGO
   organic matter % (prior) against SOLUS100's real organic carbon % (likelihood) - two different
   quantities differing by roughly a factor of 1.724. `"soc"` percentile/posterior values from this
   release will differ from earlier releases; the change should be read as a bug fix, not a
@@ -66,19 +90,19 @@
 * New `fetch_solus_low_pred_high_multi()` / `fetch_solus_percentiles_multi()`: fetch every needed
   SOLUS100 variable's low/prediction/high rasters for one depth window in a **single**
   `soilDB::fetchSOLUS()` call (`variables`, `depth_slices`, and `output_type` are all requested as
-  vectors at once), instead of one call per `(variable, output_type)`. `run_stage1_fusion_multi()`
+  vectors at once), instead of one call per `(variable, output_type)`. `run_fusion_multiproperty()`
   now fetches SOLUS via this batched path - one call per window covering every standalone
   property and texture-group member, down from up to `3 * n_variables` calls per window - falling
   back to the existing per-variable scalar fetch only if the batched request itself errors. The
   scalar `fetch_solus_low_pred_high()` / `fetch_solus_percentiles()` (used by single-property
-  `run_stage1_fusion()`) are unchanged.
+  `run_fusion()`) are unchanged.
 * SSURGO chemistry-property coverage extended to 5 new properties: `caco3`, `ec`, `ecec`,
   `gypsum`, `sar` (SSURGO chorizon column names live-confirmed against a real gSSURGO query).
   `download_ssurgo_tabular()`'s default `properties`, `create_ssurgo_property_lookup_working()`,
   `simulate_cokey_generalized()`'s `param_order`, `property_to_sim_column()`,
-  `normalize_requested_properties()`, `SSURGO_SIM_PROPERTY_COLUMNS`, and `infill_soil_data()` all
+  `normalize_requested_properties()`, `SSURGO_SIM_PROPERTY_COLUMNS`, and `infill_ssurgo_data()` all
   now recognize them, so they can be fetched via `fetch_ssurgo_percentiles()` and fused via
-  `run_stage1_fusion()`/`run_stage1_fusion_multi()` like any of the original 9 properties. They
+  `run_fusion()`/`run_fusion_multiproperty()` like any of the original 9 properties. They
   have no entry in the static KSSL reference correlation matrices (fit years before these
   properties existed in this pipeline) - `simulate_ssurgo_mapunit_draws()` now builds its
   per-genhz correlation matrices via `build_kssl_fallback_matrix()` (sized to the full property
@@ -117,23 +141,23 @@ Initial release.
 * Data-source-agnostic simulation/fusion core: percentile-triplet and arbitrary-percentile
   distribution fitting (`fit_percentile_triplet()`, `simulate_from_percentiles()`), correlated
   Monte Carlo simulation with compositional (ILR) texture handling
-  (`generate_monte_carlo_realizations()`), Gaussian-process depth-trend modeling
-  (`build_stratified_gp_models()`, `integrate_monte_carlo_with_gp()`), and Bayesian
+  (`simulate_monte_carlo()`), Gaussian-process depth-trend modeling
+  (`fit_depth_gp_models()`, `apply_depth_gp_to_simulation()`), and Bayesian
   updating/fusion in both scalar (`bayes_update_normal_normal()` and family,
   `bayesian_update()`) and raster-native (`fuse_property_adaptive()`, `fuse_texture_group()`)
   forms.
-* SSURGO data-source adapter: tabular acquisition (`download_and_prepare_ssurgo()`), cleaning
+* SSURGO data-source adapter: tabular acquisition (`fetch_ssurgo_data()`), cleaning
   (`process_ssurgo_data()`), infilling (`process_soil_properties_comprehensive()`), and
   simulation-ready raster/percentile extraction (`simulate_ssurgo_mapunit_draws()`).
 * SOLUS100 data-source adapter: raster percentile fetch (`fetch_solus_percentiles()`) supplying
   the likelihood side of the raster fusion pipeline.
 * Profile, component, and depth simulation: component composition
-  (`sim_component_comp()`, `simulate_cokey_generalized()`) and horizon depth/thickness
+  (`simulate_component_composition()`, `simulate_cokey_generalized()`) and horizon depth/thickness
   simulation (`simulate_and_perturb_soil_profiles()`, `simulate_profile_depths_by_mukey()`).
 * Available water storage modeling via Van Genuchten / ROSETTA
-  (`van_genuchten()`, `simulate_vg_aws()`, `calculate_aws_df()`).
+  (`van_genuchten()`, `simulate_vg_aws()`, `compute_aws()`).
 * Statistics and workflow validation/diagnostics (`analyze_soil_statistics()`,
-  `validate_complete_workflow()`, `generate_validation_report()`).
+  `diagnose_workflow()`, `generate_validation_report()`).
 * Vignettes covering the tabular Monte Carlo pipeline, profile/depth simulation, available water
   storage, multi-source raster fusion (SSURGO x SOLUS100), per-pixel fused ensembles, and
   function-by-function tours of each subsystem, all built against real SSURGO data for a Sierra

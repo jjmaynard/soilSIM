@@ -377,7 +377,7 @@ validate_training_groups <- function(processed_data,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return List of GP models organized by property and group
 #' @export
-build_stratified_gp_models <- function(processed_nrcs_data,
+fit_depth_gp_models <- function(processed_nrcs_data,
                                        properties = c("clay_pct", "sand_pct", "pH", "organic_matter"),
                                        min_profiles_per_group = 3,
                                        min_observations_per_group = 15,
@@ -610,7 +610,7 @@ fit_individual_gp_model <- function(data, property, optimize_hyperparameters = T
 #' @return A named list of adjusted matrices with preserved correlations
 #'
 #' @export
-adjust_multivariate_depthwise_GP <- function(simulated_list, gp_models, depths,
+adjust_simulation_depthwise <- function(simulated_list, gp_models, depths,
                                              primary_property = NULL,
                                              verbose = getOption("ssurgo.verbose", FALSE)) {
 
@@ -854,7 +854,7 @@ validate_correlation_preservation <- function(original_list, adjusted_list, dept
 #'
 #' Diagnostic helper for the joint depth x property correlation structure. Unlike
 #' `validate_correlation_preservation()`, which only checks cross-property correlation and (via
-#' its caller `adjust_multivariate_depthwise_GP()`) only at the first 5 depths, this reports BOTH
+#' its caller `adjust_simulation_depthwise()`) only at the first 5 depths, this reports BOTH
 #' halves of the joint structure - cross-property correlation at every depth, and depth-lag
 #' (across-depth, within-property) correlation for every property - against explicit target
 #' matrices when supplied. This is the acceptance test any vertical-correlation method
@@ -864,7 +864,7 @@ validate_correlation_preservation <- function(original_list, adjusted_list, dept
 #'
 #' @param simulated_list A named list of matrices (rows = depths, columns = simulations), the same
 #'   shape consumed/produced by `preserve_correlation_structure()`/
-#'   `adjust_multivariate_depthwise_GP()`.
+#'   `adjust_simulation_depthwise()`.
 #' @param target_property_corr Optional k x k target property-correlation matrix (row/column names
 #'   matching `names(simulated_list)`, or unnamed matching order). If supplied, per-depth and
 #'   overall max absolute deviation from this target is reported.
@@ -1176,7 +1176,7 @@ build_depth_correlation_kernel <- function(depths, length_scale,
 #' Select a Correlation Matrix and Property Set for Single-Cokey Simulation
 #'
 #' Chooses a single flat correlation matrix (and its associated property set)
-#' to hand to [generate_monte_carlo_realizations()] for one cokey's data,
+#' to hand to [simulate_monte_carlo()] for one cokey's data,
 #' from either a plain matrix or a genhz-keyed list of matrices.
 #'
 #' @param cokey_data Simulation data for a single cokey.
@@ -1187,7 +1187,7 @@ build_depth_correlation_kernel <- function(depths, length_scale,
 #'   unusable.
 #'
 #' @return List with `properties` (character vector) and `correlation_matrix`
-#'   (a matrix or `NULL`, letting [generate_monte_carlo_realizations()]
+#'   (a matrix or `NULL`, letting [simulate_monte_carlo()]
 #'   estimate one empirically).
 select_simulation_correlation_matrix <- function(cokey_data, correlation_matrices, txt_correlation_matrices) {
 
@@ -1230,7 +1230,7 @@ select_simulation_correlation_matrix <- function(cokey_data, correlation_matrice
 #' Flatten a Monte Carlo Simulation Array to Long Format
 #'
 #' Converts the `[horizon, property, realization]` array returned by
-#' [generate_monte_carlo_realizations()] (as `result$simulation_data`) into a
+#' [simulate_monte_carlo()] (as `result$simulation_data`) into a
 #' long-format data frame with one row per horizon-realization combination,
 #' matching the shape [apply_local_gp_adjustments()], [apply_nrcs_trend_adjustments()],
 #' and [convert_to_property_matrices()] expect (a `simulation_number` column
@@ -1320,10 +1320,10 @@ simulate_soil_properties <- function(target_cokey,
   }
 
   # Generate initial simulations using the package's real Monte Carlo engine.
-  # Choose a single correlation matrix to hand to generate_monte_carlo_realizations():
+  # Choose a single correlation matrix to hand to simulate_monte_carlo():
   # correlation_matrices/txt_correlation_matrices are documented as
   # "existing correlation matrices by genetic horizon" (genhz-keyed lists),
-  # but generate_monte_carlo_realizations() takes one flat matrix per call -
+  # but simulate_monte_carlo() takes one flat matrix per call -
   # use the matrix for cokey_data's most common genhz as a reasonable
   # single-cokey simplification (a cokey's horizons are usually dominated by
   # one or two genhz groups). Falls back to auto-detected properties and no
@@ -1332,7 +1332,7 @@ simulate_soil_properties <- function(target_cokey,
   initial_simulations <- tryCatch({
     chosen <- select_simulation_correlation_matrix(cokey_data, correlation_matrices, txt_correlation_matrices)
 
-    mc_result <- generate_monte_carlo_realizations(
+    mc_result <- simulate_monte_carlo(
       soil_data = cokey_data,
       properties = chosen$properties,
       correlation_matrix = chosen$correlation_matrix,
@@ -1412,7 +1412,7 @@ simulate_soil_properties <- function(target_cokey,
 #'
 #' @param simulated_cokeys Vector of cokeys from simulation data
 #' @param nrcs_combined_data Original NRCS data used for GP training
-#' @param gp_models Fitted GP models from build_stratified_gp_models()
+#' @param gp_models Fitted GP models from fit_depth_gp_models()
 #' @param property Property name for matching (default = "clay_pct")
 #' @param matching_strategy Matching approach (default = "exact_cokey")
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
@@ -1547,7 +1547,7 @@ predict_gp_depth_trends <- function(gp_model_info, new_depths,
 #' Validate GP Models
 #'
 #'
-#' @param gp_models List of GP models from build_stratified_gp_models()
+#' @param gp_models List of GP models from fit_depth_gp_models()
 #' @param nrcs_data Original NRCS training data
 #' @param validation_depths Depths for prediction testing
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
@@ -2250,7 +2250,7 @@ infer_simulation_properties <- function(simulation_data) {
 #' function's own signature does not accept one explicitly.
 #'
 #' @param simulation_data Simulated soil property data for one cokey.
-#' @param nrcs_gp_models Fitted NRCS GP models (see [build_stratified_gp_models()]).
+#' @param nrcs_gp_models Fitted NRCS GP models (see [fit_depth_gp_models()]).
 #' @param model_group GP model group to apply.
 #' @param preserve_correlations Whether to preserve within-depth correlations.
 #'
@@ -2403,8 +2403,8 @@ NULL
 #' Master function that integrates Monte Carlo simulation results with GP models
 #' to apply realistic depth trends while preserving within-depth correlations.
 #'
-#' @param simulation_results Results from generate_monte_carlo_realizations()
-#' @param gp_models Optional fitted NRCS GP depth models (from build_stratified_gp_models())
+#' @param simulation_results Results from simulate_monte_carlo()
+#' @param gp_models Optional fitted NRCS GP depth models (from fit_depth_gp_models())
 #' @param cokey_mapping Optional mapping from simulations to NRCS GP groups
 #' @param integration_method Method: "nrcs_gp", "local_gp", or "hybrid" (default = "hybrid")
 #' @param preserve_correlations Whether to preserve within-depth correlations (default = TRUE)
@@ -2417,7 +2417,7 @@ NULL
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Integrated simulation results with realistic depth trends
 #' @export
-integrate_monte_carlo_with_gp <- function(simulation_results,
+apply_depth_gp_to_simulation <- function(simulation_results,
                                           gp_models = NULL,
                                           cokey_mapping = NULL,
                                           integration_method = "hybrid",
@@ -2515,7 +2515,7 @@ integrate_monte_carlo_with_gp <- function(simulation_results,
   # Split the simulation data by cokey once here and pass each component its own subset down,
   # rather than filtering the full multi-cokey table once per cokey inside process_single_cokey()
   # (which would be O(rows x cokeys)). Same pattern as
-  # maybe_adjust_soil_data_depth_trend()/run_stage1_fusion_group() elsewhere in the package.
+  # maybe_adjust_soil_data_depth_trend()/run_fusion_group() elsewhere in the package.
   cokey_groups <- split(simulation_data, simulation_data$cokey)
 
   # Process cokeys with progress tracking
@@ -3052,7 +3052,7 @@ preserve_correlation_structure_joint <- function(property_matrices,
   }
 
   # --- Property correlation (R_prop): empirical, from the surface (first) depth's already-drawn
-  # values - the same source adjust_multivariate_depthwise_GP()'s own verification step already
+  # values - the same source adjust_simulation_depthwise()'s own verification step already
   # uses. Falls back to the identity (no property correlation) on a single property or an
   # estimation failure, matching this package's established graceful-degradation pattern.
   if (k < 2) {

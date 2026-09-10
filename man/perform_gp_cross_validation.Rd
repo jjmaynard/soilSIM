@@ -7,7 +7,7 @@
 perform_gp_cross_validation(gp_models, training_data, criteria)
 }
 \arguments{
-\item{gp_models}{GP models from \code{build_stratified_gp_models()}.}
+\item{gp_models}{GP models from \code{fit_depth_gp_models()}.}
 
 \item{training_data}{Original training data with \code{hzdept_r} and one
 column per property in \code{gp_models}.}

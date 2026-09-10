@@ -11,7 +11,7 @@ simulate_vg_aws(data, n_simulations = 100)
 columns \code{alpha}, \code{sd_alpha}, \code{npar}, \code{sd_npar}, \code{theta_r}, \code{sd_theta_r},
 \code{theta_s}, \code{sd_theta_s}, \code{layerID} - exactly the shape produced by
 \code{soilDB::ROSETTA(..., include.sd = TRUE)} plus a caller-added \code{layerID}
-(see \code{calculate_aws_df()}).}
+(see \code{compute_aws()}).}
 
 \item{n_simulations}{Number of Monte Carlo draws per row (default 100).}
 }

@@ -11,7 +11,7 @@ zonal_distribution_from_posterior(
 )
 }
 \arguments{
-\item{posterior}{A \code{run_stage1_fusion()}-style \code{list(percentiles = , ...)}.}
+\item{posterior}{A \code{run_fusion()}-style \code{list(percentiles = , ...)}.}
 
 \item{mukey_raster}{A categorical mukey \code{terra::SpatRaster} (any grid - resampled to the
 posterior grid via nearest-neighbour internally).}
@@ -23,7 +23,7 @@ one of the posterior's own percentile-layer probabilities (no interpolation).}
 Named list keyed by mukey code, each element \code{c(low =, rep =, high =)}.
 }
 \description{
-Collapses \code{run_stage1_fusion()}'s per-pixel posterior to one distribution per mukey by taking
+Collapses \code{run_fusion()}'s per-pixel posterior to one distribution per mukey by taking
 \code{terra::zonal()} means of its percentile layers, in the \code{low}/\code{rep}/\code{high} shape
 \code{fuse_observed_data_into_priors()}'s \code{observed_data_by_mukey} accepts. \strong{Percentile-based only -
 there is deliberately no point-estimate ("mean") path}, which would narrow the fed-back prior

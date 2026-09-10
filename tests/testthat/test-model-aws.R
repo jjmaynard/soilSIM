@@ -61,13 +61,13 @@ test_that("simulate_vg_aws() skips rows with any missing van Genuchten parameter
   expect_true(grepl("^testseries_20_", names(result)))
 })
 
-test_that("calculate_aws_df() requires the live ROSETTA (handbook60.org) service", {
+test_that("compute_aws() requires the live ROSETTA (handbook60.org) service", {
   testthat::skip_if_offline()
   sim_data_df <- make_aws_texture_data()
-  result <- calculate_aws_df(sim_data_df)
+  result <- compute_aws(sim_data_df)
 
   # Long format: one row per cokey per depth slab actually spanned by the
-  # component's horizons (not one row per cokey - see calculate_aws_df()'s
+  # component's horizons (not one row per cokey - see compute_aws()'s
   # @return doc), with a single AWHC value column.
   expect_s3_class(result, "data.frame")
   expect_setequal(names(result), c("cokey", "top", "bottom", "AWHC"))

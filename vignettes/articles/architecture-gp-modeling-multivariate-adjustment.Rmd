@@ -52,7 +52,7 @@ prepare_nrcs_training_data(
 ```
 
 **Purpose**: Turn raw combined NRCS component/horizon data into a cleaned, grouped training set
-ready for `build_stratified_gp_models()`.
+ready for `fit_depth_gp_models()`.
 **Parameters**:
 
 - `nrcs_combined_data` - combined NRCS data with horizon and component information (must contain
@@ -117,10 +117,10 @@ groups meeting all three adequacy criteria, and for each requested property comp
 non-NA coverage rate among adequate groups, emitting a recommendation when overall coverage falls
 below 30%.
 
-#### `build_stratified_gp_models()` - Master Function
+#### `fit_depth_gp_models()` - Master Function
 
 ```r
-build_stratified_gp_models(
+fit_depth_gp_models(
   processed_nrcs_data,
   properties = c("clay_pct", "sand_pct", "pH", "organic_matter"),
   min_profiles_per_group = 3,
@@ -159,10 +159,10 @@ values, or no depth range), otherwise `list(model = list(gp_model, depth_scaling
 is stored so predictions can rescale new depths later), fits the GP via `GPfit::GP_fit()`
 (optionally via the CV wrapper), and computes diagnostics with `calculate_model_diagnostics()`.
 
-#### `adjust_multivariate_depthwise_GP()`
+#### `adjust_simulation_depthwise()`
 
 ```r
-adjust_multivariate_depthwise_GP(simulated_list, gp_models, depths, primary_property = NULL)
+adjust_simulation_depthwise(simulated_list, gp_models, depths, primary_property = NULL)
 ```
 
 **Purpose**: A multivariate correlation-preserving adjustment routine operating directly on
@@ -194,7 +194,7 @@ validate_correlation_preservation(original_list, adjusted_list, depths)
 
 **Purpose**: Quantify how much the depth-wise correlation matrix between properties changed between
 `original_list` and `adjusted_list` (the matrix-format counterparts used by
-`adjust_multivariate_depthwise_GP()`).
+`adjust_simulation_depthwise()`).
 **Returns**: A data frame with one row per depth (`depth_idx`, `depth_value`, `max_cor_difference`,
 `mean_cor_difference`, the latter averaged over the upper triangle of the correlation-difference
 matrix).
@@ -318,7 +318,7 @@ if the cokey has no data).
 **Algorithm**: Filters `sim_data` to `target_cokey`; picks a single flat correlation matrix via
 `select_simulation_correlation_matrix()` (using the cokey's modal `genhz` group, falling back to
 `txt_correlation_matrices` or to empirically-estimated correlations); calls
-`generate_monte_carlo_realizations()` and flattens its `[horizon, property, realization]` array to
+`simulate_monte_carlo()` and flattens its `[horizon, property, realization]` array to
 long format via `flatten_simulation_array_to_long()`; then, if NRCS GP models and a cokey mapping are
 supplied, looks up the cokey's `gp_model_group` (falling back to `"fallback_general"`) and calls
 `apply_nrcs_gp_adjustments_with_correlations()`, otherwise calls
@@ -337,7 +337,7 @@ match_soils_to_gp_models(
 )
 ```
 
-**Purpose**: Map every simulated cokey to the GP model group (from `build_stratified_gp_models()`)
+**Purpose**: Map every simulated cokey to the GP model group (from `fit_depth_gp_models()`)
 that should be used to adjust its depth trend.
 **Parameters**: `simulated_cokeys` - cokeys needing a mapping; `nrcs_combined_data` - source NRCS
 data carrying taxonomic columns; `gp_models` - fitted models keyed by property;
@@ -374,7 +374,7 @@ validate_gp_models(gp_models, nrcs_data, validation_depths = seq(0, 200, by = 10
 
 **Purpose**: Diagnostic pass over an entire fitted GP model set, checking predictability, trend
 monotonicity, and realistic value ranges.
-**Parameters**: `gp_models` - output of `build_stratified_gp_models()`; `nrcs_data` - original
+**Parameters**: `gp_models` - output of `fit_depth_gp_models()`; `nrcs_data` - original
 training data (currently unused beyond being passed through); `validation_depths` - depths at which
 to test predictions.
 **Returns**: A list with `model_validation` (per-property, per-group prediction/diagnostic results),
@@ -407,10 +407,10 @@ a fitted GP model set, optionally stripping training data to shrink file size).
 
 ### core-gp.R
 
-#### `integrate_monte_carlo_with_gp()` - Master Function
+#### `apply_depth_gp_to_simulation()` - Master Function
 
 ```r
-integrate_monte_carlo_with_gp(
+apply_depth_gp_to_simulation(
   simulation_results,
   gp_models = NULL,
   cokey_mapping = NULL,
@@ -426,8 +426,8 @@ integrate_monte_carlo_with_gp(
 **Purpose**: Whole-dataset entry point that applies GP depth-trend adjustment (NRCS-model-based
 and/or locally-fit) to every cokey in a Monte Carlo simulation result, with validation and rich
 metadata.
-**Parameters**: `simulation_results` - output of `generate_monte_carlo_realizations()` (must have a
-`simulation_data` element); `gp_models` - fitted NRCS GP models from `build_stratified_gp_models()`
+**Parameters**: `simulation_results` - output of `simulate_monte_carlo()` (must have a
+`simulation_data` element); `gp_models` - fitted NRCS GP models from `fit_depth_gp_models()`
 (optional); `cokey_mapping` - output of `match_soils_to_gp_models()` (optional); `integration_method`
 
 - `"nrcs_gp"` (NRCS models only), `"local_gp"` (per-cokey local GP only), or `"hybrid"` (NRCS
@@ -495,7 +495,7 @@ preserve_correlation_structure(property_matrices, gp_predictions, depths, primar
 ```
 
 **Purpose**: The original correlation-preserving depth-adjustment algorithm (long-format
-pipeline's counterpart to `core-gp.R`'s `adjust_multivariate_depthwise_GP()`), still fully
+pipeline's counterpart to `core-gp.R`'s `adjust_simulation_depthwise()`), still fully
 supported as an explicit `"gp_quantile_retrofit"` opt-out from `apply_gp_depth_trends()`'s default.
 **Parameters**: `property_matrices` - named list of `[depth x simulation]` matrices;
 `gp_predictions` - named list of per-depth GP mean vectors; `depths` - depth vector; `primary_property`
@@ -746,7 +746,7 @@ sand/silt/clay-family columns so each row's sum is exactly 100 whenever their su
 **Minor exported/internal helpers** (not separately detailed above): `detect_simulation_properties()`
 (intersects `get_predefined_properties("laboratory")` and a hardcoded simulation-column-name list
 with the data's actual columns), `process_cokeys_parallel()` / `process_cokeys_sequential()` /
-`process_single_cokey()` (cokey-level dispatch used by `integrate_monte_carlo_with_gp()` - the
+`process_single_cokey()` (cokey-level dispatch used by `apply_depth_gp_to_simulation()` - the
 parallel path uses `parallel::makeCluster()` + `clusterEvalQ(cl, library(soilSIM))` on Windows so
 worker processes have `dplyr`/`GPfit` loaded, or `parallel::mclapply()` elsewhere),
 `combine_and_validate_results()` / `create_integration_results()` (result assembly and metadata),
@@ -771,7 +771,7 @@ linkage).
 ## Internal Connections
 
 ```
-build_stratified_gp_models() [MASTER, core-gp.R]
+fit_depth_gp_models() [MASTER, core-gp.R]
 ├── apply_hierarchical_grouping()
 │   └── create_test_grouping() [via select_optimal_grouping(), if strategy = "auto"]
 ├── fit_individual_gp_model()  (per property x final_group)
@@ -799,7 +799,7 @@ match_soils_to_gp_models() [gp-modeling.R]
 
 simulate_soil_properties() [gp-modeling.R, single-cokey convenience path]
 ├── select_simulation_correlation_matrix()
-├── generate_monte_carlo_realizations()        [Monte Carlo module]
+├── simulate_monte_carlo()        [Monte Carlo module]
 ├── flatten_simulation_array_to_long()
 ├── apply_nrcs_gp_adjustments_with_correlations()
 │   └── apply_nrcs_trend_adjustments()         [-> core-gp.R]
@@ -807,7 +807,7 @@ simulate_soil_properties() [gp-modeling.R, single-cokey convenience path]
 │   └── apply_local_gp_adjustments()           [-> core-gp.R]
 └── validate_enhanced_simulations()
 
-integrate_monte_carlo_with_gp() [MASTER, core-gp.R, whole-dataset path]
+apply_depth_gp_to_simulation() [MASTER, core-gp.R, whole-dataset path]
 ├── detect_simulation_properties()
 ├── process_cokeys_parallel() / process_cokeys_sequential()
 │   └── process_single_cokey()                 (per cokey)
@@ -847,18 +847,18 @@ prepare_nrcs_training_data() [gp-modeling.R]
 ├── auto grouping strategy selection [select_optimal_grouping()]
 └── property coalescing + soil_group assignment
 ↓
-build_stratified_gp_models() [gp-modeling.R]
+fit_depth_gp_models() [gp-modeling.R]
 ├── hierarchical fallback grouping [apply_hierarchical_grouping()]
 └── per-group GP fitting [fit_individual_gp_model() -> GPfit::GP_fit()]
 ↓
 GP Models (by property x soil group) ──────────────┐
                                                      │
 Monte Carlo Simulation Output                       │
-(generate_monte_carlo_realizations(), separate module)
+(simulate_monte_carlo(), separate module)
 ↓                                                    │
 match_soils_to_gp_models() [gp-modeling.R] ◄─────────┘
 ↓ (cokey -> gp_model_group mapping)
-integrate_monte_carlo_with_gp() [multivariate-adjustment.R, MASTER]
+apply_depth_gp_to_simulation() [multivariate-adjustment.R, MASTER]
 ├── per-cokey NRCS GP adjustment  [apply_nrcs_trend_adjustments()]
 ├── per-cokey local GP adjustment [apply_local_gp_adjustments()]
 │   └── both funnel through apply_gp_depth_trends()
@@ -879,7 +879,7 @@ Statistics & Diagnostics (validation, summarization) [downstream module]
 ### 1. Correlation-preserving quantile nudge (the core algorithm, both files)
 
 ```r
-# preserve_correlation_structure() / adjust_multivariate_depthwise_GP()
+# preserve_correlation_structure() / adjust_simulation_depthwise()
 gp_ratio <- calculate_safe_gp_ratio(gp_means, i)          # clamped to [0.1, 10]
 adjusted_curr <- apply_quantile_adjustment(
   reference_quantiles, curr_values, prev_values, gp_ratio, n_sims
@@ -927,7 +927,7 @@ predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled
   throughout both files (single covariate: scaled depth).
 - `parallel` - `parallel::makeCluster()`/`clusterExport()`/`clusterEvalQ()`/`parLapply()` on
   Windows, `parallel::mclapply()` elsewhere, used by `process_cokeys_parallel()` for cokey-level
-  parallel dispatch in `integrate_monte_carlo_with_gp()`. No `future`/`furrr` usage was found in
+  parallel dispatch in `apply_depth_gp_to_simulation()`. No `future`/`furrr` usage was found in
   either file - parallelism is base `parallel` only.
 - `dplyr` - pervasive for grouping/summarizing/filtering/joining throughout both files.
 - Base `stats` - `ecdf()`, `quantile()`, `cor()`, `var()`, `sd()`, `approx()` implement the
@@ -935,9 +935,9 @@ predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled
 
 **soilSIM dependencies (inputs)**:
 
-- Monte Carlo simulation output (`generate_monte_carlo_realizations()`, its `simulation_data`
+- Monte Carlo simulation output (`simulate_monte_carlo()`, its `simulation_data`
   array/long-format result) is the primary upstream input to both `simulate_soil_properties()`
-  (single-cokey) and `integrate_monte_carlo_with_gp()` (whole-dataset).
+  (single-cokey) and `apply_depth_gp_to_simulation()` (whole-dataset).
 - Shared/general utility functions used throughout (validation, logging, configuration, error
   handling) - `log_message()`, `handle_workflow_error()`, `validate_parameters()`,
   `validate_data_quality()`, `validate_properties()`, `is_unsuitable()`, `standardize_property_names()`,
@@ -945,15 +945,15 @@ predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled
   `get_package_versions()` - these are not defined in either file and are assumed to come from a
   shared validation/utility module elsewhere in the package.
 - No direct call into a `core-distributions.R`-style correlation-matrix-generation utility was found in
-  either file; `preserve_correlation_structure()`/`adjust_multivariate_depthwise_GP()` preserve
+  either file; `preserve_correlation_structure()`/`adjust_simulation_depthwise()` preserve
   correlation implicitly via the shared reference-quantile mechanism rather than by explicitly
   re-applying a target correlation matrix (e.g. no Cholesky step appears in these two files - that
   logic lives upstream, in the Monte Carlo generation step that `simulate_soil_properties()` calls
-  into via `generate_monte_carlo_realizations()`).
+  into via `simulate_monte_carlo()`).
 
 **Downstream consumers**:
 
-- The `integrated_data`/`validation_results` produced by `integrate_monte_carlo_with_gp()` feed the
+- The `integrated_data`/`validation_results` produced by `apply_depth_gp_to_simulation()` feed the
   Statistics & Diagnostics group (percentile/summary statistics computation and the broader
   validation-diagnostics workflow), which consumes the GP-adjusted realizations as its input dataset
   and the `validation_results` structure as a data-quality baseline.
@@ -966,20 +966,20 @@ predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled
   raw property columns) -> `prepare_nrcs_training_data()`.
 - Monte Carlo realizations (long-format simulation data frame with `cokey`, `hzdept_r`,
   `simulation_number`, and per-property columns; or the raw `[horizon, property, realization]` array
-  from `generate_monte_carlo_realizations()`) -> `simulate_soil_properties()` /
-  `integrate_monte_carlo_with_gp()`.
-- Fitted GP models (`build_stratified_gp_models()` output) and a cokey-to-group mapping
+  from `simulate_monte_carlo()`) -> `simulate_soil_properties()` /
+  `apply_depth_gp_to_simulation()`.
+- Fitted GP models (`fit_depth_gp_models()` output) and a cokey-to-group mapping
   (`match_soils_to_gp_models()` output) -> both integration entry points.
 - Correlation matrices (flat or genhz-keyed) -> `simulate_soil_properties()` (consumed only to pick
   which matrix to hand to the Monte Carlo generator; not directly re-applied in this file).
 
 **Out**:
 
-- A fitted GP model set (`build_stratified_gp_models()`'s return value: per-property, per-group
+- A fitted GP model set (`fit_depth_gp_models()`'s return value: per-property, per-group
   models + diagnostics + summary), typically persisted via `export_gp_models()`/`load_gp_models()`.
 - GP-depth-adjusted, correlation-preserving realizations per cokey - either as a single-cokey long
   data frame with validation attributes (`simulate_soil_properties()`) or a whole-dataset result list
-  (`integrate_monte_carlo_with_gp()`'s `integrated_data` + `integration_metadata` +
+  (`apply_depth_gp_to_simulation()`'s `integrated_data` + `integration_metadata` +
   `validation_results`), ready for percentile/statistical summarization downstream.
 
 ## Usage Example
@@ -992,7 +992,7 @@ nrcs_training <- prepare_nrcs_training_data(
   max_depth = 200
 )
 
-gp_models <- build_stratified_gp_models(
+gp_models <- fit_depth_gp_models(
   nrcs_training,
   properties = c("clay_pct", "sand_pct", "pH", "organic_matter"),
   optimize_hyperparameters = TRUE
@@ -1007,7 +1007,7 @@ cokey_mapping <- match_soils_to_gp_models(
 )
 
 # 3. Integrate the Monte Carlo output with the fitted GP models, preserving correlations
-integrated <- integrate_monte_carlo_with_gp(
+integrated <- apply_depth_gp_to_simulation(
   simulation_results = mc_results,
   gp_models = gp_models,
   cokey_mapping = cokey_mapping,

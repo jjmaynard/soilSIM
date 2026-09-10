@@ -2,17 +2,17 @@
 % Please edit documentation in R/core-fusion.R
 \name{posterior_percentile_probs}
 \alias{posterior_percentile_probs}
-\title{Probabilities behind a \code{run_stage1_fusion()} posterior's percentile layers}
+\title{Probabilities behind a \code{run_fusion()} posterior's percentile layers}
 \usage{
 posterior_percentile_probs(posterior)
 }
 \arguments{
-\item{posterior}{A \code{run_stage1_fusion()}-style \verb{list(percentiles = <named P.. rasters>, ...)}.}
+\item{posterior}{A \code{run_fusion()}-style \verb{list(percentiles = <named P.. rasters>, ...)}.}
 }
 \value{
 Numeric probabilities in (0, 1), ascending, parsed from the \code{"P<pct>"} layer names.
 }
 \description{
-Probabilities behind a \code{run_stage1_fusion()} posterior's percentile layers
+Probabilities behind a \code{run_fusion()} posterior's percentile layers
 }
 \keyword{internal}

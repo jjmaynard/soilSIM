@@ -5,7 +5,7 @@
 This functional group covers two source files that together simulate the
 compositional and morphological variability of SSURGO soil components and
 profiles. `R/core-simulation.R` simulates component-composition
-percentages (`sim_component_comp()`) and per-cokey correlated soil
+percentages (`simulate_component_composition()`) and per-cokey correlated soil
 properties - including compositional sand/silt/clay texture via the
 package's ILR core - from low/representative/high (`_l/_r/_h`) triplets
 (`simulate_cokey_generalized()`, built on `simulate_correlated_triangular()`).
@@ -57,7 +57,7 @@ compositional-simulation machinery.
   actual max sliced depth if data ran out before reaching `bottom`. Carries
   `compname` through untransformed if present.
 
-#### `sim_component_comp(data, n_simulations = 1000)`
+#### `simulate_component_composition(data, n_simulations = 1000)`
 
 - **Parameters**:
   - `data` - a data frame with `mukey`, `cokey`, `compname`, `comppct_l`,
@@ -116,7 +116,7 @@ compositional-simulation machinery.
 - **Parameters**:
   - `sim_cokey` - a data frame of horizon rows for one cokey, with a
     `genhz` column and a `sim_comppct` column (the number of realizations to
-    simulate for that row - see `sim_component_comp()`).
+    simulate for that row - see `simulate_component_composition()`).
   - `correlation_matrices` - a list of correlation matrices keyed by
     `genhz`, with row/column names drawn from (a subset of) `c("db",
     "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc")`.
@@ -407,7 +407,7 @@ core-simulation.R
 ======================
 tri_dist() [R/core-distributions.R]
     │
-    ├──► sim_component_comp() ──► one row per cokey, + sim_comppct
+    ├──► simulate_component_composition() ──► one row per cokey, + sim_comppct
     │
     └──► simulate_correlated_triangular() ◄── ilr_forward()/ilr_inverse() [R/core-distributions.R]
                   │                                (texture only)
@@ -423,9 +423,9 @@ calculate_mode() ─────────────────────
                                             triangular-mode parameter)
 
 
-    sim_component_comp() output (per-cokey sim_comppct)
+    simulate_component_composition() output (per-cokey sim_comppct)
                   │
-                  │   dplyr::left_join(horizon_data, sim_component_comp(component_data),
+                  │   dplyr::left_join(horizon_data, simulate_component_composition(component_data),
                   │                    by = "cokey")
                   ▼
     horizon-level data now carrying sim_comppct on every row
@@ -437,7 +437,7 @@ core-simulation.R
 get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
                   │
                   ▼
-   sim_component_comp() + dplyr::left_join(by = "cokey")   (performed internally
+   simulate_component_composition() + dplyr::left_join(by = "cokey")   (performed internally
                   │                                         by simulate_profile_depths_by_mukey()
                   ▼                                         as of the sim_comppct integration fix)
    simulate_profile_depths_by_mukey()  ──┐
@@ -489,7 +489,7 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
 - **`dplyr`** - data manipulation throughout both files (`group_by`,
   `mutate`, `left_join`, `select`, `summarise`, `rowwise`, etc.).
 - **`R/core-distributions.R`** (soilSIM internal) - `tri_dist()` (used by both
-  files: `sim_component_comp()`/`simulate_correlated_triangular()` in
+  files: `simulate_component_composition()`/`simulate_correlated_triangular()` in
   `core-simulation.R`; all four depth-simulation functions in
   `core-simulation.R`) and `ilr_forward()`/`ilr_inverse()` (used only by
   `simulate_cokey_generalized()` for compositional texture handling).
@@ -501,7 +501,7 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
 - **Downstream consumers**:
   - **`R/adapter-ssurgo-simulate.R`'s `simulate_ssurgo_mapunit_draws()`** is a
     real, live in-package consumer of this group: it calls
-    `remove_organic_layer()` and `sim_component_comp()` directly, performs
+    `remove_organic_layer()` and `simulate_component_composition()` directly, performs
     the `sim_comppct` component-to-horizon join itself, then calls
     `simulate_cokey_generalized()` per cokey - i.e. it exercises exactly the
     `core-simulation.R` half of this group (component composition +
@@ -516,13 +516,13 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
     but there is no direct function-level call between `core-simulation.R`
     and `model-aws.R` in the current codebase - `model-aws.R`'s
     own header notes it is self-contained and does not depend on
-    `sim_component_comp()` or any other helper from this group.
+    `simulate_component_composition()` or any other helper from this group.
 
 ## Data Flow In/Out
 
 **In:**
 - SSURGO component data (`mukey`, `cokey`, `compname`, `comppct_l/r/h`) -
-  input to `sim_component_comp()`.
+  input to `simulate_component_composition()`.
 - SSURGO horizon data (`hzname`, texture/bulk-density/water-retention/RFV/
   pH/CEC/OM `_l/_r/_h` triplets, `genhz`) - input to
   `simulate_cokey_generalized()`, `get_aws_data_by_mukey()`, and the depth-
@@ -537,7 +537,7 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
 
 **Out:**
 - Simulated component percentages: one row per component with a
-  `sim_comppct` column (`sim_component_comp()`).
+  `sim_comppct` column (`simulate_component_composition()`).
 - Simulated per-cokey property realizations: one row per horizon x
   realization, with simulated bulk density/water retention/texture/RFV/pH/
   CEC/OM columns plus identifying columns
@@ -555,27 +555,27 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
 
 - **`simulate_and_perturb_soil_profiles()`** - requires `soil_profile`'s
   horizons to already carry a `sim_comppct` column (used to derive
-  `n_simulations`); `sim_component_comp()` produces this column but at
+  `n_simulations`); `simulate_component_composition()` produces this column but at
   per-**component** grain, not per-**horizon** grain, so callers who use
   this function *directly* (not via `simulate_profile_depths_by_mukey()`)
   must still `dplyr::left_join()` the two by `cokey` before calling it, or
   it errors with a missing-column condition. This part of the contract is
   unchanged.
 - ~~**`simulate_profile_depths_by_mukey()`** - has the same underlying
-  `sim_comppct` requirement but does not itself call `sim_component_comp()`
+  `sim_comppct` requirement but does not itself call `simulate_component_composition()`
   or perform the component-to-horizon join~~ **Fixed**: this function now
-  calls `sim_component_comp(mu_data, n_simulations = n_simulations)` and
+  calls `simulate_component_composition(mu_data, n_simulations = n_simulations)` and
   left-joins the result onto every horizon row by `cokey` internally,
   mirroring the same pattern `R/adapter-ssurgo-simulate.R`'s
   `simulate_ssurgo_mapunit_draws()` uses for the property-simulation path. Its
-  `n_simulations` parameter flows into `sim_component_comp()`'s own `n_simulations` argument
+  `n_simulations` parameter flows into `simulate_component_composition()`'s own `n_simulations` argument
   (number of triangular draws per component).
 
 ## Usage Example
 
 ```r
 # simulate_profile_depths_by_mukey() now derives and joins sim_comppct
-# internally (sim_component_comp() -> left_join by cokey), so a direct call
+# internally (simulate_component_composition() -> left_join by cokey), so a direct call
 # is sufficient - no manual join step required:
 simulated_profiles <- simulate_profile_depths_by_mukey(
   mukey = "123456", n_simulations = 1000, seed = 123
@@ -584,7 +584,7 @@ simulated_profiles <- simulate_profile_depths_by_mukey(
 # Calling simulate_and_perturb_soil_profiles() directly (bypassing
 # simulate_profile_depths_by_mukey()) still requires the manual join, since
 # that lower-level function's own contract hasn't changed:
-component_data <- sim_component_comp(ssurgo_component_data, n_simulations = 1000)
+component_data <- simulate_component_composition(ssurgo_component_data, n_simulations = 1000)
 horizon_data <- dplyr::left_join(
   ssurgo_horizon_data,
   component_data[, c("cokey", "sim_comppct")],

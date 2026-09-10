@@ -1,6 +1,6 @@
 #' @title Component-Composition and Correlated-Triangular Property Simulation
 #'
-#' @description Component-composition simulation (`sim_component_comp()`), correlated
+#' @description Component-composition simulation (`simulate_component_composition()`), correlated
 #'   triangular-distribution sampling (`simulate_correlated_triangular()`), and per-cokey
 #'   flexible-property simulation (`simulate_cokey_generalized()`), plus two small standalone
 #'   horizon-data helpers (`remove_organic_layer()`, `slice_and_aggregate_soil_data()`).
@@ -196,7 +196,7 @@ slice_and_aggregate_soil_data <- function(df, depth_ranges = list(c(0, 30), c(30
 #' @param n_simulations Integer, number of triangular draws per component (default 1000).
 #' @return A data frame, one row per component, with an added `sim_comppct` column.
 #' @export
-sim_component_comp <- function(data, n_simulations = 1000) {
+simulate_component_composition <- function(data, n_simulations = 1000) {
 
   data <- data |>
     dplyr::select(mukey, cokey, compname, comppct_l, comppct_r, comppct_h) |>
@@ -346,7 +346,7 @@ extend_corr_matrix_with_identity <- function(m, missing_names) {
 #'
 #' @param sim_cokey A data frame of horizon rows for one cokey, with a `genhz` column and a
 #'   `sim_comppct` column (number of realizations to simulate for that row - see
-#'   `sim_component_comp()`).
+#'   `simulate_component_composition()`).
 #' @param correlation_matrices A list of correlation matrices keyed by `genhz`, with row/column
 #'   names matching (a subset of) `c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec",
 #'   "soc", "caco3", "ec", "ecec", "gypsum", "sar")`. The 5 chemistry properties
@@ -1366,10 +1366,10 @@ simulate_soil_profile_thickness <- function(horizon_data, n_simulations = 500) {
 #' @section Known limitation:
 #' This function requires `soil_profile`'s horizons to already carry a
 #' `sim_comppct` column (it derives the number of simulations to run from
-#' `unique(horizons(soil_profile)$sim_comppct)`). `sim_component_comp()`
+#' `unique(horizons(soil_profile)$sim_comppct)`). `simulate_component_composition()`
 #' (`R/core-simulation.R`) produces this column, but at component
 #' (`cokey`) grain, not horizon grain - callers must
-#' `dplyr::left_join(horizon_data, sim_component_comp(component_data), by = "cokey")`
+#' `dplyr::left_join(horizon_data, simulate_component_composition(component_data), by = "cokey")`
 #' before calling this function; it will still error with a missing-column
 #' condition if that join hasn't been done first.
 #'
@@ -1610,7 +1610,7 @@ simulate_profile_depths_by_collection_parallel <- function(soil_collection, seed
 #'
 #' @param mukey A string or numeric value representing the map unit key to query.
 #' @param n_simulations Integer, the number of triangular draws per component used to derive
-#'   `sim_comppct` via `sim_component_comp()` (default is 100).
+#'   `sim_comppct` via `simulate_component_composition()` (default is 100).
 #' @param seed An integer to set the random seed for reproducibility (default is 123).
 #'
 #' @return A SoilProfileCollection object containing the simulated and perturbed soil profiles.
@@ -1630,11 +1630,11 @@ simulate_profile_depths_by_mukey <- function(mukey, n_simulations = 100, seed = 
     stop("No data found for the provided mukey.")
   }
 
-  # Step 1.5: Derive sim_comppct (sim_component_comp() produces it at cokey grain) and join
+  # Step 1.5: Derive sim_comppct (simulate_component_composition() produces it at cokey grain) and join
   # it onto every horizon row by cokey - simulate_and_perturb_soil_profiles() requires it at
   # horizon grain. Mirrors the already-verified pattern in R/adapter-ssurgo-simulate.R's
   # simulate_ssurgo_mapunit_draws().
-  component_data <- sim_component_comp(mu_data, n_simulations = n_simulations)
+  component_data <- simulate_component_composition(mu_data, n_simulations = n_simulations)
   mu_data <- dplyr::left_join(
     mu_data, component_data[, c("cokey", "sim_comppct")],
     by = "cokey"

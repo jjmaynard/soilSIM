@@ -7,7 +7,7 @@
 The SSURGO half of the raster fusion prior/likelihood pipeline (see
 \code{R/core-fusion.R}): given a \code{terra::SpatVector} AOI, rasterizes SSURGO map units,
 Monte Carlo-simulates per-component soil properties (via
-\code{sim_component_comp()}/\code{simulate_cokey_generalized()} in \code{R/core-simulation.R}),
+\code{simulate_component_composition()}/\code{simulate_cokey_generalized()} in \code{R/core-simulation.R}),
 aggregates to a requested depth window, and rasterizes per-mukey percentiles for
 \code{fuse_property_adaptive()} to consume.
 
@@ -20,7 +20,7 @@ generalized-horizon assignment.
 
 \code{download_ssurgo_tabular()}'s (\code{R/adapter-ssurgo-acquire.R}) default \code{properties} and always-included
 base columns (\code{comppct_l/r/h}, all \verb{_l/_r/_h} horizon triplets) already match
-\code{sim_component_comp()}/\code{simulate_cokey_generalized()}'s expected SSURGO-stem input vocabulary
+\code{simulate_component_composition()}/\code{simulate_cokey_generalized()}'s expected SSURGO-stem input vocabulary
 directly - the only translation table genuinely needed is \code{property_to_sim_column()}, mapping
 a caller-facing property id to \code{simulate_cokey_generalized()}'s short-code \emph{output} column
 name.

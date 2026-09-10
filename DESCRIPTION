@@ -30,6 +30,7 @@ Imports:
     Matrix,
     fitdistrplus,
     jsonlite,
+    lifecycle,
     readr,
     tools,
     parallel,

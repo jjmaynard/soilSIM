@@ -18,7 +18,7 @@ match_soils_to_gp_models(
 
 \item{nrcs_combined_data}{Original NRCS data used for GP training}
 
-\item{gp_models}{Fitted GP models from build_stratified_gp_models()}
+\item{gp_models}{Fitted GP models from fit_depth_gp_models()}
 
 \item{property}{Property name for matching (default = "clay_pct")}
 

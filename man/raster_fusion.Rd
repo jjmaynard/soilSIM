@@ -21,7 +21,7 @@ work unchanged on \code{SpatRaster} inputs.
 }
 \section{Entry points}{
 
-\code{run_stage1_fusion()}/\code{run_stage1_fusion_group()} are the top-level
+\code{run_fusion()}/\code{run_fusion_group()} are the top-level
 orchestrators, wiring the fetch-and-cache layer (\code{R/cache.R},
 \code{R/adapter-ssurgo-simulate.R}, \code{R/adapter-solus.R}) to the fusion core.
 \code{fuse_property_adaptive()} is the lower-level entry point for callers

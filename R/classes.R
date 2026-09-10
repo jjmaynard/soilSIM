@@ -36,7 +36,7 @@ summary.soilSIM_result <- function(object, ...) {
 
 #' Monte Carlo simulation result
 #'
-#' Wraps the list returned by [generate_monte_carlo_realizations()]. Nothing
+#' Wraps the list returned by [simulate_monte_carlo()]. Nothing
 #' about the contents changes; the class only adds `print`/`summary`.
 #'
 #' @param x A list produced by the Monte Carlo engine.
@@ -106,9 +106,9 @@ print.soilSIM_statistics <- function(x, ...) {
 
 #' Stratified GP depth-model set
 #'
-#' Wraps the list returned by [build_stratified_gp_models()].
+#' Wraps the list returned by [fit_depth_gp_models()].
 #'
-#' @param x A list produced by [build_stratified_gp_models()].
+#' @param x A list produced by [fit_depth_gp_models()].
 #' @return An object of class `soilSIM_gp_models`.
 #' @export
 new_soilSIM_gp_models <- function(x) .new_soilSIM(x, "soilSIM_gp_models")
@@ -129,7 +129,7 @@ print.soilSIM_gp_models <- function(x, ...) {
 
 #' Multi-source raster fusion result
 #'
-#' Wraps the list returned by [run_stage1_fusion()] / [run_stage1_fusion_group()].
+#' Wraps the list returned by [run_fusion()] / [run_fusion_group()].
 #'
 #' @param x A list produced by a fusion orchestrator.
 #' @return An object of class `soilSIM_fusion`.

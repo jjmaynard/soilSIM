@@ -130,13 +130,13 @@ The enhanced-chain functions read statistical parameters through the internal he
 
 ### Workflow Validation & Diagnostics (`diagnostics.R`)
 
-#### 1. `validate_complete_workflow()` — Master Validation Entry Point
+#### 1. `diagnose_workflow()` — Master Validation Entry Point
 
 **Purpose**: Top-level driver that assesses an entire soil-simulation workflow's output (Monte Carlo, correlation, GP models, soil-science realism) and rolls it up into one overall quality assessment.
 
 **Signature**:
 ```r
-validate_complete_workflow(
+diagnose_workflow(
   workflow_results,
   original_data = NULL,
   validation_config = NULL,
@@ -168,7 +168,7 @@ generate_validation_report(
 )
 ```
 
-**Parameters**: `validation_results` (output of `validate_complete_workflow()`), `output_format` (`"html"`, `"pdf"`, or `"markdown"`), `output_file` (defaults to a timestamped filename in the current directory), `include_plots` (whether to embed `validation_results$diagnostic_plots`).
+**Parameters**: `validation_results` (output of `diagnose_workflow()`), `output_format` (`"html"`, `"pdf"`, or `"markdown"`), `output_file` (defaults to a timestamped filename in the current directory), `include_plots` (whether to embed `validation_results$diagnostic_plots`).
 
 **Returns**: `TRUE`/`FALSE` success status.
 
@@ -338,7 +338,7 @@ generate_statistical_quality_report()                [exported, standalone]
 
 diagnostics.R
 ========================================================================
-validate_complete_workflow()                          [MASTER — diagnostics.R]
+diagnose_workflow()                          [MASTER — diagnostics.R]
 ├── initialize_validation_structure()
 ├── extract_and_validate_components()
 │   └── validate_data_quality()                       [utils.R]
@@ -440,17 +440,17 @@ generate_validation_report()                          [standalone]
 
 **Upstream/downstream soilSIM functional groups**:
 - **Upstream (feeds this group)**: Data Acquisition & Processing (`adapter-ssurgo-acquire.R`, `adapter-ssurgo-process.R`, `adapter-ssurgo-infill.R`) supplies the `processed_data` consumed by `analyze_soil_statistics()`.
-- **Downstream/consumers (validated by this group, not fed by it)**: `validate_complete_workflow()` and its sub-validators are the quality gate for the Monte Carlo simulation group (`core-montecarlo.R`), the GP depth-trend modeling group (`core-gp.R`), and the multivariate/correlation adjustment group (`core-gp.R`) — this group consumes their *output* (`simulation_data`, `gp_models`, `correlation_matrices`) purely for assessment; it does not feed data back into them.
+- **Downstream/consumers (validated by this group, not fed by it)**: `diagnose_workflow()` and its sub-validators are the quality gate for the Monte Carlo simulation group (`core-montecarlo.R`), the GP depth-trend modeling group (`core-gp.R`), and the multivariate/correlation adjustment group (`core-gp.R`) — this group consumes their *output* (`simulation_data`, `gp_models`, `correlation_matrices`) purely for assessment; it does not feed data back into them.
 
 ## Data Flow In/Out
 
 **In**:
 - `analyze_soil_statistics()` — a processed SSURGO data frame (post-infilling), with `cokey`, `hzdept_r`, and numeric `_r` property columns.
-- `validate_complete_workflow()` — a `workflow_results` list assembled from one or more upstream stages: `simulation_data`/`integrated_data` (Monte Carlo or fusion output), `gp_models` (from GP modeling), `correlation_matrices` (from correlation/multivariate adjustment), `training_data`; plus optionally `original_data` for before/after comparison.
+- `diagnose_workflow()` — a `workflow_results` list assembled from one or more upstream stages: `simulation_data`/`integrated_data` (Monte Carlo or fusion output), `gp_models` (from GP modeling), `correlation_matrices` (from correlation/multivariate adjustment), `training_data`; plus optionally `original_data` for before/after comparison.
 
 **Out**:
 - `analyze_soil_statistics()` — a nested statistics report: correlation matrices (global + optionally stratified/texture-specific), distribution summaries, outlier flags/counts, per-property descriptive statistics with confidence intervals, a results-validation block, and an overall quality report/score.
-- `validate_complete_workflow()` — a comprehensive validation report object: per-subsystem validation blocks (Monte Carlo, correlation, GP, soil science), workflow performance metrics, an overall weighted quality score/grade/pass-fail status, optional diagnostic plot objects/file paths, and a list of textual recommendations — suitable for passing directly into `generate_validation_report()` to render as HTML/PDF/Markdown.
+- `diagnose_workflow()` — a comprehensive validation report object: per-subsystem validation blocks (Monte Carlo, correlation, GP, soil science), workflow performance metrics, an overall weighted quality score/grade/pass-fail status, optional diagnostic plot objects/file paths, and a list of textual recommendations — suitable for passing directly into `generate_validation_report()` to render as HTML/PDF/Markdown.
 
 ## Usage Example
 
@@ -467,7 +467,7 @@ stats_result <- analyze_soil_statistics(
 stats_result$quality_report$overall_quality_score
 
 # End-to-end validation of a completed simulation workflow
-validation_result <- validate_complete_workflow(
+validation_result <- diagnose_workflow(
   workflow_results = list(
     simulation_data = monte_carlo_output$simulation_data,
     gp_models = gp_models,

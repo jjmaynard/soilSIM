@@ -13,7 +13,7 @@ NULL
 #' foundation (texture, bulk density, organic matter, rock fragments), water retention, then the
 #' remaining chemical properties - each property going through [infill_soil_property()]'s
 #' six-strategy hierarchy, with unsuitable horizons excluded throughout.
-#' [infill_soil_data()] is a thin wrapper that calls this with the standard SSURGO property set.
+#' [infill_ssurgo_data()] is a thin wrapper that calls this with the standard SSURGO property set.
 #'
 #' @param df Input soil data frame
 #' @param properties Vector of properties to process (NULL = auto-detect)
@@ -2862,7 +2862,7 @@ related_property_estimation <- function(group, property_name, property_config) {
 
   # Water retention. Preferred: the Saxton-Rawls pedotransfer function, per row, wherever the
   # inputs (sand + silt + clay + bulk density) are present - the same PTF
-  # process_soil_properties_comprehensive() / infill_soil_data() run in their dedicated
+  # process_soil_properties_comprehensive() / infill_ssurgo_data() run in their dedicated
   # water-retention phase, so this strategy stays consistent with them. The crude clay-linear
   # model is kept ONLY as the genuine last resort, for rows where Saxton-Rawls cannot run.
   else if (property_config$type == 'water_retention' &&

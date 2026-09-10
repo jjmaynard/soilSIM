@@ -2,7 +2,7 @@
 % Please edit documentation in R/core-fusion.R
 \name{resolve_want_raw_draws}
 \alias{resolve_want_raw_draws}
-\title{Resolve whether a \code{run_stage1_fusion()} call should fuse against real per-mukey Monte Carlo
+\title{Resolve whether a \code{run_fusion()} call should fuse against real per-mukey Monte Carlo
 draws (\code{prior_fusion_method = "raw_draws"}) or the percentile-reconstructed approximation.}
 \usage{
 resolve_want_raw_draws(prior_fusion_method, dist)

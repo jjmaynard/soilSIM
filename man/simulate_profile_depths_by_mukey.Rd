@@ -10,7 +10,7 @@ simulate_profile_depths_by_mukey(mukey, n_simulations = 100, seed = 123)
 \item{mukey}{A string or numeric value representing the map unit key to query.}
 
 \item{n_simulations}{Integer, the number of triangular draws per component used to derive
-\code{sim_comppct} via \code{sim_component_comp()} (default is 100).}
+\code{sim_comppct} via \code{simulate_component_composition()} (default is 100).}
 
 \item{seed}{An integer to set the random seed for reproducibility (default is 123).}
 }

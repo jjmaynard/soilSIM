@@ -39,7 +39,7 @@ aoi <- terra::project(aoi, "epsg:5070")
 
 ## Step 1: Fuse a single property (clay content)
 
-`run_stage1_fusion()` is the top-level orchestrator: it fetches (and disk-caches) SSURGO percentile
+`run_fusion()` is the top-level orchestrator: it fetches (and disk-caches) SSURGO percentile
 rasters as the prior, SOLUS100 percentile rasters as the likelihood, resamples the SSURGO prior onto
 SOLUS100's coarser grid, and fuses them via `fuse_property_adaptive()`, which adaptively routes to a
 closed-form or general grid-KDE fusion depending on the property's distributional shape:
@@ -47,7 +47,7 @@ closed-form or general grid-KDE fusion depending on the property's distributiona
 ```{r, eval = FALSE}
 # The real call this vignette's cached data came from:
 property_config <- list(id = "clay", solus_variable = "claytotal", dist = "normal")
-fusion_clay <- run_stage1_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5)
+fusion_clay <- run_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5)
 ```
 
 ```{r}
@@ -89,7 +89,7 @@ likelihood_r <- fusion_clay$likelihood$values[["P50"]]
 posterior_r <- fusion_clay$posterior$mu
 ```
 
-`run_stage1_fusion()` already resampled the SSURGO prior onto SOLUS100's grid before fusing, so all
+`run_fusion()` already resampled the SSURGO prior onto SOLUS100's grid before fusing, so all
 three rasters share the same extent/resolution and combine directly with `c()` - no separate
 `par(mfrow = ...)` panels needed. We use one shared color scale (`range`) across all three panels so
 that color differences reflect real differences in clay content, not each panel's own auto-rescaling:
@@ -215,7 +215,7 @@ discards, and exactly why the percentile output exists alongside it rather than 
 ## Step 2: Fuse a compositional group (clay, sand, silt jointly)
 
 Fusing clay/sand/silt independently can break the sum-to-100 constraint texture fractions must
-satisfy. `run_stage1_fusion_group()` fuses a whole compositional group jointly, in isometric
+satisfy. `run_fusion_group()` fuses a whole compositional group jointly, in isometric
 log-ratio (ILR) space, guaranteeing every cell's fused clay + sand + silt sums to 100:
 
 ```{r, eval = FALSE}
@@ -226,7 +226,7 @@ property_configs <- list(
   sand = list(id = "sand", solus_variable = "sandtotal", composition_group = "texture"),
   silt = list(id = "silt", solus_variable = "silttotal", composition_group = "texture")
 )
-fusion_texture <- run_stage1_fusion_group(
+fusion_texture <- run_fusion_group(
   aoi, "texture", composition_groups, property_configs, top_depth = 0, bottom_depth = 5
 )
 ```
@@ -291,8 +291,8 @@ prior/likelihood pairs, independent of any raster or AOI.
 
 The cached data this vignette loads (`inst/extdata/fusion_clay_salinas.rds`,
 `inst/extdata/fusion_texture_salinas.rds`) was produced once by `data-raw/build_vignette_data.R`,
-which calls `run_stage1_fusion()`/`run_stage1_fusion_group()` live against NRCS Soil Data Access
+which calls `run_fusion()`/`run_fusion_group()` live against NRCS Soil Data Access
 (SSURGO) and `soilDB::fetchSOLUS()` (SOLUS100) for the AOI above. Re-run that script to refresh it.
 Producing this vignette's data surfaced and fixed a real caching bug in
-`run_stage1_fusion_group()` (it wasn't wrapping/unwrapping `SpatRaster`s around its disk cache,
+`run_fusion_group()` (it wasn't wrapping/unwrapping `SpatRaster`s around its disk cache,
 silently corrupting the cached texture-group result on a second read) - fixed in `R/core-fusion.R`.

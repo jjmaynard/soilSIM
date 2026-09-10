@@ -50,6 +50,6 @@ for \code{dist = "metalog"} still works.}
 The raster-native counterpart of \code{core-fusion.R}'s \code{fuse_property()},
 and this toolkit's top-level entry point for non-compositional properties
 (see \code{fuse_texture_group()} for the compositional/texture case) - the
-raster analogue of \code{run_stage1_fusion()} minus the SSURGO/SOLUS
+raster analogue of \code{run_fusion()} minus the SSURGO/SOLUS
 fetch-and-cache wrapper (see this file's \verb{@section Deliberately out of scope:} above).
 }

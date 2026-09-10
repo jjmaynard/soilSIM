@@ -19,7 +19,7 @@ that part of the pipeline down and walks through the *individual* functions unde
 same real Amador County, CA SSURGO data, so you can see what each function actually does to the
 data and why each parameter exists:
 
-1. Acquisition: `download_ssurgo_tabular()` vs. the `download_and_prepare_ssurgo()` convenience
+1. Acquisition: `download_ssurgo_tabular()` vs. the `fetch_ssurgo_data()` convenience
    wrapper built on top of it
 2. Processing: `process_ssurgo_data()`'s two sub-pipelines,
    `process_horizon_data_working_compatible()` and `process_component_data_working_compatible()`
@@ -43,7 +43,7 @@ library(soilSIM)
 library(ggplot2)
 ```
 
-## Step 1: Acquisition - `download_ssurgo_tabular()` vs. `download_and_prepare_ssurgo()`
+## Step 1: Acquisition - `download_ssurgo_tabular()` vs. `fetch_ssurgo_data()`
 
 `download_ssurgo_tabular()` is the master download function. Its parameters control every stage of
 the acquisition:
@@ -72,7 +72,7 @@ dl <- download_ssurgo_tabular(
 names(dl)
 ```
 
-`download_and_prepare_ssurgo()` is a thin convenience wrapper around `download_ssurgo_tabular()`.
+`fetch_ssurgo_data()` is a thin convenience wrapper around `download_ssurgo_tabular()`.
 It does not add new acquisition logic - it just fixes two arguments and adds one post-processing
 step: it always calls with `include_restrictions = TRUE` and `validate_data = TRUE` (no way to turn
 either off), then depth-filters `ssurgo_data` to `hzdepb_r <= max_depth` and attaches a
@@ -81,7 +81,7 @@ either off), then depth-filters `ssurgo_data` to `hzdepb_r <= max_depth` and att
 ready for `process_ssurgo_data()`:
 
 ```{r, eval = FALSE}
-ssurgo_amador <- download_and_prepare_ssurgo(
+ssurgo_amador <- fetch_ssurgo_data(
   aoi_wkt = "POLYGON((-120.5 38.5, -120.4 38.5, -120.4 38.6, -120.5 38.6, -120.5 38.5))",
   properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
                  "cec7", "om", "wthirdbar", "wfifteenbar"),
@@ -102,7 +102,7 @@ length(unique(raw_data$cokey))
 
 `raw_data` already has the restriction-indicator columns `add_restriction_indicators_working()`
 adds (`is_cemented`, `organic_horizon`, `is_potentially_restrictive`, `unsuitable_horizon`, ...) -
-these exist because `download_and_prepare_ssurgo()` always requests restrictions:
+these exist because `fetch_ssurgo_data()` always requests restrictions:
 
 ```{r}
 grep("restrict|unsuitable|cemented|organic_horizon", names(raw_data), value = TRUE)

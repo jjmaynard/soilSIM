@@ -35,7 +35,7 @@ them, reusing the same core rather than duplicating it.
 \section{Data acquisition & processing}{
 
 The SSURGO adapter: \code{\link[=download_ssurgo_tabular]{download_ssurgo_tabular()}}/
-\code{\link[=download_and_prepare_ssurgo]{download_and_prepare_ssurgo()}} acquire and cache tabular SSURGO data for
+\code{\link[=fetch_ssurgo_data]{fetch_ssurgo_data()}} acquire and cache tabular SSURGO data for
 an area of interest; \code{\link[=process_ssurgo_data]{process_ssurgo_data()}} cleans and standardizes it
 into modeling-ready horizon/component tables;
 \code{\link[=process_soil_properties_comprehensive]{process_soil_properties_comprehensive()}}/\code{\link[=infill_soil_property]{infill_soil_property()}} fill
@@ -46,7 +46,7 @@ missing property values using pedologically informed recovery strategies.
 
 \code{\link[=analyze_soil_statistics]{analyze_soil_statistics()}} characterizes processed data (correlations,
 distribution fitting, outliers, summary statistics);
-\code{\link[=validate_complete_workflow]{validate_complete_workflow()}}/\code{\link[=generate_validation_report]{generate_validation_report()}} provide
+\code{\link[=diagnose_workflow]{diagnose_workflow()}}/\code{\link[=generate_validation_report]{generate_validation_report()}} provide
 end-to-end quality assurance across the full simulation workflow.
 }
 
@@ -62,22 +62,22 @@ transforms used for compositional texture data.
 
 \section{Monte Carlo simulation (core)}{
 
-\code{\link[=generate_monte_carlo_realizations]{generate_monte_carlo_realizations()}} is the master pipeline for correlated
+\code{\link[=simulate_monte_carlo]{simulate_monte_carlo()}} is the master pipeline for correlated
 Monte Carlo simulation of soil properties from percentile inputs;
 \code{\link[=simulate_correlated_properties]{simulate_correlated_properties()}} is its Cholesky-copula core simulator.
 }
 
 \section{GP depth modeling & multivariate adjustment (core)}{
 
-\code{\link[=build_stratified_gp_models]{build_stratified_gp_models()}}/\code{\link[=simulate_soil_properties]{simulate_soil_properties()}} fit and apply
-Gaussian-process depth-trend models; \code{\link[=integrate_monte_carlo_with_gp]{integrate_monte_carlo_with_gp()}}
+\code{\link[=fit_depth_gp_models]{fit_depth_gp_models()}}/\code{\link[=simulate_soil_properties]{simulate_soil_properties()}} fit and apply
+Gaussian-process depth-trend models; \code{\link[=apply_depth_gp_to_simulation]{apply_depth_gp_to_simulation()}}
 combines Monte Carlo output with GP depth trends across a whole dataset
 while preserving cross-property correlation structure.
 }
 
 \section{Profile, component & depth simulation}{
 
-\code{\link[=sim_component_comp]{sim_component_comp()}}/\code{\link[=simulate_cokey_generalized]{simulate_cokey_generalized()}} simulate component
+\code{\link[=simulate_component_composition]{simulate_component_composition()}}/\code{\link[=simulate_cokey_generalized]{simulate_cokey_generalized()}} simulate component
 composition and per-cokey properties;
 \code{\link[=simulate_and_perturb_soil_profiles]{simulate_and_perturb_soil_profiles()}}/\code{\link[=simulate_profile_depths_by_mukey]{simulate_profile_depths_by_mukey()}}
 simulate horizon depths and thicknesses for whole soil profiles.
@@ -85,7 +85,7 @@ simulate horizon depths and thicknesses for whole soil profiles.
 
 \section{AWS / Van Genuchten modeling}{
 
-\code{\link[=van_genuchten]{van_genuchten()}}/\code{\link[=simulate_vg_aws]{simulate_vg_aws()}}/\code{\link[=calculate_aws_df]{calculate_aws_df()}} estimate
+\code{\link[=van_genuchten]{van_genuchten()}}/\code{\link[=simulate_vg_aws]{simulate_vg_aws()}}/\code{\link[=compute_aws]{compute_aws()}} estimate
 available water storage from ROSETTA pedotransfer parameters.
 }
 

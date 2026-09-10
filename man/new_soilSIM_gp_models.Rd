@@ -7,11 +7,11 @@
 new_soilSIM_gp_models(x)
 }
 \arguments{
-\item{x}{A list produced by \code{\link[=build_stratified_gp_models]{build_stratified_gp_models()}}.}
+\item{x}{A list produced by \code{\link[=fit_depth_gp_models]{fit_depth_gp_models()}}.}
 }
 \value{
 An object of class \code{soilSIM_gp_models}.
 }
 \description{
-Wraps the list returned by \code{\link[=build_stratified_gp_models]{build_stratified_gp_models()}}.
+Wraps the list returned by \code{\link[=fit_depth_gp_models]{fit_depth_gp_models()}}.
 }

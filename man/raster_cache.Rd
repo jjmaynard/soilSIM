@@ -13,7 +13,7 @@ CACHE_TTL_SECONDS
 }
 \description{
 \code{build_cache_key()}/\code{cache_get()}/\code{cache_set()}/\code{CACHE_TTL_SECONDS} are called by
-\code{run_stage1_fusion()}/\code{run_stage1_fusion_group()} (\code{R/core-fusion.R}) and
+\code{run_fusion()}/\code{run_fusion_group()} (\code{R/core-fusion.R}) and
 \code{simulate_ssurgo_mapunit_draws()} (\code{R/adapter-ssurgo-simulate.R}).
 
 The implementation adapts the disk-RDS cache pattern from
@@ -23,7 +23,7 @@ generalized here to the AOI/property-id/depth/kind shape the raster fusion code 
 
 Cache files live under \code{tools::R_user_dir("soilSIM", "cache")} (the standard R >= 4.0
 per-package cache location) rather than a caller-supplied directory, since
-\code{run_stage1_fusion()}'s own calls (\code{cache_get(key, CACHE_TTL_SECONDS)},
+\code{run_fusion()}'s own calls (\code{cache_get(key, CACHE_TTL_SECONDS)},
 \code{cache_set(key, "ssurgo", data)}) don't thread a directory argument through at all.
 }
 \keyword{datasets}

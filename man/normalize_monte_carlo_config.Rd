@@ -24,7 +24,7 @@ of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 \code{simulation_config}, wrapped under \code{monte_carlo} if it was flat.
 }
 \description{
-\code{generate_monte_carlo_realizations()}'s own \verb{@examples} have always shown
+\code{simulate_monte_carlo()}'s own \verb{@examples} have always shown
 a FLAT \code{simulation_config} (e.g. \code{list(distribution_type = "normal", max_depth = 200)}),
 but \code{get_monte_carlo_defaults()} nests every Monte Carlo setting under
 \verb{$monte_carlo}, and \code{merge_configurations()} merges strictly by matching

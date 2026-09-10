@@ -18,7 +18,7 @@ unwrap_nested_rasters(x)
 \description{
 A generic counterpart to \code{wrap_percentile_list()}/\code{unwrap_percentile_list()}, for result
 structures whose shape isn't the fixed \code{list(values=, probs=)} percentile form - e.g.
-\code{run_stage1_fusion()}'s return value, which nests \code{SpatRaster}s at \code{prior$values},
+\code{run_fusion()}'s return value, which nests \code{SpatRaster}s at \code{prior$values},
 \code{likelihood$values}, and inside \code{posterior} (whose own shape varies by \code{dist}). Recurses into
 every list element, replacing each \code{SpatRaster} with \code{terra::wrap()}'s \code{PackedSpatRaster}
 representation (or the reverse via \code{terra::unwrap()}) and leaving everything else untouched -

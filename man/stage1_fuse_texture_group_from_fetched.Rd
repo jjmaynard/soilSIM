@@ -27,9 +27,9 @@ path.}
 \code{fuse_texture_group()}'s return value - a named list keyed by member id.
 }
 \description{
-The portion of \code{\link[=run_stage1_fusion_group]{run_stage1_fusion_group()}} that runs once every member's aligned SSURGO prior
+The portion of \code{\link[=run_fusion_group]{run_fusion_group()}} that runs once every member's aligned SSURGO prior
 and SOLUS likelihood are assembled into \code{fetched}: optionally prepare the real joint per-mukey
 texture draws for raw-draws fusion, then fuse the group via \code{\link[=fuse_texture_group]{fuse_texture_group()}}. Factored out
-so \code{run_stage1_fusion_group()} and \code{run_stage1_fusion_multi()} share one group-fusion code path.
+so \code{run_fusion_group()} and \code{run_fusion_multiproperty()} share one group-fusion code path.
 }
 \keyword{internal}

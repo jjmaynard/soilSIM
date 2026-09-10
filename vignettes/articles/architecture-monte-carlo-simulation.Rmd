@@ -7,7 +7,7 @@ title: "Monte Carlo Simulation"
 
 ## Core Functions
 
-Functions are grouped in the pipeline order that `generate_monte_carlo_realizations()` (the master orchestrator) calls them.
+Functions are grouped in the pipeline order that `simulate_monte_carlo()` (the master orchestrator) calls them.
 
 ### 1. `validate_monte_carlo_config()` - Configuration Validation
 **Purpose**: Validates a merged Monte Carlo configuration against a parameter spec before any data processing begins.
@@ -41,7 +41,7 @@ get_monte_carlo_defaults()
 - `quality_thresholds` list (`completeness_threshold`, `missing_data_threshold`, `outlier_threshold`, `correlation_threshold`).
 
 ### 3. `normalize_monte_carlo_config()` - Flat/Nested Config Normalization
-**Purpose**: Accepts either a flat `simulation_config` (e.g. `list(distribution_type = "normal")`, the shape shown in `generate_monte_carlo_realizations()`'s own `@examples`) or an already-nested one (`list(monte_carlo = list(...))`), and normalizes to the nested shape `merge_configurations()` expects.
+**Purpose**: Accepts either a flat `simulation_config` (e.g. `list(distribution_type = "normal")`, the shape shown in `simulate_monte_carlo()`'s own `@examples`) or an already-nested one (`list(monte_carlo = list(...))`), and normalizes to the nested shape `merge_configurations()` expects.
 **Signature**:
 ```r
 normalize_monte_carlo_config(simulation_config, default_config)
@@ -51,7 +51,7 @@ normalize_monte_carlo_config(simulation_config, default_config)
 - `default_config` - Result of `get_monte_carlo_defaults()`, used only to recognize which flat key names belong under `monte_carlo`.
 
 **Returns**: `simulation_config`, wrapped under `$monte_carlo` if it was flat and its names matched known `monte_carlo` keys; passed through unchanged otherwise.
-**Behavior/rationale**: `merge_configurations()` merges strictly by key path, so a flat config key (e.g. `distribution_type = "normal"`) would not reach `config$monte_carlo$distribution_type`. This function runs immediately before `merge_configurations()` in `generate_monte_carlo_realizations()` to lift flat keys into the `monte_carlo` sub-list.
+**Behavior/rationale**: `merge_configurations()` merges strictly by key path, so a flat config key (e.g. `distribution_type = "normal"`) would not reach `config$monte_carlo$distribution_type`. This function runs immediately before `merge_configurations()` in `simulate_monte_carlo()` to lift flat keys into the `monte_carlo` sub-list.
 
 ### 4. `validate_monte_carlo_inputs()` - Input Validation
 **Purpose**: Comprehensive validation of `soil_data`, `properties`, an optional `correlation_matrix`, and `n_realizations` before any simulation work happens.
@@ -228,11 +228,11 @@ validate_simulation_output(simulation_results, properties, config)
 **Returns**: `list(valid=, success_rate=, property_validation=, quality_metrics=, issues=)`.
 **Behavior**: First checks the array has 3 dimensions and the expected property count (fails fast otherwise). For each property, calls `analyze_property_simulation_quality()` (finite-rate, mean/SD, range) and flags a low success rate; runs `detect_outliers()` (IQR method) and flags a high outlier rate (guarding against `NaN` outlier rates - e.g. a property missing from every horizon - with an `is.finite()` check). Computes `calculate_simulation_quality_metrics()` for an overall quality summary, an overall `success_rate` across all properties/horizons/realizations, and sets `valid = FALSE` if that overall rate falls below `min_success_rate`.
 
-### 16. `generate_monte_carlo_realizations()` - Master Pipeline
+### 16. `simulate_monte_carlo()` - Master Pipeline
 **Purpose**: The top-level, end-to-end orchestrator: validates inputs and config, prepares data and parameters, optionally fuses observed data, configures correlation and distributions, runs the simulation (sequential or parallel), restores compositional properties, applies constraints, validates output, and compiles diagnostics/quality assessment.
 **Signature**:
 ```r
-generate_monte_carlo_realizations(soil_data,
+simulate_monte_carlo(soil_data,
                                    properties,
                                    correlation_matrix = NULL,
                                    n_realizations = 1000,
@@ -257,7 +257,7 @@ generate_monte_carlo_realizations(soil_data,
 **Behavior**: See the numbered pipeline steps in "Internal Connections" below - this function is a straight-line orchestration of essentially every other function in this file, in a fixed step order (numbered 1 through 11 in the source's own logging), with two special orderings worth noting: (a) an explicit user `correlation_matrix` colliding with an active composition group causes `composition_plan`/`sim_properties`/`simulation_params` to be recomputed with that group forced inactive; (b) `fuse_observed_data_into_priors()` runs deliberately *after* that recompute (not immediately after parameter extraction), since the recompute replaces `simulation_params` wholesale and would otherwise silently discard fused posteriors.
 
 ### Other exported/minor helpers
-- `sim_component_compositions(component_data, n_realizations = 1000, config = NULL)` - A separate, self-contained pipeline (not called by `generate_monte_carlo_realizations()`) for simulating SSURGO *component* percent composition (`comppct_l/_r/_h`), independent of the horizon-property engine above. Validates via `validate_component_data()`, extracts per-component min/mode/max via `extract_component_parameters()` (filling missing `comppct_l`/`comppct_h` from `comppct_r -/+ 2`), draws values via `generate_component_values()` (currently a uniform-distribution placeholder, not family-aware), normalizes each realization to sum to 100 via `normalize_component_realizations()`, optionally clamps via `apply_composition_constraints()`, and scores fidelity via `assess_component_quality()` (mean relative error of simulated vs. original `comppct_r`). Returns `list(realizations=, component_data=, n_realizations=, n_components=, quality_metrics=, validation=, constraints_applied=, metadata=)`.
+- `sim_component_compositions(component_data, n_realizations = 1000, config = NULL)` - A separate, self-contained pipeline (not called by `simulate_monte_carlo()`) for simulating SSURGO *component* percent composition (`comppct_l/_r/_h`), independent of the horizon-property engine above. Validates via `validate_component_data()`, extracts per-component min/mode/max via `extract_component_parameters()` (filling missing `comppct_l`/`comppct_h` from `comppct_r -/+ 2`), draws values via `generate_component_values()` (currently a uniform-distribution placeholder, not family-aware), normalizes each realization to sum to 100 via `normalize_component_realizations()`, optionally clamps via `apply_composition_constraints()`, and scores fidelity via `assess_component_quality()` (mean relative error of simulated vs. original `comppct_r`). Returns `list(realizations=, component_data=, n_realizations=, n_components=, quality_metrics=, validation=, constraints_applied=, metadata=)`.
 - `run_sequential_simulation()` / `run_parallel_simulation()` - internal (not exported) dispatch helpers. The sequential path is a direct passthrough to `simulate_correlated_properties()`. The parallel path splits `n_realizations` into near-equal contiguous chunks across `parallel::detectCores() - 1` (or `config$monte_carlo$n_cores`) workers - `parallel::makeCluster()`/`clusterExport()`/`clusterEvalQ(library(soilSIM))`/`parLapply()` on Windows, `parallel::mclapply()` elsewhere - concatenates the resulting per-worker arrays along the realization dimension, and falls back to the sequential path on any error or if fewer than 2 usable cores are available.
 - `calculate_matrix_statistics()`, `get_constraint_rules()`/`get_range_constraints()`/`get_sum_constraints()`/`get_relationship_constraints()`/`get_physical_constraints()`, `apply_range_constraints_batch()`/`apply_sum_constraints()`/`apply_relationship_constraints()`/`apply_physical_constraints()` - internal building blocks for `configure_correlation_structure()` and `apply_simulation_constraints()` respectively, described inline above.
 - `check_data_sufficiency()` / `check_property_data_availability()` - internal per-property/per-row data-sufficiency checks feeding `validate_monte_carlo_inputs()` and `prepare_simulation_data()`.
@@ -268,7 +268,7 @@ generate_monte_carlo_realizations(soil_data,
 ## Internal Connections
 
 ```
-generate_monte_carlo_realizations()  [MASTER PIPELINE]
+simulate_monte_carlo()  [MASTER PIPELINE]
 ├── setup_logging()                                  [utils.R]        (if not already configured)
 ├── set.seed(seed)                                    (if seed supplied)
 ├── get_monte_carlo_defaults()
@@ -341,7 +341,7 @@ generate_monte_carlo_realizations()  [MASTER PIPELINE]
 **From `core-distributions.R`** (percentile-triplet fitting, ILR compositional machinery, correlation-matrix utilities):
 `fit_percentile_triplet()`, `quantile_from_fit()`, `validate_fit_parameters()`, `resolve_composition_groups()`, `restore_composition_properties()`, `estimate_ilr_moments_mc()`, `ensure_positive_definite_matrix()`, `validate_correlation_matrix()`, `estimate_correlation_matrix_robust()`.
 
-**From `core-fusion.R`** (only exercised when `observed_data` is supplied to `generate_monte_carlo_realizations()`):
+**From `core-fusion.R`** (only exercised when `observed_data` is supplied to `simulate_monte_carlo()`):
 `bayes_fuse()`, `fuse_property()`, `fuse_texture_group_from_triplets()`, `bayes_update_normal_normal()`, `normal_to_lognormal_params()`, `fuse_beta()`, `moments_to_beta()`, `beta_to_moments()`.
 
 **From `core-correlations.R`** (only exercised when `config$monte_carlo$correlation_fallback == "kssl_global"`):
@@ -353,7 +353,7 @@ generate_monte_carlo_realizations()  [MASTER PIPELINE]
 **External packages**: base `stats` (`qnorm`, `pnorm`, `runif`, `chol`, `sd`, `setNames`, etc.), `parallel` (`detectCores`, `makeCluster`/`stopCluster`/`clusterExport`/`clusterEvalQ`/`parLapply` on Windows, `mclapply` elsewhere). `core-distributions.R`'s `estimate_correlation_matrix_robust()` in turn depends on `Hmisc::rcorr()`.
 
 **Downstream consumers of this file's output**:
-- **GP depth modeling & multivariate adjustment** (`core-gp.R`, `core-gp.R`) - call `generate_monte_carlo_realizations()` directly per cokey (choosing a single flat correlation matrix via `select_simulation_correlation_matrix()` from a genhz-keyed set), then flatten the resulting `[horizon, property, realization]` array to long format (`result$simulation_data`) for depth-trend and NRCS/local GP adjustment.
+- **GP depth modeling & multivariate adjustment** (`core-gp.R`, `core-gp.R`) - call `simulate_monte_carlo()` directly per cokey (choosing a single flat correlation matrix via `select_simulation_correlation_matrix()` from a genhz-keyed set), then flatten the resulting `[horizon, property, realization]` array to long format (`result$simulation_data`) for depth-trend and NRCS/local GP adjustment.
 - **Statistics & Diagnostics** (`diagnostics.R`) - consumes the long-format simulation data (columns per property plus `simulation_number`, `hzdept_r`, `cokey`, etc.) for quality-assessment reporting, depth-binned summaries, and cross-property/cross-depth diagnostics.
 
 ## Data Flow In/Out
@@ -376,7 +376,7 @@ generate_monte_carlo_realizations()  [MASTER PIPELINE]
 ## Usage Example
 
 ```r
-mc_results <- generate_monte_carlo_realizations(
+mc_results <- simulate_monte_carlo(
   soil_data = soil_data,                 # data frame with cokey + _l/_r/_h columns
   properties = c("sandtotal", "claytotal", "silttotal", "dbovendry"),
   n_realizations = 5000,

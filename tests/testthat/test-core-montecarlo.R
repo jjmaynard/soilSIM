@@ -107,7 +107,7 @@ test_that("check_property_data_availability() returns all FALSE when no property
 
 test_that("distribution_type='normal' actually threads through to a real fit (bug #1 regression)", {
   soil_data <- make_soil_data(10, properties = c("dbovendry"))
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry"), n_realizations = 100, seed = 1,
     simulation_config = list(distribution_type = "normal")
   )
@@ -118,7 +118,7 @@ test_that("distribution_type='normal' actually threads through to a real fit (bu
 
 test_that("distribution_type='beta' with a registry bounds entry produces finite, in-bounds draws", {
   soil_data <- make_soil_data(10, properties = c("sandtotal"))
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("sandtotal"), n_realizations = 100, seed = 2,
     simulation_config = list(
       property_distributions = list(sandtotal = list(family = "beta", bounds = c(0, 100)))
@@ -150,7 +150,7 @@ test_that("estimate_property_correlations() returns a real, valid correlation ma
   })
   soil_data <- do.call(rbind, rows)
 
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry", "ph1to1h2o"), n_realizations = 50, seed = 3,
     simulation_config = list(auto_correlation = TRUE)
   )
@@ -161,7 +161,7 @@ test_that("estimate_property_correlations() returns a real, valid correlation ma
 
 test_that("estimate_property_correlations() falls back to identity gracefully with insufficient data", {
   soil_data <- make_soil_data(3, properties = c("dbovendry", "ph1to1h2o"))
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry", "ph1to1h2o"), n_realizations = 20, seed = 4,
     simulation_config = list(auto_correlation = TRUE)
   )
@@ -172,7 +172,7 @@ test_that("estimate_property_correlations() falls back to identity gracefully wi
 
 test_that("correlation_fallback='kssl_global' derives genhz from hzname and produces a non-identity KSSL-sourced correlation matrix", {
   soil_data <- make_soil_data_hzname_only(12)
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry", "ph1to1h2o", "cec7"), n_realizations = 30, seed = 201,
     simulation_config = list(auto_correlation = TRUE, correlation_fallback = "kssl_global")
   )
@@ -191,11 +191,11 @@ test_that("correlation_fallback='kssl_global' derives genhz from hzname and prod
 
 test_that("correlation_fallback default ('identity') produces byte-identical results whether omitted or set explicitly", {
   soil_data <- make_soil_data(3, properties = c("dbovendry", "ph1to1h2o"))
-  res_omitted <- generate_monte_carlo_realizations(
+  res_omitted <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry", "ph1to1h2o"), n_realizations = 20, seed = 4,
     simulation_config = list(auto_correlation = TRUE)
   )
-  res_explicit <- generate_monte_carlo_realizations(
+  res_explicit <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry", "ph1to1h2o"), n_realizations = 20, seed = 4,
     simulation_config = list(auto_correlation = TRUE, correlation_fallback = "identity")
   )
@@ -209,7 +209,7 @@ test_that("REGRESSION: a caller with hzname present but correlation_fallback nev
   # but correlation_fallback defaults to "identity" - classify_genhz() must
   # never be invoked and no genhz grouping must appear.
   soil_data <- make_soil_data_hzname_only(12)
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry", "ph1to1h2o", "cec7"), n_realizations = 30, seed = 201,
     simulation_config = list(auto_correlation = TRUE)
   )
@@ -221,7 +221,7 @@ test_that("REGRESSION: a caller with hzname present but correlation_fallback nev
 
 test_that("end-to-end ILR texture simulation: every realization sums to 100 and stays in [0,100]", {
   texture_data <- make_texture_only_soil_data(12)
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     texture_data, properties = c("sandtotal", "claytotal", "silttotal"), n_realizations = 300, seed = 5
   )
   texture_arr <- res$simulation_data[, c("sandtotal", "claytotal", "silttotal"), ]
@@ -243,11 +243,11 @@ test_that("REGRESSION: composition_groups$texture$members role order is an inter
     texture = list(members = c("claytotal", "sandtotal", "silttotal"), pseudo = c("ilr1", "ilr2"))
   ))
 
-  res_new_default <- generate_monte_carlo_realizations(
+  res_new_default <- simulate_monte_carlo(
     texture_data, properties = c("sandtotal", "claytotal", "silttotal"),
     n_realizations = 2000, seed = 101
   )
-  res_old_order <- generate_monte_carlo_realizations(
+  res_old_order <- simulate_monte_carlo(
     texture_data, properties = c("sandtotal", "claytotal", "silttotal"),
     n_realizations = 2000, seed = 101, simulation_config = old_role_order_config
   )
@@ -270,7 +270,7 @@ test_that("REGRESSION: composition_groups$texture$members role order is an inter
 test_that("edge case: only 2 of 3 texture members requested falls back to the legacy path with a WARN, not an error", {
   texture_data <- make_texture_only_soil_data(10)
   expect_no_error(
-    res <- generate_monte_carlo_realizations(
+    res <- simulate_monte_carlo(
       texture_data, properties = c("sandtotal", "claytotal"), n_realizations = 50, seed = 6
     )
   )
@@ -283,7 +283,7 @@ test_that("edge case: an active composition group + explicit correlation_matrix 
   rownames(user_matrix) <- colnames(user_matrix) <- c("sandtotal", "claytotal", "silttotal")
 
   expect_warning(
-    res <- generate_monte_carlo_realizations(
+    res <- simulate_monte_carlo(
       texture_data, properties = c("sandtotal", "claytotal", "silttotal"),
       correlation_matrix = user_matrix, n_realizations = 50, seed = 7
     ),
@@ -299,11 +299,11 @@ test_that("edge case: an active composition group + explicit correlation_matrix 
 test_that("lh_percentile config knob actually changes the fitted SD for a normal-family property", {
   soil_data <- make_soil_data(5, properties = c("dbovendry"))
 
-  narrow <- generate_monte_carlo_realizations(
+  narrow <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry"), n_realizations = 10, seed = 8,
     simulation_config = list(distribution_type = "normal", lh_percentile = c(0.25, 0.75))
   )
-  wide <- generate_monte_carlo_realizations(
+  wide <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry"), n_realizations = 10, seed = 8,
     simulation_config = list(distribution_type = "normal", lh_percentile = c(0.05, 0.95))
   )
@@ -317,7 +317,7 @@ test_that("metalog infeasible-fit fallback triggers correctly inside the full pi
   soil_data <- make_horizon_row(properties = "om", om_l = 0.1, om_r = 0.5, om_h = 99.9)
   soil_data <- rbind(soil_data, make_horizon_row(properties = "om", cokey = "2", om_l = 0.1, om_r = 0.5, om_h = 99.9))
 
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("om"), n_realizations = 50, seed = 9,
     simulation_config = list(
       distribution_type = "metalog",
@@ -332,7 +332,7 @@ test_that("metalog infeasible-fit fallback triggers correctly inside the full pi
 test_that("edge case: a single horizon does not crash the pipeline", {
   soil_data <- make_soil_data(1, properties = c("dbovendry"))
   expect_no_error(
-    res <- generate_monte_carlo_realizations(soil_data, properties = c("dbovendry"), n_realizations = 20, seed = 10)
+    res <- simulate_monte_carlo(soil_data, properties = c("dbovendry"), n_realizations = 20, seed = 10)
   )
   expect_equal(dim(res$simulation_data)[1], 1)
 })
@@ -344,7 +344,7 @@ test_that("edge case: a property missing from every horizon degrades gracefully 
   soil_data$cec7_h <- NA_real_
 
   expect_no_error(
-    res <- generate_monte_carlo_realizations(
+    res <- simulate_monte_carlo(
       soil_data, properties = c("dbovendry", "cec7"), n_realizations = 20, seed = 11
     )
   )
@@ -355,11 +355,11 @@ test_that("parallel and sequential simulation both produce valid sum-to-100 text
   skip_on_cran()
   texture_data <- make_texture_only_soil_data(8)
 
-  res_seq <- generate_monte_carlo_realizations(
+  res_seq <- simulate_monte_carlo(
     texture_data, properties = c("sandtotal", "claytotal", "silttotal"),
     n_realizations = 40, seed = 12, parallel = FALSE
   )
-  res_par <- generate_monte_carlo_realizations(
+  res_par <- simulate_monte_carlo(
     texture_data, properties = c("sandtotal", "claytotal", "silttotal"),
     n_realizations = 40, seed = 12, parallel = TRUE,
     simulation_config = list(parallel_threshold = 1)
@@ -378,11 +378,11 @@ test_that("parallel and sequential simulation both produce valid sum-to-100 text
 
 test_that("observed_data (normal family, closed-form route) tightens the posterior and shifts toward the likelihood", {
   soil_data <- make_soil_data(10, properties = c("dbovendry"))
-  res_prior_only <- generate_monte_carlo_realizations(
+  res_prior_only <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry"), n_realizations = 300, seed = 1,
     simulation_config = list(distribution_type = "normal")
   )
-  res_fused <- generate_monte_carlo_realizations(
+  res_fused <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry"), n_realizations = 300, seed = 1,
     simulation_config = list(distribution_type = "normal"),
     observed_data = list(dbovendry = list(mean = 1.35, sd = 0.02))
@@ -396,7 +396,7 @@ test_that("observed_data (normal family, closed-form route) tightens the posteri
 
 test_that("observed_data (lognormal family) does not double-convert the already-log-space prior", {
   soil_data <- make_soil_data(6, properties = c("om"))
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("om"), n_realizations = 50, seed = 6,
     simulation_config = list(
       distribution_type = "lognormal",
@@ -417,7 +417,7 @@ test_that("observed_data (lognormal family) does not double-convert the already-
 
 test_that("observed_data (beta family) rescales onto the prior's own bounds and stays feasible", {
   soil_data <- make_soil_data(8, properties = c("dbovendry"))
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry"), n_realizations = 200, seed = 5,
     simulation_config = list(
       distribution_type = "beta",
@@ -438,7 +438,7 @@ test_that("observed_data (beta family, infeasible fusion) falls back to the mome
   # Two very diffuse (near-uniform) sides are the classic fuse_beta() infeasible
   # case (prior_alpha+lik_alpha <= 1 or prior_beta+lik_beta <= 1).
   soil_data <- make_horizon_row(properties = "dbovendry", dbovendry_l = 0.1, dbovendry_r = 1.5, dbovendry_h = 2.9)
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry"), n_realizations = 100, seed = 7, validate_inputs = FALSE,
     simulation_config = list(
       distribution_type = "beta",
@@ -457,7 +457,7 @@ test_that("observed_data (general/vector route) produces a linear_cdf posterior 
   set.seed(9)
   obs_samples <- rnorm(30, 1.35, 0.03)
 
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry"), n_realizations = 200, seed = 9,
     simulation_config = list(distribution_type = "normal"),
     observed_data = list(dbovendry = obs_samples)
@@ -476,7 +476,7 @@ test_that("observed_data skips fusion (with WARN) for a prior family with no clo
   # distribution_type defaults to "triangular", which has no closed-form
   # bayes_fuse() route - a param-list observed_data entry should be skipped.
   expect_no_error(
-    res <- generate_monte_carlo_realizations(
+    res <- simulate_monte_carlo(
       soil_data, properties = c("dbovendry"), n_realizations = 20, seed = 2,
       observed_data = list(dbovendry = list(mean = 1.35, sd = 0.02))
     )
@@ -487,11 +487,11 @@ test_that("observed_data skips fusion (with WARN) for a prior family with no clo
 
 test_that("observed_data texture fusion tightens ilr1/ilr2 and preserves exact sum-to-100", {
   texture_data <- make_texture_only_soil_data(8)
-  res_prior_only <- generate_monte_carlo_realizations(
+  res_prior_only <- simulate_monte_carlo(
     texture_data, properties = c("sandtotal", "claytotal", "silttotal"),
     n_realizations = 300, seed = 4
   )
-  res_fused <- generate_monte_carlo_realizations(
+  res_fused <- simulate_monte_carlo(
     texture_data, properties = c("sandtotal", "claytotal", "silttotal"),
     n_realizations = 300, seed = 4,
     observed_data = list(
@@ -509,7 +509,7 @@ test_that("observed_data texture fusion tightens ilr1/ilr2 and preserves exact s
 test_that("observed_data texture fusion skips (with WARN) when only 1-2 of 3 members are supplied", {
   texture_data <- make_texture_only_soil_data(6)
   expect_no_error(
-    res <- generate_monte_carlo_realizations(
+    res <- simulate_monte_carlo(
       texture_data, properties = c("sandtotal", "claytotal", "silttotal"),
       n_realizations = 50, seed = 8,
       observed_data = list(claytotal = c(low = 18, rep = 20, high = 22))
@@ -527,7 +527,7 @@ test_that("Step 4.5 placement: observed_data fusion survives a colliding user-su
   user_matrix <- diag(4)
   rownames(user_matrix) <- colnames(user_matrix) <- c("dbovendry", "sandtotal", "claytotal", "silttotal")
 
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry", "sandtotal", "claytotal", "silttotal"),
     correlation_matrix = user_matrix, n_realizations = 50, seed = 10,
     simulation_config = list(distribution_type = "normal"),
@@ -537,10 +537,10 @@ test_that("Step 4.5 placement: observed_data fusion survives a colliding user-su
   expect_true(res$parameters[[1]]$dbovendry$fit$sd < 0.1)
 })
 
-test_that("generate_monte_carlo_realizations() with observed_data=NULL is unchanged from omitting the argument entirely", {
+test_that("simulate_monte_carlo() with observed_data=NULL is unchanged from omitting the argument entirely", {
   soil_data <- make_soil_data(6, properties = c("dbovendry"))
-  res_omitted <- generate_monte_carlo_realizations(soil_data, properties = c("dbovendry"), n_realizations = 30, seed = 13)
-  res_explicit_null <- generate_monte_carlo_realizations(soil_data, properties = c("dbovendry"), n_realizations = 30, seed = 13, observed_data = NULL)
+  res_omitted <- simulate_monte_carlo(soil_data, properties = c("dbovendry"), n_realizations = 30, seed = 13)
+  res_explicit_null <- simulate_monte_carlo(soil_data, properties = c("dbovendry"), n_realizations = 30, seed = 13, observed_data = NULL)
   expect_equal(res_omitted$simulation_data, res_explicit_null$simulation_data)
 })
 
@@ -551,8 +551,8 @@ test_that("generate_monte_carlo_realizations() with observed_data=NULL is unchan
 test_that("observed_data_by_mukey = NULL is byte-identical to omitting it (A.1 regression)", {
   soil_data <- make_soil_data(9, properties = c("dbovendry"))
   soil_data$mukey <- rep(c("1", "2", "3"), length.out = nrow(soil_data))
-  res_omitted <- generate_monte_carlo_realizations(soil_data, properties = c("dbovendry"), n_realizations = 40, seed = 7)
-  res_null <- generate_monte_carlo_realizations(soil_data, properties = c("dbovendry"), n_realizations = 40, seed = 7,
+  res_omitted <- simulate_monte_carlo(soil_data, properties = c("dbovendry"), n_realizations = 40, seed = 7)
+  res_null <- simulate_monte_carlo(soil_data, properties = c("dbovendry"), n_realizations = 40, seed = 7,
                                                 observed_data_by_mukey = NULL)
   expect_identical(res_omitted$parameters, res_null$parameters)
   expect_identical(res_omitted$simulation_data, res_null$simulation_data)
@@ -562,7 +562,7 @@ test_that("observed_data_by_mukey fuses each horizon against its own mukey's lik
   soil_data <- make_soil_data(12, properties = c("dbovendry"))
   soil_data$mukey <- rep(c("1", "2"), length.out = nrow(soil_data))
 
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry"), n_realizations = 60, seed = 1,
     simulation_config = list(distribution_type = "normal"),
     observed_data_by_mukey = list(
@@ -584,11 +584,11 @@ test_that("observed_data_by_mukey leaves horizons of an unlisted mukey with thei
   soil_data <- make_soil_data(9, properties = c("dbovendry"))
   soil_data$mukey <- rep(c("1", "2", "3"), length.out = nrow(soil_data))
 
-  res_prior_only <- generate_monte_carlo_realizations(
+  res_prior_only <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry"), n_realizations = 40, seed = 4,
     simulation_config = list(distribution_type = "normal")
   )
-  res <- generate_monte_carlo_realizations(
+  res <- simulate_monte_carlo(
     soil_data, properties = c("dbovendry"), n_realizations = 40, seed = 4,
     simulation_config = list(distribution_type = "normal"),
     observed_data_by_mukey = list("1" = list(dbovendry = list(mean = 1.15, sd = 0.02)))
@@ -605,7 +605,7 @@ test_that("observed_data and observed_data_by_mukey are mutually exclusive", {
   soil_data <- make_soil_data(6, properties = c("dbovendry"))
   soil_data$mukey <- rep(c("1", "2"), length.out = nrow(soil_data))
   expect_error(
-    generate_monte_carlo_realizations(
+    simulate_monte_carlo(
       soil_data, properties = c("dbovendry"), n_realizations = 20, seed = 1,
       observed_data = list(dbovendry = list(mean = 1.35, sd = 0.02)),
       observed_data_by_mukey = list("1" = list(dbovendry = list(mean = 1.15, sd = 0.02)))
@@ -618,7 +618,7 @@ test_that("fuse_observed_data_into_priors() errors when observed_data_by_mukey i
   soil_data <- make_soil_data(6, properties = c("dbovendry"))
   soil_data$mukey <- NULL
   expect_error(
-    generate_monte_carlo_realizations(
+    simulate_monte_carlo(
       soil_data, properties = c("dbovendry"), n_realizations = 20, seed = 1,
       observed_data_by_mukey = list("1" = list(dbovendry = list(mean = 1.15, sd = 0.02)))
     ),

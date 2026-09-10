@@ -43,5 +43,5 @@ The single property-infilling orchestrator. Infills a whole property set in thre
 foundation (texture, bulk density, organic matter, rock fragments), water retention, then the
 remaining chemical properties - each property going through \code{\link[=infill_soil_property]{infill_soil_property()}}'s
 six-strategy hierarchy, with unsuitable horizons excluded throughout.
-\code{\link[=infill_soil_data]{infill_soil_data()}} is a thin wrapper that calls this with the standard SSURGO property set.
+\code{\link[=infill_ssurgo_data]{infill_ssurgo_data()}} is a thin wrapper that calls this with the standard SSURGO property set.
 }

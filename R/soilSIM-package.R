@@ -26,7 +26,7 @@
 #'
 #' @section Data acquisition & processing:
 #' The SSURGO adapter: [download_ssurgo_tabular()]/
-#' [download_and_prepare_ssurgo()] acquire and cache tabular SSURGO data for
+#' [fetch_ssurgo_data()] acquire and cache tabular SSURGO data for
 #' an area of interest; [process_ssurgo_data()] cleans and standardizes it
 #' into modeling-ready horizon/component tables;
 #' [process_soil_properties_comprehensive()]/[infill_soil_property()] fill
@@ -35,7 +35,7 @@
 #' @section Statistics & diagnostics:
 #' [analyze_soil_statistics()] characterizes processed data (correlations,
 #' distribution fitting, outliers, summary statistics);
-#' [validate_complete_workflow()]/[generate_validation_report()] provide
+#' [diagnose_workflow()]/[generate_validation_report()] provide
 #' end-to-end quality assurance across the full simulation workflow.
 #'
 #' @section Distribution fitting (core):
@@ -47,24 +47,24 @@
 #' transforms used for compositional texture data.
 #'
 #' @section Monte Carlo simulation (core):
-#' [generate_monte_carlo_realizations()] is the master pipeline for correlated
+#' [simulate_monte_carlo()] is the master pipeline for correlated
 #' Monte Carlo simulation of soil properties from percentile inputs;
 #' [simulate_correlated_properties()] is its Cholesky-copula core simulator.
 #'
 #' @section GP depth modeling & multivariate adjustment (core):
-#' [build_stratified_gp_models()]/[simulate_soil_properties()] fit and apply
-#' Gaussian-process depth-trend models; [integrate_monte_carlo_with_gp()]
+#' [fit_depth_gp_models()]/[simulate_soil_properties()] fit and apply
+#' Gaussian-process depth-trend models; [apply_depth_gp_to_simulation()]
 #' combines Monte Carlo output with GP depth trends across a whole dataset
 #' while preserving cross-property correlation structure.
 #'
 #' @section Profile, component & depth simulation:
-#' [sim_component_comp()]/[simulate_cokey_generalized()] simulate component
+#' [simulate_component_composition()]/[simulate_cokey_generalized()] simulate component
 #' composition and per-cokey properties;
 #' [simulate_and_perturb_soil_profiles()]/[simulate_profile_depths_by_mukey()]
 #' simulate horizon depths and thicknesses for whole soil profiles.
 #'
 #' @section AWS / Van Genuchten modeling:
-#' [van_genuchten()]/[simulate_vg_aws()]/[calculate_aws_df()] estimate
+#' [van_genuchten()]/[simulate_vg_aws()]/[compute_aws()] estimate
 #' available water storage from ROSETTA pedotransfer parameters.
 #'
 #' @section Bayesian updating (scalar, core):

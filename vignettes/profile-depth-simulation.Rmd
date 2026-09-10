@@ -44,12 +44,12 @@ This is a real component named **"`r unique(mu_data$compname)`"** (`cokey`
 
 ## Step 1: Simulate component composition
 
-`sim_component_comp()` draws `n_simulations` triangular samples from each component's
+`simulate_component_composition()` draws `n_simulations` triangular samples from each component's
 low/representative/high percentage and derives a single `sim_comppct` value - the number of
 Monte Carlo profile realizations to simulate for that component:
 
 ```{r}
-component_sim <- sim_component_comp(mu_data, n_simulations = 25)
+component_sim <- simulate_component_composition(mu_data, n_simulations = 25)
 component_sim
 ```
 
@@ -60,7 +60,7 @@ the number of profile replicates simulated in the next step.
 ## Step 2: Simulate horizon depth and thickness variability
 
 `simulate_profile_depths_by_mukey()` orchestrates the full depth-simulation pipeline for a real
-mukey: it queries SSURGO, derives `sim_comppct` via `sim_component_comp()` and joins it onto every
+mukey: it queries SSURGO, derives `sim_comppct` via `simulate_component_composition()` and joins it onto every
 horizon (internally - no manual join needed by the caller), fetches real Official Series
 Description boundary-distinctness data for the component name, and perturbs horizon thickness and
 boundary depths accordingly:

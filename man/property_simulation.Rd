@@ -4,7 +4,7 @@
 \alias{property_simulation}
 \title{Component-Composition and Correlated-Triangular Property Simulation}
 \description{
-Component-composition simulation (\code{sim_component_comp()}), correlated
+Component-composition simulation (\code{simulate_component_composition()}), correlated
 triangular-distribution sampling (\code{simulate_correlated_triangular()}), and per-cokey
 flexible-property simulation (\code{simulate_cokey_generalized()}), plus two small standalone
 horizon-data helpers (\code{remove_organic_layer()}, \code{slice_and_aggregate_soil_data()}).
