@@ -251,7 +251,9 @@ Initial release.
   ([`analyze_soil_statistics()`](https://jjmaynard.github.io/soilSIM/reference/analyze_soil_statistics.md),
   [`validate_complete_workflow()`](https://jjmaynard.github.io/soilSIM/reference/validate_complete_workflow.md),
   [`generate_validation_report()`](https://jjmaynard.github.io/soilSIM/reference/generate_validation_report.md)).
-- Four vignettes covering the tabular Monte Carlo pipeline,
-  profile/depth simulation, available water storage, and multi-source
-  raster fusion (SSURGO x SOLUS100), all built against real SSURGO data
-  for a Sierra Nevada foothills and Salinas Valley area of interest.
+- Vignettes covering the tabular Monte Carlo pipeline, profile/depth
+  simulation, available water storage, multi-source raster fusion
+  (SSURGO x SOLUS100), per-pixel fused ensembles, and
+  function-by-function tours of each subsystem, all built against real
+  SSURGO data for a Sierra Nevada foothills and Salinas Valley area of
+  interest.
