@@ -24,5 +24,5 @@ assess_simulation_coverage(
 Coverage assessment results
 }
 \description{
-Enhanced coverage assessment  validation utilities.
+Assess Simulation Coverage
 }

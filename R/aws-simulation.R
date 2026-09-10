@@ -3,11 +3,9 @@
 #' @description Closed-form van Genuchten water-retention evaluation, Monte
 #'   Carlo simulation of available water holding capacity (AWHC) from
 #'   `soilDB::ROSETTA()`-derived pedotransfer parameters, and depth-sliced
-#'   available-water-storage summaries for a set of soil components. Ported
-#'   from `code_ref/brdf/property_simulation.R` (identical to the superseded
-#'   `code/sim-functions.R` copy). Self-contained: unlike
-#'   `R/depth-simulation.R`'s functions, none of these three depend on any
-#'   other not-yet-ported helper from that file (e.g. `sim_component_comp()`).
+#'   available-water-storage summaries for a set of soil components. These
+#'   three functions are self-contained and depend on no other part of the
+#'   package.
 #' @name aws_simulation
 NULL
 
@@ -40,20 +38,14 @@ van_genuchten <- function(h, alpha, n, theta_r, theta_s) {
 #' `stats::rnorm(mean, sd)` and evaluating `van_genuchten()` at the FC/PWP
 #' matric potentials.
 #'
-#' @section Ported-as-is behavioral quirks:
-#' Two aspects of this function are preserved exactly as in the legacy source
-#' rather than "fixed," since both are plausibly intentional design choices
-#' (not unconditional-crash bugs) and changing either would alter the actual
-#' simulated values every caller receives:
+#' @section Behavioral notes:
 #' - `set.seed(123)` is called **inside** the per-row loop, so every row
 #'   re-seeds and draws from an identically-seeded random stream rather than
 #'   an evolving one across rows.
-#' - Sampled `alpha`/`n` values are back-transformed via `10^(...)`, i.e. the
+#' - Sampled `alpha`/`n` values are back-transformed via `10^(...)`: the
 #'   input `data$alpha`/`data$npar` (and their SDs) are treated as already
-#'   being in log10 space. This is a standard technique for keeping van
-#'   Genuchten shape parameters positive after adding Gaussian noise, but
-#'   whether `soilDB::ROSETTA()`'s actual reported values are meant to be
-#'   interpreted this way is not verified by this port.
+#'   being in log10 space. This keeps the van Genuchten shape parameters
+#'   positive after Gaussian noise is added.
 #'
 #' @param data A data frame with one row per soil layer/component, and
 #'   columns `alpha`, `sd_alpha`, `npar`, `sd_npar`, `theta_r`, `sd_theta_r`,
@@ -113,10 +105,8 @@ simulate_vg_aws <- function(data, n_simulations = 100) {
     )
 
     # Calculate water retention at FC and PWP for each set of sampled parameters using the van
-    # Genuchten function. PERF: van_genuchten() is already pure vectorized arithmetic (no
-    # per-row state), so the dplyr::rowwise() here just added per-row dispatch overhead for
-    # nothing - dropped in favor of a plain vectorized mutate() (see
-    # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 2).
+    # Genuchten function. van_genuchten() is pure vectorized arithmetic, so a plain vectorized
+    # dplyr::mutate() is used here rather than dplyr::rowwise().
     results <- results |>
       dplyr::mutate(
         theta_fc  = van_genuchten(h_fc, alpha, n, theta_r, theta_s),   # Water content at Field Capacity
@@ -137,11 +127,10 @@ simulate_vg_aws <- function(data, n_simulations = 100) {
 
 #' Minimal na.rm-mean `slab.fun` for `aqp::slab()`
 #'
-#' Replacement for the no-longer-available `aqp::mean_na()` (removed/renamed
-#' in current `aqp` versions) - preserves its old single-value-per-slab
-#' contract, which `aqp::slab()`'s current default `slab.fun`
-#' (`slab_function(method = "numeric")`) does not (it returns quantile
-#' columns instead of a single `value` column).
+#' Returns a single na.rm mean per slab in a `value` column. `aqp::slab()`'s
+#' current default `slab.fun` (`slab_function(method = "numeric")`) returns
+#' quantile columns instead, which `calculate_aws_df()`'s `pivot_wider()`
+#' step cannot consume.
 #'
 #' @param values Numeric vector of observations within one depth slab.
 #' @param ... Ignored (`aqp::slab()` passes additional arguments positionally).
@@ -220,12 +209,9 @@ calculate_aws_df <- function(sim_data_df) {
   aqp::depths(sim_aws_df) <- cokey ~ top + bottom
 
   # Compute slab summaries over specified depth intervals (e.g., 0, 5, 15, 30, 60, 100 cm).
-  # `aqp::mean_na` no longer exists in current aqp versions (this legacy code
-  # predates its removal/rename) - `.aws_slab_mean()` below is a minimal
-  # local replacement with the same contract (a single na.rm-mean per slab,
-  # yielding a `value` column), since aqp's current default `slab.fun`
-  # (`slab_function(method = "numeric")`) instead returns quantile columns
-  # with no `value` column, which would break the pivot_wider() step below.
+  # `.aws_slab_mean()` is a local slab.fun returning a single na.rm mean per slab in a
+  # `value` column. aqp's current default slab.fun returns quantile columns with no
+  # `value` column, which would break the pivot_wider() step below.
   prof.slab <- aqp::slab(sim_aws_df,
                          fm = cokey ~ AWHC,
                          slab.structure = c(0, 5, 15, 30, 60, 100),

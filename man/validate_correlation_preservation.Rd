@@ -21,5 +21,5 @@ validate_correlation_preservation(
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 }
 \description{
-Helper function from GP-depth-adjust.R to validate correlation preservation
+Validates that correlation structure is preserved after depth-trend adjustment.
 }

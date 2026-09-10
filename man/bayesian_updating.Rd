@@ -4,18 +4,14 @@
 \alias{bayesian_updating}
 \title{Bayesian Updating: Conjugate Fusion and General Grid-KDE Fusion}
 \description{
-Standalone toolkit for fusing a prior belief distribution with
-a likelihood (e.g. an SSURGO-derived prior against field-measured data),
-ported from \code{code_ref/brdf/bayesian_updating.R} and the validated
-\verb{code_ref/reanalysis-platform/\{bayes_fuse.R, reanalysis-platform-fusion.R, texture_ilr_fusion.R\}} bundle (there raster-native; here plain-vector/
-scalar, since the underlying math is ordinary base-R arithmetic once
-\verb{terra::} is stripped out).
+Scalar (plain-vector) toolkit for fusing a prior belief
+distribution with a likelihood (e.g. an SSURGO-derived prior against
+field-measured data).
 
-\strong{This module is intentionally NOT called anywhere in \code{monte-carlo.R}.}
-It is a standalone, independently-tested set of building blocks for a
-future "update an SSURGO-derived prior against observed/field data"
-feature - not wired into the main Monte Carlo simulation pipeline in
-this pass.
+These are standalone building blocks. The raster fusion pipeline in
+\code{raster-fusion.R} supplies the equivalent primitives used in the
+production SSURGO x SOLUS100 workflow; the tabular Monte Carlo pipeline
+in \code{monte-carlo.R} does not call these functions directly.
 
 Three tiers, in increasing order of generality/cost:
 \enumerate{
@@ -35,6 +31,6 @@ tier 1 to the joint 3-part-composition ILR case (clay/sand/silt texture,
 in whichever role order \code{monte-carlo.R}'s \code{composition_groups$texture$members}
 configures - see \code{distributions.R}'s ILR section header), since
 independent per-fraction fusion (e.g. three separate \code{fuse_beta()}
-calls) measurably breaks sum-to-100 (documented upstream: up to 10.5
-percentage points on realistic synthetic data).
+calls) measurably breaks sum-to-100 (up to about 10 percentage points on
+realistic synthetic data).
 }

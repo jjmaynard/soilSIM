@@ -21,5 +21,5 @@ assess_property_constraints(
 Property constraint assessment
 }
 \description{
-Enhanced property constraint validation  property utilities.
+Assess Property Constraints
 }

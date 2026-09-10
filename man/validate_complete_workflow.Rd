@@ -18,7 +18,7 @@ validate_complete_workflow(
 
 \item{original_data}{Original SSURGO/NRCS data for comparison}
 
-\item{validation_config}{Configuration for validation parameters (uses Module 0 defaults)}
+\item{validation_config}{Configuration for validation parameters (uses package defaults)}
 
 \item{generate_plots}{Whether to generate diagnostic plots (default = TRUE)}
 
@@ -30,6 +30,5 @@ validate_complete_workflow(
 Comprehensive validation results
 }
 \description{
-Master validation function enhanced  for comprehensive
-assessment of the entire soil simulation workflow.
+Assesses the entire soil simulation workflow end to end.
 }

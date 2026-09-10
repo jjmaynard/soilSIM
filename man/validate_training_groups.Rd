@@ -27,5 +27,5 @@ validate_training_groups(
 Validation results list
 }
 \description{
-Enhanced validation using Module 0 utilities
+Validate Training Groups
 }

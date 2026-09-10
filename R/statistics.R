@@ -9,10 +9,10 @@ NULL
 
 #' Comprehensive Statistical Analysis (Main Entry Point)
 #'
-#' Enhanced statistical analysis leveraging Module 0 utilities for data validation,
+#' Statistical analysis for data validation,
 #' error handling, logging, and statistical computations.
 #'
-#' @param processed_data Processed SSURGO data from Module 2
+#' @param processed_data Processed SSURGO data from the statistics step
 #' @param analysis_config List of analysis configuration parameters
 #' @param correlation_methods Character vector of correlation methods to apply
 #' @param distribution_fitting Logical; perform distribution fitting analysis
@@ -28,7 +28,7 @@ NULL
 #'   return **different, non-interchangeable shapes** - notably `distribution_analysis$fitted_distributions[[prop]]`
 #'   is a flat stats list under `_safe` and a family-name-keyed list of fit objects under enhanced.
 #'   Both chains stay public API. Whether the default should ever flip is a separate, later,
-#'   benchmark-driven decision (see `RASTER_STATISTICS_INTEGRATION_PLAN.md` Problem B).
+#'   benchmark-driven decision.
 #' @param verbose Logical; provide detailed progress messages
 #'
 #' @return List containing comprehensive statistical analysis results
@@ -55,11 +55,8 @@ analyze_soil_statistics <- function(processed_data,
                                     validate_results = TRUE,
                                     use_enhanced_chain = FALSE,
                                     verbose = getOption("ssurgo.verbose", FALSE)) {
-  # NOTE: this used to call setup_logging(log_level = if(verbose) "DEBUG" else "INFO")
-  # unconditionally on first use, which permanently changed the global log level for
-  # the rest of the session (no restore) - meaning one early call here would silently
-  # un-quiet every other function afterward. set_verbose_logging() raises the level only
-  # for the duration of this call, restored via on.exit() below.
+  # set_verbose_logging() raises the log level only for the duration of this call,
+  # restored via on.exit() below.
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
@@ -67,7 +64,7 @@ analyze_soil_statistics <- function(processed_data,
 
   log_message("INFO", "=== Statistical Analysis Started ===", category = "Statistics")
 
-  # Merge with default configuration using Module 0 utilities
+  # Merge with default configuration
   default_config <- get_statistical_analysis_defaults()
   config <- merge_configurations(default_config, analysis_config)
 
@@ -81,7 +78,7 @@ analyze_soil_statistics <- function(processed_data,
 
   log_message("INFO", paste("Input data:", nrow(processed_data), "rows,", ncol(processed_data), "columns"), category = "Statistics")
 
-  # Step 1: Comprehensive data validation using Module 0
+  # Step 1: Comprehensive data validation
   log_message("INFO", "Step 1: Validating input data", category = "Statistics")
 
   data_validation <- validate_data_quality(
@@ -126,7 +123,7 @@ analyze_soil_statistics <- function(processed_data,
     log_message("INFO", paste("Data quality acceptable:", round(overall_quality_score, 3)), category = "Statistics")
   }
 
-  # Step 2: Property validation using Module 0
+  # Step 2: Property validation
   log_message("INFO", "Step 2: Validating soil properties", category = "Statistics")
 
   available_properties <- identify_numeric_soil_properties(processed_data)
@@ -146,7 +143,7 @@ analyze_soil_statistics <- function(processed_data,
 
   log_message("INFO", paste("Valid properties for analysis:", length(available_properties)), category = "Statistics")
 
-  # Step 3: Handle missing values using Module 0
+  # Step 3: Handle missing values
   log_message("INFO", "Step 3: Processing missing values", category = "Statistics")
 
   processed_data_clean <- handle_missing_values(
@@ -220,7 +217,7 @@ analyze_soil_statistics <- function(processed_data,
     })
   }
 
-  # Step 7: Property statistics using Module 0
+  # Step 7: Property statistics
   log_message("INFO", "Step 7: Computing property statistics", category = "Statistics")
 
   property_statistics <- compute_property_statistics(
@@ -336,7 +333,7 @@ filter_valid_numeric_properties <- function(data, properties, verbose = FALSE) {
 
 #' Run Comprehensive Correlation Analysis (Safe Version)
 #'
-#' Safe version with enhanced error handling
+#' Safe version with error handling
 #'
 #' @param data Input data.
 #' @param methods Character vector of correlation methods (e.g. `c("pearson","spearman")`).
@@ -371,7 +368,7 @@ run_comprehensive_correlation_analysis_safe <- function(data, methods, config, a
     return(correlation_results)
   }
 
-  # Global correlation matrices using Module 0's safe_correlation
+  # Global correlation matrices's safe_correlation
   for (method in methods) {
     log_message("DEBUG", paste("Computing", method, "correlation matrix"), category = "Correlation")
 
@@ -382,7 +379,7 @@ run_comprehensive_correlation_analysis_safe <- function(data, methods, config, a
     )
 
     if (!is.null(correlation_matrix)) {
-      # Enhanced correlation results
+      # correlation results
       correlation_results$matrices[[method]] <- list(
         matrix = correlation_matrix,
         method = method,
@@ -483,14 +480,14 @@ detect_comprehensive_outliers_safe <- function(data, properties, config, verbose
 
   minimum_observations <- config$minimum_observations %||% 10
 
-  # Property-specific outlier detection using Module 0
+  # Property-specific outlier detection
   for (property in properties) {
     if (property %in% names(data)) {
       property_data <- data[[property]]
       finite_data <- property_data[!is.na(property_data) & is.finite(property_data)]
 
       if (length(finite_data) >= minimum_observations) {
-        # Use Module 0's detect_outliers
+        # detect_outliers()
         outliers <- detect_outliers(
           finite_data,
           method = "iqr",
@@ -631,7 +628,7 @@ generate_statistical_quality_report_safe <- function(original_data, processed_da
   return(quality_report)
 }
 # ==============================================================================
-# ENHANCED CORRELATION ANALYSIS (LEVERAGING Module 0)
+# CORRELATION ANALYSIS
 # ==============================================================================
 
 #' Resolve a statistical-analysis config value: nested location, then flat, then default
@@ -657,14 +654,13 @@ generate_statistical_quality_report_safe <- function(original_data, processed_da
 
 #' Run Comprehensive Correlation Analysis
 #'
-#' Enhanced correlation analysis using Module 0 statistical utilities
 #'
 #' @param data Input data
 #' @param methods Correlation methods
 #' @param config Analysis configuration
 #' @param available_properties Available soil properties
 #'
-#' @return Enhanced correlation analysis results
+#' @return correlation analysis results
 #'
 #' @export
 run_comprehensive_correlation_analysis <- function(data, methods, config, available_properties) {
@@ -680,7 +676,7 @@ run_comprehensive_correlation_analysis <- function(data, methods, config, availa
   # Prepare correlation data
   correlation_data <- data[, available_properties, drop = FALSE]
 
-  # Global correlation matrices using Module 0's safe_correlation
+  # Global correlation matrices's safe_correlation
   for (method in methods) {
     log_message("DEBUG", paste("Computing", method, "correlation matrix"), category = "Correlation")
 
@@ -690,7 +686,7 @@ run_comprehensive_correlation_analysis <- function(data, methods, config, availa
       handle_constant = .stat_cfg(config, "handle_constant_variables", "warn")
     )
 
-    # Enhanced correlation results
+    # correlation results
     correlation_results$matrices[[method]] <- list(
       matrix = correlation_matrix,
       method = method,
@@ -731,7 +727,7 @@ run_comprehensive_correlation_analysis <- function(data, methods, config, availa
     }
   }
 
-  # Correlation validation using Module 0 utilities
+  # Correlation validation
   correlation_results$validation <- validate_correlation_matrices(
     correlation_results$matrices,
     config = config
@@ -768,7 +764,7 @@ compute_stratified_correlations <- function(data, properties, stratify_by, metho
   for (group in unique_groups) {
     group_data <- data[data[[stratify_by]] == group & !is.na(data[[stratify_by]]), properties, drop = FALSE]
 
-    # Check minimum sample size using Module 0 validation
+    # Check minimum sample size
     if (nrow(group_data) < .stat_cfg(config, "minimum_observations", 10)) {
       log_message("DEBUG", paste("Skipping group", group, "- insufficient observations:", nrow(group_data)), category = "Correlation")
       next
@@ -798,18 +794,17 @@ compute_stratified_correlations <- function(data, properties, stratify_by, metho
 }
 
 # ==============================================================================
-# ENHANCED DISTRIBUTION ANALYSIS (LEVERAGING Module 0)
+# DISTRIBUTION ANALYSIS
 # ==============================================================================
 
-#' Analyze Property Distributions (Enhanced)
+#' Analyze Property Distributions
 #'
-#' Enhanced distribution analysis using Module 0 utilities
 #'
 #' @param data Input data
 #' @param properties Properties to analyze
 #' @param config Configuration
 #'
-#' @return Enhanced distribution analysis results
+#' @return distribution analysis results
 #'
 #' @export
 analyze_property_distributions <- function(data, properties, config) {
@@ -860,9 +855,8 @@ analyze_property_distributions <- function(data, properties, config) {
   return(distribution_results)
 }
 
-#' Fit Property Distributions (Enhanced)
+#' Fit Property Distributions
 #'
-#' Enhanced distribution fitting with better error handling
 #'
 #' @param values Property values
 #' @param property_name Property name
@@ -896,18 +890,17 @@ fit_property_distributions <- function(values, property_name, config) {
 }
 
 # ==============================================================================
-# ENHANCED OUTLIER DETECTION (LEVERAGING Module 0)
+# OUTLIER DETECTION
 # ==============================================================================
 
-#' Detect Comprehensive Outliers (Enhanced)
+#' Detect Comprehensive Outliers
 #'
-#' Enhanced outlier detection using Module 0 utilities
 #'
 #' @param data Input data
 #' @param properties Properties to analyze
 #' @param config Configuration
 #'
-#' @return Enhanced outlier analysis results
+#' @return outlier analysis results
 #'
 #' @export
 detect_comprehensive_outliers <- function(data, properties, config) {
@@ -920,7 +913,7 @@ detect_comprehensive_outliers <- function(data, properties, config) {
     summary = list()
   )
 
-  # Property-specific outlier detection using Module 0
+  # Property-specific outlier detection
   for (property in properties) {
     property_data <- data[[property]]
 
@@ -928,7 +921,7 @@ detect_comprehensive_outliers <- function(data, properties, config) {
       next
     }
 
-    # Use Module 0's detect_outliers with multiple methods
+    # detect_outliers() with multiple methods
     outlier_methods <- .stat_cfg(config, "outlier_methods", c("iqr", "zscore", "modified_zscore"))
     outlier_thresholds <- .stat_cfg(config, "outlier_thresholds",
                                     list(iqr = 1.5, zscore = 3, modified_zscore = 3.5))
@@ -970,12 +963,11 @@ detect_comprehensive_outliers <- function(data, properties, config) {
 }
 
 # ==============================================================================
-# ENHANCED VALIDATION AND QUALITY REPORTING
+# VALIDATION AND QUALITY REPORTING
 # ==============================================================================
 
-#' Validate Statistical Results (Enhanced)
+#' Validate Statistical Results
 #'
-#' Enhanced validation using Module 0 utilities
 #'
 #' @param correlation_analysis Correlation results
 #' @param distribution_analysis Distribution results
@@ -983,7 +975,7 @@ detect_comprehensive_outliers <- function(data, properties, config) {
 #' @param property_statistics Property statistics
 #' @param config Configuration
 #'
-#' @return Enhanced validation results
+#' @return validation results
 #'
 #' @export
 validate_statistical_results <- function(correlation_analysis, distribution_analysis,
@@ -1033,9 +1025,8 @@ validate_statistical_results <- function(correlation_analysis, distribution_anal
   return(validation_results)
 }
 
-#' Generate Statistical Quality Report (Enhanced)
+#' Generate Statistical Quality Report
 #'
-#' Enhanced quality reporting with comprehensive metrics
 #'
 #' @param original_data Original input data
 #' @param processed_data Processed data
@@ -1047,7 +1038,7 @@ validate_statistical_results <- function(correlation_analysis, distribution_anal
 #' @param data_validation Data validation results
 #' @param config Configuration
 #'
-#' @return Enhanced quality report
+#' @return quality report
 #'
 #' @export
 generate_statistical_quality_report <- function(original_data, processed_data,
@@ -1149,7 +1140,7 @@ get_statistical_analysis_defaults <- function() {
     # Output control
     return_processed_data = FALSE,
 
-    # Quality thresholds (using Module 0 defaults)
+    # Quality thresholds (package defaults)
     quality_thresholds = get_default_quality_thresholds()
   )
 
@@ -1159,7 +1150,7 @@ get_statistical_analysis_defaults <- function() {
 
 #' Validate Statistical Configuration
 #'
-#' Validate statistical analysis configuration using Module 0 utilities
+#' Validate statistical analysis configuration
 #'
 #' @param config Configuration to validate
 #'
@@ -1240,18 +1231,17 @@ identify_numeric_soil_properties <- function(data) {
 }
 
 # ==============================================================================
-# SUPPORTING HELPER FUNCTIONS (LEVERAGING Module 0)
+# SUPPORTING HELPER FUNCTIONS
 # ==============================================================================
 
-#' Compute Property Statistics (Enhanced)
+#' Compute Property Statistics
 #'
-#' Enhanced property statistics computation using Module 0 utilities
 #'
 #' @param data Input data
 #' @param properties Properties to analyze
 #' @param config Configuration
 #'
-#' @return Enhanced property statistics
+#' @return property statistics
 #'
 #' @export
 compute_property_statistics <- function(data, properties, config) {
@@ -1283,7 +1273,7 @@ compute_property_statistics <- function(data, properties, config) {
       iqr = IQR(valid_values)
     )
 
-    # Confidence intervals using Module 0
+    # Confidence intervals
     confidence_intervals <- calculate_confidence_intervals(
       valid_values,
       statistic = "mean",
@@ -1341,9 +1331,7 @@ calculate_kurtosis <- function(x) {
 #' discarding an explicit user request. If the intersection is empty (the
 #' user asked only for families the heuristic wouldn't have suggested),
 #' falls back to the user's list unfiltered, with a logged warning, rather
-#' than ignoring it entirely. Previously `config` was accepted by every
-#' caller in this chain but never actually consulted here - `distribution_methods`
-#' was inert.
+#' than ignoring it entirely.
 #'
 #' @param property_name Property name (drives the type-appropriate heuristic).
 #' @param values Numeric vector of observed property values (currently
@@ -1382,8 +1370,7 @@ get_appropriate_distributions <- function(property_name, values, config = NULL) 
 
 #' Fit a single candidate distribution to a property's values
 #'
-#' Modeled on the fitting style used in BCQRF/code/R/distribution_fitting.R:
-#' a guarded `requireNamespace()` dependency, a `tryCatch`-wrapped fit, and a
+#' Uses a guarded `requireNamespace()` dependency, a `tryCatch`-wrapped fit, and a
 #' structured return value rather than a raw fit object.
 #'
 #' @param values Numeric vector of observed property values.
@@ -1644,8 +1631,8 @@ generate_outlier_summary <- function(outlier_results) {
 
 #' Validate a set of correlation matrices
 #'
-#' Real implementation using the shared `validate_correlation_matrix()`
-#' (`distributions.R`) - previously a stub always returning `valid=TRUE`.
+#' Validates each matrix with the shared `validate_correlation_matrix()`
+#' (`distributions.R`).
 #'
 #' @param matrices Named list keyed by method, each entry either a matrix or
 #'   `list(matrix=, ...)` (matching `run_comprehensive_correlation_analysis()`'s

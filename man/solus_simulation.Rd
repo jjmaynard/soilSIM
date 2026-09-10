@@ -7,15 +7,12 @@
 The SOLUS100 half of the raster fusion prior/likelihood pipeline (see
 \code{R/raster-fusion.R}): fetches SOLUS100 low/prediction/high rasters via
 \code{soilDB::fetchSOLUS()} for a requested depth window, in the \code{list(values=, probs=)} shape
-\code{fuse_property_adaptive()} expects. Ported from \code{code_ref/reanalysis-platform/solus_raster.R}.
+\code{fuse_property_adaptive()} expects.
 
 \code{fetch_solus_low_pred_high()}'s output-layer-naming assumption
-(\code{paste0(solus_variable, "_", depth_slice, "_cm_", suffix)}) was verified against a live,
-network-connected \code{soilDB::fetchSOLUS()} call before porting (not assumed from the source
-comments alone) - confirmed exact for \code{output_type} \code{"prediction"}/\code{"95\% low prediction interval"}/\code{"95\% high prediction interval"} (suffixes \code{p}/\code{l}/\code{h}).
+(\code{paste0(solus_variable, "_", depth_slice, "_cm_", suffix)}) is verified against a live
+\code{soilDB::fetchSOLUS()} call for \code{output_type} \code{"prediction"} / \code{"95\% low prediction interval"} / \code{"95\% high prediction interval"} (suffixes \code{p}/\code{l}/\code{h}).
 
-Unlike the original bundle's \code{config.R}-driven \code{solus_variable} lookup (which had a
-confirmed-wrong \code{awc = "awc"} entry - not a valid \code{fetchSOLUS()} variable), \code{solus_variable}
-is a direct per-call argument here, consistent with \code{R/raster-fusion.R}'s decision not to
-port the \code{PROPERTIES}/\code{config.R} global registry.
+\code{solus_variable} is a direct per-call argument (there is no global property registry).
+Note that \code{awc} is not a valid \code{fetchSOLUS()} variable.
 }

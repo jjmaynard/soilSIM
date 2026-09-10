@@ -30,15 +30,14 @@ package's established fallback pattern for missing/invalid correlation inputs (s
 \item{nu}{Matern smoothness parameter (only used when \code{kernel = "matern"}); default \code{1.5}.}
 
 \item{boundary_distinctness}{Optional numeric vector, same length as \code{depths}, of OSD-derived
-\code{bound_sd} values (see \code{attach_osd_boundary_distinctness()} -
-\code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 1b/1c) - one value per depth, interpreted as
+\code{bound_sd} values (see \code{attach_osd_boundary_distinctness()}) - one value per depth, interpreted as
 the distinctness of the boundary immediately ABOVE that depth (in sorted-ascending order; the
 value for the shallowest depth is unused, since there is no boundary above the top of the
 profile). Smaller \code{bound_sd} (e.g. \code{aqp::hzDistinctnessCodeToOffset()}'s \code{abrupt} ~= 1,
 \code{clear} ~= 2.5) means a sharper real discontinuity and more strongly suppresses correlation
 across that boundary; larger \code{bound_sd} (\code{gradual} ~= 7.5, \code{diffuse} ~= 10) leaves the plain
 distance-decay kernel almost untouched. \code{NULL} (default) or all-\code{NA} skips gating entirely,
-reproducing the plain (Phase 1) kernel exactly.}
+reproducing the plain distance-decay kernel exactly.}
 
 \item{distinctness_range}{Named \code{c(min=, max=)} giving the \code{bound_sd} values that map to the
 strongest (\code{min_gate_weight}) and weakest (\code{1}, no suppression) gating respectively. Default
@@ -57,8 +56,7 @@ floating-point asymmetry from the distance-matrix/gating construction pushes it 
 }
 \description{
 Constructs an \verb{n_depths x n_depths} correlation matrix from real depth \emph{distances} (not just
-adjacent-lag steps, unlike the sequential \code{gp_ratio} nudge this is designed to replace - see
-\code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 1/2), via an exponential or Matern kernel with
-a given \code{length_scale}. Intended as the depth half of a Kronecker-separable
-\verb{R_depth (x) R_property} joint covariance (Phase 2's \code{sample_joint_depth_property_copula()}).
+adjacent-lag steps), via an exponential or Matern kernel with a given \code{length_scale}.
+This is the depth half of a Kronecker-separable \verb{R_depth (x) R_property} joint covariance
+(see \code{sample_joint_depth_property_copula()}).
 }

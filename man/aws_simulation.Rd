@@ -7,9 +7,7 @@
 Closed-form van Genuchten water-retention evaluation, Monte
 Carlo simulation of available water holding capacity (AWHC) from
 \code{soilDB::ROSETTA()}-derived pedotransfer parameters, and depth-sliced
-available-water-storage summaries for a set of soil components. Ported
-from \code{code_ref/brdf/property_simulation.R} (identical to the superseded
-\code{code/sim-functions.R} copy). Self-contained: unlike
-\code{R/depth-simulation.R}'s functions, none of these three depend on any
-other not-yet-ported helper from that file (e.g. \code{sim_component_comp()}).
+available-water-storage summaries for a set of soil components. These
+three functions are self-contained and depend on no other part of the
+package.
 }

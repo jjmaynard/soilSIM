@@ -2,7 +2,7 @@
 % Please edit documentation in R/data-infilling.R
 \name{apply_basic_range_limits}
 \alias{apply_basic_range_limits}
-\title{Apply Basic Range Limits (Enhanced)}
+\title{Apply Basic Range Limits}
 \usage{
 apply_basic_range_limits(values, property_name)
 }
@@ -15,5 +15,5 @@ apply_basic_range_limits(values, property_name)
 Constrained values
 }
 \description{
-Applies property-specific range constraints with enhanced property coverage.
+Applies property-specific range constraints.
 }

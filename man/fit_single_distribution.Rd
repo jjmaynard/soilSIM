@@ -22,7 +22,6 @@ bic/convergence/n/scale_info/fit_object, or NULL if fitting isn't
 possible (too little data, wrong domain, or fitdist() failure).
 }
 \description{
-Modeled on the fitting style used in BCQRF/code/R/distribution_fitting.R:
-a guarded \code{requireNamespace()} dependency, a \code{tryCatch}-wrapped fit, and a
+Uses a guarded \code{requireNamespace()} dependency, a \code{tryCatch}-wrapped fit, and a
 structured return value rather than a raw fit object.
 }

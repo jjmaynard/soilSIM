@@ -20,7 +20,7 @@ route), coarser than \code{bayesian_update()}'s own standalone default of \code{
 \code{bayesian_update()}'s \code{stats::density()} calls (kernel density estimation over
 \code{seq(grid_min, grid_max, by = grid_resolution)}) are the dominant cost of
 \code{fuse_general_kde()}'s per-cell loop - \code{Rprof()} profiling on a synthetic 10,000-cell raster
-(PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4) attributed 65\% of total wall-clock time to \code{density()}
+attributed 65\% of total wall-clock time to \code{density()}
 (\code{dnorm}/\code{fft} internals) at the \code{0.01} default, vs. 12\% for the per-cell percentile-sampling
 step. At \code{0.01}, a typical soil-property range (e.g. 20-50\%) produces a ~3,000-point evaluation
 grid per cell, per side. Coarsening to \code{0.1} cuts that grid ~10x and measured \strong{~2.4x} faster

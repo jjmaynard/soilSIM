@@ -29,22 +29,16 @@ parameters, by drawing \code{n_simulations} random samples per parameter from
 \code{stats::rnorm(mean, sd)} and evaluating \code{van_genuchten()} at the FC/PWP
 matric potentials.
 }
-\section{Ported-as-is behavioral quirks}{
+\section{Behavioral notes}{
 
-Two aspects of this function are preserved exactly as in the legacy source
-rather than "fixed," since both are plausibly intentional design choices
-(not unconditional-crash bugs) and changing either would alter the actual
-simulated values every caller receives:
 \itemize{
 \item \code{set.seed(123)} is called \strong{inside} the per-row loop, so every row
 re-seeds and draws from an identically-seeded random stream rather than
 an evolving one across rows.
-\item Sampled \code{alpha}/\code{n} values are back-transformed via \code{10^(...)}, i.e. the
+\item Sampled \code{alpha}/\code{n} values are back-transformed via \code{10^(...)}: the
 input \code{data$alpha}/\code{data$npar} (and their SDs) are treated as already
-being in log10 space. This is a standard technique for keeping van
-Genuchten shape parameters positive after adding Gaussian noise, but
-whether \code{soilDB::ROSETTA()}'s actual reported values are meant to be
-interpreted this way is not verified by this port.
+being in log10 space. This keeps the van Genuchten shape parameters
+positive after Gaussian noise is added.
 }
 }
 

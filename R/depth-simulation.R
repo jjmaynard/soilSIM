@@ -4,17 +4,11 @@
 #'   depth simulation, thickness-variability estimation via repeated simulation,
 #'   OSD-distinctness-derived boundary perturbation, and
 #'   `aqp::SoilProfileCollection`-level orchestration (single profile, whole
-#'   collection, parallelized collection, or by-mukey). Ported from
-#'   `code_ref/brdf/depth_simulation.R`, the canonical, generalized version of
-#'   this logic (superseding earlier copies kept for historical reference in
-#'   `code/scratch/`, not part of this port).
+#'   collection, parallelized collection, or by-mukey).
 #'
 #'   This is the first place `aqp`/`SoilProfileCollection` objects are used in
-#'   `soilSIM`; the random triangular-distribution sampler these functions rely
-#'   on, `tri_dist()`, lives in `R/distributions.R` (it was originally defined
-#'   in the *companion* legacy file, `code_ref/brdf/property_simulation.R`, not
-#'   in `depth_simulation.R` itself). That companion file's correlated-property
-#'   and van Genuchten/AWS modeling functions remain out of scope for this port.
+#'   `soilSIM`. The random triangular-distribution sampler these functions rely
+#'   on, `tri_dist()`, lives in `R/distributions.R`.
 #' @name depth_simulation
 NULL
 
@@ -169,17 +163,13 @@ query_osd_distinctness <- function(horizon_data) {
 
 #' Attach OSD-Derived Boundary Distinctness to Horizon Data (per-genhz `bound_sd`)
 #'
-#' `query_osd_distinctness()`'s `bound_sd` (OSD boundary-distinctness offset, e.g. Abrupt/Clear/
-#' Gradual/Diffuse converted to a numeric scale via `aqp::hzDistinctnessCodeToOffset()`) was
-#' previously computed and consumed ONLY inside `simulate_and_perturb_soil_profiles()`, as
-#' `aqp::perturb()`'s `boundary.attr` for horizon-DEPTH perturbation - it never reached the
-#' property-value Monte Carlo simulation pipeline (`simulate_cokey_generalized()`,
-#' `apply_gp_depth_trends()`). This exposes the same already-computed, already-genhz-averaged
-#' `bound_sd` value on arbitrary horizon data (via the identical
+#' `query_osd_distinctness()`'s `bound_sd` (OSD boundary-distinctness offset: Abrupt/Clear/
+#' Gradual/Diffuse converted to a numeric scale via `aqp::hzDistinctnessCodeToOffset()`) is
+#' also used by `simulate_and_perturb_soil_profiles()` as `aqp::perturb()`'s `boundary.attr`
+#' for horizon-depth perturbation. This function exposes the same genhz-averaged `bound_sd`
+#' value on arbitrary horizon data (via the same
 #' `dplyr::group_by(id, genhz) |> dplyr::summarise(bound_sd = mean(bound_sd, na.rm = TRUE))`
-#' pattern `simulate_and_perturb_soil_profiles()` already uses), so it can also gate the
-#' vertical-correlation depth kernel (see `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 1c) -
-#' no new data source, no change to how `bound_sd` itself is computed.
+#' pattern), so it can also gate the vertical-correlation depth kernel.
 #'
 #' @param hz_data A data frame with at least `compname`, `hzname`, and `genhz` columns (the same
 #'   shape `simulate_ssurgo_mapunit_draws()` builds right after `classify_genhz()`).
@@ -188,7 +178,7 @@ query_osd_distinctness <- function(horizon_data) {
 #'   `compname`/`genhz` combination, `NA` for any combination the OSD lookup couldn't resolve).
 #'   On OSD lookup failure (e.g. no network access - `query_osd_distinctness()` calls
 #'   `soilDB::fetchOSD()`), degrades to an all-`NA` `bound_sd` column rather than erroring, so
-#'   callers (and the Phase 1c kernel gating, which already treats missing distinctness data as
+#'   callers (and the kernel gating, which treats missing distinctness data as
 #'   "no gating - fall back to the plain kernel") keep working without OSD access.
 #'
 #' @export
@@ -217,10 +207,8 @@ attach_osd_boundary_distinctness <- function(hz_data) {
   # query_osd_distinctness(), simulate_and_perturb_soil_profiles(), was documented as unaffected
   # by this because it joins by genhz only, never by id. This function DOES need to join by
   # compname (to get a per-cokey-relevant value, not just a global per-genhz average across every
-  # series in the input), so it must match case-insensitively - a real bug (title-case
-  # "Placentia" from SSURGO vs. "PLACENTIA" from fetchOSD() silently joining to nothing) found via
-  # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 9's real-AOI validation, not caught by earlier
-  # unit tests because their mocked fixtures happened to use matching case throughout.
+  # series in the input), so it must match case-insensitively: title-case "Placentia" from
+  # SSURGO and "PLACENTIA" from fetchOSD() must join.
   bound_lut <- distinctness_data |>
     dplyr::mutate(compname_upper = toupper(id)) |>
     dplyr::group_by(compname_upper, genhz) |>
@@ -986,8 +974,7 @@ simulate_profile_depths_by_mukey <- function(mukey, n_simulations = 100, seed = 
   # Step 1.5: Derive sim_comppct (sim_component_comp() produces it at cokey grain) and join
   # it onto every horizon row by cokey - simulate_and_perturb_soil_profiles() requires it at
   # horizon grain. Mirrors the already-verified pattern in R/ssurgo-simulation.R's
-  # simulate_ssurgo_mapunit_draws() (closes the gap this function used to document as a
-  # Known limitation: callers previously had to perform this join themselves).
+  # simulate_ssurgo_mapunit_draws().
   component_data <- sim_component_comp(mu_data, n_simulations = n_simulations)
   mu_data <- dplyr::left_join(
     mu_data, component_data[, c("cokey", "sim_comppct")],

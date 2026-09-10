@@ -29,5 +29,7 @@ preserve_correlation_structure(
 List of adjusted property matrices
 }
 \description{
-Enhanced core correlation preservation algorithm with Module 8 error handling.
+Imposes vertical correlation on the property matrices by re-ordering each property's
+per-depth values to a shared surface-referenced rank, so the depth trend is applied without
+disturbing within-depth cross-property correlation.
 }

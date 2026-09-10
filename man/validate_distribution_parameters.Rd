@@ -2,7 +2,7 @@
 % Please edit documentation in R/monte-carlo.R
 \name{validate_distribution_parameters}
 \alias{validate_distribution_parameters}
-\title{Validate a Horizon's Fitted Distribution Parameters (Real Implementation)}
+\title{Validate a Horizon's Fitted Distribution Parameters}
 \usage{
 validate_distribution_parameters(parameters, distribution_type, property_name)
 }
@@ -19,6 +19,4 @@ validate_distribution_parameters(parameters, distribution_type, property_name)
 }
 \description{
 Thin wrapper around \code{distributions.R}'s \code{validate_fit_parameters()}.
-Previously this was a stub always returning \code{valid=TRUE} regardless of
-input, so nothing ever caught a malformed/undefined parameter set.
 }

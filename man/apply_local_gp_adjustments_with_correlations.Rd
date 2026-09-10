@@ -18,8 +18,7 @@ apply_local_gp_adjustments_with_correlations(
 Adjusted simulation data.
 }
 \description{
-Delegates to the real \code{\link[=apply_local_gp_adjustments]{apply_local_gp_adjustments()}} (\code{multivariate-adjustment.R},
-migrated from mod07), inferring the \code{properties} argument that function
-requires (as the numeric, non-structural columns of \code{simulation_data}),
+Delegates to \code{\link[=apply_local_gp_adjustments]{apply_local_gp_adjustments()}}, inferring the \code{properties} argument that
+function requires (as the numeric, non-structural columns of \code{simulation_data}),
 since this function's own signature does not accept one explicitly.
 }

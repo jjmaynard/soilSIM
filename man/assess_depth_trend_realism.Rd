@@ -21,5 +21,5 @@ assess_depth_trend_realism(
 Depth trend realism assessment
 }
 \description{
-Enhanced depth trend validation using Module 5 prediction functions and Module 0 utilities.
+Assess Depth Trend Realism
 }

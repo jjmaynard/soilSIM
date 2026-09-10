@@ -29,5 +29,6 @@ convert_to_property_matrices(
 Named list of property matrices
 }
 \description{
-Enhanced version with Module 8 safe operations and validation.
+Reshapes long-format simulation data into a named list of depth-by-simulation
+matrices, one per property.
 }

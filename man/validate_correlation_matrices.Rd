@@ -17,6 +17,6 @@ validate_correlation_matrices(matrices, config)
 \code{list(valid=, errors=, warnings=)}.
 }
 \description{
-Real implementation using the shared \code{validate_correlation_matrix()}
-(\code{distributions.R}) - previously a stub always returning \code{valid=TRUE}.
+Validates each matrix with the shared \code{validate_correlation_matrix()}
+(\code{distributions.R}).
 }

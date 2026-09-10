@@ -9,16 +9,15 @@ NULL
 
 #' Download SSURGO Tabular Data with Comprehensive Processing
 #'
-#' Enhanced version of the proven download_ssurgo_tabular function with additional
+#' Version of the proven download_ssurgo_tabular function with additional
 #' caching, validation, and reporting capabilities while maintaining compatibility
 #' with existing soil property simulation workflows.
 #'
 #' @param aoi_wkt Character. Well-Known Text (WKT) representation of the area of interest
 #' @param properties Character vector. Soil properties to download.
 #'   Default: c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o", "cec7", "om",
-#'   "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar") - the last 5 added in
-#'   MULTI_PROPERTY_FUSION_PLAN.md task P2 (needs a matching row in
-#'   `create_ssurgo_property_lookup_working()` to actually reach the SQL query - already present).
+#'   "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar"). Each needs a matching
+#'   row in `create_ssurgo_property_lookup_working()` to reach the SQL query.
 #' @param include_restrictions Logical. Whether to include horizon restriction data for
 #'   unsuitable horizon detection (default: TRUE)
 #' @param cache_dir Character. Directory for caching downloaded data (default: NULL for no caching)
@@ -27,10 +26,9 @@ NULL
 #' @param mukey_raster Optional, already-fetched `terra::SpatRaster` of mukey codes for this same
 #'   AOI (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}) - passed through to
 #'   \code{\link{process_aoi_and_get_mukeys_working}} so it can skip its own independent
-#'   \code{soilDB::mukey.wcs()} call. `NULL` (default) preserves this function's original
-#'   behavior exactly (it fetches its own grid) - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`
-#'   task P1.2 for why this exists (raster-fusion callers that already fetched a mukey grid for
-#'   the same AOI can now reuse it instead of triggering a second network call).
+#'   \code{soilDB::mukey.wcs()} call. `NULL` (default): this function fetches its own grid.
+#'   Raster-fusion callers that already fetched a mukey grid for the same AOI can pass it here
+#'   to avoid a second network call.
 #' @param verbose Logical. Provide detailed progress messages (default: FALSE)
 #'
 #' @return List containing:
@@ -74,7 +72,7 @@ NULL
 download_ssurgo_tabular <- function(aoi_wkt,
                                     properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
                                                    "cec7", "om", "wthirdbar", "wfifteenbar",
-                                                   # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md
+                                                   # 5 chemistry properties (
                                                    # task P2) - widened here (not just added to
                                                    # create_ssurgo_property_lookup_working()'s lookup
                                                    # table) since simulate_ssurgo_mapunit_draws()'s call
@@ -95,19 +93,11 @@ download_ssurgo_tabular <- function(aoi_wkt,
     log_message("INFO", "SSURGO Data Download Started", category = "Download")
   }
 
-  # Step 1: Input validation using validation function
+  # Step 1: input validation
   if (verbose) log_message("INFO", "Validating inputs", category = "Download")
 
-  # Use the FIXED validation function instead of the problematic one
-  #
-  # NOTE: the original source passed config_file/log_validation here, but
-  # validate_download_inputs_ssurgo() (unlike its
-  # validate_download_inputs_ssurgo_with_config() sibling) does not accept
-  # those parameters - R CMD check's static "unused arguments" analysis
-  # confirmed this call could never actually succeed. Since this code path
-  # is network-dependent and untested (no prior coverage could have caught
-  # it at runtime), dropping the two invalid arguments is the minimal fix
-  # that makes the call match the function it actually calls.
+  # validate_download_inputs_ssurgo() takes only these three arguments; the
+  # config_file/log_validation form is on validate_download_inputs_ssurgo_with_config().
   input_validation <- validate_download_inputs_ssurgo(
     aoi_wkt = aoi_wkt,
     properties = properties,
@@ -224,13 +214,13 @@ download_ssurgo_tabular <- function(aoi_wkt,
     ssurgo_data <- aggregate_rock_fragment_volume_working(ssurgo_data, verbose = verbose)
   }
 
-  # Step 7: Add restriction and unsuitable horizon indicators using Module 8
+  # Step 7: Add restriction and unsuitable horizon indicators
   if (include_restrictions && nrow(ssurgo_data) > 0) {
     if (verbose) log_message("INFO", "Processing restriction and horizon suitability data", category = "Download")
     ssurgo_data <- add_restriction_indicators_working(ssurgo_data, verbose = verbose)
   } else if (!include_restrictions) {
     if (verbose) log_message("INFO", "Adding basic unsuitable horizon detection", category = "Download")
-    # Use Module 8 function for unsuitable horizon detection
+    # Unsuitable-horizon detection
     ssurgo_data$unsuitable_horizon <- is_unsuitable(ssurgo_data, hzname_col = "hzname")
   }
 
@@ -248,7 +238,7 @@ download_ssurgo_tabular <- function(aoi_wkt,
   components_missing_horizons <- recovery_result$components_missing_horizons
   components_recovered <- recovery_result$components_recovered
 
-  # Step 8: Data validation using Module 8
+  # Step 8: Data validation
   validation_results <- NULL
   if (validate_data) {
     if (verbose) log_message("INFO", "Validating downloaded data", category = "Download")
@@ -329,9 +319,8 @@ create_ssurgo_property_lookup_working <- function() {
   data.frame(
     Property = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
                  "cec7", "om", "wthirdbar", "wfifteenbar",
-                 # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2) - column names
-                 # confirmed live against a real gSSURGO chorizon query (2026-09-04, Salinas AOI):
-                 # all 5 triplets exist and return real (if sparse - especially ecec) data.
+                 # 5 chemistry properties; column names confirmed against a gSSURGO chorizon
+                 # query. Coverage is real but sparse for some (especially ecec).
                  "caco3", "ec", "ecec", "gypsum", "sar"),
     SSURGO_Label_Low = c("sandtotal_l", "claytotal_l", "silttotal_l", "dbovendry_l",
                          "ph1to1h2o_l", "cec7_l", "om_l", "wthirdbar_l", "wfifteenbar_l",
@@ -355,8 +344,7 @@ create_ssurgo_property_lookup_working <- function() {
 #' @param mukey_raster Optional, already-fetched `terra::SpatRaster` of mukey codes for this same
 #'   AOI (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}). When supplied, this function skips
 #'   its own \code{soilDB::mukey.wcs()} call entirely and derives `mu`/`mukey_list` directly from
-#'   it - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P1.2. `NULL` (default) preserves the
-#'   original behavior exactly.
+#'   it. `NULL` (default): this function makes its own `soilDB::mukey.wcs()` call.
 #'
 #' @return List with processed AOI, map units, and mukey list
 process_aoi_and_get_mukeys_working <- function(aoi_wkt, verbose = FALSE, mukey_raster = NULL) {
@@ -887,13 +875,13 @@ add_restriction_indicators_working <- function(ssurgo_data, verbose = FALSE) {
         texture_suggests_restriction
     )
 
-  # Use Module 8 unsuitable horizon detection (assuming this function exists)
+  # Use the shared unsuitable-horizon detection (assuming this function exists)
   ssurgo_data$unsuitable_horizon <- tryCatch({
     is_unsuitable(ssurgo_data, hzname_col = "hzname")
   }, error = function(e) {
     if (verbose) log_message("WARN", paste("is_unsuitable function not available, using basic detection:", e$message), category = "Processing")
 
-    # Fallback unsuitable detection if Module 8 function not available
+    # Fallback unsuitable detection if the helper is unavailable
     (!is.na(ssurgo_data$hzname) & grepl("^O|^R|Cr|Cd|cemented|indurated", ssurgo_data$hzname, ignore.case = TRUE)) |
       (!is.na(ssurgo_data$organic_horizon) & ssurgo_data$organic_horizon) |
       (!is.na(ssurgo_data$is_potentially_restrictive) & ssurgo_data$is_potentially_restrictive)
@@ -922,7 +910,7 @@ add_restriction_indicators_working <- function(ssurgo_data, verbose = FALSE) {
 
 #' Validate Download Inputs (SSURGO-specific)
 #'
-#' SSURGO-specific input validation that uses Module 8 general validation functions
+#' SSURGO-specific input validation that uses the shared validation functions
 #' for parameter validation, logging, and error handling, with custom SSURGO-specific
 #' business logic for WKT geometry and property validation.
 #'
@@ -932,7 +920,7 @@ add_restriction_indicators_working <- function(ssurgo_data, verbose = FALSE) {
 #' @param strict_geometry Whether to use strict geometry validation
 #' @param max_area_deg2 Maximum allowed area in square degrees
 #'
-#' @return List with validation results including Module 8 metadata
+#' @return List with validation results including shared metadata
 #'
 #' @export
 validate_download_inputs_ssurgo <- function(aoi_wkt,
@@ -943,7 +931,7 @@ validate_download_inputs_ssurgo <- function(aoi_wkt,
 
   log_message("INFO", "Starting SSURGO download input validation", category = "Validation")
 
-  # Define parameter specifications for Module 8 validation
+  # Define parameter specifications for shared validation
   param_specs <- list(
     aoi_wkt = list(
       type = "character",
@@ -973,7 +961,7 @@ validate_download_inputs_ssurgo <- function(aoi_wkt,
     )
   )
 
-  # Use Module 8 parameter validation
+  # Use shared parameter validation
   log_message("DEBUG", "Validating basic parameter structure", category = "Validation")
 
   param_validation <- validate_parameters(
@@ -988,7 +976,7 @@ validate_download_inputs_ssurgo <- function(aoi_wkt,
     strict_mode = TRUE
   )
 
-  # Initialize validation results with Module 8 output
+  # Initialize validation results
   validation_results <- list(
     valid = param_validation$valid,
     errors = param_validation$errors,
@@ -1123,7 +1111,7 @@ validate_download_inputs_ssurgo <- function(aoi_wkt,
     property_validation$valid &&
     length(validation_results$errors) == 0
 
-  # Create summary message using Module 8 patterns
+  # Create summary message
   if (validation_results$valid) {
     if (length(validation_results$warnings) > 0) {
       summary_message <- paste("Validation passed with", length(validation_results$warnings), "warnings")
@@ -1149,10 +1137,9 @@ validate_download_inputs_ssurgo <- function(aoi_wkt,
 
 
 
-#' Enhanced SSURGO Download Input Validation (Wrapper)
+#' SSURGO Download Input Validation (Wrapper)
 #'
-#' Convenience wrapper that provides additional configuration options
-#' and integrates with Module 8 configuration management
+#' Convenience wrapper that provides additional configuration options.
 #'
 #' @param aoi_wkt Area of interest in WKT format
 #' @param properties Vector of property names
@@ -1160,7 +1147,7 @@ validate_download_inputs_ssurgo <- function(aoi_wkt,
 #' @param config_file Optional configuration file path
 #' @param log_validation Whether to enable detailed logging
 #'
-#' @return Enhanced validation results
+#' @return validation results
 #'
 #' @export
 validate_download_inputs_ssurgo_with_config <- function(aoi_wkt,
@@ -1169,16 +1156,16 @@ validate_download_inputs_ssurgo_with_config <- function(aoi_wkt,
                                                      config_file = NULL,
                                                      log_validation = TRUE) {
 
-  log_message("INFO", "Starting enhanced SSURGO validation with configuration",
-              category = "EnhancedValidation")
+  log_message("INFO", "Starting SSURGO validation with configuration",
+              category = "Validation")
 
-  # Load configuration using Module 8
+  # Load configuration
   if (!is.null(config_file)) {
     config <- tryCatch({
       load_configuration(config_file, validate_config = TRUE)
     }, error = function(e) {
       log_message("WARN", paste("Config load failed, using defaults:", e$message),
-                  category = "EnhancedValidation")
+                  category = "Validation")
       get_default_configuration("validation")
     })
     validation_config <- config$validation
@@ -1195,8 +1182,8 @@ validate_download_inputs_ssurgo_with_config <- function(aoi_wkt,
   strict_geometry <- validation_config$strict_geometry %||% TRUE
   max_area <- validation_config$max_area_deg2 %||% 100
 
-  log_message("INFO", "Starting enhanced SSURGO validation with configuration",
-              category = "EnhancedValidation")
+  log_message("INFO", "Starting SSURGO validation with configuration",
+              category = "Validation")
 
   # Initialize validation results
   validation_results <- list(
@@ -1211,7 +1198,7 @@ validate_download_inputs_ssurgo_with_config <- function(aoi_wkt,
     )
   )
 
-  # 1. Basic parameter validation using Module 8
+  # 1. Basic parameter validation
   param_specs <- list(
     aoi_wkt = list(
       type = "character",
@@ -1325,7 +1312,7 @@ validate_download_inputs_ssurgo_with_config <- function(aoi_wkt,
 
   validation_results$message <- summary_message
 
-  # Generate enhanced validation report
+  # Generate validation report
   if (!is.null(validation_config$generate_plots) && validation_config$generate_plots) {
     validation_results$validation_report <- generate_validation_report_ssurgo(validation_results)
   }
@@ -1426,9 +1413,8 @@ generate_validation_report_ssurgo <- function(validation_results) {
 # CACHING FUNCTIONS (SSURGO-SPECIFIC)
 # ==============================================================================
 
-#' Check SSURGO Data Cache (Enhanced)
+#' Check SSURGO Data Cache
 #'
-#' Enhanced cache checking with metadata validation.
 #'
 #' @param aoi_wkt Area of interest WKT
 #' @param properties Vector of properties
@@ -1499,9 +1485,8 @@ check_ssurgo_cache <- function(aoi_wkt, properties, include_restrictions,
   })
 }
 
-#' Cache SSURGO Data (Enhanced)
+#' Cache SSURGO Data
 #'
-#' Enhanced data caching with comprehensive metadata.
 #'
 #' @param data Downloaded SSURGO data
 #' @param mu Spatial map unit data
@@ -1518,7 +1503,7 @@ check_ssurgo_cache <- function(aoi_wkt, properties, include_restrictions,
 cache_ssurgo_data <- function(data, mu, aoi_wkt, properties, include_restrictions,
                                        cache_dir, compress = TRUE, verbose = FALSE) {
 
-  # Create cache directory if needed using Module 8 utilities
+  # Create cache directory if needed
   if (!dir.exists(cache_dir)) {
     dir.create(cache_dir, recursive = TRUE)
     if (verbose) log_message("DEBUG", paste("Created cache directory:", cache_dir), category = "Cache")
@@ -1694,7 +1679,7 @@ download_and_prepare_ssurgo <- function(aoi_wkt,
     verbose = verbose
   )
 
-  # Filter to maximum depth using Module 8 utilities
+  # Filter to maximum depth
   if (!is.null(max_depth) && "hzdepb_r" %in% names(download_result$ssurgo_data)) {
     initial_rows <- nrow(download_result$ssurgo_data)
 

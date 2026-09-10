@@ -27,5 +27,5 @@ select_optimal_grouping(
 Selected grouping strategy name
 }
 \description{
-Enhanced version that uses Module 0 validation utilities
+Select Optimal Grouping Strategy
 }

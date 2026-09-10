@@ -5,7 +5,7 @@
 #'   pixel's marginal distributions match `run_stage1_fusion()`'s SOLUS-fused posterior, while
 #'   preserving the ensemble's empirical copula (cross-property and cross-depth-window rank
 #'   structure). This is the "per-pixel" answer to wiring raster fusion into the modelling
-#'   framework - see `planning-docs/RASTER_FUSION_PERPIXEL_ENSEMBLE_DESIGN.md`.
+#'   framework.
 #'
 #'   `zonal_distribution_from_posterior()` is the cheap mukey-collapsed comparison arm (feeds
 #'   `observed_data_by_mukey` in `generate_monte_carlo_realizations()`); `remarginalize_ensemble_to_posterior()`
@@ -126,10 +126,10 @@ invert_posterior_cdf_raster <- function(pct, post_probs, u_ras) {
 #' sand/silt/clay/`dbovendry`/`soc`/`fragvol`.
 #'
 #' Because `remarginalized_awc()` re-marginalizes `sand`/`silt`/`clay` to their own fused
-#' posteriors independently, a realization's texture triple may no longer sum to 100. This
-#' reproduces `calculate_saxton_rawls_single()`'s renormalization: where `|sand + silt + clay - 100|
-#' > 5`, the three are rescaled to sum to 100 before the equations run (the equations themselves use
-#' only the sand and clay fractions).
+#' posteriors independently, a realization's texture triple may not sum to 100. This
+#' reproduces `calculate_saxton_rawls_single()`'s renormalization: where the texture sum is off
+#' by more than 5 points, the three fractions are rescaled to sum to 100 before the equations run
+#' (the equations themselves use only the sand and clay fractions).
 #'
 #' @param sand,clay,silt,db,rfv,om Percent (or g/cm^3 for `db`) `SpatRaster`s. Any may be single
 #'   or multi-layer; single-layer inputs are recycled.
@@ -317,7 +317,7 @@ remarginalize_ensemble_to_posterior <- function(mukey_ensemble, posterior_by_pro
 #'   realization stack before the next. Per-pixel quantiles are cell-independent, so a tiled run is
 #'   numerically identical to `tile_rows = NULL`. `NULL` (default) / `>= nrow` disables tiling.
 #' @param restriction_depth Optional single-layer `terra::SpatRaster` of restriction depth in cm -
-#'   typically `fetch_solus_restriction_depth(aoi_vect)` (MULTI_PROPERTY_FUSION_PLAN.md task S2),
+#'   typically `fetch_solus_restriction_depth(aoi_vect)`,
 #'   already right-censoring-guarded (cells with no detected restriction are `Inf`, never
 #'   `SOLUS_RESTRICTION_CENSOR_CM` itself). `NULL` (default) preserves today's behavior exactly -
 #'   every window contributes its full nominal thickness, regardless of bedrock. When supplied,

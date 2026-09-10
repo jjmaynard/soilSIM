@@ -29,5 +29,6 @@ correct_distribution_shapes(
 Corrected simulation data
 }
 \description{
-Enhanced version with Module 8 property validation and constraints.
+Clamps each adjusted property to its plausible range and, where requested, remaps
+it back onto the shape of its pre-adjustment distribution.
 }

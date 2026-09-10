@@ -1,9 +1,7 @@
 # Generate vignettes/articles/architecture-*.Rmd from docs/*.md - maintainer-run, NOT part of the
-# package build (mirrors data-raw/benchmark_performance.R's own "not part of automated
-# testthat/build" convention). docs/*.md is the single source of truth; the articles are a
-# pkgdown-facing derived copy (YAML frontmatter + cross-module links resolved to
-# architecture-*.html instead of bare *.md filenames), so this replaces what used to be two
-# independently hand-edited, silently-diverging copies of the same content.
+# package build. docs/*.md is the single source of truth; the articles are a pkgdown-facing
+# derived copy (YAML frontmatter added, and cross-references resolved to architecture-*.html
+# instead of bare *.md filenames).
 #
 # Run manually whenever docs/*.md changes, before `pkgdown::build_site()`:
 #   Rscript data-raw/generate_architecture_articles.R

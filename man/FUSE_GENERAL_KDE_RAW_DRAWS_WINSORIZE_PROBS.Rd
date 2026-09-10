@@ -4,7 +4,7 @@
 \name{FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS}
 \alias{FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS}
 \title{Default \code{winsorize_probs} \code{fuse_general_kde()} passes to \code{bayesian_update()} on its \code{raw_draws}
-branch only (see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P3.1).}
+branch only.}
 \format{
 An object of class \code{numeric} of length 2.
 }
@@ -13,12 +13,12 @@ FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS
 }
 \description{
 Default \code{winsorize_probs} \code{fuse_general_kde()} passes to \code{bayesian_update()} on its \code{raw_draws}
-branch only (see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P3.1).
+branch only.
 }
 \section{Why this exists}{
 
 \code{bayesian_update()}'s \code{stats::density(bw = "nrd0")} bandwidth choice is sensitive to outliers a
-raw-draws resample can genuinely contain - confirmed via a dedicated adversarial test (P2.7): a
+raw-draws resample can genuinely contain - confirmed via a dedicated adversarial test: a
 right-skewed synthetic prior's raw resample (realized range ~4-195) produced a measurably wider
 KDE bandwidth, and a \emph{less} accurate fused posterior mean on average across 8 seeds, than the
 percentile-reconstruction route's resample (confined to ~7-64, the same data's P5-P95 range).

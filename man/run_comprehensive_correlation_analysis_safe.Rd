@@ -27,5 +27,5 @@ run_comprehensive_correlation_analysis_safe(
 \code{list(matrices=, summary=, validation=)}.
 }
 \description{
-Safe version with enhanced error handling
+Safe version with error handling
 }

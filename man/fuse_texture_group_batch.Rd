@@ -52,7 +52,7 @@ here, in cell order, doesn't change the RNG stream order (still
 cell-major) so results are unaffected.}
 
 \item{mukey_prior_texture_samples}{Optional - opts into \code{prior_fusion_method = "raw_draws"}
-(see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.4). A named list, keyed by mukey (as
+. A named list, keyed by mukey (as
 character), each element an \verb{n_mc x 3} matrix (columns \code{clay_total}/\code{sand_total}/
 \code{silt_total}) of real joint texture draws for that mukey - see
 \code{mukey_texture_draws_lookup()}. When supplied, \code{row_mat}'s last column must be the per-cell

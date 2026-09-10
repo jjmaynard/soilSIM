@@ -24,5 +24,5 @@ validate_gp_model_performance(
 GP model performance assessment
 }
 \description{
-Enhanced GP performance validation using Module 5 functions.
+Validate GP Model Performance
 }

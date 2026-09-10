@@ -24,5 +24,5 @@ validate_gp_model_workflow(
 GP model validation results
 }
 \description{
-Enhanced GP validation using Module 5 functions and Module 0 utilities.
+Validate GP Model Workflow
 }

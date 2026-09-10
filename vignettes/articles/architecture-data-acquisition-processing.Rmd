@@ -19,7 +19,7 @@ download_ssurgo_tabular(
   aoi_wkt,                     # Character. WKT representation of the area of interest.
   properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
                  "cec7", "om", "wthirdbar", "wfifteenbar",
-                 "caco3", "ec", "ecec", "gypsum", "sar"),  # last 5 added task P2, 2026-09-04
+                 "caco3", "ec", "ecec", "gypsum", "sar"),  # 5 chemistry properties
   include_restrictions = TRUE, # Logical. Include restriction/horizon-suitability fields.
   cache_dir = NULL,            # Character. Directory for caching; NULL disables caching.
   force_download = FALSE,      # Logical. Bypass cache and force a fresh download.
@@ -38,7 +38,7 @@ download_ssurgo_tabular(
 
 **Parameters**: None.
 
-**Returns**: A data frame with columns `Property`, `SSURGO_Label_Low`, `SSURGO_Label_Rep`, `SSURGO_Label_High`, one row per of the 14 known properties (`sandtotal`, `claytotal`, `silttotal`, `dbovendry`, `ph1to1h2o`, `cec7`, `om`, `wthirdbar`, `wfifteenbar`, plus `caco3`, `ec`, `ecec`, `gypsum`, `sar` - added MULTI_PROPERTY_FUSION_PLAN.md task P2, 2026-09-04, column names live-confirmed against a real gSSURGO chorizon query).
+**Returns**: A data frame with columns `Property`, `SSURGO_Label_Low`, `SSURGO_Label_Rep`, `SSURGO_Label_High`, one row per of the 14 known properties (`sandtotal`, `claytotal`, `silttotal`, `dbovendry`, `ph1to1h2o`, `cec7`, `om`, `wthirdbar`, `wfifteenbar`, plus the chemistry properties `caco3`, `ec`, `ecec`, `gypsum`, `sar`; column names confirmed against a real gSSURGO chorizon query).
 
 **Algorithm**: Static `data.frame()` construction - a hardcoded lookup, not derived from the input properties.
 
@@ -164,7 +164,7 @@ process_horizon_data_working_compatible(
 
 ### 12. **`hz_quant_prob_mukey(hz_data)`**
 
-**Purpose**: Computes per-mukey, per-depth 5th/50th/95th percentile statistics and 90% prediction-interval widths (`_PIW90`) across simulated horizon data for a wide basket of soil properties, plus (when texture data and the optional `soiltexture` package are available) the most probable USDA texture class and its simulation-frequency probability. This is a downstream/reporting function operating on already-simulated (`sim_*`-style) data rather than raw acquisition output, but lives in this file as it was ported directly from the legacy `code/sim-functions.R`.
+**Purpose**: Computes per-mukey, per-depth 5th/50th/95th percentile statistics and 90% prediction-interval widths (`_PIW90`) across simulated horizon data for a wide basket of soil properties, plus (when texture data and the optional `soiltexture` package are available) the most probable USDA texture class and its simulation-frequency probability. This is a downstream/reporting function operating on already-simulated (`sim_*`-style) data rather than raw acquisition output; it is co-located here as a reporting utility.
 
 **Parameters**: `hz_data` - simulated horizon data frame with `mukey`, `hzdept_r`, `hzdepb_r`, and any of a recognized property set (sand/silt/clay totals, bulk density, `w3b`/`w15b` water retention, RFV, pH, CEC, SOC, and optionally van Genuchten parameters `theta_r`/`theta_s`/`alpha`/`npar`/`ksat`).
 
@@ -269,7 +269,7 @@ infill_water_retention_saxton_rawls_integrated(
 - **`validate_property_config(config, property_name)`** - checks a config has `type`/`units`/`fallback_range` and well-formed `typical_range`; stops with an error otherwise.
 - **`get_rfv_range_category(rfv_value)`** - categorizes an RFV percentage into `"none"`/`"low"`/`"moderate"`/`"high"`/`"very_high"`/`"extreme"`.
 - **`apply_property_constraints(values, property_config)`** - clamps values to `typical_range` and type-specific bounds (e.g. `[0,100]` texture, `[0,14]` pH, `[0.01,95]` rock fragments).
-- **`create_validation_config()` / `add_range_rule()` / `add_relationship_rule()` / `apply_validation_rules()`** - a small pluggable rule-configuration system for range/relationship checks; note relationship rules are recorded but **not** currently enforced by `apply_validation_rules()` (matches legacy behavior, not a new bug).
+- **`create_validation_config()` / `add_range_rule()` / `add_relationship_rule()` / `apply_validation_rules()`** - a small pluggable rule-configuration system for range/relationship checks; note relationship rules are recorded but **not** enforced by `apply_validation_rules()`, which enforces only range rules.
 - **`summarize_unsuitable_horizons(df, hzname_col = "hzname")`** - reporting companion to `is_unsuitable()`; returns count and unique horizon names of excluded horizons, logging via `log_message()`.
 - **`infill_property_range_values(df, property_name, property_config)`** - fills missing `_l`/`_h` from learned (`learn_property_ranges()`) and contextual (`get_property_contextual_ranges()`) spreads via `calculate_property_lower_bound()`/`calculate_property_upper_bound()`, then enforces `_l <= _r <= _h`.
 - **`learn_property_ranges(df, property_name, property_config)`** - learns median `_r - _l` / `_h - _r` spreads from complete, suitable-horizon rows, broken out by horizon name, by depth zone (surface/subsurface/deep), and overall.
@@ -384,11 +384,11 @@ process_soil_properties_comprehensive() [data-infilling.R, MULTI-PROPERTY WORKFL
 
 ## Dependencies
 
-**From elsewhere in soilSIM** (the [Utilities](architecture-utilities.html) module, all in `R/utils.R`): `log_message()`, `handle_workflow_error()` *(referenced in this group's older code comments; not called directly in the current source)*, `validate_parameters()`, `validate_wkt_geometry()`, `validate_properties_with_synonyms()`, `validate_data_quality()`, `validate_numeric_ranges()`, `is_unsuitable()`, `standardize_property_names()`, `detect_outliers()`, `load_configuration()`, `get_default_configuration()`, `setup_logging()`, `merge_configurations()`, and the `%||%` null-coalescing helper.
+**From elsewhere in soilSIM** (the [Utilities](architecture-utilities.html) module, all in `R/utils.R`): `log_message()`, `handle_workflow_error()` *(not called directly in the current source)*, `validate_parameters()`, `validate_wkt_geometry()`, `validate_properties_with_synonyms()`, `validate_data_quality()`, `validate_numeric_ranges()`, `is_unsuitable()`, `standardize_property_names()`, `detect_outliers()`, `load_configuration()`, `get_default_configuration()`, `setup_logging()`, `merge_configurations()`, and the `%||%` null-coalescing helper.
 
 **External packages**: `soilDB` (`mukey.wcs()` for spatial mukey lookup, `SDA_query()` for the SDA SQL query itself); `terra` (`vect()`, `project()`, `as.polygons()`, `ext()`, `values()`, `expanse()` for AOI geometry handling); `dplyr` (`mutate`, `filter`, `group_by`/`summarise`, `case_when`, joins, `across` - used throughout for data-frame transformations); `stringr` (`str_replace`/`str_replace_all` in `standardize_horizon_name()`); `rlang` (`sym()` for programmatic grouping); `digest` (cache key hashing); `stats` (`quantile`, `approx`, `weighted.mean`); `soiltexture` (optional, `Suggests`; USDA texture classification in `hz_quant_prob_mukey()`, guarded by `requireNamespace()`).
 
-**Downstream consumers**: The cleaned/infilled horizon+component data frames (with complete `_l/_r/_h` triplet columns) produced by this group feed the **[Statistics & Diagnostics](architecture-statistics-diagnostics.html)** module (descriptive statistics, correlation analysis over the property triplets) and the **[Monte Carlo Simulation](architecture-monte-carlo-simulation.html)** core (percentile-triplet distribution fitting and correlated sampling consume the `sim_*`/triplet columns this group guarantees are gap-free). `hz_quant_prob_mukey()` runs in the opposite direction - it consumes *already-simulated* horizon data (post Monte Carlo) to produce per-mukey/depth summary statistics, so it is better understood as a reporting utility co-located here for historical (ported-file) reasons rather than a pure acquisition/processing step.
+**Downstream consumers**: The cleaned/infilled horizon+component data frames (with complete `_l/_r/_h` triplet columns) produced by this group feed the **[Statistics & Diagnostics](architecture-statistics-diagnostics.html)** module (descriptive statistics, correlation analysis over the property triplets) and the **[Monte Carlo Simulation](architecture-monte-carlo-simulation.html)** core (percentile-triplet distribution fitting and correlated sampling consume the `sim_*`/triplet columns this group guarantees are gap-free). `hz_quant_prob_mukey()` runs in the opposite direction - it consumes *already-simulated* horizon data (post Monte Carlo) to produce per-mukey/depth summary statistics, so it is better understood as a reporting utility co-located here rather than a pure acquisition/processing step.
 
 ## Data Flow In/Out
 

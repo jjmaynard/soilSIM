@@ -61,9 +61,10 @@ against a real area of interest.
 - **Get Started**: `vignette("getting-started-monte-carlo")` walks
   through the full tabular pipeline (acquisition -\> infilling -\> Monte
   Carlo -\> statistics -\> GP depth trends) against real SSURGO data.
-  Three more vignettes cover profile/depth simulation, available water
-  storage via Van Genuchten/ROSETTA, and multi-source raster fusion
-  (SSURGO x SOLUS100).
+  Further vignettes cover profile and depth simulation, available water
+  storage via Van Genuchten/ROSETTA, multi-source raster fusion (SSURGO
+  x SOLUS100), per-pixel fused ensembles, and function-by-function tours
+  of each subsystem.
 - **Function reference**: grouped by pipeline area (data acquisition,
   distribution fitting, Monte Carlo, GP modeling, Bayesian fusion, and
   the SSURGO/SOLUS100 adapters) rather than a flat alphabetical list.

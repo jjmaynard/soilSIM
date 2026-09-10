@@ -3,7 +3,7 @@
 \name{quantile_metalog_linear_with_fallback}
 \alias{quantile_metalog_linear_with_fallback}
 \title{Metalog quantile with automatic fallback to \code{linear_cdf} for infeasible
-cells - validated upstream: zero effect on feasible cells, exact
+cells - zero effect on feasible cells, exact
 \code{linear_cdf} match on infeasible ones.}
 \usage{
 quantile_metalog_linear_with_fallback(

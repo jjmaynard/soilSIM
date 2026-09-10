@@ -2,7 +2,7 @@
 % Please edit documentation in R/statistics.R
 \name{validate_statistical_results}
 \alias{validate_statistical_results}
-\title{Validate Statistical Results (Enhanced)}
+\title{Validate Statistical Results}
 \usage{
 validate_statistical_results(
   correlation_analysis,
@@ -24,8 +24,8 @@ validate_statistical_results(
 \item{config}{Configuration}
 }
 \value{
-Enhanced validation results
+validation results
 }
 \description{
-Enhanced validation using Module 0 utilities
+Validate Statistical Results
 }

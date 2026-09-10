@@ -2,7 +2,7 @@
 % Please edit documentation in R/monte-carlo.R
 \name{sim_component_compositions}
 \alias{sim_component_compositions}
-\title{Simulate Component Compositions (Enhanced)}
+\title{Simulate Component Compositions}
 \usage{
 sim_component_compositions(
   component_data,
@@ -26,5 +26,5 @@ of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 List with simulated component compositions and quality metrics
 }
 \description{
-Enhanced component composition simulation
+Simulate Component Compositions
 }

@@ -1,18 +1,13 @@
 #' @title Bayesian Updating: Conjugate Fusion and General Grid-KDE Fusion
 #'
-#' @description Standalone toolkit for fusing a prior belief distribution with
-#'   a likelihood (e.g. an SSURGO-derived prior against field-measured data),
-#'   ported from `code_ref/brdf/bayesian_updating.R` and the validated
-#'   `code_ref/reanalysis-platform/{bayes_fuse.R, reanalysis-platform-fusion.R,
-#'   texture_ilr_fusion.R}` bundle (there raster-native; here plain-vector/
-#'   scalar, since the underlying math is ordinary base-R arithmetic once
-#'   `terra::` is stripped out).
+#' @description Scalar (plain-vector) toolkit for fusing a prior belief
+#'   distribution with a likelihood (e.g. an SSURGO-derived prior against
+#'   field-measured data).
 #'
-#'   **This module is intentionally NOT called anywhere in `monte-carlo.R`.**
-#'   It is a standalone, independently-tested set of building blocks for a
-#'   future "update an SSURGO-derived prior against observed/field data"
-#'   feature - not wired into the main Monte Carlo simulation pipeline in
-#'   this pass.
+#'   These are standalone building blocks. The raster fusion pipeline in
+#'   `raster-fusion.R` supplies the equivalent primitives used in the
+#'   production SSURGO x SOLUS100 workflow; the tabular Monte Carlo pipeline
+#'   in `monte-carlo.R` does not call these functions directly.
 #'
 #'   Three tiers, in increasing order of generality/cost:
 #'   1. `bayes_update_normal_normal()` - exact, closed-form, Normal-only.
@@ -30,8 +25,8 @@
 #'   in whichever role order `monte-carlo.R`'s `composition_groups$texture$members`
 #'   configures - see `distributions.R`'s ILR section header), since
 #'   independent per-fraction fusion (e.g. three separate `fuse_beta()`
-#'   calls) measurably breaks sum-to-100 (documented upstream: up to 10.5
-#'   percentage points on realistic synthetic data).
+#'   calls) measurably breaks sum-to-100 (up to about 10 percentage points on
+#'   realistic synthetic data).
 #' @name bayesian_updating
 NULL
 
@@ -246,7 +241,7 @@ bayes_fuse <- function(prior_params, lik_params, family = c("normal", "beta", "g
 #' path, not a convenience wrapper around the resampled `samples` vector.
 #'
 #' @section Known limitation (raw-draws fusion vs. percentile-reconstruction fusion):
-#' A dedicated adversarial test (`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.7) found that for
+#' A dedicated adversarial test found that for
 #' a skewed prior fused against a weak/wide likelihood, `soilSIM`'s `prior_fusion_method =
 #' "raw_draws"` route (a genuine empirical resample as the prior side) can produce a fused posterior
 #' mean measurably *less* close to the prior population's true mean than the default

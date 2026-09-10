@@ -1,4 +1,4 @@
-# System Utilities & Helpers - Module 8 (INTEGRATED VERSION)
+# Shared utilities and helpers
 # Core utility functions supporting all soil simulation workflow modules
 # Provides data validation, transformations, I/O, logging, configuration management
 # This module serves as the central utility hub for Modules 1 and 2
@@ -39,7 +39,7 @@ is_unsuitable <- function(data,
   hznames <- as.character(hznames)
   hznames[is.na(hznames)] <- ""
 
-  # Check what additional columns are available for enhanced detection
+  # Check what additional columns are available for fuller detection
   has_desgnmaster <- "desgnmaster" %in% names(data)
   has_restriction_top <- "restriction_top" %in% names(data)
   has_hzdept_r <- "hzdept_r" %in% names(data)
@@ -50,10 +50,8 @@ is_unsuitable <- function(data,
   n <- length(hznames)
   unsuitable <- rep(FALSE, n)
 
-  # PERF: toupper()/trimws() were previously recomputed per-row inside the loop below (called
-  # from multiple pipeline stages on overlapping data - see PERFORMANCE_IMPROVEMENT_PLAN.md Tier
-  # 2) - vectorized once here instead. The loop's own classification logic (which pattern a given
-  # row matches) stays row-dependent and unchanged.
+  # toupper()/trimws() are vectorized once here rather than per-row inside the loop below.
+  # The loop's own classification logic (which pattern a given row matches) stays row-dependent.
   hz_upper <- toupper(trimws(hznames))
   master_upper <- if (has_desgnmaster) toupper(trimws(as.character(data$desgnmaster))) else rep(NA_character_, n)
 
@@ -265,7 +263,7 @@ validate_data_quality <- function(data,
     )
   })
 
-  # Step 2: Numeric data validation with enhanced error handling
+  # Step 2: Numeric data validation with error handling
   log_message("DEBUG", "Numeric data validation", category = "Validation")
 
   tryCatch({
@@ -1937,11 +1935,7 @@ write_excel_with_metadata <- function(data, file_path, include_metadata) {
 # every known alias/synonym for that property (including common short forms
 # and the non-suffixed base name). `get_default_property_mapping("ssurgo")`,
 # `get_default_synonyms("ssurgo")`, and `validate_properties_with_synonyms()`
-# all previously maintained independent, overlapping copies of this
-# knowledge that could silently drift out of sync - they now all derive from
-# this one table instead. Each function's own entry vector here is the union
-# of what all three previously listed for that property, so no existing
-# alias/synonym recognized by any of them is lost.
+# all derive from this one table, so they cannot drift out of sync.
 .ssurgo_property_synonyms <- function() {
   list(
     "claytotal_r"   = c("claytotal", "clay_total", "clay_r", "clay", "clay_pct"),
@@ -1958,7 +1952,7 @@ write_excel_with_metadata <- function(data, file_path, include_metadata) {
     "rfv_r"         = c("rfv", "rock_fragments", "fragvol"),
     "ksat_r"        = c("ksat", "sat_hydraulic_cond"),
     "ec_r"          = c("ec", "electrical_conductivity"),
-    # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2) - "ec_r" above already
+    # 5 chemistry properties - "ec_r" above already
     # existed; the other 4 are new entries.
     "caco3_r"       = c("caco3", "calcium_carbonate"),
     "ecec_r"        = c("ecec", "effective_cec", "effective_cation_exchange"),
@@ -2503,11 +2497,9 @@ get_predefined_properties <- function(source_name) {
   switch(tolower(source_name),
 
          "ssurgo" = {
-           # create_ssurgo_property_lookup_working() lives in ssurgo-acquisition.R
-           # (migrated from mod01_ssurgo_data.R). The tryCatch() below is kept as
-           # defensive degradation (WARN + empty vector) rather than removed,
-           # since this switch statement has no other way to signal "unknown/
-           # unavailable source" short of erroring.
+           # create_ssurgo_property_lookup_working() lives in ssurgo-acquisition.R. The
+           # tryCatch() below degrades to a WARN plus an empty vector, since this switch
+           # has no other way to signal an unknown or unavailable source.
            tryCatch({
              ssurgo_data <- create_ssurgo_property_lookup_working()
              if ("Property" %in% names(ssurgo_data)) {
@@ -2570,7 +2562,6 @@ extract_properties_from_dataframe <- function(df) {
 
 #' Validate Properties with Synonyms
 #'
-#' Enhanced version that includes synonym matching
 #'
 #' @param properties Vector of property names to validate
 #' @param property_lookup Property lookup source
@@ -2578,7 +2569,7 @@ extract_properties_from_dataframe <- function(df) {
 #' @param max_invalid_pct Maximum percentage of invalid properties allowed
 #' @param performance_threshold Performance warning threshold
 #'
-#' @return Enhanced validation results with synonym matching
+#' @return validation results with synonym matching
 #'
 #' @export
 validate_properties_with_synonyms <- function(properties,
@@ -2709,7 +2700,7 @@ validate_properties_with_synonyms <- function(properties,
 #' for callers who need it, not dead/broken code. Its `"ssurgo"` branch
 #' shares the same canonical synonym data as \code{get_default_property_mapping()}
 #' (internal) and \code{\link{validate_properties_with_synonyms}} (see
-#' `.ssurgo_property_synonyms()`), so it can no longer drift from them.
+#' `.ssurgo_property_synonyms()`).
 #'
 #' @export
 get_default_synonyms <- function(property_lookup) {
@@ -2782,12 +2773,8 @@ create_property_lookup <- function(properties, synonyms = NULL, metadata = NULL)
     if (is.null(lookup$synonyms)) {
       return(validate_properties(props, lookup$properties, strict_mode))
     } else {
-      # validate_properties_with_synonyms() has no `synonyms` parameter (it
-      # uses its own internal SSURGO synonym table) - this call previously
-      # passed lookup$synonyms positionally into strict_mode's slot and
-      # strict_mode into max_invalid_pct's slot, silently mis-validating
-      # whenever a property_lookup object had synonyms set. Pass strict_mode
-      # by name to the actual signature instead.
+      # validate_properties_with_synonyms() has no `synonyms` parameter (it uses its own
+      # internal SSURGO synonym table). Pass strict_mode by name to match the actual signature.
       return(validate_properties_with_synonyms(props, lookup$properties, strict_mode = strict_mode))
     }
   }
@@ -2817,27 +2804,14 @@ create_property_lookup <- function(properties, synonyms = NULL, metadata = NULL)
 #' @return Comprehensive geometry validation results
 #'
 #' @section Implementation note:
-#' This is the package's single live WKT validation entry point. It delegates
-#' to the granular validators below (`validate_wkt_string()`,
+#' This is the package's single WKT validation entry point. It delegates to
+#' the granular validators below (`validate_wkt_string()`,
 #' `validate_geometry_validity()`, `validate_geometry_complexity()`,
 #' `validate_geographic_context()`/`validate_projected_context()`) rather than
-#' duplicating their logic inline, so `validation_context`, `complexity_limits`,
-#' and `strict_mode` are now all actually read (previously accepted but
-#' silently ignored). `ssurgo-acquisition.R`'s own downstream code already
-#' expected the nested `geometry_stats$complexity_validation$complexity_stats`
-#' shape this now produces (see its `complexity_score %||% NA` fallback,
-#' previously always hitting the `NA` branch).
-#'
-#' Fixed a real, previously-silent bug while doing this: the old
-#' implementation's outer `tryCatch(..., error = function(e) {...})` never
-#' assigned the `tryCatch()` call's own result back to `validation_result` -
-#' assignments inside the `error =` handler only modified a local copy inside
-#' that handler's own function scope, discarded when it returned. This meant
-#' a WKT string that failed to parse (e.g. malformed syntax) still made this
-#' function return `valid = TRUE` with placeholder geometry stats, silently
-#' passing invalid input through as valid. Fixed by capturing `tryCatch()`'s
-#' return value directly instead of relying on `<-` inside the error handler
-#' to reach the outer scope.
+#' duplicating their logic inline. `validation_context`, `complexity_limits`,
+#' and `strict_mode` are all read. The result is the nested
+#' `geometry_stats$complexity_validation$complexity_stats` shape that
+#' `ssurgo-acquisition.R`'s downstream code expects.
 #'
 #' @export
 validate_wkt_geometry <- function(wkt_string,
@@ -2940,15 +2914,13 @@ validate_wkt_geometry <- function(wkt_string,
       )
     }
 
-    # Complexity check - wires the previously-unused `complexity_limits`
-    # parameter through to validate_geometry_complexity(). Warning-only, so
-    # this can never flip an otherwise-valid geometry to invalid.
+    # Complexity check - passes `complexity_limits` through to validate_geometry_complexity().
+    # Warning-only, so it can never flip an otherwise-valid geometry to invalid.
     complexity_check <- validate_geometry_complexity(geom, complexity_limits)
     validation_result$geometry_stats$complexity_validation <- complexity_check
     validation_result$warnings <- c(validation_result$warnings, complexity_check$warnings)
 
-    # Context-specific checks - wires the previously-unused
-    # `validation_context` parameter through to
+    # Context-specific checks - passes `validation_context` through to
     # validate_geographic_context()/validate_projected_context().
     context_check <- switch(validation_context,
       "geographic" = validate_geographic_context(geom, strict_mode = strict_mode),

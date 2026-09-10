@@ -2,7 +2,7 @@
 % Please edit documentation in R/monte-carlo.R
 \name{estimate_property_correlations}
 \alias{estimate_property_correlations}
-\title{Estimate a Correlation Matrix from Simulation Parameters (Real Implementation)}
+\title{Estimate a Correlation Matrix from Simulation Parameters}
 \usage{
 estimate_property_correlations(
   simulation_params,
@@ -37,13 +37,11 @@ fitted mean/mode for each property (for composition-group pseudo-properties
 like ilr1/ilr2 there's no raw \verb{_r} column, so the fitted mean IS the
 representative value) - plus \code{genhz} from \code{simulation_data} if present,
 then calls \code{distributions.R}'s \code{estimate_correlation_matrix_robust()}
-(\code{Hmisc::rcorr()} + PD-repair, genhz-stratified when possible). Previously
-this was a placeholder always returning \code{valid=FALSE}, so
-\code{auto_correlation=TRUE} silently fell back to the identity matrix.
+(\code{Hmisc::rcorr()} + PD-repair, genhz-stratified when possible).
 }
 \details{
 When \code{config$monte_carlo$correlation_fallback == "kssl_global"} (opt-in;
-defaults to \code{"identity"}, today's exact behavior), a group that fails
+defaults to \code{"identity"}), a group that fails
 empirical estimation falls back to that group's own KSSL reference
 correlation matrix (\code{kssl-reference-correlations.R}) instead of being
 dropped, and the final identity fallback becomes a KSSL-pooled matrix

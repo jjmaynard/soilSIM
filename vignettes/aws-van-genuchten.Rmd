@@ -17,8 +17,8 @@ Available water storage (AWS) - how much plant-available water a soil can hold -
 the van Genuchten (1980) water-retention curve, whose shape parameters soilSIM estimates via
 `soilDB::ROSETTA()`, a live pedotransfer-function API. This vignette derives real AWS estimates
 for real soil components from the same Amador-area AOI used in the "Getting Started" vignette. See
-`soilSIM/docs/07_aws_van_genuchten_modeling.md` for the full function-level reference, including two
-intentional, ported-as-is quirks in `simulate_vg_aws()` this vignette doesn't need to touch.
+the "AWS / Van Genuchten Modeling" architecture article for the full function-level reference,
+including two behavioral notes on `simulate_vg_aws()` this vignette doesn't need to touch.
 
 ```{r setup}
 library(soilSIM)

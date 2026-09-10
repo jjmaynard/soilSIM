@@ -8,20 +8,12 @@ Matrix Utilities}
 Shared foundation used by both \code{statistics.R} and
 \code{monte-carlo.R} (and, for the ILR pieces, \code{bayesian-updating.R}).
 
-The percentile-triplet fitting/quantile functions below are adapted from
-validated closed-form math originally written as \code{terra::SpatRaster}
-arithmetic (\code{code_ref/reanalysis-platform/distribution_fitting_raster.R}):
-stripped of all \verb{terra::} calls, the underlying math is ordinary base-R
-vector arithmetic, so it ports directly. The Beta fit (vectorized
-Newton-Raphson MLE) was validated there against \code{fitdistrplus::fitdist()}
-to ~1e-3 to 1e-5; the metalog fit (exact linear solve when the number of
-interior percentiles equals the number of terms) was validated to ~1e-12
-against \code{rmetalog::metalog()} - this project therefore never needs the
-\code{rmetalog} package (which \code{code_ref/brdf/distribution_fitting.R}
-documents as prone to hangs and a reproduced segfault).
+The percentile-triplet fitting/quantile functions are closed-form base-R vector
+arithmetic. The Beta fit is a vectorized Newton-Raphson MLE (matches
+\code{fitdistrplus::fitdist()} to ~1e-3 to 1e-5); the metalog fit is an exact linear solve
+when the number of interior percentiles equals the number of terms (matches
+\code{rmetalog::metalog()} to ~1e-12), so the \code{rmetalog} package is not required.
 
-The ILR (isometric log-ratio) transform is ported verbatim from
-\code{code_ref/reanalysis-platform/texture_ilr_fusion.R}, itself validated to
-match \code{compositions::ilr()} exactly - so this package needs no
-\code{compositions} dependency either.
+The ILR (isometric log-ratio) transform matches \code{compositions::ilr()} exactly, so the
+\code{compositions} package is not required either.
 }

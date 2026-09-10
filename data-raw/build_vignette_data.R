@@ -123,8 +123,7 @@ Sys.unsetenv("PROJ_LIB")
 aoi <- terra::vect(salinas_wkt, crs = "epsg:4326")
 aoi <- terra::project(aoi, "epsg:5070")
 
-# Fixed seed so the cached fusion .rds objects regenerate deterministically (opt-in via the
-# `seed` argument, MULTI_PROPERTY_FUSION_PLAN.md B9). Determinism is still conditional on the
+# Fixed seed so the cached fusion .rds objects regenerate deterministically (opt-in via the `seed` argument). Determinism is still conditional on the
 # live SSURGO/SOLUS data itself being unchanged between runs.
 VIGNETTE_SEED <- 20260903L
 

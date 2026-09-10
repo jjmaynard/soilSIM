@@ -34,5 +34,5 @@ Saxton-Rawls pedotransfer equations (simplified/RFV-corrected variant).
 Real, checkable math (not a placeholder) - inputs are clamped to
 physically plausible ranges and texture percentages are renormalized to
 sum to 100 when off by more than 5 points. The coefficient-bearing core is
-\code{\link[=.saxton_rawls_gravimetric]{.saxton_rawls_gravimetric()}}, shared with the raster path.
+the internal \code{.saxton_rawls_gravimetric()}, shared with the raster path.
 }

@@ -45,8 +45,7 @@ The full group result: a named list keyed by member id, each element
 non-compositional properties get) - or \code{NULL} if any member's SSURGO/SOLUS fetch failed.
 \code{run_stage1_fusion()}'s own dispatch slices this down to the single requested member
 (\code{group_result[[property_config$id]]}) to keep its own per-property return contract
-consistent regardless of \code{dist}. \code{percentiles} (added
-\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P3.6) is THIS member's own fraction's
+consistent regardless of \code{dist}. \code{percentiles} is THIS member's own fraction's
 percentiles (a named list of \code{SpatRaster}s) - see \code{fuse_texture_group()}'s \verb{@section Sum-to-100 caveat}: unlike \code{value}, these do NOT generally sum to 100 across the group's three
 members.
 }
@@ -66,17 +65,12 @@ fetch+fusion exactly once, not three times.
 
 Set \code{prior_fusion_method = "raw_draws"} on ANY member's \code{property_configs} entry to fuse the
 whole group against the real joint (clay, sand, silt) Monte Carlo draws instead of independent
-percentile-reconstructed marginals - see \code{fuse_texture_group()}'s docs and
-\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.4/P2.5. Checked across all members (not just
-one) since the group is always fused jointly regardless of which member's config carries the
-setting. Like \code{run_stage1_fusion()}'s equivalent section, this forces the shared simulation to
-run even when every member's own \code{"ssurgo"} percentile cache is already warm (the draws that
-produced those cached percentiles weren't kept - see \code{simulate_ssurgo_mapunit_draws()}'s docs).
-Unset on every member (default) preserves the original percentile-reconstruction behavior
-exactly. \strong{Unlike \code{run_stage1_fusion()}'s P2.10 default flip, this default is intentionally
-unchanged} - the joint texture-group raw-draws route
-(\code{fuse_texture_group_batch_core()}'s per-cell Cholesky/MC sampler) has no equivalent
-\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} P2.9-style cost benchmark yet, so flipping its default
-too would be an unverified assumption, not a data-driven decision.
+percentile-reconstructed marginals - see \code{fuse_texture_group()}'s docs. It is checked across
+all members (not just one), since the group is always fused jointly regardless of which
+member's config carries the setting. This forces the shared simulation to run even when every
+member's own \code{"ssurgo"} percentile cache is already warm (the draws that produced those cached
+percentiles are not kept - see \code{simulate_ssurgo_mapunit_draws()}'s docs). Unset on every
+member (default) uses the percentile-reconstruction path; unlike \code{run_stage1_fusion()}, the
+joint texture-group route does not default to raw draws.
 }
 

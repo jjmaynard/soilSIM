@@ -24,7 +24,7 @@ of the first member preserved) with the group's pseudo-property names
 (e.g. \code{"ilr1"}/\code{"ilr2"}) so they can flow through the existing generic
 Cholesky-copula simulation machinery like any other property. If only
 some members are present, the group stays inactive (a logged WARN) and
-those properties simulate independently via the legacy path.
+those properties simulate independently.
 }
 \details{
 \code{members} declares which real property occupies \code{ilr_forward()}/

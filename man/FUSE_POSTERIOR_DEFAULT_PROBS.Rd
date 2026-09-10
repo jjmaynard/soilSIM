@@ -4,7 +4,7 @@
 \name{FUSE_POSTERIOR_DEFAULT_PROBS}
 \alias{FUSE_POSTERIOR_DEFAULT_PROBS}
 \title{Default posterior percentile set computed by \code{fuse_general_kde()} (and, as later routes adopt
-it, every other fusion route - see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P3.2+).}
+it, every other fusion route).}
 \format{
 An object of class \code{numeric} of length 9.
 }
@@ -13,7 +13,7 @@ FUSE_POSTERIOR_DEFAULT_PROBS
 }
 \description{
 Default posterior percentile set computed by \code{fuse_general_kde()} (and, as later routes adopt
-it, every other fusion route - see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P3.2+).
+it, every other fusion route).
 }
 \section{Why 9 points, not the 5-point SSURGO/SOLUS input convention}{
 
@@ -28,8 +28,8 @@ median/IQR.
 
 \section{Reliability note}{
 
-For the closed-form analytic routes (\code{qnorm}/\code{qbeta}/\code{qgamma}, not yet on this constant as of
-P3.2 - see P3.3), extra percentiles are free and exact regardless of how extreme they are. For
+For the closed-form analytic routes (\code{qnorm}/\code{qbeta}/\code{qgamma}), extra percentiles are free
+and exact regardless of how extreme they are. For
 \code{fuse_general_kde()}'s sample/grid-based route, percentiles are read directly off
 \code{bayesian_update()}'s discretized \code{posterior_prob} (see that function's own "Grid-based
 percentiles" section) - exact relative to \code{grid_resolution} and NOT resampling-noise-limited,

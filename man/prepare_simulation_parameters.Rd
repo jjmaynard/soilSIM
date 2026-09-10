@@ -2,7 +2,7 @@
 % Please edit documentation in R/monte-carlo.R
 \name{prepare_simulation_parameters}
 \alias{prepare_simulation_parameters}
-\title{Prepare Simulation Parameters (Enhanced)}
+\title{Prepare Simulation Parameters}
 \usage{
 prepare_simulation_parameters(
   simulation_data,
@@ -27,10 +27,10 @@ log level so \code{INFO}-level progress messages print for the duration
 of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 }
 \value{
-Enhanced simulation parameters
+simulation parameters
 }
 \description{
-Enhanced parameter preparation. Composition-group pseudo-properties (e.g.
+Parameter preparation. Composition-group pseudo-properties (e.g.
 \code{"ilr1"}/\code{"ilr2"}) are special-cased: BOTH are fit together, once per
 horizon, via \code{distributions.R}'s \code{estimate_ilr_moments_mc()} from the
 group's real member \verb{_l/_r/_h} triplets - their joint covariance only

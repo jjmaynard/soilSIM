@@ -20,10 +20,8 @@ A \code{nrow(values_mat)} x \code{n} numeric matrix, one row of draws per input 
 \description{
 Vectorized equivalent of calling \code{sim_linear_cdf(probs, values_mat[i, ], n)} once per row of
 \code{values_mat} and rbind-ing the results - built for \code{fuse_general_kde()} (\code{R/raster-fusion.R}),
-where \code{stats::approxfun()} was previously rebuilt once per raster cell (\code{Rprof()} profiling
-attributed ~9\% of \code{fuse_general_kde()}'s total wall-clock to \code{extract_percentile_pairs()}'s
-per-cell dispatch overhead alone, on top of the sampling itself - see
-PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4). All rows must share the same \code{probs} knots (true for a
+where every cell shares the same \code{probs} knots and \code{stats::approxfun()} would otherwise be
+rebuilt once per cell. All rows must share the same \code{probs} knots (true for a
 raster chunk, where every cell's percentile columns are the same fixed set, e.g. P5/P50/P95) -
 this is what makes batching valid; per-row-varying \code{probs} would need the per-row \code{approxfun()}
 approach this function replaces.

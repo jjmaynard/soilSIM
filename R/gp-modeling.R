@@ -17,7 +17,7 @@ NULL
 #' @param min_observations_per_group Minimum total observations per group (default = 15)
 #' @param target_min_groups Minimum number of adequate groups desired (default = 3)
 #' @param max_depth Maximum depth to include in training (default = 250 cm)
-#' @param validation_config Validation configuration from Module 0
+#' @param validation_config Validation configuration from the shared utilities
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Processed data frame ready for GP model building
 #' @export
@@ -38,7 +38,7 @@ prepare_nrcs_training_data <- function(nrcs_combined_data,
   log_message("INFO", paste("Min profiles per group:", min_profiles_per_group), category = "GPModeling")
   log_message("INFO", paste("Max depth:", max_depth, "cm"), category = "GPModeling")
 
-  # Use Module 0 for initial data validation
+  # Initial data validation
   if (is.null(validation_config)) {
     validation_config <- get_default_configuration("validation")
   }
@@ -54,18 +54,15 @@ prepare_nrcs_training_data <- function(nrcs_combined_data,
     log_message("WARN", "Input data quality issues detected", category = "GPModeling")
   }
 
-  # Standardize property names using Module 0
+  # Standardize property names
   processed_data <- standardize_property_names(
     nrcs_combined_data,
     target_standard = "ssurgo"
   )
 
-  # Apply unsuitable horizon detection from Module 0.
-  # NOTE: the original source relied on magrittr's `.` placeholder here
-  # (`%>% mutate(... = is_unsuitable(., ...))`), which substitutes the
-  # piped-in data frame anywhere it appears in the RHS call - not just as
-  # the first argument. The base R pipe (`|>`) has no equivalent behavior
-  # for `.` nested inside another call, so converting to `|>` required
+  # Apply unsuitable-horizon detection from the shared utilities. is_unsuitable() needs the
+  # data frame passed as a named argument (not just piped in), so this is written out rather
+  # than chained:
   # computing the flags against `processed_data` directly beforehand,
   # rather than leaving a now-unbound bare `.` inside mutate().
   unsuitable_horizon_flags <- is_unsuitable(processed_data, strict_mode = TRUE)
@@ -104,7 +101,7 @@ prepare_nrcs_training_data <- function(nrcs_combined_data,
     ) |>
     dplyr::filter(hzdept_r >= 0, hzdepb_r <= max_depth)
 
-  # Use Module 0 safe coalesce for property standardization
+  # Use the shared safe-coalesce helper for property standardization
   property_mappings <- list(
     clay_pct = c("claytotal_r", "clay_r", "clay"),
     sand_pct = c("sandtotal_r", "sand_r", "sand"),
@@ -149,7 +146,6 @@ prepare_nrcs_training_data <- function(nrcs_combined_data,
 
 #' Select Optimal Grouping Strategy
 #'
-#' Enhanced version that uses Module 0 validation utilities
 #'
 #' @param data Input NRCS data
 #' @param min_profiles Minimum profiles per group
@@ -175,7 +171,7 @@ select_optimal_grouping <- function(data, min_profiles, min_obs, target_groups,
     none = list(strategy = "none", required_col = NA)
   )
 
-  # Use Module 0 column validation
+  # Use shared column validation
   available_strategies <- list()
   for (strat_name in names(grouping_strategies)) {
     required_col <- grouping_strategies[[strat_name]]$required_col
@@ -256,7 +252,6 @@ select_optimal_grouping <- function(data, min_profiles, min_obs, target_groups,
 
 #' Validate Training Groups
 #'
-#' Enhanced validation using Module 0 utilities
 #'
 #' @param processed_data Processed NRCS data
 #' @param properties Properties to validate
@@ -276,7 +271,7 @@ validate_training_groups <- function(processed_data,
 
   log_message("INFO", "=== TRAINING GROUP VALIDATION ===", category = "GPModeling")
 
-  # Use Module 0 validation framework
+  # Use the shared validation helpers
   validation_results <- list(
     overall_adequacy = TRUE,
     group_validation = list(),
@@ -323,7 +318,7 @@ validate_training_groups <- function(processed_data,
 
   validation_results$group_validation <- group_summary
 
-  # Property coverage assessment using Module 0 safe operations
+  # Property coverage assessment
   available_properties <- intersect(properties, names(processed_data))
 
   if (length(available_properties) > 0) {
@@ -369,12 +364,10 @@ validate_training_groups <- function(processed_data,
 }
 
 # ============================================================================
-# 2. GP MODEL BUILDING FUNCTIONS (Enhanced with Error Handling)
-# ============================================================================
+# 2. GP MODEL BUILDING FUNCTIONS# ============================================================================
 
 #' Build Stratified GP Models
 #'
-#' Enhanced version with proper Module 0 error handling and validation
 #'
 #' @param processed_nrcs_data Processed NRCS data from prepare_nrcs_training_data()
 #' @param properties Character vector of properties to model
@@ -492,7 +485,6 @@ build_stratified_gp_models <- function(processed_nrcs_data,
 
 #' Fit Individual GP Model
 #'
-#' Enhanced version with better error handling and diagnostics
 #'
 #' @param data Input data for the group
 #' @param property Property name to model
@@ -546,7 +538,7 @@ fit_individual_gp_model <- function(data, property, optimize_hyperparameters = T
     depths <- aggregated_data$hzdept_r
     values <- aggregated_data$mean_value
 
-    # Check for variation using Module 0 safe operations
+    # Check for variation
     if (var(values, na.rm = TRUE) <= 0) {
       log_message("WARN", paste("No variation in", property, "values"), category = "GPModeling")
       return(NULL)
@@ -599,12 +591,12 @@ fit_individual_gp_model <- function(data, property, optimize_hyperparameters = T
 }
 
 # ============================================================================
-# 3. MULTIVARIATE CORRELATION PRESERVATION (From GP-depth-adjust.R)
+# 3. MULTIVARIATE CORRELATION PRESERVATION
 # ============================================================================
 
 #' Adjust Multiple Soil Properties While Preserving Correlations
 #'
-#' Core function from GP-depth-adjust.R that adjusts multiple simulated soil properties
+#' Adjusts multiple simulated soil properties
 #' simultaneously to follow GP-predicted trends while preserving within-depth correlations.
 #'
 #' @param simulated_list A named list of matrices, where each matrix contains simulated
@@ -627,7 +619,7 @@ adjust_multivariate_depthwise_GP <- function(simulated_list, gp_models, depths,
 
   log_message("INFO", "=== MULTIVARIATE GP DEPTH ADJUSTMENT ===", category = "GPModeling")
 
-  # Input validation using Module 0 utilities
+  # Input validation
   if (length(simulated_list) == 0) {
     stop("simulated_list cannot be empty")
   }
@@ -723,13 +715,8 @@ adjust_multivariate_depthwise_GP <- function(simulated_list, gp_models, depths,
       prev_values <- adjusted_matrix[i - 1, ]
       curr_values <- current_matrix[i, ]  # Use original current values
 
-      # PERF: previously called quantile(curr_values, probs = q) once per replicate (n_sims
-      # calls, each recomputing the full quantile of the SAME curr_values vector at a different
-      # single probability) - quantile() accepts a probs VECTOR, so this is one call for all
-      # replicates at once (identical anti-pattern to the already-fixed
-      # apply_quantile_adjustment() in multivariate-adjustment.R - see
-      # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3). unname() matches the original's plain
-      # numeric(n_sims) accumulator (quantile() returns a "37%"-style named vector otherwise).
+      # quantile() accepts a probs VECTOR, so this is one call for all replicates at once.
+      # unname() drops quantile()'s "37%"-style names.
       quantile_values <- unname(stats::quantile(curr_values, probs = reference_quantiles, na.rm = TRUE))
       adjusted_curr <- quantile_values + (prev_values * gp_ratio - quantile_values)
 
@@ -779,7 +766,7 @@ adjust_multivariate_depthwise_GP <- function(simulated_list, gp_models, depths,
 
 #' Validate Correlation Preservation
 #'
-#' Helper function from GP-depth-adjust.R to validate correlation preservation
+#' Validates that correlation structure is preserved after depth-trend adjustment.
 #'
 #' @param original_list Original simulated property list
 #' @param adjusted_list Adjusted property list
@@ -865,8 +852,7 @@ validate_correlation_preservation <- function(original_list, adjusted_list, dept
 
 #' Validate Joint Depth x Property Correlation Structure
 #'
-#' Diagnostic helper for the vertical-correlation redesign (see
-#' `PERFORMANCE_IMPROVEMENT_PLAN.md`-style acceptance testing): unlike
+#' Diagnostic helper for the joint depth x property correlation structure. Unlike
 #' `validate_correlation_preservation()`, which only checks cross-property correlation and (via
 #' its caller `adjust_multivariate_depthwise_GP()`) only at the first 5 depths, this reports BOTH
 #' halves of the joint structure - cross-property correlation at every depth, and depth-lag
@@ -986,15 +972,13 @@ validate_joint_correlation_structure <- function(simulated_list,
 }
 
 # ============================================================================
-# 3b. VERTICAL-CORRELATION REDESIGN: DEPTH CORRELATION KERNEL (Phase 1)
+# 3b. DEPTH CORRELATION KERNEL
 # ============================================================================
 #
-# See VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md. These two functions replace the sequential
-# gp_ratio-nudge in preserve_correlation_structure()/adjust_multivariate_depthwise_GP() with an
-# explicit depth-correlation matrix R_depth, built from a real-distance kernel whose length-scale
-# is extracted from the ALREADY-FITTED, already-cross-validated GPfit model for each property
-# (fit_local_gp_model_single()) rather than a new estimation step. R_depth is consumed by the
-# Phase 2 joint copula sampler as one half of a Kronecker-separable (depth x property) covariance.
+# These two functions build an explicit depth-correlation matrix R_depth from a real-distance
+# kernel whose length-scale is taken from the already-fitted, already-cross-validated GPfit
+# model for each property (fit_local_gp_model_single()). R_depth is consumed by the
+# joint copula sampler as one half of a Kronecker-separable (depth x property) covariance.
 
 #' Extract a Real-Units Depth Length-Scale from a Fitted GP Model
 #'
@@ -1075,10 +1059,9 @@ extract_depth_length_scale <- function(gp_model_list, depth_scaling = NULL, targ
 #' Build a Depth Correlation Kernel Matrix
 #'
 #' Constructs an `n_depths x n_depths` correlation matrix from real depth *distances* (not just
-#' adjacent-lag steps, unlike the sequential `gp_ratio` nudge this is designed to replace - see
-#' `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 1/2), via an exponential or Matern kernel with
-#' a given `length_scale`. Intended as the depth half of a Kronecker-separable
-#' `R_depth (x) R_property` joint covariance (Phase 2's `sample_joint_depth_property_copula()`).
+#' adjacent-lag steps), via an exponential or Matern kernel with a given `length_scale`.
+#' This is the depth half of a Kronecker-separable `R_depth (x) R_property` joint covariance
+#' (see `sample_joint_depth_property_copula()`).
 #'
 #' @param depths Numeric vector of depth values (real units, e.g. cm; need not be evenly spaced or
 #'   sorted - internally sorted for the `boundary_distinctness` gating pass, then mapped back to
@@ -1091,15 +1074,14 @@ extract_depth_length_scale <- function(gp_model_list, depth_scaling = NULL, targ
 #' @param kernel `"exponential"` (default) or `"matern"`.
 #' @param nu Matern smoothness parameter (only used when `kernel = "matern"`); default `1.5`.
 #' @param boundary_distinctness Optional numeric vector, same length as `depths`, of OSD-derived
-#'   `bound_sd` values (see `attach_osd_boundary_distinctness()` -
-#'   `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 1b/1c) - one value per depth, interpreted as
+#'   `bound_sd` values (see `attach_osd_boundary_distinctness()`) - one value per depth, interpreted as
 #'   the distinctness of the boundary immediately ABOVE that depth (in sorted-ascending order; the
 #'   value for the shallowest depth is unused, since there is no boundary above the top of the
 #'   profile). Smaller `bound_sd` (e.g. `aqp::hzDistinctnessCodeToOffset()`'s `abrupt` ~= 1,
 #'   `clear` ~= 2.5) means a sharper real discontinuity and more strongly suppresses correlation
 #'   across that boundary; larger `bound_sd` (`gradual` ~= 7.5, `diffuse` ~= 10) leaves the plain
 #'   distance-decay kernel almost untouched. `NULL` (default) or all-`NA` skips gating entirely,
-#'   reproducing the plain (Phase 1) kernel exactly.
+#'   reproducing the plain distance-decay kernel exactly.
 #' @param distinctness_range Named `c(min=, max=)` giving the `bound_sd` values that map to the
 #'   strongest (`min_gate_weight`) and weakest (`1`, no suppression) gating respectively. Default
 #'   `c(min=1, max=10)` spans `aqp::hzDistinctnessCodeToOffset()`'s actual `abrupt`-to-`diffuse`
@@ -1188,7 +1170,7 @@ build_depth_correlation_kernel <- function(depths, length_scale,
 }
 
 # ============================================================================
-# 4. ENHANCED SOIL PROPERTY SIMULATION (From GP-depth-adjust.R)
+# 4. SOIL PROPERTY SIMULATION
 # ============================================================================
 
 #' Select a Correlation Matrix and Property Set for Single-Cokey Simulation
@@ -1252,7 +1234,7 @@ select_simulation_correlation_matrix <- function(cokey_data, correlation_matrice
 #' long-format data frame with one row per horizon-realization combination,
 #' matching the shape [apply_local_gp_adjustments()], [apply_nrcs_trend_adjustments()],
 #' and [convert_to_property_matrices()] expect (a `simulation_number` column
-#' plus one column per property, alongside the original horizon metadata).
+#' plus one column per property, alongside the horizon metadata).
 #'
 #' @param sim_array A `[horizon, property, realization]` array as produced by
 #'   [simulate_correlated_properties()].
@@ -1290,10 +1272,10 @@ flatten_simulation_array_to_long <- function(sim_array, cokey_data) {
   long_df
 }
 
-#' Enhanced Soil Property Simulation with NRCS GP Models + Cholesky Correlations
+#' Soil Property Simulation with NRCS GP Models and Cholesky Correlations
 #'
-#' Complete implementation from GP-depth-adjust.R that combines triangular distribution
-#' + Cholesky approach with NRCS GP models for realistic depth trends
+#' Combines triangular-distribution + Cholesky-correlated sampling with NRCS GP
+#' models for realistic depth trends.
 #'
 #' @param target_cokey Character string of the cokey to simulate
 #' @param nrcs_gp_models Your fitted NRCS GP models (optional)
@@ -1306,7 +1288,7 @@ flatten_simulation_array_to_long <- function(sim_array, cokey_data) {
 #' @param preserve_correlations Whether to preserve within-depth correlations
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #'
-#' @return Enhanced simulation results with realistic depth trends and preserved correlations
+#' @return simulation results with realistic depth trends and preserved correlations
 #' @export
 simulate_soil_properties <- function(target_cokey,
                                               nrcs_gp_models = NULL,
@@ -1322,7 +1304,7 @@ simulate_soil_properties <- function(target_cokey,
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
-  log_message("INFO", "=== ENHANCED SOIL PROPERTY SIMULATION ===", category = "GPModeling")
+  log_message("INFO", "=== SOIL PROPERTY SIMULATION ===", category = "GPModeling")
   log_message("INFO", paste("Target cokey:", target_cokey), category = "GPModeling")
   log_message("INFO", paste("Simulations:", n_simulations, "Use NRCS GP:", use_nrcs_gp, "Preserve correlations:", preserve_correlations), category = "GPModeling")
 
@@ -1399,7 +1381,7 @@ simulate_soil_properties <- function(target_cokey,
     )
   }
 
-  log_message("INFO", paste("Enhanced simulations completed with", nrow(enhanced_simulations), "rows"), category = "GPModeling")
+  log_message("INFO", paste("Simulations completed with", nrow(enhanced_simulations), "rows"), category = "GPModeling")
 
   # Step 3: Add validation and summary statistics
   log_message("INFO", "Step 3: Validating results...", category = "GPModeling")
@@ -1416,7 +1398,7 @@ simulate_soil_properties <- function(target_cokey,
   attr(enhanced_simulations, "use_nrcs_gp") <- use_nrcs_gp
   attr(enhanced_simulations, "preserve_correlations") <- preserve_correlations
 
-  log_message("INFO", "=== ENHANCED SIMULATION COMPLETE ===", category = "GPModeling")
+  log_message("INFO", "=== SIMULATION COMPLETE ===", category = "GPModeling")
 
   return(enhanced_simulations)
 }
@@ -1427,7 +1409,6 @@ simulate_soil_properties <- function(target_cokey,
 
 #' Match Soils to GP Models
 #'
-#' Enhanced version with better error handling and fallback strategies
 #'
 #' @param simulated_cokeys Vector of cokeys from simulation data
 #' @param nrcs_combined_data Original NRCS data used for GP training
@@ -1523,7 +1504,6 @@ match_soils_to_gp_models <- function(simulated_cokeys,
 
 #' Predict GP Depth Trends
 #'
-#' Enhanced version with better error handling
 #'
 #' @param gp_model_info GP model information from fit_individual_gp_model()
 #' @param new_depths Vector of depths for prediction
@@ -1562,12 +1542,10 @@ predict_gp_depth_trends <- function(gp_model_info, new_depths,
 }
 
 # ============================================================================
-# 6. MODEL VALIDATION AND DIAGNOSTICS (Enhanced)
-# ============================================================================
+# 6. MODEL VALIDATION AND DIAGNOSTICS# ============================================================================
 
 #' Validate GP Models
 #'
-#' Enhanced validation with comprehensive diagnostics
 #'
 #' @param gp_models List of GP models from build_stratified_gp_models()
 #' @param nrcs_data Original NRCS training data
@@ -1712,7 +1690,7 @@ validate_gp_models <- function(gp_models, nrcs_data, validation_depths = seq(0, 
 }
 
 # ============================================================================
-# 7. SUPPORTING HELPER FUNCTIONS (Leveraging Module 0)
+# 7. SUPPORTING HELPER FUNCTIONS
 # ============================================================================
 
 # Create soil groups based on strategy
@@ -2108,8 +2086,7 @@ k_fold_gp_cv <- function(X, Y, n_folds, corr_candidates, gp_control = c(20, 10, 
 #'   (`k_fold_gp_cv()`'s per-fold fits, the winning-candidate refit, and the fallback/baseline
 #'   fits) - see `fit_individual_gp_model()`'s docs for why the default is much smaller than
 #'   `GP_fit()`'s own default. With the default 5 folds x 3 correlation candidates + a refit,
-#'   this is ~16 `GP_fit()` calls per invocation - the single highest-multiplier fix in the
-#'   package's performance audit (see PERFORMANCE_IMPROVEMENT_PLAN.md).
+#'   this is ~16 `GP_fit()` calls per invocation.
 #'
 #' @return A `"GP"`-classed [GPfit::GP_fit()] model, with a `cv_results`
 #'   attribute describing the cross-validation that selected it.
@@ -2126,9 +2103,8 @@ optimize_gp_hyperparameters <- function(X, Y, n_folds = 5, gp_control = c(20, 10
 
     effective_folds <- max(2, min(n_folds, n))
 
-    # Cross-validation needs at least 2 training points per fold to be
-    # meaningful; fall back to a single baseline model otherwise (matches
-    # the previous stub's behavior for very small inputs).
+    # Cross-validation needs at least 2 training points per fold to be meaningful; fall back
+    # to a single baseline model otherwise.
     cv <- if (n >= 2 * effective_folds) {
       k_fold_gp_cv(X, Y, effective_folds, corr_candidates, gp_control = gp_control)
     } else {
@@ -2204,7 +2180,7 @@ calculate_model_diagnostics <- function(gp_model, training_data, property) {
   return(diagnostics)
 }
 
-# Trend assessment functions (using Module 0 safe operations)
+# Trend assessment functions (using shared safe operations)
 assess_trend_monotonicity <- function(predictions) {
   if (length(predictions) < 3 || all(is.na(predictions))) {
     return(NA)
@@ -2299,9 +2275,8 @@ apply_nrcs_gp_adjustments_with_correlations <- function(simulation_data, nrcs_gp
 
 #' Apply Local GP Adjustments With Correlation Preservation
 #'
-#' Delegates to the real [apply_local_gp_adjustments()] (`multivariate-adjustment.R`,
-#' migrated from mod07), inferring the `properties` argument that function
-#' requires (as the numeric, non-structural columns of `simulation_data`),
+#' Delegates to [apply_local_gp_adjustments()], inferring the `properties` argument that
+#' function requires (as the numeric, non-structural columns of `simulation_data`),
 #' since this function's own signature does not accept one explicitly.
 #'
 #' @param simulation_data Simulated soil property data for one cokey.

@@ -17,6 +17,5 @@ extract_component_parameters(component_row, config)
 \description{
 Extracts \code{min}/\code{mode}/\code{max} for one component row from its
 \code{comppct_l}/\code{comppct_r}/\code{comppct_h} triplet, filling missing
-\code{comppct_l}/\code{comppct_h} from \verb{comppct_r -/+ 2} (matching the legacy
-\code{sim_component_comp()} fallback).
+\code{comppct_l}/\code{comppct_h} from \verb{comppct_r -/+ 2}.
 }

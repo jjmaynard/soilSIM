@@ -2,7 +2,7 @@
 % Please edit documentation in R/monte-carlo.R
 \name{extract_property_parameters}
 \alias{extract_property_parameters}
-\title{Extract Simulation Parameters for One Horizon/Property (Enhanced)}
+\title{Extract Simulation Parameters for One Horizon/Property}
 \usage{
 extract_property_parameters(
   horizon_data,
@@ -30,8 +30,5 @@ Resolves the property's distribution family - from
 \code{config$monte_carlo$property_distributions[[property_name]]$family}, else
 \code{config$monte_carlo$distribution_type} (default \code{"triangular"}) - and fits
 family-appropriate parameters from its SSURGO \verb{_l/_r/_h} triplet via
-\code{distributions.R}'s \code{fit_percentile_triplet()}. Previously this only ever
-returned \code{list(min=, mode=, max=)} regardless of the requested
-\code{distribution_type}, so \code{"normal"}/\code{"beta"} silently produced \code{NA} values
-downstream (their shape parameters were never actually computed).
+\code{distributions.R}'s \code{fit_percentile_triplet()}.
 }

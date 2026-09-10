@@ -19,11 +19,10 @@ maybe_adjust_soil_data_depth_trend(
 
 \item{properties}{Character vector of property column names to adjust.}
 
-\item{min_depths}{Minimum distinct depths required to attempt GP fitting (default 2, matching
-the source's \code{length(unique_depths) >= 2} guard).}
+\item{min_depths}{Minimum distinct depths required to attempt GP fitting (default 2).}
 
 \item{parallel}{Logical; if \code{TRUE}, process cokeys across multiple \code{future::multisession}
-worker processes (default \code{FALSE} - sequential, matching prior behavior exactly). Falls back
+worker processes (default \code{FALSE}, sequential). Falls back
 to sequential processing if the parallel setup itself errors. See \code{run_parallel_lapply()}
 (\code{R/parallel-utils.R}).}
 
@@ -33,10 +32,12 @@ to sequential processing if the parallel setup itself errors. See \code{run_para
 \item{config}{Optional Monte Carlo config, passed through to
 \code{adjust_one_cokey_depth_trend()} -> \code{apply_local_gp_adjustments()} ->
 \code{apply_gp_depth_trends()}. \code{config$monte_carlo$vertical_correlation_method} (default
-\code{"joint_copula"} as of \code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 13; set to
-\code{"gp_quantile_retrofit"} to opt back into the original algorithm) selects the
+\code{"joint_copula"}, or \code{"gp_quantile_retrofit"}) selects the
 vertical-correlation method; \code{NULL} (default) resolves to \code{"joint_copula"}, matching
 \code{get_monte_carlo_defaults()}'s own default.}
+
+\item{seed}{Optional integer. When set, seeds the parallel depth-trend path via
+\code{future.seed}. \code{NULL} (default) leaves the RNG stream unseeded.}
 }
 \value{
 \code{sim_long}, depth-trend-adjusted where possible.
@@ -45,13 +46,12 @@ vertical-correlation method; \code{NULL} (default) resolves to \code{"joint_copu
 Applies \code{apply_local_gp_adjustments()} (\code{R/multivariate-adjustment.R} - fits its own local GP
 per property from each cokey's own within-simulation depth trend, no pre-supplied GP models
 needed) per cokey, when \code{GPfit} is installed and a cokey has enough distinct depths. Cokeys
-with fewer than \code{min_depths} distinct depths pass through unadjusted, exactly as the original
-per-cokey guard did.
+with fewer than \code{min_depths} distinct depths pass through unadjusted.
 }
 \details{
 Each cokey's GP fitting is completely independent of every other cokey's, so this step is
-embarrassingly parallel - profiling on a real AOI showed it as the dominant cost of the whole
+embarrassingly parallel and is the dominant cost of the whole
 SSURGO simulation pipeline (see \code{apply_local_gp_adjustments()}/\code{fit_local_gp_model_single()}),
 so for AOIs with many cokeys, \code{parallel = TRUE} can give a further speedup roughly proportional
-to available cores on top of the sequential-path optimizations already applied there.
+to available cores.
 }

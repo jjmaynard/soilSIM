@@ -31,7 +31,7 @@ quantile function (\verb{mean = integral of Q(p) dp}, \verb{var = integral of Q(
 \section{Known limitation}{
 
 This is new glue code with no prior validated version (unlike the rest of
-this file's math, which was validated upstream against \code{fitdistrplus}/
+this file's math, which was validated against \code{fitdistrplus}/
 closed-form references) - spot-check against real data before trusting it
 in production, per the original source bundle's own caveat.
 

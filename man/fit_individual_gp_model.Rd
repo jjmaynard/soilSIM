@@ -34,5 +34,5 @@ refit), or by the direct \code{GP_fit()} call when \code{optimize_hyperparameter
 List containing GP model and diagnostics
 }
 \description{
-Enhanced version with better error handling and diagnostics
+Fit Individual GP Model
 }

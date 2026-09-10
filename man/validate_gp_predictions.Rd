@@ -21,5 +21,5 @@ validate_gp_predictions(
 GP prediction validation
 }
 \description{
-Enhanced GP prediction validation using Module 5 functions.
+Validate GP Predictions
 }

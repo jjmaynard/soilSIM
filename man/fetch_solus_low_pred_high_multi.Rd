@@ -31,7 +31,7 @@ request one.
 \description{
 Batched sibling of \code{fetch_solus_low_pred_high()}: \code{soilDB::fetchSOLUS()} accepts \code{variables},
 \code{depth_slices}, and \code{output_type} all as vectors simultaneously (live-verified 2026-09-04 - see
-\code{planning-docs/MULTI_PROPERTY_FUSION_PLAN.md} task S1), so every variable's low/prediction/high
+), so every variable's low/prediction/high
 rasters for a window can be fetched in \strong{one} network call instead of \code{3 * length(solus_variables)}
 separate ones. The returned layer-naming convention (\code{paste0(variable, "_", depth, "_cm_", suffix)}) was confirmed identical to the single-variable case for the fully-batched request
 (\code{nlyr} matched \code{length(variables) * length(depth_slices) * length(output_type)} exactly, no

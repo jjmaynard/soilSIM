@@ -2,7 +2,7 @@
 % Please edit documentation in R/ssurgo-acquisition.R
 \name{validate_download_inputs_ssurgo_with_config}
 \alias{validate_download_inputs_ssurgo_with_config}
-\title{Enhanced SSURGO Download Input Validation (Wrapper)}
+\title{SSURGO Download Input Validation (Wrapper)}
 \usage{
 validate_download_inputs_ssurgo_with_config(
   aoi_wkt,
@@ -24,9 +24,8 @@ validate_download_inputs_ssurgo_with_config(
 \item{log_validation}{Whether to enable detailed logging}
 }
 \value{
-Enhanced validation results
+validation results
 }
 \description{
-Convenience wrapper that provides additional configuration options
-and integrates with Module 8 configuration management
+Convenience wrapper that provides additional configuration options.
 }

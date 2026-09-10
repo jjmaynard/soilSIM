@@ -36,7 +36,7 @@ fuse_general_kde(
 \code{bayesian_update()}'s own standalone default of \code{0.01} - see that constant's docs for why.}
 
 \item{mukey_raster, mukey_draws}{Optional - opts into \code{prior_fusion_method = "raw_draws"} (see
-\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.2/P2.3). \code{mukey_raster} must already be
+). \code{mukey_raster} must already be
 aligned to the same grid as \code{prior_value_rasters}/\code{lik_value_rasters} (nearest-neighbor
 resampled, since it's categorical - bilinear would fabricate nonsensical mukey codes).
 \code{mukey_draws} is a \code{mukey_draws_lookup()} result. When both are supplied, the PRIOR side's
@@ -55,7 +55,7 @@ that function's docs). \code{NULL} (default) resolves to \link{FUSE_POSTERIOR_DE
 plain-vector return"), this is an internal orchestration parameter with no external
 plain-vector consumers, so its \code{NULL} means "use the standard rich default" instead. Also used
 to compute \code{mu}/\code{sigma} (via the exact grid-based mean/var, not \code{mean()}/\code{var()} on a resampled
-vector - a strictly more accurate replacement for the pre-P3.2 computation, at no extra cost).}
+vector - a strictly more accurate replacement for the previous computation, at no extra cost).}
 }
 \description{
 Fully general fusion path for \code{fuse_adaptive()}: per cell, draw samples

@@ -21,5 +21,5 @@ Calculates quantiles (5th, 50th, 95th percentiles) and prediction interval width
 properties by mukey and depth, across a wide property basket (sand/silt/clay, bulk density,
 water retention, RFV, pH, CEC, SOC, optional van Genuchten params), and, when texture data and
 the optional \code{soiltexture} package are both available, the most probable USDA soil texture
-class. Ported from \code{code/sim-functions.R:2728}.
+class.
 }

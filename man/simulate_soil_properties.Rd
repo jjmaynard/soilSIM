@@ -2,7 +2,7 @@
 % Please edit documentation in R/gp-modeling.R
 \name{simulate_soil_properties}
 \alias{simulate_soil_properties}
-\title{Enhanced Soil Property Simulation with NRCS GP Models + Cholesky Correlations}
+\title{Soil Property Simulation with NRCS GP Models and Cholesky Correlations}
 \usage{
 simulate_soil_properties(
   target_cokey,
@@ -39,11 +39,9 @@ simulate_soil_properties(
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 }
 \value{
-Enhanced simulation results with realistic depth trends and preserved correlations
+simulation results with realistic depth trends and preserved correlations
 }
 \description{
-Complete implementation from GP-depth-adjust.R that combines triangular distribution
-\itemize{
-\item Cholesky approach with NRCS GP models for realistic depth trends
-}
+Combines triangular-distribution + Cholesky-correlated sampling with NRCS GP
+models for realistic depth trends.
 }

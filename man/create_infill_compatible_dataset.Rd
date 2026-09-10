@@ -28,5 +28,5 @@ Data frame compatible with existing infill workflow
 }
 \description{
 Creates main processed dataset that's fully compatible with infill_soil_property()
-Uses Module 8 utilities for data manipulation
+Uses shared utilities for data manipulation
 }

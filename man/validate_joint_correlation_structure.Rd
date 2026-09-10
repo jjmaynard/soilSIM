@@ -45,8 +45,7 @@ across all depths/properties respectively.}
 }
 }
 \description{
-Diagnostic helper for the vertical-correlation redesign (see
-\code{PERFORMANCE_IMPROVEMENT_PLAN.md}-style acceptance testing): unlike
+Diagnostic helper for the joint depth x property correlation structure. Unlike
 \code{validate_correlation_preservation()}, which only checks cross-property correlation and (via
 its caller \code{adjust_multivariate_depthwise_GP()}) only at the first 5 depths, this reports BOTH
 halves of the joint structure - cross-property correlation at every depth, and depth-lag

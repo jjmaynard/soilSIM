@@ -25,8 +25,7 @@ physical-bound clamp:
 physically impossible values for pH / texture / bulk density, and a very conservative
 \verb{IQR x 5} for everything else. The right default for a package whose job is uncertainty
 propagation: a real tail value is signal, not noise.}
-\item{\code{"aggressive_iqr"}}{generic \verb{IQR x 3} for every property alike (the legacy
-\code{clean_property_data_ssurgo_compatible()} behavior). Opt-in only.}
+\item{\code{"aggressive_iqr"}}{generic \verb{IQR x 3} for every property alike. Opt-in only.}
 \item{\code{"none"}}{skip outlier flagging; still parse, null non-finite, and clamp.}
 }}
 

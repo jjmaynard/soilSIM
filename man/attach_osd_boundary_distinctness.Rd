@@ -15,19 +15,15 @@ shape \code{simulate_ssurgo_mapunit_draws()} builds right after \code{classify_g
 \code{compname}/\code{genhz} combination, \code{NA} for any combination the OSD lookup couldn't resolve).
 On OSD lookup failure (e.g. no network access - \code{query_osd_distinctness()} calls
 \code{soilDB::fetchOSD()}), degrades to an all-\code{NA} \code{bound_sd} column rather than erroring, so
-callers (and the Phase 1c kernel gating, which already treats missing distinctness data as
+callers (and the kernel gating, which treats missing distinctness data as
 "no gating - fall back to the plain kernel") keep working without OSD access.
 }
 \description{
-\code{query_osd_distinctness()}'s \code{bound_sd} (OSD boundary-distinctness offset, e.g. Abrupt/Clear/
-Gradual/Diffuse converted to a numeric scale via \code{aqp::hzDistinctnessCodeToOffset()}) was
-previously computed and consumed ONLY inside \code{simulate_and_perturb_soil_profiles()}, as
-\code{aqp::perturb()}'s \code{boundary.attr} for horizon-DEPTH perturbation - it never reached the
-property-value Monte Carlo simulation pipeline (\code{simulate_cokey_generalized()},
-\code{apply_gp_depth_trends()}). This exposes the same already-computed, already-genhz-averaged
-\code{bound_sd} value on arbitrary horizon data (via the identical
+\code{query_osd_distinctness()}'s \code{bound_sd} (OSD boundary-distinctness offset: Abrupt/Clear/
+Gradual/Diffuse converted to a numeric scale via \code{aqp::hzDistinctnessCodeToOffset()}) is
+also used by \code{simulate_and_perturb_soil_profiles()} as \code{aqp::perturb()}'s \code{boundary.attr}
+for horizon-depth perturbation. This function exposes the same genhz-averaged \code{bound_sd}
+value on arbitrary horizon data (via the same
 \code{dplyr::group_by(id, genhz) |> dplyr::summarise(bound_sd = mean(bound_sd, na.rm = TRUE))}
-pattern \code{simulate_and_perturb_soil_profiles()} already uses), so it can also gate the
-vertical-correlation depth kernel (see \code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 1c) -
-no new data source, no change to how \code{bound_sd} itself is computed.
+pattern), so it can also gate the vertical-correlation depth kernel.
 }

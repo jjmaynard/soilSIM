@@ -21,8 +21,8 @@ run_comprehensive_correlation_analysis(
 \item{available_properties}{Available soil properties}
 }
 \value{
-Enhanced correlation analysis results
+correlation analysis results
 }
 \description{
-Enhanced correlation analysis using Module 0 statistical utilities
+Run Comprehensive Correlation Analysis
 }

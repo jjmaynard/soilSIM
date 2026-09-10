@@ -29,6 +29,6 @@ values for one property (rows = depths, columns = simulations)}
 A named list of adjusted matrices with preserved correlations
 }
 \description{
-Core function from GP-depth-adjust.R that adjusts multiple simulated soil properties
+Adjusts multiple simulated soil properties
 simultaneously to follow GP-predicted trends while preserving within-depth correlations.
 }

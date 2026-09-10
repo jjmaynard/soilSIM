@@ -21,5 +21,5 @@ validate_within_depth_correlations(
 Within-depth correlation validation
 }
 \description{
-Enhanced within-depth correlation validation  utilities.
+Validate Within Depth Correlations
 }

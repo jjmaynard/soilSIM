@@ -18,9 +18,9 @@ integrate_monte_carlo_with_gp(
 )
 }
 \arguments{
-\item{simulation_results}{Results from monte_carlo::generate_monte_carlo_realizations()}
+\item{simulation_results}{Results from generate_monte_carlo_realizations()}
 
-\item{gp_models}{Optional NRCS GP models from gp_modeling module}
+\item{gp_models}{Optional fitted NRCS GP depth models (from build_stratified_gp_models())}
 
 \item{cokey_mapping}{Optional mapping from simulations to NRCS GP groups}
 
@@ -34,7 +34,7 @@ integrate_monte_carlo_with_gp(
 
 \item{n_cores}{Number of cores for parallel processing}
 
-\item{config}{Integration configuration (uses Module 8 defaults if NULL)}
+\item{config}{Integration configuration (uses the package default configuration if NULL)}
 
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's log level so
 \code{INFO}-level progress messages print for the duration of this call (default
@@ -46,5 +46,4 @@ Integrated simulation results with realistic depth trends
 \description{
 Master function that integrates Monte Carlo simulation results with GP models
 to apply realistic depth trends while preserving within-depth correlations.
-Enhanced with Module 8 utilities for robust processing and validation.
 }

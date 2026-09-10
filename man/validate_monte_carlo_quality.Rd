@@ -24,5 +24,5 @@ validate_monte_carlo_quality(
 Monte Carlo validation results
 }
 \description{
-Enhanced Monte Carlo validation  utilities and validation framework.
+Validate Monte Carlo Quality
 }

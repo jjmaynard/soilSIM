@@ -294,9 +294,9 @@ bayesian-updating.R
 ```
 
 ### Integration status
-This file is **standalone and not currently called anywhere in `monte-carlo.R`** - the module's own header comment states this explicitly. It is a set of independently-tested building blocks for a future "update an SSURGO-derived prior against observed/field data" feature, not yet wired into the main Monte Carlo simulation pipeline.
+The functions in this file are standalone building blocks; the tabular Monte Carlo pipeline in `monte-carlo.R` does not call them directly.
 
-This contrasts with `R/raster-fusion.R`, which reuses these exact functions (`bayes_update_normal_normal()`, `fuse_beta()`, `fuse_gamma()`, the `*_to_moments()`/`moments_to_*()` helpers, `normal_to_lognormal_params()`/`lognormal_to_normal_params()`, `bayesian_update()`, and `fuse_bivariate_normal()`) as the computational core of a complete, adaptive, per-cell fusion pipeline (`fuse_adaptive()`/`fuse_property_adaptive()`) that routes between the closed-form and general tiers by AOI cell count and includes Lognormal/metalog adapters and infeasible-cell fallback handling automatically. In other words: `bayesian-updating.R` supplies the primitives with no top-level orchestrator of its own, while `raster-fusion.R` assembles those same primitives into one - though `raster-fusion.R` is, like this file, also not yet called from `monte-carlo.R`.
+`R/raster-fusion.R` uses these same functions (`bayes_update_normal_normal()`, `fuse_beta()`, `fuse_gamma()`, the `*_to_moments()`/`moments_to_*()` helpers, `normal_to_lognormal_params()`/`lognormal_to_normal_params()`, `bayesian_update()`, and `fuse_bivariate_normal()`) as the computational core of an adaptive, per-cell fusion pipeline (`fuse_adaptive()`/`fuse_property_adaptive()`) that routes between the closed-form and general tiers by AOI cell count and includes Lognormal/metalog adapters and infeasible-cell fallback handling. In other words: `bayesian-updating.R` supplies the scalar primitives, and `raster-fusion.R` assembles the raster-native equivalents into a complete pipeline.
 
 ## Data Flow In/Out
 

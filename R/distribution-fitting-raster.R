@@ -5,33 +5,30 @@
 #'   arithmetic and/or `terra::app()`/`terra::lapp()` calls to *vectorized*
 #'   base-R math functions (`qnorm`, `qbeta`, `digamma`/`trigamma`) - never a
 #'   per-cell optimizer, which is what makes these fast across whole rasters.
-#'   Ported from `code_ref/reanalysis-platform/distribution_fitting_raster.R`.
 #'
 #'   Reuses `R/distributions.R`'s existing `metalog_basis_matrix()`/
 #'   `metalog_to_z()`/`metalog_from_z()` directly rather than duplicating
 #'   them: those functions are pure elementwise arithmetic (`log`/`exp`/`/`
 #'   plus building a small, non-spatial coefficient matrix from the fixed
 #'   probability grid), so they already work unchanged whether their `x`/`z`
-#'   arguments are plain numerics or `terra::SpatRaster`s - confirmed by a
-#'   dedicated smoke test before this file was written, not assumed.
+#'   arguments are plain numerics or `terra::SpatRaster`s.
 #'
-#'   Status, from the original source:
+#'   Family status:
 #'   - `fit_normal_raster()` / `quantile_normal_raster()` - EXACT.
 #'   - `quantile_linear_cdf_raster()` - EXACT (nonparametric fallback target).
 #'   - `fit_beta_mom_raster()` - method-of-moments Beta fit, APPROXIMATE
 #'     relative to MLE, used only as the Newton-Raphson seed below.
 #'   - `fit_beta_mle_newton_raster()` / `quantile_beta_mle_newton_raster()` -
-#'     vectorized Newton-Raphson Beta MLE, validated (upstream) directly
-#'     against `fitdistrplus::fitdist()` (~1e-3 to 1e-5).
+#'     vectorized Newton-Raphson Beta MLE, validated against
+#'     `fitdistrplus::fitdist()` (~1e-3 to 1e-5).
 #'   - `fit_metalog_linear_raster()` / `quantile_metalog_linear_raster()` /
 #'     `check_metalog_feasibility_raster()` / `quantile_metalog_linear_with_fallback()` -
 #'     exact linear-solve metalog reformulation (matches `rmetalog::metalog()`
-#'     to ~1e-12 when its own fit is feasible, per upstream validation), with
-#'     a validated fallback to `linear_cdf` for the cells where it isn't.
+#'     to ~1e-12 when its own fit is feasible), with a fallback to `linear_cdf`
+#'     for the cells where it isn't.
 #'
-#'   `spline` is intentionally excluded (per the original project's own
-#'   decision - its accuracy relative to R's `splinefun(method="monoH.FC")`
-#'   was never confirmed bit-exact).
+#'   `spline` is not provided as a raster family: its accuracy relative to R's
+#'   `splinefun(method = "monoH.FC")` is not confirmed bit-exact.
 #' @name distribution_fitting_raster
 NULL
 
@@ -124,7 +121,7 @@ raster_trigamma <- function(r) terra::app(r, fun = trigamma)
 #' tiny epsilon - a no-op for realistic input.
 #' @param value_rasters List of percentile-value SpatRasters (any count >= 3).
 #' @param bounds c(lower, upper) physical bounds.
-#' @param n_iter Fixed Newton-Raphson iteration count (validated sufficient at 15 upstream).
+#' @param n_iter Fixed Newton-Raphson iteration count (validated sufficient at 15).
 #' @param eps Clamp epsilon away from the exact 0/1 boundary.
 #' @return list(alpha = SpatRaster, beta = SpatRaster)
 #' @export
@@ -181,7 +178,7 @@ quantile_beta_mle_newton_raster <- function(fit, q) {
 #' grid, via the existing `metalog_basis_matrix()`), then applied to
 #' different right-hand-side rasters per coefficient.
 #'
-#' CAVEAT (from upstream validation): this is the same fast path `rmetalog`
+#' CAVEAT (from validation): this is the same fast path `rmetalog`
 #' itself takes when its solution is already feasible (implied density
 #' non-negative); `rmetalog` also has an LP-based feasibility-correction
 #' fallback for when it isn't - not reproduced here. Use
@@ -219,7 +216,7 @@ quantile_metalog_linear_raster <- function(fit, q, bounds, boundedness) {
 #' fixed grid of y-values and flags cells where consecutive probe values
 #' decrease - a probe, not a proof, but fully vectorized raster arithmetic.
 #' Streams one probe raster at a time rather than materializing all of them
-#' (validated upstream to avoid an allocation failure at large cell counts).
+#' (avoids an allocation failure at large cell counts).
 #' @param fit Output of `fit_metalog_linear_raster()`.
 #' @param bounds,boundedness Same as `fit_metalog_linear_raster()`'s arguments for this `fit`.
 #' @param y_grid Probability grid to probe.
@@ -236,7 +233,7 @@ check_metalog_feasibility_raster <- function(fit, bounds, boundedness, y_grid = 
 }
 
 #' Metalog quantile with automatic fallback to `linear_cdf` for infeasible
-#' cells - validated upstream: zero effect on feasible cells, exact
+#' cells - zero effect on feasible cells, exact
 #' `linear_cdf` match on infeasible ones.
 #'
 #' Feasibility is computed ONCE per fit (via `check_metalog_feasibility_raster()`)

@@ -15,7 +15,7 @@ quantile_beta_mle_newton_raster(fit, q)
 
 \item{bounds}{c(lower, upper) physical bounds.}
 
-\item{n_iter}{Fixed Newton-Raphson iteration count (validated sufficient at 15 upstream).}
+\item{n_iter}{Fixed Newton-Raphson iteration count (validated sufficient at 15).}
 
 \item{eps}{Clamp epsilon away from the exact 0/1 boundary.}
 

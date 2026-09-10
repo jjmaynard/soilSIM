@@ -6,21 +6,17 @@
 \description{
 The SSURGO half of the raster fusion prior/likelihood pipeline (see
 \code{R/raster-fusion.R}): given a \code{terra::SpatVector} AOI, rasterizes SSURGO map units,
-Monte Carlo-simulates per-component soil properties (reusing already-ported
-\code{sim_component_comp()}/\code{simulate_cokey_generalized()} from \code{R/property-simulation.R}),
+Monte Carlo-simulates per-component soil properties (via
+\code{sim_component_comp()}/\code{simulate_cokey_generalized()} in \code{R/property-simulation.R}),
 aggregates to a requested depth window, and rasterizes per-mukey percentiles for
-\code{fuse_property_adaptive()} to consume. Ported from
-\verb{code_ref/reanalysis-platform/\{ssurgo_simulation.R, ssurgo_prior.R\}}.
+\code{fuse_property_adaptive()} to consume.
 
-Reuses \code{R/kssl-reference-correlations.R}'s already-built-in, already-shipped
+Uses \code{R/kssl-reference-correlations.R}'s
 \code{.kssl_property_matrices()}/\code{.kssl_texture_matrices()} genhz-keyed correlation matrices
 directly as \code{simulate_cokey_generalized()}'s \code{correlation_matrices}/
-\code{txt_correlation_matrices} arguments, rather than re-reading the raw
-\code{data/global_cor_matrices.rds}/\code{data/global_cor_texture_matrices.rds} files at runtime the
-way the source's \code{load_global_correlation_matrices()} did (those files already back
-\code{R/sysdata.rda}, built once via \code{data-raw/build_kssl_reference_correlations.R} - no new
-asset-loading code needed). Similarly reuses \code{classify_genhz()} (already exported from
-\code{kssl-reference-correlations.R}) in place of the source's \code{aqp::generalizeHz()} call.
+\code{txt_correlation_matrices} arguments (these back \code{R/sysdata.rda}, built once via
+\code{data-raw/build_kssl_reference_correlations.R}), and \code{classify_genhz()} for the
+generalized-horizon assignment.
 
 \code{download_ssurgo_tabular()}'s (\code{R/ssurgo-acquisition.R}) default \code{properties} and always-included
 base columns (\code{comppct_l/r/h}, all \verb{_l/_r/_h} horizon triplets) already match

@@ -9,7 +9,7 @@ A single internal helper standardizing this package's parallel processing on
 Unix), replacing the hand-rolled base-\verb{parallel::} boilerplate (OS branching between
 \code{parallel::makeCluster()}/\code{parLapply()} on Windows and \code{parallel::mclapply()} elsewhere,
 explicit \code{library(soilSIM)} on Windows workers, explicit \code{soil_workflow_log_config}
-propagation) that used to be duplicated across \code{process_cokeys_parallel()}
+propagation) shared by \code{process_cokeys_parallel()}
 (\code{multivariate-adjustment.R}), \code{run_parallel_simulation()} (\code{monte-carlo.R}), and
 \code{maybe_adjust_soil_data_depth_trend()} (\code{ssurgo-simulation.R}).
 }

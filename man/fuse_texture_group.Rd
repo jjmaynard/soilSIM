@@ -7,7 +7,7 @@
 \code{R/bayesian-updating.R}'s \code{fuse_bivariate_normal()}), rather than
 independently via \code{fuse_beta()} per member - independent fusion
 measurably breaks sum-to-100 (up to 10.5 percentage points on realistic
-synthetic data, per upstream validation). The raster counterpart of the
+synthetic data). The raster counterpart of the
 already-ported scalar \code{fuse_texture_group_from_triplets()}.}
 \usage{
 fuse_texture_group(
@@ -22,12 +22,10 @@ fuse_texture_group(
 \item{fetched}{A list (one entry per group member, in \code{group_members()}'s
 order) of \verb{list(id=, prior=<named list of ALIGNED percentile-value rasters>, prior_probs=, lik=<value rasters>, lik_probs=)}.}
 
-\item{mukey_raster, mukey_texture_draws}{Optional - opts into \code{prior_fusion_method = "raw_draws"} (see \code{fuse_texture_group_batch_core()}'s docs and
-\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.4). \code{mukey_raster} must already be aligned
-to the same grid as \code{fetched}'s percentile rasters (nearest-neighbor resampled - it's
+\item{mukey_raster, mukey_texture_draws}{Optional - opts into \code{prior_fusion_method = "raw_draws"} (see \code{fuse_texture_group_batch_core()}'s docs). \code{mukey_raster} must already be
+aligned to the same grid as \code{fetched}'s percentile rasters (nearest-neighbor resampled - it's
 categorical). \code{mukey_texture_draws} is a \code{mukey_texture_draws_lookup()} result. \code{NULL}
-(default) for either preserves the original percentile-reconstruction behavior exactly -
-bit-identical output to before these parameters existed.}
+(default) for either uses the percentile-reconstruction path.}
 
 \item{posterior_probs}{Numeric probabilities (0-1) at which to report each fraction's posterior
 percentiles. \code{NULL} (default) resolves to \link{FUSE_POSTERIOR_DEFAULT_PROBS}. Computed via
@@ -50,6 +48,6 @@ Fuse a compositional group's members JOINTLY via ILR fusion
 \code{R/bayesian-updating.R}'s \code{fuse_bivariate_normal()}), rather than
 independently via \code{fuse_beta()} per member - independent fusion
 measurably breaks sum-to-100 (up to 10.5 percentage points on realistic
-synthetic data, per upstream validation). The raster counterpart of the
+synthetic data). The raster counterpart of the
 already-ported scalar \code{fuse_texture_group_from_triplets()}.
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/monte-carlo.R
 \name{simulate_correlated_properties}
 \alias{simulate_correlated_properties}
-\title{Simulate Correlated Properties Using Enhanced Distribution Framework}
+\title{Simulate Correlated Properties}
 \usage{
 simulate_correlated_properties(
   simulation_params,
@@ -32,5 +32,5 @@ of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 Array of simulated values, dimensioned horizons by properties by realizations
 }
 \description{
-Core simulation function leveraging Module 0 statistical utilities
+Core simulation function
 }

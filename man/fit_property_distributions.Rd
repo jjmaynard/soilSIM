@@ -2,7 +2,7 @@
 % Please edit documentation in R/statistics.R
 \name{fit_property_distributions}
 \alias{fit_property_distributions}
-\title{Fit Property Distributions (Enhanced)}
+\title{Fit Property Distributions}
 \usage{
 fit_property_distributions(values, property_name, config)
 }
@@ -17,5 +17,5 @@ fit_property_distributions(values, property_name, config)
 Fitted distributions with quality metrics
 }
 \description{
-Enhanced distribution fitting with better error handling
+Fit Property Distributions
 }

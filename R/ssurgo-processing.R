@@ -9,9 +9,9 @@ NULL
 
 #' Process SSURGO Data (Main Entry Point)
 #'
-#' Enhanced version that maintains compatibility with working infill_soil_property()
+#' Version that maintains compatibility with working infill_soil_property()
 #' while adding comprehensive processing, validation, and reporting capabilities.
-#' Uses Module 8 utilities for general processing tasks.
+#' Uses shared utilities for general processing tasks.
 #'
 #' @param raw_data Raw SSURGO data from download functions
 #' @param processing_options List of processing options and parameters
@@ -44,12 +44,12 @@ process_ssurgo_data <- function(raw_data,
 
   # Set default processing options
   default_options <- list(
-    detect_unsuitable = TRUE,         # Use Module 8 is_unsuitable function
-    advanced_cleaning = TRUE,         # Use enhanced cleaning functions
-    standardize_names = TRUE,         # Column name standardization using Module 8
+    detect_unsuitable = TRUE,  # is_unsuitable()
+    advanced_cleaning = TRUE,         # Advanced cleaning functions
+    standardize_names = TRUE,         # Column name standardization
     remove_invalid = TRUE,           # Remove invalid records
     calculate_derived = TRUE,        # Calculate derived properties
-    validate_logic = TRUE,           # Data validation using Module 8
+    validate_logic = TRUE,           # Data validation
     preserve_compatibility = TRUE    # Maintain compatibility with infill functions
   )
 
@@ -95,14 +95,14 @@ process_ssurgo_data <- function(raw_data,
     verbose = verbose
   )
 
-  # Step 4: Validate processing results using Module 8
+  # Step 4: Validate processing results
   validation_results <- NULL
   quality_report <- NULL
 
   if (validate_results || options$validate_logic) {
     if (verbose) log_message("INFO", "Validating processing results", category = "Processing")
 
-    # Use Module 8 validation functions
+    # Use the shared validation functions
     validation_results <- validate_data_quality(
       processed_data,
       required_columns = c("cokey", "hzname", "hzdept_r", "hzdepb_r"),
@@ -160,12 +160,11 @@ process_ssurgo_data <- function(raw_data,
 
 #' Process Horizon Data (Working Compatible)
 #'
-#' Enhanced horizon processing that uses Module 8 utilities and proven working functions
 #'
 #' @param raw_data Raw SSURGO data containing horizon information
-#' @param detect_unsuitable Logical; detect unsuitable horizons using Module 8 function
+#' @param detect_unsuitable Logical; detect unsuitable horizons
 #' @param advanced_cleaning Logical; apply advanced data cleaning functions
-#' @param standardize_names Logical; standardize column names using Module 8
+#' @param standardize_names Logical; standardize column names
 #' @param remove_invalid Logical; remove invalid horizon records
 #' @param calculate_derived Logical; calculate derived properties
 #' @param max_depth Maximum depth for processing
@@ -192,13 +191,13 @@ process_horizon_data_working_compatible <- function(raw_data,
 
   if (verbose) log_message("DEBUG", paste("Initial horizon records:", processing_stats$initial_rows), category = "HorizonProcessing")
 
-  # Step 1: Standardize column names using Module 8
+  # Step 1: Standardize column names
   if (standardize_names) {
     if (verbose) log_message("DEBUG", "Standardizing column names", category = "HorizonProcessing")
     horizon_data <- standardize_property_names(horizon_data, target_standard = "ssurgo")
   }
 
-  # Step 2: Detect unsuitable horizons using Module 8 function
+  # Step 2: Detect unsuitable horizons
   if (detect_unsuitable) {
     if (verbose) log_message("DEBUG", "Detecting unsuitable horizons", category = "HorizonProcessing")
     horizon_data$unsuitable_horizon <- is_unsuitable(horizon_data, hzname_col = "hzname")
@@ -288,10 +287,9 @@ process_horizon_data_working_compatible <- function(raw_data,
 
 #' Process Component Data (Working Compatible)
 #'
-#' Enhanced component processing using Module 8 utilities
 #'
 #' @param raw_data Raw SSURGO data containing component information
-#' @param standardize_names Logical; standardize column names using Module 8
+#' @param standardize_names Logical; standardize column names
 #' @param remove_invalid Logical; remove invalid component records
 #' @param verbose Logical; provide progress messages
 #'
@@ -335,7 +333,7 @@ process_component_data_working_compatible <- function(raw_data,
 
   if (verbose) log_message("DEBUG", paste("Initial component records:", processing_stats$initial_rows), category = "ComponentProcessing")
 
-  # Step 1: Standardize column names using Module 8
+  # Step 1: Standardize column names
   if (standardize_names) {
     if (verbose) log_message("DEBUG", "Standardizing component column names", category = "ComponentProcessing")
     component_data <- standardize_property_names(component_data, target_standard = "ssurgo")
@@ -387,7 +385,7 @@ process_component_data_working_compatible <- function(raw_data,
 #' Create Infill-Compatible Dataset
 #'
 #' Creates main processed dataset that's fully compatible with infill_soil_property()
-#' Uses Module 8 utilities for data manipulation
+#' Uses shared utilities for data manipulation
 #'
 #' @param raw_data Original raw data
 #' @param horizon_processing Horizon processing results
@@ -409,7 +407,7 @@ create_infill_compatible_dataset <- function(raw_data,
   # Start with raw data to preserve original structure
   processed_data <- raw_data
 
-  # Apply unsuitable horizon detection using Module 8
+  # Apply unsuitable horizon detection
   if (options$detect_unsuitable) {
     processed_data$unsuitable_horizon <- is_unsuitable(processed_data, hzname_col = "hzname")
   }
@@ -464,12 +462,10 @@ create_infill_compatible_dataset <- function(raw_data,
 #' Clean Property Data (SSURGO Compatible) - deprecated
 #'
 #' @description
-#' **Deprecated.** Superseded by [clean_property_data()], which is now the
-#' single property-value cleaner for the package. This shim forwards to it with
-#' `outlier_policy = "aggressive_iqr"` (the generic `IQR x 3` this function used to apply) and
-#' `generate_report = TRUE`, so existing callers keep their exact behavior. New code should call
-#' [clean_property_data()] directly and choose an `outlier_policy` explicitly - `"soil_aware"`
-#' is the recommended default.
+#' **Deprecated.** Use [clean_property_data()] directly. This shim forwards to it with
+#' `outlier_policy = "aggressive_iqr"` (a generic `IQR x 3`) and `generate_report = TRUE`.
+#' New code should choose an `outlier_policy` explicitly; `"soil_aware"` is the recommended
+#' default.
 #'
 #' @inheritParams clean_property_data
 #' @return List containing cleaned data and (by default) a quality report.
@@ -494,13 +490,9 @@ clean_property_data_ssurgo_compatible <- function(df, property_name,
 # SSURGO-SPECIFIC UTILITY FUNCTIONS
 # ==============================================================================
 #
-# NOTE: this file previously defined its own `advanced_string_parser_vectorized_working()`
-# / `parse_single_string_advanced_working()` / `vectorized_type_conversion_working()` /
-# `apply_basic_range_limits_ssurgo()`, near-duplicates of the canonical versions
-# migrated from mod03 into data-infilling.R. They have been consolidated: this
-# file now calls `advanced_string_parser_vectorized()`, `vectorized_type_conversion()`,
-# and `apply_basic_range_limits()` (data-infilling.R) directly - see
-# @seealso on clean_property_data_ssurgo_compatible() below.
+# String parsing, type conversion, and range limiting are handled by
+# advanced_string_parser_vectorized(), vectorized_type_conversion(), and
+# apply_basic_range_limits() in data-infilling.R, which this file calls directly.
 
 #' Identify Soil Property Columns
 #'
@@ -811,7 +803,7 @@ generate_processing_quality_report <- function(original_data, processed_data,
 #' properties by mukey and depth, across a wide property basket (sand/silt/clay, bulk density,
 #' water retention, RFV, pH, CEC, SOC, optional van Genuchten params), and, when texture data and
 #' the optional `soiltexture` package are both available, the most probable USDA soil texture
-#' class. Ported from `code/sim-functions.R:2728`.
+#' class.
 #'
 #' @param hz_data A data frame of simulated horizon data, with `mukey`, `hzdept_r`, `hzdepb_r`,
 #'   and any of the recognized property columns (see the `prop_mapping`/`optional_props`
@@ -883,12 +875,9 @@ hz_quant_prob_mukey <- function(hz_data) {
     stop("No valid soil properties found in the data")
   }
 
-  # PERF: previously three independent group_by(mukey, top)/summarize() passes over the same
-  # data (one per quantile level) + three left_join()s to stitch them back together - replaced
-  # with one grouped pass computing all three quantiles per group via across()'s multi-function
-  # form, then a vectorized PIW90 (see PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3). Column names
-  # (`.names = "{.col}_{.fn}"`) match the "_05"/"_50"/"_95" suffixes the old code applied
-  # afterward, so the final alphabetical column reorder below is unaffected.
+  # One grouped pass computes all three quantiles per group via across()'s multi-function
+  # form, then a vectorized PIW90. The `.names = "{.col}_{.fn}"` suffixes ("_05"/"_50"/"_95")
+  # are what the alphabetical column reorder below expects.
   data_stats <- data_out |>
     dplyr::group_by(mukey, top) |>
     dplyr::summarize(

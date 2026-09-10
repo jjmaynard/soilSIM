@@ -23,7 +23,7 @@ apply_local_gp_adjustments(
 
 \item{min_depths}{Minimum depths required for GP fitting}
 
-\item{config}{Configuration from Module 8}
+\item{config}{Optional configuration list; defaults to the package validation configuration}
 
 \item{gp_control}{Passed through to \code{fit_local_gp_models()}/\code{fit_local_gp_model_single()}'s
 \code{gp_control} - see \code{fit_local_gp_model_single()}'s docs for why the default is much smaller
@@ -37,5 +37,6 @@ than \code{GPfit::GP_fit()}'s own default.}
 Adjusted simulation data
 }
 \description{
-Enhanced version with Module 8 utilities and better error handling.
+Fits per-component Gaussian-process depth models for the requested properties and
+applies their predicted trends to the component's simulation data.
 }

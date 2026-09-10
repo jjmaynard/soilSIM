@@ -30,5 +30,5 @@ build_stratified_gp_models(
 List of GP models organized by property and group
 }
 \description{
-Enhanced version with proper Module 0 error handling and validation
+Build Stratified GP Models
 }

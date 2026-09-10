@@ -2,7 +2,7 @@
 % Please edit documentation in R/data-infilling.R
 \name{infill_rfv_property_integrated}
 \alias{infill_rfv_property_integrated}
-\title{Enhanced RFV Property Infilling}
+\title{Infill Rock Fragment Volume}
 \usage{
 infill_rfv_property_integrated(
   df,

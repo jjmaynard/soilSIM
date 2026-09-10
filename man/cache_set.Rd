@@ -9,9 +9,8 @@ cache_set(key, kind, value)
 \arguments{
 \item{key}{A cache key from \code{build_cache_key()}.}
 
-\item{kind}{Unused beyond documenting intent at call sites (matches the original bundle's
-3-argument \code{cache_set(key, kind, value)} calling convention) - the value is stored keyed
-only by \code{key}, since \code{build_cache_key()} already encodes \code{kind}.}
+\item{kind}{Unused; documents intent at call sites. The value is stored keyed only by
+\code{key}, since \code{build_cache_key()} already encodes \code{kind}.}
 
 \item{value}{The R object to cache (anything \code{saveRDS()} can serialize, including
 \code{terra::SpatRaster} objects via their \code{wrap()}-compatible representation - see Known

@@ -32,7 +32,7 @@ fuse_closed_form(
 the requested probability is, unlike \code{fuse_general_kde()}'s sample/grid-based route.}
 
 \item{mukey_raster, mukey_draws}{Optional - opts into \code{prior_fusion_method = "raw_draws"} for
-this (closed-form) route, added \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.6. Fits the
+this (closed-form) route: fits the
 PRIOR side's family parameters directly from each cell's mukey's real Monte Carlo draws (via
 \code{mukey_draws_closed_form_fit_raster()}) instead of \code{fit_normal_raster()}/
 \code{fit_beta_mle_newton_raster()}/\code{fit_gamma_mom_raster()}'s percentile-triplet formulas - cells

@@ -22,7 +22,7 @@ percentile-reconstruction values for such cells, same convention as every other 
 }
 \description{
 Companion to \code{mukey_draws_closed_form_fit_raster()} for routes that consume percentile VALUES
-directly rather than a family parameter fit - \code{fuse_metalog_adapter()} (P2.12), whose metalog fit
+directly rather than a family parameter fit - \code{fuse_metalog_adapter()}, whose metalog fit
 is an exact linear interpolation through fixed percentile knots (\code{solve()} on a basis matrix), not
 a moment/density fit. There is no "metalog fit to raw draws" analogous to
 \code{mukey_draws_closed_form_fit_raster()}'s normal/beta/gamma/lognormal cases - the real extension

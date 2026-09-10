@@ -23,7 +23,9 @@ sand/silt/clay/\code{dbovendry}/\code{soc}/\code{fragvol}.
 }
 \details{
 Because \code{remarginalized_awc()} re-marginalizes \code{sand}/\code{silt}/\code{clay} to their own fused
-posteriors independently, a realization's texture triple may no longer sum to 100. This
-reproduces \code{calculate_saxton_rawls_single()}'s renormalization: where `|sand + silt + clay - 100|5`, the three are rescaled to sum to 100 before the equations run (the equations themselves useonly the sand and clay fractions).
+posteriors independently, a realization's texture triple may not sum to 100. This
+reproduces \code{calculate_saxton_rawls_single()}'s renormalization: where the texture sum is off
+by more than 5 points, the three fractions are rescaled to sum to 100 before the equations run
+(the equations themselves use only the sand and clay fractions).
 }
 \keyword{internal}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/statistics.R
 \name{compute_property_statistics}
 \alias{compute_property_statistics}
-\title{Compute Property Statistics (Enhanced)}
+\title{Compute Property Statistics}
 \usage{
 compute_property_statistics(data, properties, config)
 }
@@ -14,8 +14,8 @@ compute_property_statistics(data, properties, config)
 \item{config}{Configuration}
 }
 \value{
-Enhanced property statistics
+property statistics
 }
 \description{
-Enhanced property statistics computation using Module 0 utilities
+Compute Property Statistics
 }

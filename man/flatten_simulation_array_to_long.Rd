@@ -23,5 +23,5 @@ Converts the \verb{[horizon, property, realization]} array returned by
 long-format data frame with one row per horizon-realization combination,
 matching the shape \code{\link[=apply_local_gp_adjustments]{apply_local_gp_adjustments()}}, \code{\link[=apply_nrcs_trend_adjustments]{apply_nrcs_trend_adjustments()}},
 and \code{\link[=convert_to_property_matrices]{convert_to_property_matrices()}} expect (a \code{simulation_number} column
-plus one column per property, alongside the original horizon metadata).
+plus one column per property, alongside the horizon metadata).
 }

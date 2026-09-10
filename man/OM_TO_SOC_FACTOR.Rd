@@ -22,6 +22,6 @@ same factor \code{remarginalized_awc()}'s \code{soc_to_om} argument uses in the 
 \emph{matrix} itself - Pearson correlation is invariant under a positive linear rescale of one
 variable, and triangular-distribution parameters (min/mode/max) transform linearly too - only
 the marginal values entering the correlated draw need rescaling, which is exactly where this
-constant is used (MULTI_PROPERTY_FUSION_PLAN.md task P1).
+constant is used.
 }
 \keyword{internal}

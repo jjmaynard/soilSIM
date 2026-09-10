@@ -17,9 +17,7 @@ A numeric vector of length \code{n}; \code{NaN} for every element if \code{a},
 \code{b}, \code{c} describe a degenerate/invalid triangle.
 }
 \description{
-Ported verbatim from \code{code_ref/brdf/property_simulation.R}'s \code{tri_dist()}
-(originally adapted from the \code{triangle} package), used by
-\code{R/depth-simulation.R}'s profile-depth simulators. Kept as its own
+Used by \code{R/depth-simulation.R}'s profile-depth simulators. Kept as its own
 random-draw implementation rather than layered on \code{quantile_triangular()}
 (a deterministic inverse-CDF evaluator with different degenerate-input
 handling) so its exact edge-case behavior is preserved: it errors on

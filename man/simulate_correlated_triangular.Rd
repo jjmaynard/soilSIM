@@ -16,8 +16,7 @@ simulate_correlated_triangular(
 
 \item{params}{List of \code{c(a, b, c)} triples, one per distribution - \strong{note the order here is
 (lower, mode, upper)}, unlike \code{tri_dist()}'s own \verb{(a = lower, b = upper, c = mode)}
-convention. Preserved exactly as the legacy source defines it; a real source of confusion if
-assumed to match \code{tri_dist()}'s argument order.}
+convention. A real source of confusion if assumed to match \code{tri_dist()}'s argument order.}
 
 \item{correlation_matrix}{A square, positive-semi-definite correlation matrix,
 \code{length(params)} x \code{length(params)}.}

@@ -4,7 +4,7 @@
 #'   Unix), replacing the hand-rolled base-`parallel::` boilerplate (OS branching between
 #'   `parallel::makeCluster()`/`parLapply()` on Windows and `parallel::mclapply()` elsewhere,
 #'   explicit `library(soilSIM)` on Windows workers, explicit `soil_workflow_log_config`
-#'   propagation) that used to be duplicated across `process_cokeys_parallel()`
+#'   propagation) shared by `process_cokeys_parallel()`
 #'   (`multivariate-adjustment.R`), `run_parallel_simulation()` (`monte-carlo.R`), and
 #'   `maybe_adjust_soil_data_depth_trend()` (`ssurgo-simulation.R`).
 #' @name parallel_utils
@@ -41,8 +41,8 @@ NULL
 #'   convert the error myself" (e.g. `simulate_profile_depths_by_collection_parallel()`, which
 #'   returns `NULL` on error via its own outer `tryCatch()`).
 #' @return A list of `FUN(x, ...)` results, one per element of `X`, in `X`'s order - the same
-#'   shape `parallel::parLapply()`/`mclapply()` already produced, so callers that previously
-#'   consumed those results (e.g. via `dplyr::bind_rows()` or manual concatenation) need no change.
+#'   shape `parallel::parLapply()`/`mclapply()` already produced, so callers can consume the result
+#'   with `dplyr::bind_rows()` or manual concatenation.
 #' @keywords internal
 run_parallel_lapply <- function(X, FUN, ..., n_cores = NULL, future_seed = FALSE,
                                  op_name = "Parallel operation",

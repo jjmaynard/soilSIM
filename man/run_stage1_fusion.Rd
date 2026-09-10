@@ -45,7 +45,7 @@ conditional-determinism caveats.}
 \value{
 \code{list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=, route_detail=, n_fallback_cells=)}, or \code{NULL} if the SSURGO or SOLUS side failed.
 \code{posterior}'s shape depends on \code{dist} - see \code{fuse_property_adaptive()}'s docs. As of
-\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} tasks P3.2-P3.5, \code{posterior} also carries a
+, \code{posterior} also carries a
 \code{percentiles} field (a named list of \code{SpatRaster}s, \code{"P01"}..\code{"P99"} by default - see
 \link{FUSE_POSTERIOR_DEFAULT_PROBS}) regardless of \code{dist}, for every non-compositional property -
 this function doesn't expose its own \code{posterior_probs} parameter (matching the existing
@@ -71,27 +71,21 @@ scales with the property count. Consequences: (1) the prior is \emph{statistical
 not bit-identical to, a full-property simulation's matching column - the pipeline is unseeded by
 default (a fresh draw either way), and even with \code{seed} set, a subset consumes the RNG stream
 differently from a full run; (2) a map unit whose components carry no data for \emph{this} property
-no longer benefits from
-those components' other properties being present, so a single-property prior - and hence the
-fused posterior - can be \code{NA} for a few cells a full-property run would have covered. Those
-cells genuinely lack data for the property in question.
+does not gain from those components' other properties being present, so a single-property
+prior - and hence the fused posterior - can be \code{NA} for a few cells a full-property run would
+have covered. Those cells genuinely lack data for the property in question.
 }
 
-\section{Fusion fidelity - \code{prior_fusion_method} (default changed at P2.10)}{
+\section{Fusion fidelity - \code{prior_fusion_method}}{
 
 Controls whether fusion runs against each mukey's real per-cell Monte Carlo draws
 (\code{"raw_draws"}) or a percentile-reconstructed approximation (\code{"percentile"}) - see
-\code{fuse_general_kde()}'s docs and \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} tasks
-P2.2/P2.3/P2.6/P2.10. \strong{As of P2.10, leaving \code{property_config$prior_fusion_method} unset
-defaults to \code{"raw_draws"}} for \code{dist \%in\% c("auto","normal","beta","gamma","lognormal")} - see
-\code{resolve_want_raw_draws()} for the exact rule and the benchmark numbers behind it. Only an
-explicit \code{dist = "metalog"} keeps the pre-P2.10 default - \code{fuse_metalog_adapter()} does have a
-raw-draws fit as of P2.12, but its cost/benefit is unbenchmarked (mirroring the texture-group
-route's P2.11 treatment), so the default stays conservative until that's measured. Set
-\code{property_config$prior_fusion_method = "percentile"} explicitly to opt back into the original
-behavior for any \code{dist} (e.g. to match older cached/tested output, or avoid the live simulation
-dependency); \code{"raw_draws"} explicitly forces it on even for \code{dist = "metalog"}, now genuinely
-used there (P2.12), not just accepted-and-ignored.
+\code{fuse_general_kde()}'s docs. Leaving \code{property_config$prior_fusion_method} unset defaults to
+\code{"raw_draws"} for \code{dist \%in\% c("auto","normal","beta","gamma","lognormal")} - see
+\code{resolve_want_raw_draws()} for the exact rule. An explicit \code{dist = "metalog"} uses
+\code{"percentile"}. Set \code{property_config$prior_fusion_method = "percentile"} explicitly to force
+the percentile path for any \code{dist} (e.g. to avoid the live simulation dependency);
+\code{"raw_draws"} forces it on even for \code{dist = "metalog"}.
 
 The real draws are held in memory only for the duration of this one call, never disk-cached
 (see \code{simulate_ssurgo_mapunit_draws()}'s docs for why) - so raw_draws fusion (whether defaulted

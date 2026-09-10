@@ -19,27 +19,19 @@ simulation that resolution would otherwise duplicate the cost of triggering).}
 \code{TRUE}/\code{FALSE}.
 }
 \description{
-\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.10: scope-aware default flip. An explicit
-\code{prior_fusion_method} value ("raw_draws" or "percentile") always wins and is honored exactly as
-before - this function only changes what happens when it is unset (\code{NULL}, the common case).
+An explicit \code{prior_fusion_method} value ("raw_draws" or "percentile") always wins; this
+function only decides what happens when it is unset (\code{NULL}, the common case).
 }
 \details{
-Unset now defaults to raw_draws for any \code{dist} whose fusion route actually has a raw-draws fit
-implemented: \code{"normal"}/\code{"beta"}/\code{"gamma"} (both AOI-size routes, as of P2.6) and \code{"lognormal"}
-(both its small-AOI general branch and large-AOI closed-form branch, as of P2.6/P2.12). \code{"auto"}
-is included too: \code{resolve_property_dist()}'s auto-selection only ever resolves to
-\code{"beta"}/\code{"normal"}/\code{"lognormal"} (see its own code) - \strong{never} \code{"metalog"} - so it's safe to
-default in as well. Only an explicit \code{dist = "metalog"} keeps the original percentile-
-reconstruction default - \strong{not} because no raw-draws fit exists for it (P2.12 added one, an
-empirical-percentile variant of \code{fuse_metalog_adapter()}'s own interpolation), but because its
-cost/benefit hasn't been benchmarked, exactly mirroring the texture-group route's P2.11
-treatment: that default-flip decision is deliberately kept separate from "does a fit exist."
+Unset defaults to raw_draws for any \code{dist} whose fusion route has a raw-draws fit:
+\code{"normal"}/\code{"beta"}/\code{"gamma"} (both AOI-size routes) and \code{"lognormal"} (both its small-AOI
+general branch and large-AOI closed-form branch). \code{"auto"} is included, since
+\code{resolve_property_dist()}'s auto-selection only ever resolves to \code{"beta"}/\code{"normal"}/
+\code{"lognormal"}, never \code{"metalog"}. An explicit \code{dist = "metalog"} uses the percentile
+reconstruction: \code{fuse_metalog_adapter()} has an empirical-percentile raw-draws variant, but
+its cost/benefit is not benchmarked, so it is kept off by default.
 
-This default was set only after confirming the added cost is modest at any AOI size: raw_draws
-costs 16-25\% more than the default on the general-KDE route (P2.9) and ~0.18s of overhead on top
-of the closed-form route's own ~19.73s fit cost at 100,172 cells/150 mukeys (P2.6/P2.10
-investigation) - i.e. this flip trades a small, bounded cost increase for fusing against real
-simulated data instead of a 5-9 point percentile reconstruction, for every property that can use
-it, without the caller having to know to ask for it.
+On the general-KDE route raw_draws costs about 16-25\% more than the percentile path; on the
+closed-form route it adds about 0.18s on top of the fit cost at 100,172 cells / 150 mukeys.
 }
 \keyword{internal}

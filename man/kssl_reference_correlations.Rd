@@ -6,8 +6,7 @@
 \description{
 Static, pre-computed, genetic-horizon-keyed (O/A/E/B/C/Cr,
 plus R for the texture matrix) correlation matrices fit once from KSSL
-lab data by an older, unrelated
-codebase (\code{code_ref/brdf/property_simulation.R}, outside this package).
+lab data.
 These functions let \code{monte-carlo.R}'s correlation-structure estimation
 optionally fall back to this reference data (via
 \code{config$monte_carlo$correlation_fallback = "kssl_global"}) instead of a

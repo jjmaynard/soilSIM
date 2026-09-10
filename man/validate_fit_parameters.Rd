@@ -15,6 +15,6 @@ validate_fit_parameters(family, fit)
 \code{list(valid=, message=)}.
 }
 \description{
-Real replacement for the always-\code{valid=TRUE} \code{validate_distribution_parameters()}
-stub previously in \code{mod05_monte_carlo.R}.
+Checks that a fitted distribution's parameters are structurally complete and in range
+for its family.
 }

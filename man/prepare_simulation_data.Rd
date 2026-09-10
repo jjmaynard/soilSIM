@@ -2,7 +2,7 @@
 % Please edit documentation in R/monte-carlo.R
 \name{prepare_simulation_data}
 \alias{prepare_simulation_data}
-\title{Prepare Simulation Data (Enhanced)}
+\title{Prepare Simulation Data}
 \usage{
 prepare_simulation_data(
   soil_data,
@@ -34,5 +34,5 @@ of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 Prepared simulation data
 }
 \description{
-Enhanced data preparation
+Prepare Simulation Data
 }

@@ -56,7 +56,7 @@ process_soil_properties_comprehensive <- function(df,
     }
   }
 
-  # Validate properties using Module 0
+  # Validate properties
   property_validation <- validate_properties_with_synonyms(
     properties,
     property_lookup = "ssurgo",
@@ -156,7 +156,7 @@ process_soil_properties_comprehensive <- function(df,
 
 #' Main Soil Property Infilling Function
 #'
-#' Enhanced version of the core infilling function with comprehensive recovery strategies
+#' Version of the core infilling function with comprehensive recovery strategies
 #' and automatic exclusion of unsuitable horizons (R, Cr, O horizons).
 #'
 #' @param df Input soil data frame
@@ -202,7 +202,7 @@ infill_soil_property <- function(df,
   clean_result <- clean_property_data(df, property_name, verbose = FALSE)
   df <- clean_result$data
 
-  # Detect unsuitable horizons using Module 0
+  # Detect unsuitable horizons
   df$unsuitable_horizon <- is_unsuitable(df, hzname_col = "hzname")
 
   # Get property configuration
@@ -309,8 +309,7 @@ infill_soil_property <- function(df,
 #'       physically impossible values for pH / texture / bulk density, and a very conservative
 #'       `IQR x 5` for everything else. The right default for a package whose job is uncertainty
 #'       propagation: a real tail value is signal, not noise.}
-#'     \item{`"aggressive_iqr"`}{generic `IQR x 3` for every property alike (the legacy
-#'       `clean_property_data_ssurgo_compatible()` behavior). Opt-in only.}
+#'     \item{`"aggressive_iqr"`}{generic `IQR x 3` for every property alike. Opt-in only.}
 #'     \item{`"none"`}{skip outlier flagging; still parse, null non-finite, and clamp.}
 #'   }
 #' @param validation_config Optional per-property range rule (a `list(min=, max=)`-shaped entry);
@@ -420,8 +419,8 @@ clean_property_data <- function(df,
         }
       }
 
-      # Always: clamp to hardcoded physical-plausibility bounds (this is a sanity clamp, not
-      # an outlier policy - both legacy cleaners ran it unconditionally).
+      # Always: clamp to hardcoded physical-plausibility bounds (a sanity clamp, not an
+      # outlier policy).
       df[[col]] <- apply_basic_range_limits(df[[col]], property_name)
     }
   }
@@ -783,11 +782,9 @@ add_range_rule <- function(config, property, min_val, max_val, severity = "error
 #' Add a Relationship Validation Rule
 #'
 #' Adds a cross-property relationship rule (e.g. a sum-to-100 texture
-#' constraint) to a validation configuration. Note: as in the original
-#' reference implementation, relationship rules are recorded on the config
-#' but are not yet consumed by [apply_validation_rules()] (which currently
-#' only enforces `range_rules`) - this mirrors the legacy behavior exactly,
-#' not a bug introduced here.
+#' constraint) to a validation configuration. Relationship rules are recorded on the
+#' config but are not consumed by [apply_validation_rules()], which enforces only
+#' `range_rules`.
 #'
 #' @param config Validation configuration from [create_validation_config()]
 #' @param properties Character vector of properties involved in the relationship
@@ -841,12 +838,8 @@ apply_validation_rules <- function(values, property_name, validation_config) {
 
 #' Summarize Unsuitable Horizons
 #'
-#' Restores the reporting half of the legacy `filter_unsuitable_horizons()`
-#' (its flagging half is already handled by [is_unsuitable()]): logs and
-#' returns a summary of which horizon types were excluded from infilling.
-#' Uses [log_message()] (this package's established logging convention)
-#' rather than the legacy `cat()`, a deliberate improvement consistent with
-#' how every other diagnostic message in this package is emitted.
+#' Logs and returns a summary of which horizon types were excluded from infilling
+#' (the flagging itself is handled by [is_unsuitable()]).
 #'
 #' @param df Data frame with an `unsuitable_horizon` logical column (see
 #'   [is_unsuitable()])
@@ -915,22 +908,13 @@ infill_property_range_values <- function(df, property_name, property_config) {
     rep(TRUE, nrow(df))
   }
 
-  # PERF: calculate_property_lower_bound()/calculate_property_upper_bound() (and the
-  # get_contextual_spread() they call) only ever read 3 columns off `row` - r_col, "hzname", and
-  # "hzdepb_r" - but apply(df[mask, ], 1, ...) forced as.matrix() to coerce EVERY column of df
-  # (typically dozens) to a single character matrix first, one row per horizon needing infilling
-  # (see PERFORMANCE_IMPROVEMENT_PLAN.md Tier 2). Pre-extracting just those 3 columns as plain
-  # vectors, then building a small named-list "row" per element (list `[[`/`names()` behave
-  # identically to a data.frame row for these helpers' purposes) avoids both the wasted columns
-  # and the coercion - and is faster than slicing single-row data.frame subsets per element too
-  # (data.frame `[.data.frame` has enough per-call overhead of its own to erode the savings from
-  # dropping unused columns; confirmed empirically - see PERFORMANCE_IMPROVEMENT_PLAN.md's
-  # benchmark note for this item). This also fixes a real latent bug the old coercion caused: with
-  # `row` coerced to all-character, calculate_property_lower_bound()/upper_bound()'s
-  # `if (depth <= 30)` depth-zone check (depth = row[['hzdepb_r']], never wrapped in
-  # as.numeric()) was comparing STRINGS (e.g. "5" <= "30" is FALSE lexicographically, even though
-  # 5 <= 30 numerically) - silently misclassifying depth zones for any horizon whose numeric
-  # hzdepb_r string didn't happen to sort the same as its numeric value.
+  # calculate_property_lower_bound()/calculate_property_upper_bound() (and get_contextual_spread())
+  # only read 3 columns off `row`: r_col, "hzname", and "hzdepb_r". Pre-extract just those as
+  # plain vectors and build a small named-list "row" per element, avoiding an as.matrix()
+  # all-column character coercion. Keeping `row[['hzdepb_r']]` numeric also keeps
+  # calculate_property_lower_bound()/upper_bound()'s `if (depth <= 30)` depth-zone check a
+  # numeric comparison rather than a lexicographic string comparison (e.g. "5" <= "30" is
+  # FALSE lexicographically, though 5 <= 30 numerically).
   r_vec <- df[[r_col]]
   hzname_vec <- if ("hzname" %in% names(df)) df$hzname else NULL
   depth_vec <- if ("hzdepb_r" %in% names(df)) df$hzdepb_r else NULL
@@ -1391,7 +1375,7 @@ horizon_name_property_infill <- function(group, property_col, problematic_mask) 
 # 6. SPECIAL PROPERTY HANDLING
 # ==============================================================================
 
-#' Enhanced RFV Property Infilling
+#' Infill Rock Fragment Volume
 #'
 #' Specialized infilling for rock fragment volume with context-aware estimation
 #' and integration with the main workflow.
@@ -2097,9 +2081,9 @@ detect_statistical_outliers_soil_aware <- function(values, df, property_name) {
   }
 }
 
-#' Apply Basic Range Limits (Enhanced)
+#' Apply Basic Range Limits
 #'
-#' Applies property-specific range constraints with enhanced property coverage.
+#' Applies property-specific range constraints.
 #'
 #' @param values Numeric vector
 #' @param property_name Property name
@@ -2109,7 +2093,7 @@ apply_basic_range_limits <- function(values, property_name) {
 
   if (all(is.na(values))) return(values)
 
-  # Enhanced limits with comprehensive property coverage
+  # limits with comprehensive property coverage
   limits <- list(
     # Texture properties
     sandtotal = c(0, 100), claytotal = c(0, 100), silttotal = c(0, 100),
@@ -2133,7 +2117,7 @@ apply_basic_range_limits <- function(values, property_name) {
     # Rock fragments
     rfv = c(0, 95), fragvol = c(0, 95),
 
-    # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2) - caco3/gypsum are % by
+    # 5 chemistry properties - caco3/gypsum are % by
     # weight (SSURGO chorizon columns), ec is electrical conductivity in dS/m (generous upper
     # bound; extreme saline soils rarely exceed ~30), sar is unitless (sodium adsorption ratio;
     # SSURGO caps it well under 100 in practice)
@@ -2509,7 +2493,7 @@ impute_rfv_values <- function(row) {
 #' Real, checkable math (not a placeholder) - inputs are clamped to
 #' physically plausible ranges and texture percentages are renormalized to
 #' sum to 100 when off by more than 5 points. The coefficient-bearing core is
-#' [.saxton_rawls_gravimetric()], shared with the raster path.
+#' the internal `.saxton_rawls_gravimetric()`, shared with the raster path.
 #'
 #' @param sand_pct,clay_pct,silt_pct Texture percentages (0-100).
 #' @param bulk_density Bulk density (g/cm^3), clamped to `[0.6, 2.5]`.
@@ -2769,7 +2753,7 @@ cross_component_property_interpolation <- function(group, property_col) {
   source_values <- source_values[valid_source_mask]
 
   missing_indices <- which(missing_mask)
-  depth_tolerance <- 15  # 15cm tolerance for similar depths, matching legacy reference behavior
+  depth_tolerance <- 15  # 15 cm tolerance for similar depths
 
   for (idx in missing_indices) {
     target_top <- group$hzdept_r[idx]
@@ -2849,11 +2833,8 @@ related_property_estimation <- function(group, property_name, property_config) {
     group$infill_method <- ""
   }
 
-  # PERF: each branch below previously looped over which(missing_mask) doing per-row scalar
-  # arithmetic (see PERFORMANCE_IMPROVEMENT_PLAN.md Tier 2) - replaced with vectorized array ops
-  # over the whole missing-row set at once. `mark_estimated_vec()` writes infill_method for a
-  # subset of indices in one call instead of one `group$infill_method[idx] <- ...; group` cycle
-  # per row.
+  # Each branch below uses vectorized array ops over the whole missing-row set at once.
+  # `mark_estimated_vec()` writes infill_method for a subset of indices in one call.
   idx_all <- which(missing_mask)
 
   mark_estimated_vec <- function(group, idx, tag) {

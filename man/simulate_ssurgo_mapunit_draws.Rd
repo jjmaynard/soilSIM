@@ -40,17 +40,15 @@ Default \code{parallel = FALSE} matches prior behavior exactly.}
 \item{config}{Optional Monte Carlo config, passed through to
 \code{maybe_adjust_soil_data_depth_trend()} -> \code{apply_local_gp_adjustments()} ->
 \code{apply_gp_depth_trends()}. \code{config$monte_carlo$vertical_correlation_method} (default
-\code{"joint_copula"} as of \code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 13; set to
-\code{"gp_quantile_retrofit"} to opt back into the original algorithm) selects this top-level
-entry point's vertical-correlation method; \code{NULL} (default) resolves to \code{"joint_copula"},
+\code{"joint_copula"} default, or \code{"gp_quantile_retrofit"}) selects this top-level entry
+point's vertical-correlation method; \code{NULL} (default) resolves to \code{"joint_copula"},
 matching \code{get_monte_carlo_defaults()}'s own default.}
 
 \item{mukey_raster}{Optional, already-fetched \code{terra::SpatRaster} of mukey codes for this same
 \code{aoi_vect} (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}), passed through to
 \code{download_ssurgo_tabular()} so its tabular fetch reuses it instead of issuing a second,
-independent \code{soilDB::mukey.wcs()} call - see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task
-P1.2/P1.3. Only consulted on a \code{"ssurgo_tabular"} cache miss. \code{NULL} (default) preserves
-original behavior exactly.}
+independent \code{soilDB::mukey.wcs()} call. Only consulted on a \code{"ssurgo_tabular"} cache
+miss. \code{NULL} (default): the tabular fetch issues its own call.}
 
 \item{depth_windows}{Optional list of \code{c(top, bottom)} numeric pairs. \code{NULL} (default) - one
 aggregation over \verb{[top_depth, bottom_depth]}, returning a single data frame exactly as before
@@ -96,27 +94,16 @@ depth window.
 \section{Cache invalidation}{
 
 This function's own disk cache (\code{build_cache_key()}/\code{cache_get()}/\code{cache_set()} via
-\code{ssurgo_tabular_cache_key()}, keyed by \code{aoi_vect} \strong{only} - depth-independent as of
-MULTI_PROPERTY_FUSION_PLAN.md task L1, since \code{download_ssurgo_tabular()} takes no depth-window
-argument and fetches every horizon for every AOI mukey regardless) is separate from
-\code{download_ssurgo_tabular()}'s own \code{cache_dir} parameter (always \code{NULL} here). One AOI's tabular
-download is shared across every depth window/call requested for that AOI. A cache entry written
-before component recovery shipped predates it entirely - clear that cache entry (or the whole
-cache directory) to pick up recovered components. Entries written before the L1 fix (keyed by
-\code{aoi_vect}/depth window) are simply orphaned and age out via the normal TTL - no migration
-needed.
+\code{ssurgo_tabular_cache_key()}) is keyed by \code{aoi_vect} \strong{only} - \code{download_ssurgo_tabular()}
+takes no depth-window argument and fetches every horizon for every AOI mukey - and is
+separate from \code{download_ssurgo_tabular()}'s own \code{cache_dir} parameter (always \code{NULL} here).
+One AOI's tabular download is shared across every depth window/call requested for that AOI.
+Clear the cache entry (or the whole cache directory) to force a fresh fetch.
 
-This function's own SIMULATED output (as opposed to the raw tabular SSURGO input it's cached
-from) is deliberately NOT disk-cached - every call re-simulates fresh random draws, matching
-the original contract exactly. An earlier version of \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md}
-task P2.1 added an unconditional disk cache here so raster-fusion's raw-draws opt-in
-(\code{R/raster-fusion.R}'s \code{fuse_general_kde()}) could reuse draws across calls - reverted after
-review: it silently froze repeat output for EVERY caller of this function (including ones with
-nothing to do with raw-draws fusion, e.g. direct \code{fetch_ssurgo_percentiles()} use), which broke
-this project's own "default unchanged until opted in" convention. Raw-draws fusion instead
-reuses draws purely in-memory within one \code{run_stage1_fusion()} call (compute once, use for both
-the percentile cache and \code{mukey_draws_lookup()}) - see that function's implementation and
-\code{run_stage1_fusion_group()}'s pre-existing \code{shared_draws} pattern, which already did this.
+This function's SIMULATED output is not disk-cached: every call re-simulates fresh random
+draws. Raw-draws fusion reuses draws in memory within one \code{run_stage1_fusion()} call
+(computed once, used for both the percentile cache and \code{mukey_draws_lookup()}); see also
+\code{run_stage1_fusion_group()}'s \code{shared_draws} pattern.
 }
 
 \keyword{datasets}

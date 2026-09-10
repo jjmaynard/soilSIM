@@ -9,33 +9,30 @@ Fits a distribution to a property's percentile-value rasters
 arithmetic and/or \code{terra::app()}/\code{terra::lapp()} calls to \emph{vectorized}
 base-R math functions (\code{qnorm}, \code{qbeta}, \code{digamma}/\code{trigamma}) - never a
 per-cell optimizer, which is what makes these fast across whole rasters.
-Ported from \code{code_ref/reanalysis-platform/distribution_fitting_raster.R}.
 
 Reuses \code{R/distributions.R}'s existing \code{metalog_basis_matrix()}/
 \code{metalog_to_z()}/\code{metalog_from_z()} directly rather than duplicating
 them: those functions are pure elementwise arithmetic (\code{log}/\code{exp}/\code{/}
 plus building a small, non-spatial coefficient matrix from the fixed
 probability grid), so they already work unchanged whether their \code{x}/\code{z}
-arguments are plain numerics or \code{terra::SpatRaster}s - confirmed by a
-dedicated smoke test before this file was written, not assumed.
+arguments are plain numerics or \code{terra::SpatRaster}s.
 
-Status, from the original source:
+Family status:
 \itemize{
 \item \code{fit_normal_raster()} / \code{quantile_normal_raster()} - EXACT.
 \item \code{quantile_linear_cdf_raster()} - EXACT (nonparametric fallback target).
 \item \code{fit_beta_mom_raster()} - method-of-moments Beta fit, APPROXIMATE
 relative to MLE, used only as the Newton-Raphson seed below.
 \item \code{fit_beta_mle_newton_raster()} / \code{quantile_beta_mle_newton_raster()} -
-vectorized Newton-Raphson Beta MLE, validated (upstream) directly
-against \code{fitdistrplus::fitdist()} (~1e-3 to 1e-5).
+vectorized Newton-Raphson Beta MLE, validated against
+\code{fitdistrplus::fitdist()} (~1e-3 to 1e-5).
 \item \code{fit_metalog_linear_raster()} / \code{quantile_metalog_linear_raster()} /
 \code{check_metalog_feasibility_raster()} / \code{quantile_metalog_linear_with_fallback()} -
 exact linear-solve metalog reformulation (matches \code{rmetalog::metalog()}
-to ~1e-12 when its own fit is feasible, per upstream validation), with
-a validated fallback to \code{linear_cdf} for the cells where it isn't.
+to ~1e-12 when its own fit is feasible), with a fallback to \code{linear_cdf}
+for the cells where it isn't.
 }
 
-\code{spline} is intentionally excluded (per the original project's own
-decision - its accuracy relative to R's \code{splinefun(method="monoH.FC")}
-was never confirmed bit-exact).
+\code{spline} is not provided as a raster family: its accuracy relative to R's
+\code{splinefun(method = "monoH.FC")} is not confirmed bit-exact.
 }

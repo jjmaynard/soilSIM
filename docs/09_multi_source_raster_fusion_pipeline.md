@@ -95,7 +95,7 @@ simultaneously per iteration. Validated upstream against `fitdistrplus::fitdist(
 fit_beta_mle_newton_raster(value_rasters, bounds, n_iter = 15, eps = 1e-6)
 # value_rasters - list of percentile-value SpatRasters (any count >= 3)
 # bounds        - c(lower, upper) physical bounds
-# n_iter        - fixed Newton-Raphson iteration count (validated sufficient at 15 upstream)
+# n_iter        - fixed Newton-Raphson iteration count (validated sufficient at 15)
 # eps           - clamp epsilon away from the exact 0/1 rescaled boundary
 
 quantile_beta_mle_newton_raster(fit, q)
@@ -116,8 +116,7 @@ rasters for `alpha`, `beta`, and `alpha+beta`, forms the 2x2 score vector (`S1`,
 #### 5. `fit_metalog_linear_raster()` / `quantile_metalog_linear_raster()`
 **Purpose**: Fit a metalog distribution via an exactly-determined linear solve, vectorized as
 raster arithmetic — the raster counterpart of `R/distributions.R`'s `fit_metalog_linear()`. EXACT
-when feasible (implied density non-negative everywhere); matches `rmetalog::metalog()` to ~1e-12
-per upstream validation, but reproduces none of `rmetalog`'s LP-based feasibility-correction
+when feasible (implied density non-negative everywhere); matches `rmetalog::metalog()` to ~1e-12, but reproduces none of `rmetalog`'s LP-based feasibility-correction
 fallback for when it isn't feasible — see `check_metalog_feasibility_raster()` below.
 
 **Parameters**:
@@ -162,11 +161,11 @@ check_metalog_feasibility_raster(fit, bounds, boundedness, y_grid = seq(0.02, 0.
 **Behavior**: Probes `quantile_metalog_linear_raster()` at each successive `y_grid` value and flags
 cells where the probe value *decreases* from the previous probe — a probe, not a proof, but fully
 vectorized. Streams one probe raster at a time (rather than materializing the whole grid at once),
-validated upstream as necessary to avoid an allocation failure at large cell counts.
+set to avoid an allocation failure at large cell counts.
 
 #### 7. `quantile_metalog_linear_with_fallback()`
 **Purpose**: Metalog quantile evaluation with automatic per-cell fallback to
-`quantile_linear_cdf_raster()` on infeasible cells — validated upstream to have zero effect on
+`quantile_linear_cdf_raster()` on infeasible cells — verified to have zero effect on
 feasible cells and an exact `linear_cdf` match on infeasible ones.
 
 **Parameters**:
@@ -363,9 +362,9 @@ hardcoded to literal clay/sand/silt names).
 #### 14. `fuse_texture_group()`
 **Purpose**: Fuse a compositional group's members (e.g. clay/sand/silt) JOINTLY via ILR
 (isometric log-ratio) fusion, rather than independently fusing each member with `fuse_beta()` —
-independent fusion measurably breaks sum-to-100 (up to 10.5 percentage points on realistic
-synthetic data, per upstream validation). The raster counterpart of the already-ported scalar
-`fuse_texture_group_from_triplets()` (`bayesian-updating.R`).
+independent fusion measurably breaks sum-to-100 (up to about 10 percentage points on realistic
+synthetic data). The raster counterpart of the scalar `fuse_texture_group_from_triplets()`
+(`bayesian-updating.R`).
 
 **Parameters**:
 ```r
@@ -541,8 +540,7 @@ cache_get(key, ttl_seconds = CACHE_TTL_SECONDS)
 
 cache_set(key, kind, value)
 # key   - a cache key from build_cache_key()
-# kind  - unused beyond documenting intent at call sites (matches the original bundle's
-#         3-argument calling convention) - the value is stored keyed only by key, since
+# kind  - unused; documents intent at call sites. The value is stored keyed only by key, since
 #         build_cache_key() already encodes kind
 # value - the R object to cache (anything saveRDS() can serialize)
 ```
@@ -658,8 +656,7 @@ unrecognized id.
 `caco3`/`ec`/`ecec`/`gypsum`/`sar` -> themselves). The water-retention rows were added 2026-09-02 -
 `simulate_cokey_generalized()` already emitted those columns (`SSURGO_SIM_PROPERTY_COLUMNS` lists
 them) but the id map was incomplete, blocking water-retention `run_stage1_fusion()` (needed by
-`remarginalized_awc()`). The 5 chemistry-property rows were added 2026-09-04
-(MULTI_PROPERTY_FUSION_PLAN.md task P2) - self-mapping since the SOLUS variable name, the SSURGO
+`remarginalized_awc()`). The 5 chemistry-property rows self-map, since the SOLUS variable name, the SSURGO
 chorizon column stem, and the id are all identical spellings for these 5.
 
 #### 24. `simulate_ssurgo_mapunit_draws()`
@@ -727,25 +724,19 @@ P2 note for why.
 carbon. `simulate_cokey_generalized()` converts it to an estimated SOC value
 (`om * OM_TO_SOC_FACTOR`, the Van Bemmelen factor, `1/1.724`) before it enters the correlated
 draw, so this `soc` column - and everything fused against SOLUS100's real `soc` variable via
-`solus_variable = "soc"` - is SOC-scale, not raw OM (fixed as of
-MULTI_PROPERTY_FUSION_PLAN.md task P1; previously it was raw `om` mislabeled `soc`). The KSSL
+`solus_variable = "soc"` - is SOC-scale, not raw OM. The KSSL
 reference correlation matrix's `soc` correlations were still fit on OM data and needed no change
 (correlation is invariant under a linear rescale of one variable) - treat those *correlations* as
 an OM-based approximation, but the simulated *values* as genuine SOC estimates.
 
-**Note on the 5 chemistry properties (`caco3`/`ec`/`ecec`/`gypsum`/`sar`, task P2)**: added
-2026-09-04, SSURGO chorizon column names live-confirmed against a real gSSURGO query. They have
-**no** entry in the static KSSL reference matrices (`.kssl_property_matrices()`, fit years ago,
-predates these 5 properties) - `simulate_ssurgo_mapunit_draws()` builds its per-genhz correlation
-matrices via `build_kssl_fallback_matrix()` (sized to the full `param_order` vocabulary, not just
-the original 9) so these 5 simulate as *uncorrelated* with everything else (and each other) rather
-than erroring or being silently dropped - the confirmed design decision for this task (option (a)
-in the plan doc: identity fallback now, real correlations only after a future KSSL-data re-fit
-that needs no code changes elsewhere - see `build_kssl_fallback_matrix()`'s own docs). SSURGO
-coverage for these 5 is real but noticeably sparser than the original 9 in spot-checks (e.g.
-`ecec` was populated in only ~25% of sampled horizons for one AOI) - expect more `NA` in their
-fused output than the longer-established properties, a genuine SSURGO data-completeness gap, not
-a pipeline defect.
+**Note on the 5 chemistry properties (`caco3`/`ec`/`ecec`/`gypsum`/`sar`)**: SSURGO chorizon
+column names confirmed against a real gSSURGO query. They have
+**no** entry in the static KSSL reference matrices (`.kssl_property_matrices()`) - `simulate_ssurgo_mapunit_draws()` builds its per-genhz correlation
+matrices via `build_kssl_fallback_matrix()` (sized to the full `param_order` vocabulary) so
+these 5 simulate as *uncorrelated* with everything else (and each other) rather
+than erroring: identity fallback now, real correlations after a future KSSL-data re-fit that
+needs no code changes here (see `build_kssl_fallback_matrix()`'s own docs). SSURGO coverage for these 5 is real but noticeably sparser in spot-checks (e.g.
+`ecec` was populated in only ~25% of sampled horizons for one AOI) - expect more `NA` in their fused output - a SSURGO data-completeness gap, not a pipeline defect.
 
 #### 26. `rasterize_mukey_percentiles()`
 **Purpose**: Merge a per-mukey percentile-value table onto a mukey raster, producing one
@@ -802,9 +793,8 @@ group, reshapes into a `mukey` + one-column-per-percentile data frame, and raste
 
 #### 28. `closest_solus_depth_slice()`
 **Purpose**: Snap a `[top_depth, bottom_depth]` depth window to the nearest native SOLUS depth
-slice, since `soilDB::fetchSOLUS()`'s `depth_slices` are single depth points, not ranges. New design
-for this port (referenced but never defined in the source it was ported from) — the simplest
-representative-point choice for an otherwise point-based data source.
+slice, since `soilDB::fetchSOLUS()`'s `depth_slices` are single depth points, not ranges - the
+simplest representative-point choice for an otherwise point-based data source.
 
 **Parameters**:
 ```r
@@ -817,10 +807,10 @@ closest_solus_depth_slice(top_depth, bottom_depth, available_slices = c(0, 5, 15
 **Behavior**: Computes the window midpoint `(top_depth + bottom_depth) / 2` and returns whichever
 `available_slices` value minimizes `abs(available_slices - midpoint)`.
 
-**Superseded for the fusion pipeline** (2026-09-02): `fetch_solus_low_pred_high()` no longer uses
-this — a midpoint point-value only equals the window depth-average for a linear profile, and it left
-the SOLUS likelihood as a different estimand than the SSURGO prior's window mean. Replaced by
-`solus_depth_window_weights()`. Kept as public API for back-compat.
+**Relationship to the fusion pipeline**: `fetch_solus_low_pred_high()` uses
+`solus_depth_window_weights()` for a trapezoidal depth-average across native slices, so the
+SOLUS likelihood and SSURGO prior both represent a window mean. This function is public API for
+callers that want a single nearest slice.
 
 #### 28b. `solus_depth_window_weights()`
 Trapezoidal depth-average weights over the native SOLUS slices spanning a window: `f(d)`
@@ -905,8 +895,7 @@ with its own `warning()` naming it. The scalar `fetch_solus_low_pred_high()` /
 ### Per-pixel ensemble bridge (raster-fusion-bridge.R)
 
 Wires the fused posterior back into the modelling framework as a **per-pixel** product, without
-touching either existing pipeline. See `planning-docs/RASTER_FUSION_PERPIXEL_ENSEMBLE_DESIGN.md` and
-`RASTER_STATISTICS_INTEGRATION_PLAN.md` Problem A.
+touching either existing pipeline.
 
 #### 31. `extract_mukey_joint_ensemble()` *(ssurgo-simulation.R)*
 Runs `simulate_ssurgo_mapunit_draws(depth_windows=)` once and returns, per mukey, the retained bag
@@ -915,7 +904,7 @@ window, row-aligned on `(cokey, simulation_number)` so cross-property and cross-
 structure is preserved. The multi-property / multi-window analogue of `mukey_draws_lookup()`. Takes
 `properties` (which columns to keep) and, separately, `requested_properties` (which properties the
 simulation itself draws — defaulting to `properties`, so a call restricted to the Saxton-Rawls
-inputs no longer pays for the properties it will discard).
+inputs does not pay for the properties it will discard).
 
 #### 32. `remarginalize_ensemble_to_posterior()`
 Rank-preserving marginal transform: for each property x window, `v_new = F_post^-1(F_prior(v_r))`
@@ -951,7 +940,7 @@ can't run per pixel).
 `tile_rows =` processes the AOI in row-strips for bounded memory, numerically identical to the
 whole-grid run.
 
-**`restriction_depth =` (MULTI_PROPERTY_FUSION_PLAN.md task S2, 2026-09-04) - optional
+**`restriction_depth =`** - optional
 bedrock/restriction-depth truncation.** `NULL` (default) preserves every prior behavior exactly -
 each window uses its full nominal `thickness = bottom - top` regardless of bedrock, which is
 physically wrong for shallow soils (SOLUS predicts every property at every depth even where
@@ -966,11 +955,9 @@ above the restriction keeps full thickness; one straddling it gets partial credi
 below contributes exactly **0**, not `NA` (`NA` would incorrectly blank the whole pixel's AWC,
 including valid shallower windows, rather than just that one window's contribution). The
 single-layer effective-thickness raster is recycled across the multi-layer `fc`/`wp` realization
-stack by `terra`'s own arithmetic recycling, the same way the old scalar `thickness` value was
-implicitly "recycled" - no other code in `.awc_block()`'s per-window loop changes.
+stack by `terra`'s own arithmetic recycling, in place of a scalar `thickness` factor.
 
-#### 34b. `fetch_solus_site_level()` / `fetch_solus_restriction_depth()` *(solus-simulation.R,
-task S2)*
+#### 34b. `fetch_solus_site_level()` / `fetch_solus_restriction_depth()` *(solus-simulation.R)*
 **Purpose**: Fetch a SOLUS100 **site-level** (depth-independent) variable - `anylithicdpt`
 (depth to bedrock) / `resdept` (depth to restriction) are the two relevant ones - requested via
 `fetchSOLUS()`'s special `depth_slices = "all"`, and turn it into the censoring-guarded
@@ -1197,8 +1184,8 @@ pedotransfer-model error.
   the scalar function's `max()`/`min()`/`if` do not vectorize over a raster stack).
 
 `run_stage1_fusion()`/`run_stage1_fusion_group()` (`R/raster-fusion.R`) are the top-level AOI
-orchestrators tying all of the above together — the single entry points a caller (e.g. a Shiny app
-or batch script) needs, hiding the fetch/cache/align/fuse sequence behind one call per property (or
+orchestrators tying all of the above together — the single entry points a downstream caller
+needs, hiding the fetch/cache/align/fuse sequence behind one call per property (or
 per compositional group) per AOI/depth window.
 
 ## Data Flow In/Out
@@ -1228,10 +1215,9 @@ per compositional group) per AOI/depth window.
 ## Known Limitations
 
 1. **`metalog_moments_raster()` is new, less-validated glue code** (`R/raster-fusion.R`). Unlike the
-   rest of this pipeline's math — validated upstream against `fitdistrplus`/closed-form references
-   — the mean/variance-via-quadrature computation in `metalog_moments_raster()` has no prior
-   validated version. Per the original source bundle's own caveat, it should be spot-checked
-   against real data before being trusted in production.
+   rest of this pipeline's math — validated against `fitdistrplus`/closed-form references —
+   the mean/variance-via-quadrature computation in `metalog_moments_raster()` is less validated
+   and should be spot-checked against real data before being trusted in production.
 
 2. **`SpatRaster`/`SpatVector` objects do not survive a plain `saveRDS()`/`readRDS()` round-trip**
    (`R/raster-cache.R`). These objects hold an external pointer to in-memory/on-disk GDAL state.

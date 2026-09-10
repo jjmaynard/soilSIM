@@ -12,12 +12,11 @@ NULL
 
 #' Validate Complete Workflow
 #'
-#' Master validation function enhanced  for comprehensive
-#' assessment of the entire soil simulation workflow.
+#' Assesses the entire soil simulation workflow end to end.
 #'
 #' @param workflow_results Complete workflow results including all intermediate steps
 #' @param original_data Original SSURGO/NRCS data for comparison
-#' @param validation_config Configuration for validation parameters (uses Module 0 defaults)
+#' @param validation_config Configuration for validation parameters (uses package defaults)
 #' @param generate_plots Whether to generate diagnostic plots (default = TRUE)
 #' @param output_dir Directory for saving validation outputs
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
@@ -36,20 +35,20 @@ validate_complete_workflow <- function(workflow_results,
   log_message("INFO", "=== COMPREHENSIVE WORKFLOW VALIDATION ===", category = "Validation")
   start_time <- Sys.time()
 
-  # Use Module 0 configuration management
+  # Use the shared configuration helpers
   if (is.null(validation_config)) {
     validation_config <- get_default_configuration("validation")
   }
 
-  # Initialize validation results structure with Module 0 metadata patterns
+  # Initialize validation results structure
   validation_results <- initialize_validation_structure(start_time, validation_config, output_dir)
 
-  # Extract and validate workflow components  utilities
+  # Extract and validate workflow components utilities
   components <- extract_and_validate_components(workflow_results)
 
   log_message("INFO", paste("Validating workflow with", length(components), "components"), category = "Validation")
 
-  # Enhanced validation pipeline
+  # validation pipeline
   validation_results <- execute_validation_pipeline(
     validation_results, components, original_data, validation_config, generate_plots, output_dir
   )
@@ -65,7 +64,6 @@ validate_complete_workflow <- function(workflow_results,
 
 #' Generate Validation Report
 #'
-#' Enhanced report generation  I/O utilities and error handling.
 #'
 #' @param validation_results Results from validate_complete_workflow()
 #' @param output_format Format for report: "html", "pdf", or "markdown"
@@ -86,7 +84,7 @@ generate_validation_report <- function(validation_results,
   log_message("INFO", "=== GENERATING VALIDATION REPORT ===", category = "Validation")
   log_message("INFO", paste("Output format:", output_format), category = "Validation")
 
-  # Enhanced file naming  utilities
+  # file naming utilities
   if (is.null(output_file)) {
     timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
     output_file <- paste0("soil_simulation_validation_", timestamp, ".", output_format)
@@ -112,7 +110,7 @@ generate_validation_report <- function(validation_results,
     return(FALSE)
   }
 
-  # Create report content with enhanced error handling
+  # Create report content with error handling
   report_content <- tryCatch({
     create_report_content(validation_results, include_plots)
   }, error = function(e) {
@@ -152,7 +150,6 @@ generate_validation_report <- function(validation_results,
 
 #' Assess Workflow Quality
 #'
-#' Enhanced quality assessment  validation framework.
 #'
 #' @param validation_results Complete validation results
 #' @param validation_config Validation configuration
@@ -166,20 +163,20 @@ assess_workflow_quality <- function(validation_results, validation_config, verbo
 
   log_message("INFO", "Performing overall workflow quality assessment", category = "Validation")
 
-  # Component quality scores  safe operations
+  # Component quality scores safe operations
   quality_scores <- calculate_component_quality_scores(validation_results)
 
-  # Calculate weighted overall score  utilities
+  # Calculate weighted overall score utilities
   weights <- validation_config$quality_weights %||% get_default_quality_weights()
   overall_score <- calculate_weighted_quality_score(quality_scores, weights)
 
-  # Determine quality grade  patterns
+  # Determine quality grade patterns
   quality_grade <- determine_quality_grade(overall_score)
 
-  # Identify critical issues  validation framework
+  # Identify critical issues validation framework
   critical_issues <- identify_critical_issues(validation_results, validation_config)
 
-  # Create assessment with Module 0 metadata patterns
+  # Create assessment
   assessment <- create_quality_assessment(
     overall_score, quality_grade, quality_scores, critical_issues, validation_config
   )
@@ -191,12 +188,10 @@ assess_workflow_quality <- function(validation_results, validation_config, verbo
 }
 
 # ============================================================================
-# 2. MONTE CARLO VALIDATION FUNCTIONS (Enhanced)
-# ============================================================================
+# 2. MONTE CARLO VALIDATION FUNCTIONS# ============================================================================
 
 #' Validate Monte Carlo Quality
 #'
-#' Enhanced Monte Carlo validation  utilities and validation framework.
 #'
 #' @param monte_carlo_results Results from monte_carlo module
 #' @param original_data Original SSURGO data for comparison
@@ -214,12 +209,12 @@ validate_monte_carlo_quality <- function(monte_carlo_results,
 
   log_message("INFO", "Validating Monte Carlo simulation quality", category = "Validation")
 
-  # Use Module 0 configuration management
+  # Use the shared configuration helpers
   if (is.null(config)) {
     config <- get_default_configuration("monte_carlo")
   }
 
-  # Enhanced data validation
+  # data validation
   simulation_data <- monte_carlo_results$simulation_data
 
   data_validation <- validate_data_quality(
@@ -241,7 +236,7 @@ validate_monte_carlo_quality <- function(monte_carlo_results,
     data_quality = data_validation
   )
 
-  # Enhanced validation pipeline with progress tracking
+  # validation pipeline with progress tracking
   validation_steps <- list(
     "convergence" = function() assess_simulation_convergence(simulation_data, config$convergence_criteria),
     "coverage" = function() assess_simulation_coverage(simulation_data, original_data, config$coverage_criteria),
@@ -279,7 +274,6 @@ validate_monte_carlo_quality <- function(monte_carlo_results,
 
 #' Assess Simulation Coverage
 #'
-#' Enhanced coverage assessment  validation utilities.
 #'
 #' @param simulation_data Simulation results
 #' @param original_data Original data for comparison
@@ -311,7 +305,7 @@ assess_simulation_coverage <- function(simulation_data,
     group_representation = list()
   )
 
-  # Enhanced property detection
+  # property detection
   properties_validation <- validate_properties(names(simulation_data), "laboratory", strict_mode = FALSE)
   numeric_properties <- intersect(
     properties_validation$property_stats$valid_property_names %||% names(simulation_data),
@@ -323,7 +317,7 @@ assess_simulation_coverage <- function(simulation_data,
 
   log_message("DEBUG", paste("Assessing coverage for", length(numeric_properties), "properties"), category = "Validation")
 
-  # Parameter space coverage with enhanced error handling
+  # Parameter space coverage with error handling
   if (!is.null(original_data)) {
     for (prop in numeric_properties) {
       if (prop %in% names(original_data)) {
@@ -341,7 +335,7 @@ assess_simulation_coverage <- function(simulation_data,
     }
   }
 
-  # Distributional coverage  safe operations
+  # Distributional coverage safe operations
   for (prop in numeric_properties) {
     coverage_results$distributional_coverage[[prop]] <- tryCatch({
       assess_distributional_coverage(simulation_data[[prop]], criteria)
@@ -351,7 +345,7 @@ assess_simulation_coverage <- function(simulation_data,
     })
   }
 
-  # Group representation with Module 0 validation
+  # Group representation
   if ("cokey" %in% names(simulation_data)) {
     coverage_results$group_representation <- tryCatch({
       assess_group_representation(simulation_data, criteria)
@@ -366,7 +360,6 @@ assess_simulation_coverage <- function(simulation_data,
 
 #' Validate Distribution Fidelity
 #'
-#' Enhanced distribution validation  utilities.
 #'
 #' @param simulation_data Simulation results
 #' @param simulation_metadata Metadata from Monte Carlo generation
@@ -399,7 +392,7 @@ validate_distribution_fidelity <- function(simulation_data,
     outlier_assessment = list()
   )
 
-  # Enhanced distribution parameter extraction
+  # distribution parameter extraction
   if (!is.null(simulation_metadata$distribution_parameters)) {
 
     for (prop in names(simulation_metadata$distribution_parameters)) {
@@ -418,7 +411,7 @@ validate_distribution_fidelity <- function(simulation_data,
             return(list(test_failed = TRUE))
           })
 
-          # Moment comparisons  safe operations
+          # Moment comparisons safe operations
           fidelity_results$moment_comparisons[[prop]] <- tryCatch({
             compare_distribution_moments(simulated_values, param_info, criteria)
           }, error = function(e) {
@@ -434,7 +427,7 @@ validate_distribution_fidelity <- function(simulation_data,
             return(list(comparison_failed = TRUE))
           })
 
-          # Outlier assessment  utilities
+          # Outlier assessment utilities
           fidelity_results$outlier_assessment[[prop]] <- tryCatch({
             outliers <- detect_outliers(simulated_values, method = "iqr", return_indices = FALSE)
             list(
@@ -455,12 +448,11 @@ validate_distribution_fidelity <- function(simulation_data,
 }
 
 # ============================================================================
-# 3. CORRELATION STRUCTURE VALIDATION (Enhanced with Module 0)
+# 3. CORRELATION STRUCTURE VALIDATION
 # ============================================================================
 
 #' Validate Correlation Structures
 #'
-#' Enhanced correlation validation  utilities and Module 6 integration.
 #'
 #' @param correlation_matrices Correlation matrices from correlation_structure module
 #' @param simulation_data Final simulation data
@@ -478,12 +470,12 @@ validate_correlation_structures <- function(correlation_matrices,
 
   log_message("INFO", "Validating correlation structures", category = "Validation")
 
-  # Use Module 0 configuration management
+  # Use the shared configuration helpers
   if (is.null(config)) {
     config <- get_default_configuration("correlation")
   }
 
-  # Enhanced data validation
+  # data validation
   correlation_data_validation <- validate_data_quality(
     simulation_data,
     required_columns = c("cokey", "simulation_number"),
@@ -498,7 +490,7 @@ validate_correlation_structures <- function(correlation_matrices,
     data_quality = correlation_data_validation
   )
 
-  # Enhanced validation pipeline with Module 0 progress tracking
+  # validation pipeline
   validation_steps <- list(
     "matrix_quality" = function() validate_correlation_matrix_quality(correlation_matrices, config$matrix_criteria),
     "preservation" = function() validate_correlation_preservation_diagnostics(correlation_matrices, simulation_data, config$preservation_criteria),
@@ -526,7 +518,6 @@ validate_correlation_structures <- function(correlation_matrices,
 
 #' Validate Correlation Preservation
 #'
-#' Enhanced correlation preservation validation using Module 6 utilities.
 #'
 #' @param original_correlations Original correlation matrices
 #' @param simulation_data Final simulation data
@@ -558,7 +549,7 @@ validate_correlation_preservation_diagnostics <- function(original_correlations,
     property_specific_preservation = list()
   )
 
-  # Enhanced property detection
+  # property detection
   properties_validation <- validate_properties(names(simulation_data), "laboratory", strict_mode = FALSE)
   numeric_properties <- intersect(
     properties_validation$property_stats$valid_property_names %||% names(simulation_data),
@@ -572,7 +563,7 @@ validate_correlation_preservation_diagnostics <- function(original_correlations,
     return(preservation_results)
   }
 
-  # Overall preservation assessment  safe correlation
+  # Overall preservation assessment safe correlation
   overall_sim_cor <- tryCatch({
     safe_correlation(simulation_data[numeric_properties], method = "pearson", handle_constant = "warn")
   }, error = function(e) {
@@ -596,7 +587,7 @@ validate_correlation_preservation_diagnostics <- function(original_correlations,
     }
   }
 
-  # Depth-specific preservation with enhanced error handling
+  # Depth-specific preservation with error handling
   unique_depths <- unique(simulation_data$hzdept_r)
   depths_to_check <- unique_depths[1:min(5, length(unique_depths))]
 
@@ -623,7 +614,6 @@ validate_correlation_preservation_diagnostics <- function(original_correlations,
 
 #' Validate Within Depth Correlations
 #'
-#' Enhanced within-depth correlation validation  utilities.
 #'
 #' @param simulation_data Simulation data
 #' @param criteria Depth validation criteria
@@ -651,7 +641,7 @@ validate_within_depth_correlations <- function(simulation_data, criteria = NULL,
     depth_trend_correlations = list()
   )
 
-  # Enhanced property detection
+  # property detection
   properties_validation <- validate_properties(names(simulation_data), "laboratory", strict_mode = FALSE)
   numeric_properties <- intersect(
     properties_validation$property_stats$valid_property_names %||% names(simulation_data),
@@ -665,7 +655,7 @@ validate_within_depth_correlations <- function(simulation_data, criteria = NULL,
     return(depth_validation)
   }
 
-  # Assess correlations within depth bins  safe operations
+  # Assess correlations within depth bins safe operations
   simulation_data$depth_bin <- cut(simulation_data$hzdept_r,
                                    breaks = criteria$depth_bins,
                                    include.lowest = TRUE)
@@ -702,7 +692,6 @@ validate_within_depth_correlations <- function(simulation_data, criteria = NULL,
 
 #' Assess Cholesky Decomposition
 #'
-#' Enhanced Cholesky validation  error handling.
 #'
 #' @param correlation_matrices Correlation matrices and decompositions
 #' @param criteria Cholesky validation criteria
@@ -730,7 +719,7 @@ assess_cholesky_decomposition <- function(correlation_matrices, criteria = NULL,
     reconstruction_accuracy = list()
   )
 
-  # Check different types of correlation matrices with enhanced error handling
+  # Check different types of correlation matrices with error handling
   matrix_types <- names(correlation_matrices)
 
   for (matrix_type in matrix_types) {
@@ -750,12 +739,11 @@ assess_cholesky_decomposition <- function(correlation_matrices, criteria = NULL,
 }
 
 # ============================================================================
-# 4. GP MODEL VALIDATION (Enhanced with Module 5 Integration)
+# 4. GP MODEL VALIDATION
 # ============================================================================
 
 #' Validate GP Model Workflow
 #'
-#' Enhanced GP validation using Module 5 functions and Module 0 utilities.
 #'
 #' @param gp_models GP models from gp_modeling module
 #' @param training_data Original training data
@@ -770,12 +758,12 @@ validate_gp_model_workflow <- function(gp_models, training_data, config = NULL, 
 
   log_message("INFO", "Validating GP model workflow", category = "Validation")
 
-  # Use Module 0 configuration management
+  # Use the shared configuration helpers
   if (is.null(config)) {
     config <- get_default_configuration("gp_models")
   }
 
-  # Enhanced data validation
+  # data validation
   if (!is.null(training_data)) {
     training_data_validation <- validate_data_quality(
       training_data,
@@ -794,7 +782,7 @@ validate_gp_model_workflow <- function(gp_models, training_data, config = NULL, 
     training_data_quality = training_data_validation
   )
 
-  # Enhanced validation pipeline using Module 5 functions
+  # validation pipeline using the GP depth-modeling functions
   validation_steps <- list(
     "model_performance" = function() validate_gp_model_performance(gp_models, training_data, config$performance_criteria),
     "prediction_quality" = function() validate_gp_predictions(gp_models, config$prediction_criteria),
@@ -822,7 +810,6 @@ validate_gp_model_workflow <- function(gp_models, training_data, config = NULL, 
 
 #' Validate GP Model Performance
 #'
-#' Enhanced GP performance validation using Module 5 functions.
 #'
 #' @param gp_models GP models
 #' @param training_data Training data
@@ -875,7 +862,7 @@ validate_gp_model_performance <- function(gp_models, training_data, criteria = N
     }
   }
 
-  # Calculate overall performance metrics  safe operations
+  # Calculate overall performance metrics safe operations
   performance_results$overall_performance <- calculate_overall_gp_performance(
     performance_results$individual_model_performance
   )
@@ -885,7 +872,6 @@ validate_gp_model_performance <- function(gp_models, training_data, criteria = N
 
 #' Assess Depth Trend Realism
 #'
-#' Enhanced depth trend validation using Module 5 prediction functions and Module 0 utilities.
 #'
 #' @param gp_models GP models
 #' @param criteria Realism criteria
@@ -926,7 +912,7 @@ assess_depth_trend_realism <- function(gp_models, criteria = NULL, verbose = get
         group_model <- prop_models$models[[group]]
 
         if (!is.null(group_model)) {
-          # Use Module 5 prediction function
+          # Use the GP depth-trend predictor
           predictions <- tryCatch({
             predict_gp_depth_trends(group_model, criteria$test_depths)
           }, error = function(e) {
@@ -935,7 +921,7 @@ assess_depth_trend_realism <- function(gp_models, criteria = NULL, verbose = get
           })
 
           if (!is.null(predictions)) {
-            # Assess realism  validation utilities
+            # Assess realism validation utilities
             prop_realism[[group]] <- assess_trend_realism(
               predictions, criteria$test_depths, prop, criteria
             )
@@ -947,7 +933,7 @@ assess_depth_trend_realism <- function(gp_models, criteria = NULL, verbose = get
     }
   }
 
-  # Summarize constraint violations  patterns
+  # Summarize constraint violations patterns
   realism_results$constraint_violations <- summarize_constraint_violations(
     realism_results$trend_predictions
   )
@@ -957,7 +943,6 @@ assess_depth_trend_realism <- function(gp_models, criteria = NULL, verbose = get
 
 #' Validate GP Predictions
 #'
-#' Enhanced GP prediction validation using Module 5 functions.
 #'
 #' @param gp_models GP models
 #' @param criteria Prediction criteria
@@ -1014,12 +999,11 @@ validate_gp_predictions <- function(gp_models, criteria = NULL, verbose = getOpt
 }
 
 # ============================================================================
-# 5. SOIL SCIENCE VALIDATION (Enhanced with Module 0)
+# 5. SOIL SCIENCE VALIDATION
 # ============================================================================
 
 #' Validate Soil Science Realism
 #'
-#' Enhanced soil science validation  property validation and utilities.
 #'
 #' @param simulation_data Final simulation data
 #' @param original_data Original SSURGO data for comparison
@@ -1034,12 +1018,12 @@ validate_soil_science_realism <- function(simulation_data, original_data = NULL,
 
   log_message("INFO", "Validating soil science realism", category = "Validation")
 
-  # Use Module 0 configuration management
+  # Use the shared configuration helpers
   if (is.null(config)) {
     config <- get_default_configuration("soil_science")
   }
 
-  # Enhanced data validation
+  # data validation
   soil_data_validation <- validate_data_quality(
     simulation_data,
     required_columns = c("cokey", "hzdept_r"),
@@ -1054,7 +1038,7 @@ validate_soil_science_realism <- function(simulation_data, original_data = NULL,
     data_quality = soil_data_validation
   )
 
-  # Enhanced validation pipeline with Module 0 progress tracking
+  # validation pipeline
   validation_steps <- list(
     "property_constraints" = function() assess_property_constraints(simulation_data, config$constraint_criteria),
     "horizon_characteristics" = function() validate_horizon_characteristics(simulation_data, config$horizon_criteria),
@@ -1082,7 +1066,6 @@ validate_soil_science_realism <- function(simulation_data, original_data = NULL,
 
 #' Assess Property Constraints
 #'
-#' Enhanced property constraint validation  property utilities.
 #'
 #' @param simulation_data Simulation data
 #' @param criteria Property constraint criteria
@@ -1106,17 +1089,17 @@ assess_property_constraints <- function(simulation_data, criteria = NULL, verbos
     distribution_anomalies = list()
   )
 
-  # Enhanced property validation
+  # property validation
   properties_validation <- validate_properties(names(simulation_data), "laboratory", strict_mode = FALSE)
 
-  # Check range violations  range validation
+  # Check range violations range validation
   for (prop in names(criteria$property_ranges)) {
     if (prop %in% names(simulation_data)) {
       range_info <- criteria$property_ranges[[prop]]
       values <- simulation_data[[prop]][!is.na(simulation_data[[prop]])]
 
       if (length(values) > 0) {
-        # Use Module 0 range validation
+        # Use shared range validation
         range_validation <- validate_numeric_ranges(
           data.frame(temp_prop = values),
           list(temp_prop = range_info),
@@ -1137,12 +1120,12 @@ assess_property_constraints <- function(simulation_data, criteria = NULL, verbos
     }
   }
 
-  # Enhanced cross-property constraints  validation
+  # cross-property constraints validation
   constraint_results$cross_property_violations <- assess_cross_property_constraints(
     simulation_data, criteria$cross_property_rules
   )
 
-  # Enhanced distribution anomaly detection  outlier detection
+  # distribution anomaly detection outlier detection
   constraint_results$distribution_anomalies <- detect_distribution_anomalies(
     simulation_data, criteria$distribution_checks
   )
@@ -1151,10 +1134,10 @@ assess_property_constraints <- function(simulation_data, criteria = NULL, verbos
 }
 
 # ============================================================================
-# 6. ENHANCED HELPER FUNCTIONS (Leveraging Module 0)
+# 6. HELPER FUNCTIONS
 # ============================================================================
 
-# Enhanced initialization  patterns
+# initialization patterns
 initialize_validation_structure <- function(start_time, validation_config, output_dir) {
   list(
     workflow_summary = list(),
@@ -1176,13 +1159,13 @@ initialize_validation_structure <- function(start_time, validation_config, outpu
   )
 }
 
-# Enhanced component extraction with Module 0 validation
+# component extraction
 extract_and_validate_components <- function(workflow_results) {
 
   components <- list()
 
   tryCatch({
-    # Enhanced component extraction with validation
+    # component extraction with validation
     if (is.list(workflow_results)) {
 
       # Monte Carlo results
@@ -1191,7 +1174,7 @@ extract_and_validate_components <- function(workflow_results) {
         components$simulation_data <- workflow_results$simulation_data
       }
 
-      # Integrated results with Module 6 structure
+      # Integrated results
       if ("integrated_data" %in% names(workflow_results)) {
         components$final_data <- workflow_results$integrated_data
         components$monte_carlo_results <- list(
@@ -1200,7 +1183,7 @@ extract_and_validate_components <- function(workflow_results) {
         )
       }
 
-      # GP models from Module 5
+      # GP models from the GP depth-modeling step
       if ("gp_models" %in% names(workflow_results)) {
         components$gp_models <- workflow_results$gp_models
       }
@@ -1238,11 +1221,11 @@ extract_and_validate_components <- function(workflow_results) {
   return(components)
 }
 
-# Enhanced validation pipeline execution
+# validation pipeline execution
 execute_validation_pipeline <- function(validation_results, components, original_data,
                                         validation_config, generate_plots, output_dir) {
 
-  # Validation steps with enhanced error handling
+  # Validation steps with error handling
   validation_steps <- list(
     "monte_carlo" = function() {
       if (!is.null(components$monte_carlo_results)) {
@@ -1345,7 +1328,7 @@ execute_validation_pipeline <- function(validation_results, components, original
   return(validation_results)
 }
 
-# Enhanced finalization with Module 0 metadata
+# finalization
 finalize_validation_results <- function(validation_results, start_time) {
   end_time <- Sys.time()
   validation_time <- difftime(end_time, start_time, units = "secs")
@@ -1358,11 +1341,11 @@ finalize_validation_results <- function(validation_results, start_time) {
   return(validation_results)
 }
 
-# Enhanced quality scoring  safe operations
+# quality scoring safe operations
 calculate_component_quality_scores <- function(validation_results) {
   quality_scores <- list()
 
-  # Monte Carlo quality  safe operations
+  # Monte Carlo quality safe operations
   if (!is.null(validation_results$monte_carlo_validation) &&
       !validation_results$monte_carlo_validation$validation_failed %||% FALSE) {
     quality_scores$monte_carlo <- calculate_monte_carlo_score(validation_results$monte_carlo_validation)
@@ -1389,14 +1372,14 @@ calculate_component_quality_scores <- function(validation_results) {
   return(quality_scores)
 }
 
-# Enhanced weighted scoring  safe operations
+# weighted scoring safe operations
 calculate_weighted_quality_score <- function(quality_scores, weights) {
   if (length(quality_scores) == 0) {
     log_message("WARN", "No quality scores available for weighting", category = "Validation")
     return(0.5)  # Default neutral score
   }
 
-  # Use Module 0 safe operations for weighted mean
+  # Use shared safe operations for weighted mean
   tryCatch({
     score_values <- unlist(quality_scores)
     weight_values <- weights[names(quality_scores)]
@@ -1411,7 +1394,7 @@ calculate_weighted_quality_score <- function(quality_scores, weights) {
   })
 }
 
-# Enhanced quality grading  patterns
+# quality grading patterns
 determine_quality_grade <- function(overall_score) {
   if (overall_score >= 0.9) {
     "Excellent"
@@ -1426,7 +1409,7 @@ determine_quality_grade <- function(overall_score) {
   }
 }
 
-# Enhanced critical issue identification  validation
+# critical issue identification validation
 identify_critical_issues <- function(validation_results, validation_config) {
   critical_issues <- character(0)
 
@@ -1457,7 +1440,7 @@ identify_critical_issues <- function(validation_results, validation_config) {
   return(critical_issues)
 }
 
-# Enhanced assessment creation  metadata patterns
+# assessment creation metadata patterns
 create_quality_assessment <- function(overall_score, quality_grade, quality_scores,
                                       critical_issues, validation_config) {
   list(
@@ -1479,7 +1462,7 @@ create_quality_assessment <- function(overall_score, quality_grade, quality_scor
   )
 }
 
-# Enhanced confidence calculation
+# confidence calculation
 calculate_confidence_level <- function(quality_scores) {
   if (length(quality_scores) == 0) return(0.5)
 
@@ -1494,11 +1477,7 @@ calculate_confidence_level <- function(quality_scores) {
   return(pmax(0, pmin(1, confidence)))
 }
 
-## The functions below implement real diagnostics (previously
-## placeholder/stub implementations ported as-is from the pre-package
-## `modules/` prototype - see [[project_soilsim_package]] stub-completion
-## history). `assess_correlation_differences()` just below was already real
-## prior to that pass.
+## The functions below implement the workflow diagnostics.
 
 #' Assess Simulation Convergence
 #'
@@ -1965,7 +1944,7 @@ assess_single_cholesky_decomposition <- function(matrix_data, criteria) {
   )
 }
 
-# Enhanced GP assessment functions
+# GP assessment functions
 
 #' Assess a Single GP Model's Performance
 #'
@@ -2153,18 +2132,14 @@ validate_single_gp_predictions <- function(group_model, criteria) {
   )
 }
 
-# Enhanced soil science functions
+# soil science functions
 get_default_property_constraints <- function() {
-  # NOTE: this previously called a nonexistent get_default_property_constraints()
-  # (a dangling reference - the function was never implemented anywhere in
-  # modules/), which meant assess_property_constraints() always errored with
-  # "could not find function" whenever called with criteria = NULL. Fixed by
-  # building constraints$property_ranges from the real, already-implemented
-  # get_realistic_property_ranges(), which returns exactly the
-  # list(propname = list(min=, max=), ...) shape this function's caller expects.
+  # Builds constraints$property_ranges from get_realistic_property_ranges(), which returns the
+  # list(propname = list(min=, max=), ...) shape this function's caller expects. Used by
+  # assess_property_constraints() when called with criteria = NULL.
   constraints <- list(property_ranges = get_realistic_property_ranges())
 
-  # Add enhanced constraints
+  # Add constraints
   constraints$enhanced_checks <- list(
     use_module8_validation = TRUE,
     apply_soil_specific_rules = TRUE
@@ -2408,7 +2383,7 @@ validate_simulation_depth_trends <- function(simulation_data, original_data, cri
   )
 }
 
-# Enhanced calculation functions
+# calculation functions
 
 #' Calculate Workflow Performance
 #'
@@ -2449,7 +2424,7 @@ calculate_workflow_performance <- function(components, validation_results) {
 }
 
 calculate_monte_carlo_score <- function(mc_validation) {
-  # Enhanced Monte Carlo scoring  safe operations
+  # Monte Carlo scoring safe operations
   scores <- c()
 
   if (!is.null(mc_validation$convergence_assessment$converged) && mc_validation$convergence_assessment$converged) {
@@ -2512,7 +2487,7 @@ calculate_soil_science_score <- function(soil_validation) {
   return(mean(scores, na.rm = TRUE))
 }
 
-# Enhanced reporting functions
+# reporting functions
 create_report_content <- function(validation_results, include_plots) {
   list(
     executive_summary = create_executive_summary(validation_results),
@@ -2697,10 +2672,7 @@ generate_pdf_report <- function(report_content, output_file) {
 
 #' Shared minimal ggplot theme for diagnostic plots
 #'
-#' No ggplot styling convention existed anywhere in modules/ prior to this
-#' (grepped: zero ggplot()/geom_*() calls anywhere despite ggplot2 being
-#' loaded in this file and mod06_gp_modeling.R) - this establishes one
-#' rather than improvising ad hoc per plot below.
+#' A single minimal theme applied to every diagnostic plot in this file.
 theme_soil_diagnostics <- function() {
   ggplot2::theme_minimal(base_size = 11) +
     ggplot2::theme(
@@ -2733,12 +2705,10 @@ save_diagnostic_plot <- function(plot_obj, filename, output_dir) {
 
 #' Generate diagnostic plots across all validated workflow components
 #'
-#' Builds real plots from `components` (mod01-07 outputs) and
-#' `validation_results` (this file's own already-computed assessments)
-#' rather than returning empty placeholders. Each of the 5 categories is
-#' independently tryCatch-wrapped so a missing/malformed component degrades
-#' that one category to an empty list rather than failing the whole call -
-#' matching this file's existing per-step error-tolerance convention.
+#' Builds plots from `components` (the upstream workflow outputs) and
+#' `validation_results` (this file's assessments). Each of the 5 categories is
+#' independently tryCatch-wrapped, so a missing or malformed component degrades that
+#' one category to an empty list rather than failing the whole call.
 #'
 #' @param components From extract_and_validate_components(): may contain
 #'   simulation_data, monte_carlo_results, final_data, gp_models,
@@ -2969,7 +2939,7 @@ generate_workflow_recommendations <- function(validation_results) {
   return(recommendations)
 }
 
-# Enhanced utility functions
+# utility functions
 get_default_quality_weights <- function() {
   list(
     monte_carlo = 0.25,
@@ -2980,11 +2950,6 @@ get_default_quality_weights <- function() {
 }
 
 get_realistic_property_ranges <- function() {
-  # NOTE: the original source called get_predefined_properties("laboratory")
-  # here via `|> {list(...)}`, but the block never referenced `.` (the
-  # piped-in value) - a no-op pipe. The call was dropped; this is
-  # behavior-preserving since get_predefined_properties() is a pure lookup
-  # with no side effects and its result was never used.
   list(
     clay_total = list(min = 0, max = 100),
     sand_total = list(min = 0, max = 100),
@@ -3012,7 +2977,7 @@ create_executive_summary <- function(validation_results) {
   list(
     overall_score = validation_results$overall_assessment$quality_score,
     workflow_status = validation_results$overall_assessment$workflow_status,
-    key_findings = "Enhanced validation completed",
+    key_findings = "Validation completed",
     critical_issues = validation_results$overall_assessment$critical_issues
   )
 }
@@ -3021,7 +2986,7 @@ create_detailed_results <- function(validation_results) {
   list(
     component_scores = validation_results$overall_assessment$component_scores,
     validation_details = "Detailed results available",
-    methodology = "Enhanced validation  utilities"
+    methodology = "Validation"
   )
 }
 

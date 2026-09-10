@@ -52,8 +52,8 @@ returns \code{NULL} on error via its own outer \code{tryCatch()}).}
 }
 \value{
 A list of \code{FUN(x, ...)} results, one per element of \code{X}, in \code{X}'s order - the same
-shape \code{parallel::parLapply()}/\code{mclapply()} already produced, so callers that previously
-consumed those results (e.g. via \code{dplyr::bind_rows()} or manual concatenation) need no change.
+shape \code{parallel::parLapply()}/\code{mclapply()} already produced, so callers can consume the result
+with \code{dplyr::bind_rows()} or manual concatenation.
 }
 \description{
 Run a Function Over a List/Vector, in Parallel via \code{future.apply}, with Sequential Fallback

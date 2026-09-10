@@ -21,5 +21,5 @@ predict_gp_depth_trends(
 Vector of predictions
 }
 \description{
-Enhanced version with better error handling
+Predict GP Depth Trends
 }

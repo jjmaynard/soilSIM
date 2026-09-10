@@ -30,18 +30,17 @@ uses its general route.}
 
 \item{...}{Additional arguments passed to \code{fuse_adaptive()}/\code{fuse_lognormal_adaptive()}/
 \code{fuse_metalog_adapter()} (e.g. \code{n_samples}, \code{grid_resolution}, \code{verbose}, \code{posterior_probs} -
-see \link{FUSE_POSTERIOR_DEFAULT_PROBS}; reaches every route as of P3.5 - \code{fuse_metalog_adapter()}
+see \link{FUSE_POSTERIOR_DEFAULT_PROBS}; reaches every route - \code{fuse_metalog_adapter()}
 absorbs and ignores the arguments it doesn't use, e.g. \code{n_samples}). Also how
 \code{mukey_raster}/\code{mukey_draws} (opting into \code{prior_fusion_method = "raw_draws"}, see
 \code{fuse_general_kde()}'s docs) reach the underlying routes: both the general-KDE and
-closed-form routes support it for \code{dist \%in\% c("normal","beta","gamma")} (P2.6), and it
+closed-form routes support it for \code{dist \%in\% c("normal","beta","gamma")}, and it
 reaches \code{fuse_lognormal_adaptive()}'s small-AOI general branch AND large-AOI closed-form
-branch (P2.12) the same way. \code{fuse_metalog_adapter()} also has a raw-draws fit as of P2.12
+branch the same way. \code{fuse_metalog_adapter()} also has a raw-draws fit
 (empirical per-mukey percentiles feed the same interpolation machinery) - but
 \code{resolve_want_raw_draws()}'s default still excludes \code{dist = "metalog"}, mirroring the
-texture-group route's P2.11 treatment: a fit existing is not the same as its cost/benefit
-being benchmarked, and that default-flip decision is deliberately kept separate (see
-\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md}). Explicitly passing \code{mukey_raster}/\code{mukey_draws}
+texture-group route's treatment: a fit existing is not the same as its cost/benefit being
+benchmarked, and that default decision is kept separate. Explicitly passing \code{mukey_raster}/\code{mukey_draws}
 for \code{dist = "metalog"} still works.}
 }
 \value{

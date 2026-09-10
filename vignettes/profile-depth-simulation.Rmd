@@ -18,7 +18,7 @@ unit a component actually occupies (component composition), and how variable a c
 depths and thicknesses are in the field (depth/thickness variability, informed by Official Series
 Description boundary-distinctness data). This vignette demonstrates both, using a real map unit from
 the same Amador-area AOI as the "Getting Started" vignette. See
-`soilSIM/docs/06_profile_component_depth_simulation.md` for the full function-level reference.
+the "Profile, Component & Depth Simulation" architecture article for the full function-level reference.
 
 ```{r setup}
 library(soilSIM)
@@ -134,7 +134,7 @@ ggplot(horizons_df, aes(x = hzname, y = thickness, fill = hzname)) +
 
 The third horizon (H3) in this real component is missing its `sandtotal_h`/`claytotal_h` (upper
 bound) values - a genuine SSURGO data gap, not a simulation artifact. soilSIM's
-`evaluate_simulated_depths()` QC function (see `soilSIM/docs/06_profile_component_depth_simulation.md`)
+`evaluate_simulated_depths()` QC function (see the "Profile, Component & Depth Simulation" architecture article)
 flags exactly this kind of gap: it can only assess whether a simulated depth falls outside a
 horizon's original low/high bounds when those bounds are actually present in the source data.
 

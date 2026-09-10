@@ -13,17 +13,16 @@ NULL
 #'
 #' Master function that integrates Monte Carlo simulation results with GP models
 #' to apply realistic depth trends while preserving within-depth correlations.
-#' Enhanced with Module 8 utilities for robust processing and validation.
 #'
-#' @param simulation_results Results from monte_carlo::generate_monte_carlo_realizations()
-#' @param gp_models Optional NRCS GP models from gp_modeling module
+#' @param simulation_results Results from generate_monte_carlo_realizations()
+#' @param gp_models Optional fitted NRCS GP depth models (from build_stratified_gp_models())
 #' @param cokey_mapping Optional mapping from simulations to NRCS GP groups
 #' @param integration_method Method: "nrcs_gp", "local_gp", or "hybrid" (default = "hybrid")
 #' @param preserve_correlations Whether to preserve within-depth correlations (default = TRUE)
 #' @param properties Properties to adjust (NULL = auto-detect)
 #' @param parallel Whether to use parallel processing (default = FALSE)
 #' @param n_cores Number of cores for parallel processing
-#' @param config Integration configuration (uses Module 8 defaults if NULL)
+#' @param config Integration configuration (uses the package default configuration if NULL)
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
@@ -50,12 +49,12 @@ integrate_monte_carlo_with_gp <- function(simulation_results,
 
   start_time <- Sys.time()
 
-  # Load configuration using Module 8
+  # Load configuration
   if (is.null(config)) {
     config <- get_default_configuration("full")
   }
 
-  # Validate parameters using Module 8
+  # Validate parameters
   param_specs <- list(
     integration_method = list(required = TRUE, type = "character",
                               choices = c("nrcs_gp", "local_gp", "hybrid")),
@@ -75,7 +74,7 @@ integrate_monte_carlo_with_gp <- function(simulation_results,
     stop("Parameter validation failed: ", paste(param_validation$errors, collapse = ", "))
   }
 
-  # Input validation using Module 8
+  # Input validation
   if (is.null(simulation_results) || is.null(simulation_results$simulation_data)) {
     stop("Invalid simulation_results - missing simulation_data")
   }
@@ -106,7 +105,7 @@ integrate_monte_carlo_with_gp <- function(simulation_results,
     stop("No suitable properties found for integration")
   }
 
-  # Validate properties using Module 8
+  # Validate properties
   property_validation <- validate_properties(properties, "laboratory", strict_mode = FALSE)
   if (!property_validation$valid) {
     log_message("WARN", paste("Property validation issues:", paste(property_validation$warnings, collapse = "; ")), category = "MultivarAdjust")
@@ -124,11 +123,10 @@ integrate_monte_carlo_with_gp <- function(simulation_results,
   unique_cokeys <- unique(simulation_data$cokey)
   log_message("INFO", paste("Processing", length(unique_cokeys), "unique cokeys"), category = "MultivarAdjust")
 
-  # PERF: process_single_cokey() previously re-filtered the FULL multi-cokey simulation_data
-  # (dplyr::filter(cokey == !!cokey)) once per cokey - O(rows x cokeys) instead of O(rows). Split
-  # once here instead (mirrors the split()-based fix already applied to
-  # maybe_adjust_soil_data_depth_trend()/run_stage1_fusion_group() elsewhere in this package), and
-  # pass each cokey's own pre-split subset down - see PERFORMANCE_IMPROVEMENT_PLAN.md Tier 1.
+  # Split the simulation data by cokey once here and pass each component its own subset down,
+  # rather than filtering the full multi-cokey table once per cokey inside process_single_cokey()
+  # (which would be O(rows x cokeys)). Same pattern as
+  # maybe_adjust_soil_data_depth_trend()/run_stage1_fusion_group() elsewhere in the package.
   cokey_groups <- split(simulation_data, simulation_data$cokey)
 
   # Process cokeys with progress tracking
@@ -147,7 +145,7 @@ integrate_monte_carlo_with_gp <- function(simulation_results,
   # Combine and validate results
   final_data <- combine_and_validate_results(integrated_results, unique_cokeys, simulation_data)
 
-  # Comprehensive validation using Module 8
+  # Comprehensive validation
   log_message("INFO", "=== INTEGRATION VALIDATION ===", category = "MultivarAdjust")
   validation_results <- validate_integration_results(
     simulation_data, final_data, properties, preserve_correlations
@@ -156,7 +154,7 @@ integrate_monte_carlo_with_gp <- function(simulation_results,
   end_time <- Sys.time()
   processing_time <- difftime(end_time, start_time, units = "secs")
 
-  # Prepare final output with Module 8 metadata handling
+  # Prepare final output 
   final_results <- create_integration_results(
     final_data, simulation_data, original_metadata, integration_method,
     properties, preserve_correlations, use_nrcs_gp, use_local_gp,
@@ -173,8 +171,8 @@ integrate_monte_carlo_with_gp <- function(simulation_results,
 
 #' Apply GP Depth Trends with Correlation Preservation
 #'
-#' Enhanced core function that applies GP-derived depth trends using Module 8 utilities
-#' for robust error handling and validation.
+#' Applies GP-predicted depth trends to one component's simulation data, optionally
+#' preserving within-depth cross-property correlations.
 #'
 #' @param cokey_data Simulation data for a single cokey
 #' @param gp_predictions Named list of GP predictions by property
@@ -186,18 +184,16 @@ integrate_monte_carlo_with_gp <- function(simulation_results,
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @param config Optional Monte Carlo config (as from \code{get_monte_carlo_defaults()}) whose
 #'   \code{monte_carlo$vertical_correlation_method} selects between \code{"joint_copula"}
-#'   (default as of \code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 13 - dispatches to
+#'   (the default; dispatches to
 #'   \code{preserve_correlation_structure_joint()}, drawing depth correlation and property
-#'   correlation simultaneously) and \code{"gp_quantile_retrofit"} (the original algorithm,
-#'   still fully supported as an explicit opt-out - dispatches to
+#'   correlation simultaneously) and \code{"gp_quantile_retrofit"} (an explicit opt-out that dispatches to
 #'   \code{preserve_correlation_structure()}). \code{NULL} (default) resolves to
 #'   \code{"joint_copula"}, matching \code{get_monte_carlo_defaults()}'s own default - set
 #'   \code{config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"} explicitly to
-#'   opt back into the original behavior. Under \code{"joint_copula"},
+#'   select the quantile-retrofit method. Under \code{"joint_copula"},
 #'   \code{config$monte_carlo$vertical_correlation_gating} (default \code{FALSE}) separately
-#'   controls whether \code{bound_sd}-based discontinuity gating (Phase 1c/1d) is applied - kept
-#'   independent of the core method choice since its numeric defaults are not yet empirically
-#'   calibrated (Phase 8).
+#'   controls whether \code{bound_sd}-based discontinuity gating is applied. Its numeric defaults are conservative and kept independent of the core
+#'   method choice.
 #' @param gp_models Optional named list of fitted GP models (as `fit_local_gp_model_single()`
 #'   returns), keyed by property - passed through to \code{preserve_correlation_structure_joint()}
 #'   when \code{vertical_correlation_method = "joint_copula"}, so its depth kernel can reuse each
@@ -218,7 +214,7 @@ apply_gp_depth_trends <- function(cokey_data,
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
-  # Enhanced validation using Module 8
+  # validation
   if (nrow(cokey_data) < 2) {
     log_message("DEBUG", "Insufficient rows for GP trend application", category = "MultivarAdjust")
     return(cokey_data)
@@ -266,33 +262,25 @@ apply_gp_depth_trends <- function(cokey_data,
     return(cokey_data)
   }
 
-  # Which vertical-correlation method to use. DEFAULT AS OF Phase 13: "joint_copula" (flipped from
-  # "gp_quantile_retrofit" - see get_monte_carlo_defaults()'s own extended comment for the full
-  # decision trail). A NULL/missing config, or a config that simply doesn't set this key, both
-  # resolve to this same default - kept in sync with get_monte_carlo_defaults()'s own default so
-  # "no config passed" means the same thing everywhere in this package, whether or not a caller
-  # goes through get_monte_carlo_defaults() first. Explicitly set
-  # config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit" to opt back into the
-  # original algorithm.
+  # Vertical-correlation method. Default "joint_copula"; kept in sync with
+  # get_monte_carlo_defaults() so "no config passed" means the same thing whether or not a caller
+  # goes through get_monte_carlo_defaults() first. Set
+  # config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit" for the
+  # quantile-retrofit method instead.
   vertical_correlation_method <- config$monte_carlo$vertical_correlation_method %||% "joint_copula"
 
-  # Discontinuity gating (build_depth_correlation_kernel()'s boundary_distinctness suppression,
-  # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 1c/1d) is a SEPARATE opt-in from the core
-  # joint_copula method itself (Phase 8) - bound_sd is attached unconditionally upstream
-  # (attach_osd_boundary_distinctness() in simulate_ssurgo_mapunit_draws()), so without this flag
-  # there would be no way to use joint_copula WITHOUT gating whenever OSD lookup succeeds. Its
-  # numeric defaults (distinctness_range/min_gate_weight) are not yet empirically calibrated
-  # against real KSSL/SSURGO lag correlations (see the decision-points section of
-  # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md) - defaults to FALSE so the two decisions (core
-  # method vs. gating strength) can be made independently.
+  # Discontinuity gating (build_depth_correlation_kernel()'s boundary_distinctness suppression) is
+  # a separate opt-in from the joint_copula method itself: bound_sd is attached unconditionally
+  # upstream (attach_osd_boundary_distinctness() in simulate_ssurgo_mapunit_draws()), so this flag
+  # is what allows joint_copula to run without gating when OSD lookup succeeds. Its numeric
+  # defaults are conservative; defaults to FALSE so method and gating are chosen independently.
   vertical_correlation_gating <- isTRUE(config$monte_carlo$vertical_correlation_gating)
 
-  # Apply multivariate adjustment with enhanced error handling
+  # Apply multivariate adjustment with error handling
   adjusted_matrices <- tryCatch({
     if (preserve_correlations && length(property_matrices) >= 2) {
       if (identical(vertical_correlation_method, "joint_copula")) {
-        # bound_sd (OSD boundary distinctness - VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase
-        # 1b) is broadcast identically across every simulation realization at a given depth
+        # bound_sd (OSD boundary distinctness) is broadcast identically across every simulation realization at a given depth
         # (simulate_cokey_generalized()), so the first non-NA value per unique depth is that
         # depth's boundary_distinctness for build_depth_correlation_kernel()'s discontinuity
         # gating - NULL (no gating) when the column isn't present, OR when
@@ -339,25 +327,24 @@ apply_gp_depth_trends <- function(cokey_data,
     return(cokey_data)
   }
 
-  # Merge with original data using Module 8 safe operations
+  # Merge with original data
   result_data <- merge_adjusted_data(cokey_data, adjusted_data, available_properties)
 
   return(result_data)
 }
 
 # ============================================================================
-# 1b. VERTICAL-CORRELATION REDESIGN: JOINT DEPTH x PROPERTY COPULA (Phase 2)
+# 1b. JOINT DEPTH x PROPERTY COPULA
 # ============================================================================
 #
-# See VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md. `preserve_correlation_structure()` below
-# retrofits vertical correlation onto already-independent-across-depth draws via a sequential
-# gp_ratio nudge keyed off ONE "primary property"'s rank - the two functions here instead draw
-# depth correlation (R_depth, from build_depth_correlation_kernel()) and property correlation
-# (R_prop, the same flat matrix simulate_correlated_triangular() already uses) SIMULTANEOUSLY from
-# a single Kronecker-separable joint distribution, so both are satisfied by construction rather
-# than approximated by a retrofit. Phase 3's preserve_correlation_structure_joint() wires these two
-# functions into a drop-in alternative with the same signature/contract as
-# preserve_correlation_structure() itself.
+# `preserve_correlation_structure()` below imposes vertical correlation on
+# independent-across-depth draws via a sequential gp_ratio nudge keyed off one "primary
+# property"'s rank. The two functions here instead draw depth correlation (R_depth, from
+# build_depth_correlation_kernel()) and property correlation (R_prop, the same flat matrix
+# simulate_correlated_triangular() uses) simultaneously from a single Kronecker-separable joint
+# distribution, so both hold by construction rather than by approximation.
+# preserve_correlation_structure_joint() wires these two functions into a drop-in alternative
+# with the same signature and contract as preserve_correlation_structure().
 
 #' Draw a Joint Depth x Property Gaussian Copula Sample
 #'
@@ -479,10 +466,7 @@ apply_copula_to_marginals <- function(Z, property_matrices, gp_predictions = NUL
       # was incomplete, see simulate_cokey_generalized()'s own per-row texture tryCatch()) -
       # `if (NA > 0)` errors with "missing value where TRUE/FALSE needed" rather than falling
       # through to the else branch. isTRUE() treats that NA as FALSE, matching this function's
-      # intended "no variation (or no data) - keep original values" contract. Found via
-      # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 10's full-AOI benchmark against real
-      # (messy) Salinas Valley SSURGO data - synthetic test fixtures never happened to include an
-      # all-NA property column.
+      # intended "no variation (or no data) - keep original values" contract. (a real case on messy field data - e.g. a cokey whose texture triplet was incomplete).
       target_values <- if (!is.null(gp_means) && is.finite(gp_means[i]) &&
                             isTRUE(stats::var(curr_values, na.rm = TRUE) > 0)) {
         curr_values + (gp_means[i] - mean(curr_values, na.rm = TRUE))
@@ -506,7 +490,9 @@ apply_copula_to_marginals <- function(Z, property_matrices, gp_predictions = NUL
 
 #' Preserve Correlation Structure During GP Adjustment
 #'
-#' Enhanced core correlation preservation algorithm with Module 8 error handling.
+#' Imposes vertical correlation on the property matrices by re-ordering each property's
+#' per-depth values to a shared surface-referenced rank, so the depth trend is applied without
+#' disturbing within-depth cross-property correlation.
 #'
 #' @param property_matrices Named list of property matrices
 #' @param gp_predictions Named list of GP predictions
@@ -585,7 +571,7 @@ preserve_correlation_structure <- function(property_matrices,
     # Apply depth-wise adjustment using SAME quantile ordering
     for (i in 2:n_depths) {
 
-      # Get GP trend ratio with enhanced safety checks
+      # Get GP trend ratio
       gp_ratio <- calculate_safe_gp_ratio(gp_means, i)
 
       # Get previous and current simulated values
@@ -608,12 +594,12 @@ preserve_correlation_structure <- function(property_matrices,
   return(adjusted_list)
 }
 
-#' Preserve Correlation Structure via a Joint Depth x Property Copula (Phase 3)
+#' Preserve Correlation Structure via a Joint Depth x Property Copula
 #'
 #' Drop-in alternative to `preserve_correlation_structure()` - same required parameters, in the
 #' same order, so existing call sites work unchanged - that replaces its sequential
 #' `gp_ratio`/single-"primary-property" retrofit with the joint Kronecker-copula sampler from
-#' `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 2 (`sample_joint_depth_property_copula()` +
+#' the joint Kronecker-copula sampler (sample_joint_depth_property_copula() +
 #' `apply_copula_to_marginals()`), so depth correlation and property correlation are satisfied
 #' SIMULTANEOUSLY by construction rather than approximated by a rank-copying retrofit.
 #' `primary_property` is accepted (for signature compatibility with
@@ -634,20 +620,19 @@ preserve_correlation_structure <- function(property_matrices,
 #' @param gp_models Optional named list of fitted GP models (as returned by
 #'   `fit_local_gp_model_single()`, or raw `GPfit`-classed objects), keyed by property. When
 #'   supplied, the depth kernel's length-scale is derived from `extract_depth_length_scale()`
-#'   applied to every property with a usable model, averaged across them (reusing the
-#'   already-fitted, already-cross-validated GP fits per `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`
-#'   Phase 1, rather than a new estimation step). When `NULL`/empty (e.g. this function is called
+#'   applied to every property with a usable model, averaged across them (reusing each property's
+#'   already-fitted, already-cross-validated GP fit). When `NULL`/empty (e.g. this function is called
 #'   standalone, without the fitted models available), falls back to a length-scale spanning the
 #'   full depth range (`diff(range(depths))`) - a conservative "moderate smooth correlation across
 #'   the whole profile" default that keeps this function usable without requiring GP models.
 #' @param boundary_distinctness Optional per-depth `bound_sd` vector, passed through to
-#'   `build_depth_correlation_kernel()` for discontinuity gating (Phase 1c/1d). `NULL` (default)
+#'   `build_depth_correlation_kernel()` for discontinuity gating. `NULL` (default)
 #'   skips gating.
 #' @param kernel `"exponential"` (default) or `"matern"` - passed through to
 #'   `build_depth_correlation_kernel()`.
 #'
 #' @return List of adjusted property matrices - same shape/contract as
-#'   `preserve_correlation_structure()`'s return value. Degrades gracefully to the original,
+#'   `preserve_correlation_structure()`'s return value. Degrades gracefully to the
 #'   unadjusted `property_matrices` (with a warning) on insufficient dimensions or a sampling/
 #'   mapping failure, matching `preserve_correlation_structure()`'s own graceful-failure contract.
 #' @export
@@ -756,15 +741,16 @@ preserve_correlation_structure_joint <- function(property_matrices,
 }
 
 # ============================================================================
-# 2. NRCS GP INTEGRATION FUNCTIONS (Enhanced)
+# 2. NRCS GP INTEGRATION FUNCTIONS
 # ============================================================================
 
 #' Apply NRCS Trend Adjustments
 #'
-#' Enhanced version with Module 8 integration and proper Module 5 function calls.
+#' Maps each requested property to its NRCS regional GP model, predicts that model's
+#' depth trend for the component's depths, and applies it via apply_gp_depth_trends().
 #'
 #' @param cokey_data Simulation data for a single cokey
-#' @param gp_models NRCS GP models from gp_modeling module
+#' @param gp_models Fitted NRCS GP depth models
 #' @param model_group GP model group for this cokey
 #' @param properties Properties to adjust
 #' @param preserve_correlations Whether to preserve correlations
@@ -772,11 +758,9 @@ preserve_correlation_structure_joint <- function(property_matrices,
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @param config Optional Monte Carlo config, passed through to `apply_gp_depth_trends()` -
-#'   `config$monte_carlo$vertical_correlation_method` (default `"joint_copula"` as of
-#'   `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 13; set to `"gp_quantile_retrofit"` to opt
-#'   back into the original algorithm) reaches the NRCS/regional GP path the same way it already
-#'   reaches the local-GP path (Phase 6/11). `NULL` (default) resolves to `"joint_copula"`,
-#'   matching `get_monte_carlo_defaults()`'s own default.
+#'   `config$monte_carlo$vertical_correlation_method` (`"joint_copula"` default, or
+#'   `"gp_quantile_retrofit"`) reaches the NRCS/regional GP path as well as the local-GP path.
+#'   `NULL` (default) resolves to `"joint_copula"`, matching `get_monte_carlo_defaults()`.
 #' @return Adjusted simulation data
 #' @export
 apply_nrcs_trend_adjustments <- function(cokey_data,
@@ -792,7 +776,7 @@ apply_nrcs_trend_adjustments <- function(cokey_data,
 
   log_message("DEBUG", paste("Applying NRCS GP adjustments for group:", model_group), category = "MultivarAdjust")
 
-  # Enhanced property mapping with Module 8 safe operations
+  # property mapping
   property_mapping <- get_nrcs_property_mapping()
 
   # Get available properties
@@ -811,7 +795,7 @@ apply_nrcs_trend_adjustments <- function(cokey_data,
     return(cokey_data)
   }
 
-  # Get NRCS GP predictions for each property using Module 5 functions
+  # Get NRCS GP predictions for each property using the GP depth-modeling functions
   nrcs_gp_predictions <- get_nrcs_gp_predictions(
     gp_models, available_properties, property_mapping, model_group, unique_depths, cokey_data
   )
@@ -822,7 +806,7 @@ apply_nrcs_trend_adjustments <- function(cokey_data,
   }
 
   # Extract the actual fitted NRCS GP model objects (not just their predictions) for the joint
-  # method's depth-kernel length-scale reuse (extract_depth_length_scale(), Phase 1) - same
+  # method's depth-kernel length-scale reuse (extract_depth_length_scale()) - same
   # gp_models[[nrcs_prop]]$models[[model_group]] lookup get_nrcs_gp_predictions() already does,
   # keyed here by `prop` (the cokey_data/property_matrices name) to match
   # apply_gp_depth_trends()'s gp_models contract. Ignored entirely under the default
@@ -837,7 +821,7 @@ apply_nrcs_trend_adjustments <- function(cokey_data,
     }
   }
 
-  # Apply GP depth trends using enhanced function
+  # Apply GP depth trends
   result <- apply_gp_depth_trends(
     cokey_data,
     nrcs_gp_predictions,
@@ -852,10 +836,11 @@ apply_nrcs_trend_adjustments <- function(cokey_data,
 
 #' Match Simulations to NRCS Models
 #'
-#' Enhanced version with Module 8 error handling.
+#' Looks up the NRCS GP model group for a cokey in cokey_mapping, returning
+#' fallback_group when no mapping is found.
 #'
 #' @param cokey Target cokey
-#' @param cokey_mapping Mapping from gp_modeling::match_soils_to_gp_models()
+#' @param cokey_mapping Mapping from match_soils_to_gp_models()
 #' @param fallback_group Default group if matching fails
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so
 #'   \code{INFO}-level progress messages print for the duration of this call (default
@@ -873,7 +858,7 @@ match_simulations_to_nrcs_models <- function(cokey, cokey_mapping, fallback_grou
     return(fallback_group)
   }
 
-  # Enhanced matching with error handling
+  # matching with error handling
   tryCatch({
     # Find mapping for this cokey
     model_group <- cokey_mapping$gp_model_group[cokey_mapping$sim_cokey == cokey]
@@ -893,7 +878,8 @@ match_simulations_to_nrcs_models <- function(cokey, cokey_mapping, fallback_grou
 
 #' Extract NRCS Depth Trends
 #'
-#' Enhanced version with Module 8 validation and error handling.
+#' Predicts each stratified-grouped NRCS GP model's depth trend on a common depth
+#' grid, returning one data frame of predicted values per property.
 #'
 #' @param gp_models NRCS GP models
 #' @param properties Properties to extract trends for
@@ -911,7 +897,7 @@ extract_nrcs_depth_trends <- function(gp_models, properties, depths = seq(0, 200
 
   log_message("INFO", "Extracting NRCS depth trends", category = "MultivarAdjust")
 
-  # Validate inputs using Module 8
+  # Validate inputs
   if (is.null(gp_models) || length(properties) == 0) {
     log_message("WARN", "Invalid inputs for NRCS trend extraction", category = "MultivarAdjust")
     return(list())
@@ -929,7 +915,7 @@ extract_nrcs_depth_trends <- function(gp_models, properties, depths = seq(0, 200
 
         if (!is.null(group_model)) {
           predictions <- tryCatch({
-            # Use Module 5 function
+            # call the GP depth-trend predictor
             predict_gp_depth_trends(group_model, depths)
           }, error = function(e) {
             handle_workflow_error(e, paste("NRCS trend extraction for", prop, group), "warn")
@@ -959,18 +945,19 @@ extract_nrcs_depth_trends <- function(gp_models, properties, depths = seq(0, 200
 }
 
 # ============================================================================
-# 3. LOCAL GP INTEGRATION FUNCTIONS (Enhanced)
+# 3. LOCAL GP INTEGRATION FUNCTIONS
 # ============================================================================
 
 #' Apply Local GP Adjustments
 #'
-#' Enhanced version with Module 8 utilities and better error handling.
+#' Fits per-component Gaussian-process depth models for the requested properties and
+#' applies their predicted trends to the component's simulation data.
 #'
 #' @param cokey_data Simulation data for a single cokey
 #' @param properties Properties to adjust
 #' @param preserve_correlations Whether to preserve correlations
 #' @param min_depths Minimum depths required for GP fitting
-#' @param config Configuration from Module 8
+#' @param config Optional configuration list; defaults to the package validation configuration
 #' @param gp_control Passed through to `fit_local_gp_models()`/`fit_local_gp_model_single()`'s
 #'   `gp_control` - see `fit_local_gp_model_single()`'s docs for why the default is much smaller
 #'   than `GPfit::GP_fit()`'s own default.
@@ -994,7 +981,7 @@ apply_local_gp_adjustments <- function(cokey_data,
     config <- get_default_configuration("validation")
   }
 
-  # Enhanced depth validation
+  # depth validation
   unique_depths <- sort(unique(cokey_data$hzdept_r[!is.na(cokey_data$hzdept_r)]))
 
   if (length(unique_depths) < min_depths) {
@@ -1002,7 +989,7 @@ apply_local_gp_adjustments <- function(cokey_data,
     return(cokey_data)
   }
 
-  # Fit local GP models with enhanced error handling
+  # Fit local GP models
   local_gp_models <- fit_local_gp_models(cokey_data, properties, config, gp_control = gp_control)
 
   if (length(local_gp_models) == 0) {
@@ -1019,10 +1006,7 @@ apply_local_gp_adjustments <- function(cokey_data,
   }
 
   # Apply local depth trends - config/local_gp_models threaded through so
-  # config$monte_carlo$vertical_correlation_method = "joint_copula"
-  # (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 4/6) is actually reachable from this
-  # function's own already-fitted local_gp_models, not just by calling apply_gp_depth_trends()
-  # directly.
+  # config$monte_carlo$vertical_correlation_method = "joint_copula" is reachable from this function's own already-fitted local_gp_models.
   result <- apply_local_depth_trends(
     cokey_data,
     local_gp_predictions,
@@ -1037,7 +1021,8 @@ apply_local_gp_adjustments <- function(cokey_data,
 
 #' Fit Local GP Models
 #'
-#' Enhanced version with Module 8 validation and configuration management.
+#' Fits one Gaussian-process depth model per property from a single component's
+#' depth-aggregated values.
 #'
 #' @param cokey_data Simulation data for a single cokey
 #' @param properties Properties to model
@@ -1070,7 +1055,7 @@ fit_local_gp_models <- function(cokey_data, properties, config = NULL, gp_contro
     }
 
     model_result <- tryCatch({
-      # Enhanced aggregation with Module 8 safe operations
+      # aggregation
       agg_data <- aggregate_property_by_depth(cokey_data, prop)
 
       if (is.null(agg_data) || nrow(agg_data) < 3) {
@@ -1084,7 +1069,7 @@ fit_local_gp_models <- function(cokey_data, properties, config = NULL, gp_contro
         return(NULL)
       }
 
-      # Fit GP model using Module 5 approach
+      # Fit GP model 
       fit_local_gp_model_single(agg_data, prop, gp_control = gp_control)
 
     }, error = function(e) {
@@ -1103,7 +1088,8 @@ fit_local_gp_models <- function(cokey_data, properties, config = NULL, gp_contro
 
 #' Apply Local Depth Trends
 #'
-#' Enhanced version with Module 8 error handling.
+#' Applies locally fitted GP depth-trend predictions to a component's simulation
+#' data via apply_gp_depth_trends().
 #'
 #' @param cokey_data Simulation data
 #' @param local_predictions Local GP predictions
@@ -1113,10 +1099,9 @@ fit_local_gp_models <- function(cokey_data, properties, config = NULL, gp_contro
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @param config Optional config, passed straight through to `apply_gp_depth_trends()` - lets
-#'   `config$monte_carlo$vertical_correlation_method` (default `"joint_copula"` as of
-#'   `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 13; set to `"gp_quantile_retrofit"` to opt
-#'   back into the original algorithm) reach this call site. `NULL` (default) resolves to
-#'   `"joint_copula"`, matching `get_monte_carlo_defaults()`'s own default.
+#'   `config$monte_carlo$vertical_correlation_method` (`"joint_copula"` default, or
+#'   `"gp_quantile_retrofit"`) reach this call site. `NULL` (default) resolves to `"joint_copula"`,
+#'   matching `get_monte_carlo_defaults()`.
 #' @param gp_models Optional named list of fitted local GP models (as `apply_local_gp_adjustments()`
 #'   already has in scope via `fit_local_gp_models()`), passed straight through to
 #'   `apply_gp_depth_trends()` so the joint-copula depth kernel can reuse their fitted
@@ -1155,12 +1140,13 @@ apply_local_depth_trends <- function(cokey_data,
 }
 
 # ============================================================================
-# 4. MULTIVARIATE PROCESSING FUNCTIONS (Enhanced with Module 8)
+# 4. MULTIVARIATE PROCESSING FUNCTIONS
 # ============================================================================
 
 #' Convert to Property Matrices
 #'
-#' Enhanced version with Module 8 safe operations and validation.
+#' Reshapes long-format simulation data into a named list of depth-by-simulation
+#' matrices, one per property.
 #'
 #' @param simulation_data Simulation data in long format
 #' @param properties Properties to convert
@@ -1194,15 +1180,10 @@ convert_to_property_matrices <- function(simulation_data,
     prop_matrix <- matrix(NA, nrow = length(unique_depths), ncol = length(sim_numbers))
 
     tryCatch({
-      # Vectorized lookup instead of a per-cell dplyr::filter()/pull() over the whole
-      # data frame (was O(depths * sims * nrow(simulation_data)), with per-call dplyr/rlang
-      # NSE overhead on top - profiling on a real AOI showed this single loop accounting for
-      # ~60% of simulate_ssurgo_mapunit_draws()'s total runtime). match() against a combined
-      # depth/simulation_number key finds the FIRST matching row for each (depth, sim_num)
-      # cell, preserving the original's value[1] semantics exactly; unmatched or NA values
-      # both correctly collapse to NA. Order of `target_key` matches matrix()'s column-major
-      # fill (depth varies fastest, matching row index; sim_number varies slowest, matching
-      # column index).
+      # Vectorized lookup: match() against a combined depth/simulation_number key takes the
+      # first matching row for each (depth, sim_num) cell; unmatched or NA values collapse to
+      # NA. `target_key` order matches matrix()'s column-major fill (depth varies fastest,
+      # matching the row index; sim_number slowest, matching the column index).
       row_key <- paste(simulation_data$hzdept_r, simulation_data$simulation_number, sep = "\r")
       target_key <- paste(
         rep(unique_depths, times = length(sim_numbers)),
@@ -1232,7 +1213,8 @@ convert_to_property_matrices <- function(simulation_data,
 
 #' Convert to Long Format
 #'
-#' Enhanced version with Module 8 error handling and data validation.
+#' Reshapes a named list of adjusted depth-by-simulation property matrices back into
+#' long format, re-attaching component metadata.
 #'
 #' @param adjusted_matrices List of adjusted property matrices
 #' @param unique_depths Depth vector
@@ -1261,13 +1243,8 @@ convert_to_long_format <- function(adjusted_matrices,
     names(original_data)
   )
 
-  # Vectorized "first matching row" lookup instead of a per-(depth, sim_num) cell
-  # dplyr::filter()/slice(1) over the whole original_data data frame - the same anti-pattern
-  # already fixed in convert_to_property_matrices() (was O(depths * sims * nrow(original_data))
-  # with per-call dplyr/rlang NSE overhead; profiling on a real AOI showed this the
-  # next-largest remaining bottleneck at ~48% of simulate_ssurgo_mapunit_draws()'s total
-  # runtime after that first fix). Grid order (depth outer/slower, sim_num inner/faster)
-  # matches the original nested loop's row order exactly.
+  # Vectorized "first matching row" lookup, same approach as convert_to_property_matrices().
+  # Grid order is depth outer/slower, sim_num inner/faster.
   result_df <- tryCatch({
     grid_depth <- rep(unique_depths, each = length(sim_numbers))
     grid_sim <- rep(sim_numbers, times = length(unique_depths))
@@ -1308,12 +1285,13 @@ convert_to_long_format <- function(adjusted_matrices,
 }
 
 # ============================================================================
-# 5. VALIDATION AND QUALITY CONTROL (Enhanced with Module 8)
+# 5. VALIDATION AND QUALITY CONTROL
 # ============================================================================
 
 #' Validate Integration Results
 #'
-#' Enhanced validation using Module 8 validation framework.
+#' Checks row-count preservation, within-depth correlation preservation, and
+#' depth-trend realism of an integration result, and returns an overall score.
 #'
 #' @param original_data Original simulation data
 #' @param integrated_data Integrated simulation data
@@ -1342,7 +1320,7 @@ validate_integration_results <- function(original_data,
     overall_assessment = list()
   )
 
-  # Data integrity checks using Module 8
+  # Data integrity checks
   validation_results$data_integrity <- validate_data_integrity(original_data, integrated_data, properties)
 
   # Correlation preservation checks
@@ -1355,7 +1333,7 @@ validate_integration_results <- function(original_data,
   # Trend realism checks
   validation_results$trend_realism <- validate_depth_trends(integrated_data, properties)
 
-  # Overall assessment using Module 8 scoring
+  # Overall assessment
   validation_results$overall_assessment <- calculate_overall_validation_score_integration(validation_results)
 
   # Log validation summary
@@ -1366,7 +1344,8 @@ validate_integration_results <- function(original_data,
 
 #' Correct Distribution Shapes
 #'
-#' Enhanced version with Module 8 property validation and constraints.
+#' Clamps each adjusted property to its plausible range and, where requested, remaps
+#' it back onto the shape of its pre-adjustment distribution.
 #'
 #' @param adjusted_data Adjusted simulation data
 #' @param original_data Original simulation data
@@ -1396,10 +1375,10 @@ correct_distribution_shapes <- function(adjusted_data, original_data, properties
       next
     }
 
-    # Get property-specific constraints using Module 8
+    # Get property-specific constraints
     constraints <- get_property_constraints(prop)
 
-    # Apply range constraints with Module 8 validation
+    # Apply range constraints
     corrected_data[[prop]] <- apply_range_constraints(corrected_data[[prop]], constraints)
 
     # Apply distribution correction if needed
@@ -1410,7 +1389,7 @@ correct_distribution_shapes <- function(adjusted_data, original_data, properties
     }
   }
 
-  # Apply cross-property constraints using Module 8 validation
+  # Apply cross-property constraints
   corrected_data <- apply_cross_property_constraints(corrected_data, properties)
 
   log_message("DEBUG", "Distribution shape correction completed", category = "MultivarAdjust")
@@ -1418,13 +1397,13 @@ correct_distribution_shapes <- function(adjusted_data, original_data, properties
 }
 
 # ============================================================================
-# 6. ENHANCED HELPER FUNCTIONS (Leveraging Module 8)
+# 6. HELPER FUNCTIONS
 # ============================================================================
 
-# Property detection with Module 8 validation
+# Property detection
 detect_simulation_properties <- function(simulation_data) {
 
-  # Use Module 8 property validation
+  # Use property validation
   all_properties <- get_predefined_properties("laboratory")
 
   # Common simulation property patterns
@@ -1443,7 +1422,7 @@ detect_simulation_properties <- function(simulation_data) {
   return(detected_properties)
 }
 
-# Enhanced parallel processing with Module 8 progress tracking
+# parallel processing
 process_cokeys_parallel <- function(cokey_groups, unique_cokeys, properties,
                                     gp_models, cokey_mapping, use_nrcs_gp, use_local_gp,
                                     preserve_correlations, n_cores, config) {
@@ -1471,7 +1450,7 @@ process_cokeys_parallel <- function(cokey_groups, unique_cokeys, properties,
   )
 }
 
-# Enhanced sequential processing with Module 8 progress tracking
+# sequential processing
 process_cokeys_sequential <- function(cokey_groups, unique_cokeys, properties,
                                       gp_models, cokey_mapping, use_nrcs_gp, use_local_gp,
                                       preserve_correlations, config) {
@@ -1483,7 +1462,7 @@ process_cokeys_sequential <- function(cokey_groups, unique_cokeys, properties,
   for (i in seq_along(unique_cokeys)) {
     cokey <- unique_cokeys[i]
 
-    # Progress tracking using Module 8
+    # Progress tracking
     track_progress(i, length(unique_cokeys), "Processing cokeys", update_frequency = 10)
 
     result <- process_single_cokey(cokey_groups[[as.character(cokey)]], cokey, properties, gp_models,
@@ -1496,7 +1475,7 @@ process_cokeys_sequential <- function(cokey_groups, unique_cokeys, properties,
   return(results)
 }
 
-# Enhanced single cokey processing with Module 8 error handling
+# single cokey processing
 process_single_cokey <- function(cokey_data, cokey, properties, gp_models,
                                           cokey_mapping, use_nrcs_gp, use_local_gp,
                                           preserve_correlations, config) {
@@ -1513,10 +1492,9 @@ process_single_cokey <- function(cokey_data, cokey, properties, gp_models,
     if (use_nrcs_gp && !is.null(gp_models) && !is.null(cokey_mapping)) {
       model_group <- match_simulations_to_nrcs_models(cokey, cokey_mapping)
 
-      # config threaded through (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 11) - previously
-      # omitted entirely, so "joint_copula" was unreachable via the NRCS/regional GP path
-      # regardless of what a caller's config said, even though the local-GP branch just below
-      # already received it (Phase 6).
+      # config is threaded through so "joint_copula" is reachable via the NRCS/regional GP path,
+
+      # not only the local-GP branch below.
       result_data <- apply_nrcs_trend_adjustments(
         result_data, gp_models, model_group, properties, preserve_correlations, config = config
       )
@@ -1537,7 +1515,7 @@ process_single_cokey <- function(cokey_data, cokey, properties, gp_models,
   })
 }
 
-# Enhanced result combination with Module 8 validation
+# result combination
 combine_and_validate_results <- function(integrated_results, unique_cokeys, simulation_data) {
 
   # Remove NULL results
@@ -1566,14 +1544,14 @@ combine_and_validate_results <- function(integrated_results, unique_cokeys, simu
   return(final_data)
 }
 
-# Enhanced metadata creation with Module 8 utilities
+# metadata creation
 create_integration_results <- function(final_data, simulation_data, original_metadata,
                                        integration_method, properties, preserve_correlations,
                                        use_nrcs_gp, use_local_gp, n_cokeys_total,
                                        n_cokeys_successful, processing_time, parallel,
                                        validation_results) {
 
-  # Create comprehensive metadata using Module 8 patterns
+  # Create comprehensive metadata
   integration_metadata <- list(
     method = integration_method,
     properties_processed = properties,
@@ -1590,7 +1568,7 @@ create_integration_results <- function(final_data, simulation_data, original_met
     package_versions = get_package_versions()
   )
 
-  # Prepare final output with Module 8 metadata handling
+  # Prepare final output 
   final_results <- list(
     integrated_data = final_data,
     original_simulation_data = simulation_data,
@@ -1607,7 +1585,7 @@ create_integration_results <- function(final_data, simulation_data, original_met
   return(final_results)
 }
 
-# Additional helper functions with Module 8 integration
+# Additional helper functions
 get_nrcs_property_mapping <- function() {
   list(
     "bulk_density_third_bar" = "clay_pct",
@@ -1683,7 +1661,7 @@ get_local_property_means <- function(cokey_data, prop, unique_depths) {
   })
 }
 
-# Enhanced GP ratio calculation with Module 8 safety
+# GP ratio calculation
 calculate_safe_gp_ratio <- function(gp_means, i) {
   if (is.na(gp_means[i-1]) || is.na(gp_means[i]) || gp_means[i-1] == 0) {
     return(1)  # No adjustment if invalid ratio
@@ -1694,19 +1672,13 @@ calculate_safe_gp_ratio <- function(gp_means, i) {
   }
 }
 
-# Enhanced quantile adjustment with Module 8 safety
+# quantile adjustment
 apply_quantile_adjustment <- function(reference_quantiles, curr_values, prev_values, gp_ratio, n_sims) {
-  # Vectorized: quantile() already accepts a vector of probs and computes every requested
-  # quantile from a SINGLE sort of curr_values. The original per-replicate loop called
-  # quantile(curr_values, probs = q, ...) once per j - curr_values never changes across
-  # iterations, so this was n_sims separate full sorts of the same data instead of one.
-  # Profiling on a real AOI showed this loop alone accounting for ~44% of the whole SSURGO
-  # simulation pipeline's total runtime. quantile()'s failure modes (e.g. curr_values all-NA)
-  # depend on curr_values as a whole, not on which individual prob was requested, so a single
-  # tryCatch around the vectorized call is behavior-equivalent to the original's per-element
-  # fallback - curr_values are matrix rows of length n_sims at every real call site, so
-  # returning curr_values unadjusted on failure matches the original's per-j
-  # "fall back to curr_values[j]" exactly.
+  # Vectorized: quantile() accepts a vector of probs and computes every requested quantile
+  # from a single sort of curr_values. quantile()'s failure modes (e.g. curr_values all-NA)
+  # depend on curr_values as a whole, not on the individual prob requested, so one tryCatch
+  # around the vectorized call suffices; on failure the row's curr_values are returned
+  # unadjusted.
   tryCatch({
     quantile_values <- stats::quantile(curr_values, probs = reference_quantiles, na.rm = TRUE, names = FALSE)
     quantile_values + (prev_values * gp_ratio - quantile_values)
@@ -1715,7 +1687,7 @@ apply_quantile_adjustment <- function(reference_quantiles, curr_values, prev_val
   })
 }
 
-# Enhanced distribution shape correction with Module 8 safety
+# distribution shape correction
 correct_distribution_shape <- function(curr_values, adjusted_curr) {
   tryCatch({
     # A property column that's entirely (or almost entirely) NA for this group is a real,
@@ -1824,7 +1796,7 @@ fit_local_gp_model_single <- function(agg_data, prop, gp_control = c(20, 10, 2))
     # Fit GP model
     gp_model <- GPfit::GP_fit(X = as.matrix(scaled_depths), Y = values, control = gp_control)
 
-    # Store with scaling information (using Module 5 structure)
+    # Store with scaling information
     return(list(
       gp_model = gp_model,
       depth_scaling = list(
@@ -1841,27 +1813,20 @@ fit_local_gp_model_single <- function(agg_data, prop, gp_control = c(20, 10, 2))
   return(NULL)
 }
 
-#' @section Performance:
-#' Previously did a per-row `which()` full-table scan of `result_data` for every row of
-#' `adjusted_data` (an O(n_adjusted x n_result) join) - `Rprof()` profiling (10,000-row synthetic
-#' benchmark) confirmed this as a real per-cokey hot path cost
-#' (PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4). Replaced with a single vectorized key match. A row
-#' only updates `result_data` when its (`hzdept_r`, `simulation_number`) key matches **exactly
-#' one** `result_data` row (the original's `length(match_idx) == 1` contract, silently preserved
-#' - zero or multiple matches are skipped, not an error) and its own value for that property is
-#' non-`NA`. When multiple `adjusted_data` rows share the same key, R's vectorized `[<-`
-#' assignment applies them in order and the last one wins - verified to match the original
-#' sequential loop's last-write-wins behavior exactly (confirmed empirically:
-#' `x[c(2,2,3)] <- c(10,20,30)` yields `x[2] == 20`, not `10`).
+#' @section Behavior:
+#' A row of `adjusted_data` updates `result_data` only when its (`hzdept_r`,
+#' `simulation_number`) key matches **exactly one** `result_data` row (zero or multiple
+#' matches are skipped, not an error) and its own value for that property is non-`NA`. When
+#' multiple `adjusted_data` rows share a key, the assignment applies them in order and the last
+#' one wins. This is done with a single vectorized key match rather than a per-row table scan.
 merge_adjusted_data <- function(cokey_data, adjusted_data, available_properties) {
   result_data <- cokey_data
 
   key_result <- paste(result_data$hzdept_r, result_data$simulation_number, sep = "\a")
   key_adj <- paste(adjusted_data$hzdept_r, adjusted_data$simulation_number, sep = "\a")
 
-  # A key must be unique WITHIN result_data (exactly one candidate row) to match the original
-  # "length(match_idx) == 1" contract - match() alone only finds the first occurrence and can't
-  # tell duplicates from a genuine single match.
+  # A key must be unique within result_data (exactly one candidate row): match() alone only
+  # finds the first occurrence and can't tell a duplicate from a genuine single match.
   key_counts <- table(key_result)
   unique_keys <- names(key_counts)[key_counts == 1]
   match_idx <- match(key_adj, key_result)
@@ -1878,7 +1843,7 @@ merge_adjusted_data <- function(cokey_data, adjusted_data, available_properties)
   return(result_data)
 }
 
-# Enhanced validation functions using Module 8
+# validation functions
 validate_data_integrity <- function(original_data, integrated_data, properties) {
   list(
     n_rows_original = nrow(original_data),
@@ -1890,7 +1855,7 @@ validate_data_integrity <- function(original_data, integrated_data, properties) 
 }
 
 validate_correlation_preservation_integration <- function(original_data, integrated_data, properties) {
-  # Enhanced correlation validation using Module 8 safe operations
+  # correlation validation
   depths_to_check <- unique(integrated_data$hzdept_r)[1:min(3, length(unique(integrated_data$hzdept_r)))]
   correlation_differences <- c()
 
@@ -1943,7 +1908,7 @@ validate_depth_trends <- function(integrated_data, properties) {
     }
 
     trend_analysis <- tryCatch({
-      # Check for realistic depth trends using Module 8 safe operations
+      # Check for realistic depth trends
       trend_data <- integrated_data |>
         dplyr::group_by(hzdept_r) |>
         dplyr::summarise(mean_value = mean(.data[[prop]], na.rm = TRUE), .groups = "drop") |>
@@ -2022,16 +1987,16 @@ log_validation_summary <- function(validation_results, preserve_correlations) {
   }
 }
 
-# Enhanced property constraints using Module 8
+# property constraints
 get_property_constraints <- function(property) {
-  # Use Module 8 property validation to get realistic ranges
+  # Use property validation to get realistic ranges
   constraints <- list(
     range = NULL,
     preserve_distribution = FALSE,
     cross_property_rules = NULL
   )
 
-  # Property-specific constraints enhanced with Module 8 patterns
+  # Property-specific constraints
   if (property %in% c("sand_total", "sandtotal", "clay_total", "claytotal", "silt_total", "silttotal")) {
     constraints$range <- c(0, 100)
     constraints$preserve_distribution <- TRUE
@@ -2066,7 +2031,7 @@ correct_property_distribution <- function(adjusted_values, original_values, cons
     return(adjusted_values)
   }
 
-  # Enhanced quantile mapping approach using Module 8 safe operations
+  # quantile mapping approach
   tryCatch({
     original_quantiles <- ecdf(original_values)
     adjusted_quantiles <- ecdf(adjusted_values)
@@ -2083,17 +2048,12 @@ correct_property_distribution <- function(adjusted_values, original_values, cons
   })
 }
 
-#' @section Performance:
-#' Previously scaled texture properties one row at a time via `data[i, texture_props]`
-#' data.frame row-slicing - `Rprof()`-free benchmarking alone made this obvious (31.61s for
-#' 50,000 synthetic rows despite a trivial per-row body, PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4),
-#' matching the same anti-pattern already fixed in `related_property_estimation()`'s texture
-#' branch (195x there). Replaced with a `rowSums()`-based vectorization operating on the whole
-#' texture-column matrix at once. `texture_sum > 0 & !is.na(texture_sum)` preserves the
-#' original's exact `&&`-based NA handling (R's `&`/`&&` both resolve `NA & FALSE` to `FALSE`,
-#' so an `NA` sum still correctly skips scaling for that row either way).
+#' @section Behavior:
+#' Rescales the texture columns so they sum to 100 where that sum is positive and non-`NA`,
+#' operating on the whole texture-column matrix at once with `rowSums()`. An `NA` texture sum
+#' skips rescaling for that row.
 apply_cross_property_constraints <- function(data, properties) {
-  # Enhanced texture sum constraint using Module 8 validation
+  # texture sum constraint
   texture_props <- intersect(c("sand_total", "sandtotal", "clay_total", "claytotal", "silt_total", "silttotal"),
                              properties)
 
@@ -2151,7 +2111,7 @@ apply_individual_adjustments <- function(property_matrices, gp_predictions, dept
       next
     }
 
-    # Simple scaling approach with Module 8 safety
+    # Simple scaling approach
     adjusted_matrix <- current_matrix
 
     for (i in 2:nrow(current_matrix)) {

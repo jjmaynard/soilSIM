@@ -20,20 +20,14 @@ A single numeric value from \code{available_slices}.
 }
 \description{
 \code{soilDB::fetchSOLUS()}'s \code{depth_slices} are single depth points (default \code{c(0, 5, 15, 30, 60, 100, 150)}, live-verified), not ranges, so a \verb{[top_depth, bottom_depth]} window must be
-approximated. This function did not exist anywhere in the source this was ported from
-(referenced but never defined) - genuinely new design, not a port: snaps to the native slice
-closest to the window's midpoint.
+approximated. This function snaps to the native slice closest to the window's midpoint.
 }
-\section{Superseded for the fusion pipeline}{
+\section{Relationship to the fusion pipeline}{
 
-\code{fetch_solus_low_pred_high()} no longer uses this - a single midpoint point-value only equals
-the window depth-average when the property is linear in depth, which most soil properties are
-not, and it left the SOLUS likelihood representing a different quantity (a point) than the
-SSURGO prior side (a genuine thickness-weighted window mean, see
-\code{aggregate_depth_window_by_replicate()}). It now uses \code{solus_depth_window_weights()} for a
-trapezoidal depth-average across the native slices spanning the window. This function is
-retained as public API for back-compat and for callers that genuinely want a single nearest
-slice.
+\code{fetch_solus_low_pred_high()} uses \code{solus_depth_window_weights()} for a trapezoidal
+depth-average across the native slices spanning the window, so the SOLUS likelihood and the
+SSURGO prior both represent a thickness-weighted window mean. This function is public API for
+callers that want a single nearest slice.
 }
 
 \seealso{

@@ -16,5 +16,5 @@ A data frame with organic layers removed and depths adjusted within each \code{c
 \description{
 Removes rows with organic horizons (where \code{hzname} contains a capital "O") and recalculates
 the remaining horizons' depths within each \code{cokey} group so they stay cumulative and
-re-anchored to 0, preserving the original horizon thicknesses.
+re-anchored to 0, preserving each horizon's thickness.
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/ssurgo-acquisition.R
 \name{check_ssurgo_cache}
 \alias{check_ssurgo_cache}
-\title{Check SSURGO Data Cache (Enhanced)}
+\title{Check SSURGO Data Cache}
 \usage{
 check_ssurgo_cache(
   aoi_wkt,
@@ -30,5 +30,5 @@ check_ssurgo_cache(
 List with cache check results or NULL if no valid cache
 }
 \description{
-Enhanced cache checking with metadata validation.
+Check SSURGO Data Cache
 }

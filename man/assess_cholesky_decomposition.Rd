@@ -21,5 +21,5 @@ assess_cholesky_decomposition(
 Cholesky decomposition assessment
 }
 \description{
-Enhanced Cholesky validation  error handling.
+Assess Cholesky Decomposition
 }

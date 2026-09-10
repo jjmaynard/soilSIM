@@ -4,16 +4,13 @@
 #'   percentiles" approaches (a piecewise-linear inverse-CDF, a monotonic-spline
 #'   inverse-CDF, a KDE/truncated-normal approach, and beta/normal parametric
 #'   fits) behind a single `method` argument, for arbitrary percentile counts
-#'   (not just SSURGO's low/rep/high triplet). Ported from
-#'   `code_ref/brdf/distribution_fitting.R`. Complements, rather than
-#'   replaces, `R/distributions.R`'s `fit_percentile_triplet()`/
+#'   (not just SSURGO's low/rep/high triplet). Complements
+#'   `R/distributions.R`'s `fit_percentile_triplet()`/
 #'   `quantile_from_fit()`, which is the production Monte Carlo engine's
 #'   fixed 3-point fitter.
 #'
-#'   `method = "metalog"` is deliberately **not** ported: it would need the
-#'   `rmetalog` package, which `distributions.R`'s own header documents a
-#'   project decision to avoid entirely (validated hang/segfault history) -
-#'   soilSIM already has a dependency-free closed-form metalog fitter
+#'   `method = "metalog"` is not provided here: it would need the `rmetalog`
+#'   package, which the package avoids. A dependency-free closed-form metalog fitter
 #'   (`fit_metalog_linear()`/`quantile_metalog_linear()`) that doesn't need
 #'   it.
 #' @name percentile_sampling
@@ -62,10 +59,8 @@ sim_linear_cdf <- function(probs, values, n) {
 #'
 #' Vectorized equivalent of calling `sim_linear_cdf(probs, values_mat[i, ], n)` once per row of
 #' `values_mat` and rbind-ing the results - built for `fuse_general_kde()` (`R/raster-fusion.R`),
-#' where `stats::approxfun()` was previously rebuilt once per raster cell (`Rprof()` profiling
-#' attributed ~9% of `fuse_general_kde()`'s total wall-clock to `extract_percentile_pairs()`'s
-#' per-cell dispatch overhead alone, on top of the sampling itself - see
-#' PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4). All rows must share the same `probs` knots (true for a
+#' where every cell shares the same `probs` knots and `stats::approxfun()` would otherwise be
+#' rebuilt once per cell. All rows must share the same `probs` knots (true for a
 #' raster chunk, where every cell's percentile columns are the same fixed set, e.g. P5/P50/P95) -
 #' this is what makes batching valid; per-row-varying `probs` would need the per-row `approxfun()`
 #' approach this function replaces.
@@ -201,8 +196,7 @@ sim_normal <- function(probs, values, n) {
   }
   mean_val <- values[mean_idx]
 
-  # Use the widest available (non-0/1) probability pair to estimate SD, generalizing
-  # the original hardcoded P5/P95 (whose z-score span is exactly qnorm(0.95)-qnorm(0.05)).
+  # Use the widest available (non-0/1) probability pair to estimate SD.
   tail_idx <- probs > 0 & probs < 1 & probs != 0.5
   if (sum(tail_idx) < 2) {
     stop("Need at least two non-median percentiles to estimate the standard deviation.")

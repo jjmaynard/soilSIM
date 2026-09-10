@@ -15,5 +15,5 @@ validate_correlation_matrix(corr_matrix, properties)
 \code{list(valid=, message=)}.
 }
 \description{
-Relocated verbatim from \code{mod05_monte_carlo.R}.
+Validate a correlation matrix's shape and positive-definiteness
 }

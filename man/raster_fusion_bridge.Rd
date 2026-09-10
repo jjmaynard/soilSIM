@@ -9,7 +9,7 @@ Transforms the per-mukey joint Monte Carlo ensemble from
 pixel's marginal distributions match \code{run_stage1_fusion()}'s SOLUS-fused posterior, while
 preserving the ensemble's empirical copula (cross-property and cross-depth-window rank
 structure). This is the "per-pixel" answer to wiring raster fusion into the modelling
-framework - see \code{planning-docs/RASTER_FUSION_PERPIXEL_ENSEMBLE_DESIGN.md}.
+framework.
 
 \code{zonal_distribution_from_posterior()} is the cheap mukey-collapsed comparison arm (feeds
 \code{observed_data_by_mukey} in \code{generate_monte_carlo_realizations()}); \code{remarginalize_ensemble_to_posterior()}

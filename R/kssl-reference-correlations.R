@@ -1,8 +1,7 @@
 #' @title KSSL Reference Correlation Matrices (Optional Fallback)
 #' @description Static, pre-computed, genetic-horizon-keyed (O/A/E/B/C/Cr,
 #'   plus R for the texture matrix) correlation matrices fit once from KSSL
-#'   lab data by an older, unrelated
-#'   codebase (`code_ref/brdf/property_simulation.R`, outside this package).
+#'   lab data.
 #'   These functions let `monte-carlo.R`'s correlation-structure estimation
 #'   optionally fall back to this reference data (via
 #'   `config$monte_carlo$correlation_fallback = "kssl_global"`) instead of a
@@ -38,13 +37,9 @@ NULL
 
 #' Map soilSIM property names to KSSL reference-matrix column names
 #'
-#' Confirmed against the exact lookup table that built the source data
-#' (`code_ref/brdf/property_simulation.R:804-816`).
-#'
-#' `om` -> `soc`: the KSSL matrix's `soc` column was fit on `om_r` (organic matter %) data in
-#' the source codebase, not true lab-measured soil organic carbon - so it's an organic-matter
-#' *correlation structure*, not a true-SOC one. **This no longer means the simulated `soc` values
-#' are OM-scale**: as of MULTI_PROPERTY_FUSION_PLAN.md task P1,
+#' `om` -> `soc`: the KSSL matrix's `soc` column was fit on organic-matter (`om_r`) data,
+#' not true lab-measured soil organic carbon - so it's an organic-matter
+#' *correlation structure*, not a true-SOC one. The simulated `soc` values are not on the OM scale:
 #' `simulate_cokey_generalized()` rescales the `om` triplet to an estimated SOC triplet
 #' (`OM_TO_SOC_FACTOR`, the Van Bemmelen factor) before it enters the correlated draw - the
 #' matrix itself needed no change, since Pearson correlation is invariant under a positive
@@ -55,13 +50,12 @@ NULL
 #' `ilr1`/`ilr2` map directly (same names) - valid only because
 #' `monte-carlo.R`'s `composition_groups$texture$members` default is
 #' `(sandtotal, silttotal, claytotal)`, matching the sequential binary
-#' partition `compositions::ilr()` used to build the KSSL matrix (sand vs
+#' partition `compositions::ilr()` uses to build the KSSL matrix (sand vs
 #' silt+clay, then silt vs clay). See `distributions.R`'s ILR section
 #' header for the positional-role convention this depends on.
 #'
-#' `caco3`/`ec`/`ecec`/`gypsum`/`sar` -> themselves: added for
-#' MULTI_PROPERTY_FUSION_PLAN.md task P2 (KSSL-correlation design decision confirmed
-#' 2026-09-04, option (a)). These 5 chemistry properties have **no** entry in
+#' `caco3`/`ec`/`ecec`/`gypsum`/`sar` -> themselves: these 5 chemistry
+#' properties have **no** entry in
 #' `.kssl_property_matrices()` - the identity passthrough exists so
 #' `build_kssl_fallback_matrix()` recognizes them as "mapped" property names, but its own
 #' `mapped_kssl_names %in% rownames(kssl_source)` check (see that function's implementation)

@@ -24,5 +24,5 @@ together for the same cokey/replicate. This preserves the real cross-property co
 between the three fractions (from \code{simulate_cokey_generalized()}'s KSSL texture correlation
 matrix) - something \code{fuse_texture_group()}'s current percentile-reconstruction fusion discards
 entirely, since it draws each fraction independently from its own marginal
-percentile-derived normal. Used by \code{fuse_texture_group_batch_core()}'s \code{prior_fusion_method = "raw_draws"} opt-in - see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.4.
+percentile-derived normal. Used by \code{fuse_texture_group_batch_core()}'s \code{prior_fusion_method = "raw_draws"} opt-in.
 }

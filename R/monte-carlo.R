@@ -105,10 +105,8 @@ generate_monte_carlo_realizations <- function(soil_data,
   log_message("INFO", "=== MONTE CARLO SIMULATION STARTED ===", category = "MonteCarlo")
 
   # Merge with default configuration. normalize_monte_carlo_config() accepts
-  # either a flat simulation_config (e.g. list(distribution_type="normal")) -
-  # this function's own @examples have always shown that shape - or one
-  # properly nested under monte_carlo; see that function's docs for why the
-  # flat shape previously had NO effect at all.
+  # either a flat simulation_config (e.g. list(distribution_type="normal")) or one nested
+  # under monte_carlo; see normalize_monte_carlo_config()'s docs.
   default_config <- get_monte_carlo_defaults()
   simulation_config <- normalize_monte_carlo_config(simulation_config, default_config)
   config <- merge_configurations(default_config, simulation_config)
@@ -310,7 +308,7 @@ generate_monte_carlo_realizations <- function(soil_data,
     simulation_results, sim_properties, properties, composition_plan$groups
   )
 
-  # Step 8: Apply constraints using enhanced constraint system
+  # Step 8: Apply constraints using the constraint system
   log_message("INFO", "Step 8: Applying simulation constraints", category = "MonteCarlo")
 
   constrained_results <- apply_simulation_constraints(
@@ -389,9 +387,9 @@ generate_monte_carlo_realizations <- function(soil_data,
   return(final_results)
 }
 
-#' Simulate Correlated Properties Using Enhanced Distribution Framework
+#' Simulate Correlated Properties
 #'
-#' Core simulation function leveraging Module 0 statistical utilities
+#' Core simulation function
 #'
 #' @param simulation_params List containing simulation parameters for each horizon
 #' @param correlation_matrix Correlation matrix for the properties
@@ -435,7 +433,7 @@ simulate_correlated_properties <- function(simulation_params,
     rownames(correlation_matrix) <- colnames(correlation_matrix) <- properties
   }
 
-  # Use Module 0's safe correlation utilities
+  # Shared safe-correlation helpers
   correlation_matrix <- ensure_positive_definite_matrix(correlation_matrix)
 
   # Validate matrix
@@ -505,9 +503,8 @@ simulate_correlated_properties <- function(simulation_params,
   return(simulated_values)
 }
 
-#' Simulate Component Compositions (Enhanced)
+#' Simulate Component Compositions
 #'
-#' Enhanced component composition simulation
 #'
 #' @param component_data Data frame with component data
 #' @param n_realizations Number of realizations
@@ -526,7 +523,7 @@ sim_component_compositions <- function(component_data,
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
-  # Use Module 0 configuration if not provided
+  # Use package default configuration if not provided
   if (is.null(config)) {
     config <- get_monte_carlo_defaults()
   }
@@ -563,7 +560,7 @@ sim_component_compositions <- function(component_data,
     )
   }
 
-  # Normalize to ensure sum = 100% using enhanced normalization
+  # Normalize to ensure sum = 100% using normalization
   normalized_realizations <- normalize_component_realizations(
     component_realizations,
     target_sum = 100,
@@ -607,12 +604,11 @@ sim_component_compositions <- function(component_data,
 }
 
 # ============================================================================
-# 2. ENHANCED DISTRIBUTION AND PARAMETER FUNCTIONS
+# 2. DISTRIBUTION AND PARAMETER FUNCTIONS
 # ============================================================================
 
-#' Setup Distributions (Enhanced)
+#' Setup Distributions
 #'
-#' Enhanced distribution setup
 #'
 #' @param simulation_params List of simulation parameters by horizon
 #' @param properties Character vector of property names
@@ -620,7 +616,7 @@ sim_component_compositions <- function(component_data,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's
 #'   log level so \code{INFO}-level progress messages print for the duration
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
-#' @return Enhanced distribution configuration
+#' @return distribution configuration
 #'
 #' @export
 setup_distributions <- function(simulation_params, properties, config, verbose = getOption("ssurgo.verbose", FALSE)) {
@@ -628,7 +624,7 @@ setup_distributions <- function(simulation_params, properties, config, verbose =
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
-  log_message("DEBUG", "Setting up enhanced distribution framework", category = "MonteCarlo")
+  log_message("DEBUG", "Setting up the distribution framework", category = "MonteCarlo")
 
   distribution_config <- list(
     distributions = list(),
@@ -649,7 +645,7 @@ setup_distributions <- function(simulation_params, properties, config, verbose =
       if (prop %in% names(horizon_params)) {
         params <- horizon_params[[prop]]
 
-        # Enhanced parameter validation
+        # parameter validation
         validation <- validate_distribution_parameters(
           parameters = params,
           distribution_type = distribution_type,
@@ -677,7 +673,7 @@ setup_distributions <- function(simulation_params, properties, config, verbose =
     distribution_config$distributions[[h]] <- horizon_distributions
   }
 
-  # Generate comprehensive summary  statistical utilities
+  # Generate comprehensive summary statistical utilities
   distribution_config$summary_stats <- summarize_distributions(
     distribution_config$distributions, properties, distribution_type
   )
@@ -696,9 +692,9 @@ setup_distributions <- function(simulation_params, properties, config, verbose =
   return(distribution_config)
 }
 
-#' Prepare Simulation Parameters (Enhanced)
+#' Prepare Simulation Parameters
 #'
-#' Enhanced parameter preparation. Composition-group pseudo-properties (e.g.
+#' Parameter preparation. Composition-group pseudo-properties (e.g.
 #' `"ilr1"`/`"ilr2"`) are special-cased: BOTH are fit together, once per
 #' horizon, via `distributions.R`'s `estimate_ilr_moments_mc()` from the
 #' group's real member `_l/_r/_h` triplets - their joint covariance only
@@ -718,7 +714,7 @@ setup_distributions <- function(simulation_params, properties, config, verbose =
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's
 #'   log level so \code{INFO}-level progress messages print for the duration
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
-#' @return Enhanced simulation parameters
+#' @return simulation parameters
 #'
 #' @export
 prepare_simulation_parameters <- function(simulation_data, properties, config, composition_plan = NULL,
@@ -744,7 +740,7 @@ prepare_simulation_parameters <- function(simulation_data, properties, config, c
 
     for (prop in ordinary_properties) {
       tryCatch({
-        # Extract parameters with enhanced error handling
+        # Extract parameters with error handling
         param_extraction <- extract_property_parameters(
           horizon_data = horizon_data,
           property_name = prop,
@@ -1164,9 +1160,8 @@ fuse_one_property_prior <- function(prior, likelihood, is_vector_likelihood, n_s
   NULL
 }
 
-#' Configure Correlation Structure (Enhanced)
+#' Configure Correlation Structure
 #'
-#' Enhanced correlation configuration
 #'
 #' @param simulation_params Simulation parameters
 #' @param properties Property names
@@ -1178,7 +1173,7 @@ fuse_one_property_prior <- function(prior, likelihood, is_vector_likelihood, n_s
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's
 #'   log level so \code{INFO}-level progress messages print for the duration
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
-#' @return Enhanced correlation configuration
+#' @return correlation configuration
 #'
 #' @export
 configure_correlation_structure <- function(simulation_params,
@@ -1191,7 +1186,7 @@ configure_correlation_structure <- function(simulation_params,
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
-  log_message("DEBUG", "Configuring enhanced correlation structure", category = "MonteCarlo")
+  log_message("DEBUG", "Configuring correlation structure", category = "MonteCarlo")
 
   correlation_config <- list(
     matrix = NULL,
@@ -1268,12 +1263,11 @@ configure_correlation_structure <- function(simulation_params,
 }
 
 # ============================================================================
-# 3. ENHANCED CONSTRAINT AND VALIDATION FUNCTIONS
+# 3. CONSTRAINT AND VALIDATION FUNCTIONS
 # ============================================================================
 
-#' Apply Simulation Constraints (Enhanced)
+#' Apply Simulation Constraints
 #'
-#' Enhanced constraint application
 #'
 #' @param simulation_results Array of simulation results
 #' @param properties Property names
@@ -1294,13 +1288,13 @@ apply_simulation_constraints <- function(simulation_results, properties, config,
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
-  log_message("DEBUG", "Applying enhanced simulation constraints", category = "MonteCarlo")
+  log_message("DEBUG", "Applying simulation constraints", category = "MonteCarlo")
 
   constraint_rules <- get_constraint_rules(properties, config, composition_plan)
   constrained_results <- simulation_results
   constraint_summary <- list()
 
-  # Apply range constraints  range validation
+  # Apply range constraints range validation
   if (!is.null(constraint_rules$range_constraints)) {
     log_message("DEBUG", "Applying range constraints", category = "MonteCarlo")
 
@@ -1355,7 +1349,7 @@ apply_simulation_constraints <- function(simulation_results, properties, config,
   return(constrained_results)
 }
 
-#' Validate Monte Carlo Inputs (Enhanced)
+#' Validate Monte Carlo Inputs
 #'
 #' Comprehensive input validation
 #'
@@ -1503,9 +1497,8 @@ validate_monte_carlo_inputs <- function(soil_data, properties, correlation_matri
   return(validation_results)
 }
 
-#' Validate Simulation Output (Enhanced)
+#' Validate Simulation Output
 #'
-#' Enhanced output validation
 #'
 #' @param simulation_results Simulation results array
 #' @param properties Property names
@@ -1513,7 +1506,7 @@ validate_monte_carlo_inputs <- function(soil_data, properties, correlation_matri
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's
 #'   log level so \code{INFO}-level progress messages print for the duration
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
-#' @return Enhanced validation results
+#' @return validation results
 #'
 #' @export
 validate_simulation_output <- function(simulation_results, properties, config,
@@ -1550,7 +1543,7 @@ validate_simulation_output <- function(simulation_results, properties, config,
     prop <- properties[i]
     prop_values <- simulation_results[, i, ]
 
-    # Use Module 0 utilities for statistical analysis
+    # Use shared utilities for statistical analysis
     prop_stats <- analyze_property_simulation_quality(prop_values, prop, config)
     validation_results$property_validation[[prop]] <- prop_stats
 
@@ -1562,7 +1555,7 @@ validate_simulation_output <- function(simulation_results, properties, config,
       )
     }
 
-    # Check for extreme values  outlier detection
+    # Check for extreme values outlier detection
     outliers <- detect_outliers(
       as.vector(prop_values),
       method = "iqr",
@@ -1572,8 +1565,7 @@ validate_simulation_output <- function(simulation_results, properties, config,
     # mean(outliers, na.rm=TRUE) is NaN (not FALSE) when prop_values is
     # entirely non-finite (e.g. a property missing from every horizon) -
     # `if (NaN > x)` errors with "missing value where TRUE/FALSE needed"
-    # rather than just skipping the check, which previously crashed the
-    # whole pipeline on that edge case instead of degrading gracefully.
+    # rather than skipping the check; guarded with is.finite() below.
     outlier_rate <- mean(outliers, na.rm = TRUE)
     if (is.finite(outlier_rate) && outlier_rate > config$monte_carlo$max_outlier_rate) {
       validation_results$issues <- c(
@@ -1632,7 +1624,7 @@ get_monte_carlo_defaults <- function(verbose = getOption("ssurgo.verbose", FALSE
   base_config <- tryCatch({
     get_default_configuration("full")
   }, error = function(e) {
-    # Fallback if Module 0 function not available
+    # Fallback if the helper is unavailable
     list()
   })
 
@@ -1655,58 +1647,39 @@ get_monte_carlo_defaults <- function(verbose = getOption("ssurgo.verbose", FALSE
     # resolve_composition_groups()/restore_composition_properties()
     # (distributions.R). `members` sets which real property occupies
     # `ilr_forward()`/`ilr_inverse()`'s position 1/2/3 (their `clay`/`sand`/
-    # `silt` parameter names are positional-role placeholders, not an
-    # identity requirement - see the header comment above those functions).
-    # This default, (sandtotal, silttotal, claytotal), matches the
-    # sequential binary partition `compositions::ilr()` used to build the
-    # optional KSSL reference correlation matrices (`kssl-reference-correlations.R`)
-    # - sand vs {silt,clay}, then silt vs clay - so that fallback feature's
-    # ilr1/ilr2 correlations are directly reusable. This is a pure internal
-    # reparameterization: simulated clay/sand/silt output is statistically
-    # invariant to which role order is used (see test-distributions.R's
-    # role-order invariance test).
+    # `silt` parameter names are positional roles, not an identity requirement.
+    # This default, (sandtotal, silttotal, claytotal), matches the sequential binary
+    # partition `compositions::ilr()` uses to build the optional KSSL reference correlation
+    # matrices (sand vs {silt,clay}, then silt vs clay), so those ilr1/ilr2 correlations are
+    # directly reusable. Simulated clay/sand/silt output is statistically invariant to the
+    # role order (see test-distributions.R's role-order invariance test).
     composition_groups = list(
       texture = list(members = c("sandtotal", "silttotal", "claytotal"), pseudo = c("ilr1", "ilr2"))
     ),
     max_depth = DEFAULT_MAX_DEPTH_CM,
     auto_correlation = FALSE,
     # When auto_correlation estimation can't produce a matrix (too little
-    # data), what to fall back to: "identity" (independent simulation,
-    # today's exact behavior) or "kssl_global" (an opt-in fallback to the
+    # data), what to fall back to: "identity" (independent simulation) or "kssl_global" (an opt-in fallback to the
     # KSSL reference correlation matrices - see kssl-reference-correlations.R
-    # and estimate_property_correlations()). Defaults to "identity" - zero
-    # behavior change unless a caller explicitly opts in.
+    # and estimate_property_correlations()). Defaults to "identity".
     correlation_fallback = "identity",
     # Which method apply_gp_depth_trends() uses to add vertical (depth-to-depth) correlation on
-    # top of GP-fitted depth trends: "gp_quantile_retrofit" (the ORIGINAL behavior - a sequential
-    # gp_ratio-nudge retrofitted after independent-per-depth draws, via
-    # preserve_correlation_structure() - still fully supported as an explicit opt-out) or
-    # "joint_copula" (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phases 0-12 - draws depth
-    # correlation and property correlation SIMULTANEOUSLY from a single Kronecker-separable joint
-    # distribution, via preserve_correlation_structure_joint()).
-    #
-    # DEFAULT AS OF Phase 13: "joint_copula". Flipped from "gp_quantile_retrofit" after Phases
-    # 0-12 resolved every blocking decision point identified before a flip
-    # (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md's "Decisions required before flipping the
-    # production default" section): multi-AOI real-data validation (Phase 9, which found the OLD
-    # default induces spurious near-perfect (>0.99) correlation across the entire depth profile
-    # regardless of physical distance - a real defect, not just a missing feature), full-AOI
-    # performance confirmation (Phase 10 - no meaningful overhead at real scale), the NRCS-path
-    # config-threading gap (Phase 11), and an empirical check that GP-recentering doesn't produce
-    # non-physical values for strictly-positive properties (Phase 12). Explicitly set
-    # `vertical_correlation_method = "gp_quantile_retrofit"` to opt back into the original
-    # behavior - that code path is unchanged and fully supported, not deprecated.
+    # top of GP-fitted depth trends:
+    #   "joint_copula" (default) - draws depth correlation and property correlation
+    #     simultaneously from a single Kronecker-separable joint distribution, via
+    #     preserve_correlation_structure_joint().
+    #   "gp_quantile_retrofit" - a sequential gp_ratio nudge applied after
+    #     independent-per-depth draws, via preserve_correlation_structure().
+    # The quantile-retrofit method induces near-perfect (>0.99) correlation across the whole
+    # depth profile regardless of physical distance; the joint copula does not. Set
+    # `vertical_correlation_method = "gp_quantile_retrofit"` to select it explicitly.
     vertical_correlation_method = "joint_copula",
     # Independent opt-in for build_depth_correlation_kernel()'s bound_sd-based discontinuity
-    # gating (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 1c/1d), only meaningful when
-    # vertical_correlation_method = "joint_copula". Kept as a SEPARATE flag from
-    # vertical_correlation_method itself (Phase 8) because bound_sd is attached unconditionally
-    # upstream (attach_osd_boundary_distinctness()), so without this flag there would be no way
-    # to use joint_copula without gating whenever OSD lookup succeeds - and gating's own numeric
-    # defaults (distinctness_range/min_gate_weight) are STILL not empirically calibrated against
-    # real KSSL/SSURGO lag correlations (an explicitly deferred, non-blocking decision - see
-    # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md decision #2). Stays FALSE even after the Phase 13
-    # default flip - gating remains a separate, still-open decision independent of the core method.
+    # gating, only meaningful when vertical_correlation_method = "joint_copula". Kept as a
+    # SEPARATE flag because bound_sd is attached unconditionally upstream
+    # (attach_osd_boundary_distinctness()), so this flag is what allows joint_copula to run
+    # without gating when OSD lookup succeeds. Gating's numeric defaults are conservative;
+    # defaults to FALSE.
     vertical_correlation_gating = FALSE,
     parallel_threshold = 1000,
 
@@ -1878,7 +1851,7 @@ validate_monte_carlo_config <- function(config, n_realizations, verbose = getOpt
     config_to_validate <- config
   }
 
-  # Use Module 0's validate_parameters
+  # Shared validate_parameters()
   validation <- validate_parameters(config_to_validate, param_specs, strict_mode = FALSE)
 
   # Additional Monte Carlo specific validations
@@ -1891,12 +1864,11 @@ validate_monte_carlo_config <- function(config, n_realizations, verbose = getOpt
 }
 
 # ============================================================================
-# SUPPORTING HELPER FUNCTIONS (LEVERAGING Module 0)
+# SUPPORTING HELPER FUNCTIONS 
 # ============================================================================
 
-#' Prepare Simulation Data (Enhanced)
+#' Prepare Simulation Data
 #'
-#' Enhanced data preparation
 #'
 #' @param soil_data Input soil data
 #' @param properties Properties to prepare (may include composition-group
@@ -1919,7 +1891,7 @@ prepare_simulation_data <- function(soil_data, properties, config, composition_p
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
-  # Use Module 0's unsuitable horizon detection
+  # Shared unsuitable-horizon detection
   if (!"unsuitable_horizon" %in% names(soil_data)) {
     soil_data$unsuitable_horizon <- is_unsuitable(
       soil_data,
@@ -1978,17 +1950,11 @@ resolve_real_properties <- function(properties, composition_plan = NULL) {
   unique(real)
 }
 
-# qtriangular()/transform_to_distribution()/ensure_positive_definite_matrix()/
-# validate_correlation_matrix() previously lived here - they now live in
-# distributions.R (as quantile_triangular(), quantile_from_fit(),
-# ensure_positive_definite_matrix(), validate_correlation_matrix()) so
-# statistics.R and bayesian-updating.R can share them too. No behavior
-# change for the matrix utilities; transform_to_distribution() is replaced
-# by direct quantile_from_fit() calls in simulate_correlated_properties().
+# Triangular quantiles, fit->quantile dispatch, and correlation-matrix utilities live in
+# distributions.R (quantile_triangular(), quantile_from_fit(), ensure_positive_definite_matrix(),
+# validate_correlation_matrix()), shared with statistics.R and bayesian-updating.R.
 
-# Sequential/parallel simulation dispatch (both real - despite the stale
-# section name below, neither is a placeholder; both delegate to the real
-# simulate_correlated_properties()).
+# Sequential/parallel simulation dispatch; both delegate to simulate_correlated_properties().
 run_sequential_simulation <- function(simulation_params, distribution_setup, correlation_config, n_realizations, properties, config) {
   return(simulate_correlated_properties(simulation_params, correlation_config$matrix, n_realizations, properties, config))
 }
@@ -1999,9 +1965,8 @@ run_sequential_simulation <- function(simulation_params, distribution_setup, cor
 #' horizon in one call, with no state carried across horizons or
 #' realizations, so it can safely be called once per worker with a smaller
 #' n_realizations chunk and the resulting arrays concatenated along the
-#' realization dimension. Follows the same Windows-PSOCK-vs-mclapply
-#' pattern as mod07_multivariate_adjustment.R's process_cokeys_parallel(),
-#' with a sequential fallback on any error.
+#' realization dimension. Uses the same Windows-PSOCK-vs-mclapply pattern as process_cokeys_parallel() in
+#' multivariate-adjustment.R, with a sequential fallback on any error.
 #'
 #' @param simulation_params List of per-horizon parameter lists.
 #' @param distribution_setup Unused; kept for interface compatibility with `run_sequential_simulation()`.
@@ -2067,13 +2032,10 @@ run_parallel_simulation <- function(simulation_params, distribution_setup, corre
   combined
 }
 
-# Component composition helper functions
+# Component composition helper functions.
 #
-# Real prototype source (code/sim-functions.R:sim_component_comp()) confirms
-# component_data's actual shape: comppct_l/comppct_r/comppct_h (component
-# percent low/representative/high), with missing comppct_l/comppct_h filled
-# from comppct_r -/+ 2. The functions below implement that shape for real
-# (previously untagged placeholders returning hardcoded/pass-through values).
+# component_data's shape: comppct_l/comppct_r/comppct_h (component percent
+# low/representative/high), with missing comppct_l/comppct_h filled from comppct_r -/+ 2.
 
 #' Validate Component Composition Data
 #'
@@ -2096,8 +2058,7 @@ validate_component_data <- function(component_data) {
 #'
 #' Extracts `min`/`mode`/`max` for one component row from its
 #' `comppct_l`/`comppct_r`/`comppct_h` triplet, filling missing
-#' `comppct_l`/`comppct_h` from `comppct_r -/+ 2` (matching the legacy
-#' `sim_component_comp()` fallback).
+#' `comppct_l`/`comppct_h` from `comppct_r -/+ 2`.
 #'
 #' @param component_row One-row data frame/list for a single component.
 #' @param config Unused (kept for interface compatibility).
@@ -2179,16 +2140,13 @@ assess_component_quality <- function(original_data, simulated_data, config) {
   )
 }
 
-#' Extract Simulation Parameters for One Horizon/Property (Enhanced)
+#' Extract Simulation Parameters for One Horizon/Property
 #'
 #' Resolves the property's distribution family - from
 #' `config$monte_carlo$property_distributions[[property_name]]$family`, else
 #' `config$monte_carlo$distribution_type` (default `"triangular"`) - and fits
 #' family-appropriate parameters from its SSURGO `_l/_r/_h` triplet via
-#' `distributions.R`'s `fit_percentile_triplet()`. Previously this only ever
-#' returned `list(min=, mode=, max=)` regardless of the requested
-#' `distribution_type`, so `"normal"`/`"beta"` silently produced `NA` values
-#' downstream (their shape parameters were never actually computed).
+#' `distributions.R`'s `fit_percentile_triplet()`.
 #'
 #' @param horizon_data One-row data frame/list for a single horizon.
 #' @param property_name Property name (without `_l`/`_r`/`_h` suffix).
@@ -2262,19 +2220,17 @@ summarize_parameter_extraction <- function(simulation_params, properties, n_hori
   return(summary)
 }
 
-#' Estimate a Correlation Matrix from Simulation Parameters (Real Implementation)
+#' Estimate a Correlation Matrix from Simulation Parameters
 #'
 #' Builds one representative-value-per-horizon data frame - the per-horizon
 #' fitted mean/mode for each property (for composition-group pseudo-properties
 #' like ilr1/ilr2 there's no raw `_r` column, so the fitted mean IS the
 #' representative value) - plus `genhz` from `simulation_data` if present,
 #' then calls `distributions.R`'s `estimate_correlation_matrix_robust()`
-#' (`Hmisc::rcorr()` + PD-repair, genhz-stratified when possible). Previously
-#' this was a placeholder always returning `valid=FALSE`, so
-#' `auto_correlation=TRUE` silently fell back to the identity matrix.
+#' (`Hmisc::rcorr()` + PD-repair, genhz-stratified when possible).
 #'
 #' When `config$monte_carlo$correlation_fallback == "kssl_global"` (opt-in;
-#' defaults to `"identity"`, today's exact behavior), a group that fails
+#' defaults to `"identity"`), a group that fails
 #' empirical estimation falls back to that group's own KSSL reference
 #' correlation matrix (`kssl-reference-correlations.R`) instead of being
 #' dropped, and the final identity fallback becomes a KSSL-pooled matrix
@@ -2459,7 +2415,7 @@ get_physical_constraints <- function(properties) {
   return(constraints)
 }
 
-# Additional helper functions for enhanced functionality
+# Additional helper functions
 apply_range_constraints_batch <- function(results, constraints, properties) {
   adjustments <- 0
   for (i in seq_along(properties)) {
@@ -2483,13 +2439,9 @@ apply_sum_constraints <- function(results, constraints, properties) {
     prop_indices <- prop_indices[!is.na(prop_indices)]
 
     if (length(prop_indices) >= 2) {
-      # PERF: previously a nested for(h) for(r) loop computing sum(results[h, prop_indices, r])
-      # and rescaling one (horizon, realization) cell at a time - vectorized via apply() across
-      # the property dimension for every cell at once, matching the pattern
-      # apply_range_constraints_batch()/apply_relationship_constraints()/
-      # apply_physical_constraints() already use elsewhere in this file (see
-      # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 1). Cells with current_sum <= 0 or already within
-      # 0.01 of target_sum get factor = 1 (a no-op multiply, bit-identical to leaving them alone).
+      # Vectorized via apply() across the property dimension for every (horizon, realization)
+      # cell at once. Cells with current_sum <= 0 or already within 0.01 of target_sum get
+      # factor = 1 (a no-op multiply).
       current_sum <- apply(results[, prop_indices, , drop = FALSE], c(1, 3), sum)
       needs_adjustment <- current_sum > 0 & abs(current_sum - constraint$target_sum) > 0.01
       factor <- ifelse(needs_adjustment, constraint$target_sum / current_sum, 1)
@@ -2614,11 +2566,8 @@ check_data_sufficiency <- function(soil_data, properties, config) {
   ))
 }
 
-#' @section Performance:
-#' Previously re-subset `soil_data[[r_col]]` (the full column) inside a nested per-row loop for
-#' every (row, property) pair instead of once - each individual operation was cheap, but the
-#' repeated re-indexing was avoidable (PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4). Replaced with a
-#' single vectorized "any non-NA across the present `_r` columns" check.
+#' @section Behavior:
+#' A single vectorized "any non-NA across the present `_r` columns" check per row.
 check_property_data_availability <- function(soil_data, properties, config) {
   # Check if each row has data for at least one property
   r_cols <- paste0(properties, "_r")
@@ -2789,11 +2738,9 @@ assess_simulation_quality <- function(simulation_results, diagnostics, output_va
   )
 }
 
-#' Validate a Horizon's Fitted Distribution Parameters (Real Implementation)
+#' Validate a Horizon's Fitted Distribution Parameters
 #'
 #' Thin wrapper around `distributions.R`'s `validate_fit_parameters()`.
-#' Previously this was a stub always returning `valid=TRUE` regardless of
-#' input, so nothing ever caught a malformed/undefined parameter set.
 #'
 #' @param parameters A params object from `extract_property_parameters()`
 #'   (`list(family=, fit=, source=)`).

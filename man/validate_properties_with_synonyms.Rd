@@ -24,8 +24,8 @@ validate_properties_with_synonyms(
 \item{performance_threshold}{Performance warning threshold}
 }
 \value{
-Enhanced validation results with synonym matching
+validation results with synonym matching
 }
 \description{
-Enhanced version that includes synonym matching
+Validate Properties with Synonyms
 }

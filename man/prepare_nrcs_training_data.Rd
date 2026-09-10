@@ -28,7 +28,7 @@ prepare_nrcs_training_data(
 
 \item{max_depth}{Maximum depth to include in training (default = 250 cm)}
 
-\item{validation_config}{Validation configuration from Module 0}
+\item{validation_config}{Validation configuration from the shared utilities}
 
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 }

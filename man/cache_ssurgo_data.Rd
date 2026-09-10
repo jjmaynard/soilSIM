@@ -2,7 +2,7 @@
 % Please edit documentation in R/ssurgo-acquisition.R
 \name{cache_ssurgo_data}
 \alias{cache_ssurgo_data}
-\title{Cache SSURGO Data (Enhanced)}
+\title{Cache SSURGO Data}
 \usage{
 cache_ssurgo_data(
   data,
@@ -36,5 +36,5 @@ cache_ssurgo_data(
 List with cache operation results
 }
 \description{
-Enhanced data caching with comprehensive metadata.
+Cache SSURGO Data
 }

@@ -27,10 +27,8 @@ file paths, empty if that category's data wasn't available), and
 plot_generation_status.
 }
 \description{
-Builds real plots from \code{components} (mod01-07 outputs) and
-\code{validation_results} (this file's own already-computed assessments)
-rather than returning empty placeholders. Each of the 5 categories is
-independently tryCatch-wrapped so a missing/malformed component degrades
-that one category to an empty list rather than failing the whole call -
-matching this file's existing per-step error-tolerance convention.
+Builds plots from \code{components} (the upstream workflow outputs) and
+\code{validation_results} (this file's assessments). Each of the 5 categories is
+independently tryCatch-wrapped, so a missing or malformed component degrades that
+one category to an empty list rather than failing the whole call.
 }

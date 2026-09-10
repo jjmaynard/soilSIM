@@ -24,5 +24,5 @@ validate_correlation_preservation_diagnostics(
 Correlation preservation assessment
 }
 \description{
-Enhanced correlation preservation validation using Module 6 utilities.
+Validate Correlation Preservation
 }

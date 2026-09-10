@@ -24,5 +24,5 @@ validate_soil_science_realism(
 Soil science validation results
 }
 \description{
-Enhanced soil science validation  property validation and utilities.
+Validate Soil Science Realism
 }

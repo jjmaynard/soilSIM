@@ -21,5 +21,5 @@ assess_workflow_quality(
 Overall quality assessment
 }
 \description{
-Enhanced quality assessment  validation framework.
+Assess Workflow Quality
 }

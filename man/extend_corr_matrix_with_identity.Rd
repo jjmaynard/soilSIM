@@ -17,8 +17,8 @@ extend_corr_matrix_with_identity(m, missing_names)
 \description{
 Adds a 1-on-diagonal, 0-cross-correlation row/column for each name in \code{missing_names} not
 already in \code{m}'s dimnames - the same "uncorrelated with everything, safe default" convention
-\code{build_kssl_fallback_matrix()} uses for properties without KSSL reference data (see
-MULTI_PROPERTY_FUSION_PLAN.md task P2). Used by \code{simulate_cokey_generalized()} as a defensive
+\code{build_kssl_fallback_matrix()} uses for properties without KSSL reference data. Used by
+\code{simulate_cokey_generalized()} as a defensive
 fallback so an unrecognized-but-requested property degrades to independence rather than
 erroring on \code{m[keep_cols, keep_cols]}. The result stays positive-definite: a block-diagonal
 matrix formed from a positive-definite block (\code{m}) and an identity block has no negative

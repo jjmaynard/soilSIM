@@ -39,7 +39,7 @@ realization stack before the next. Per-pixel quantiles are cell-independent, so 
 numerically identical to \code{tile_rows = NULL}. \code{NULL} (default) / \verb{>= nrow} disables tiling.}
 
 \item{restriction_depth}{Optional single-layer \code{terra::SpatRaster} of restriction depth in cm -
-typically \code{fetch_solus_restriction_depth(aoi_vect)} (MULTI_PROPERTY_FUSION_PLAN.md task S2),
+typically \code{fetch_solus_restriction_depth(aoi_vect)},
 already right-censoring-guarded (cells with no detected restriction are \code{Inf}, never
 \code{SOLUS_RESTRICTION_CENSOR_CM} itself). \code{NULL} (default) preserves today's behavior exactly -
 every window contributes its full nominal thickness, regardless of bedrock. When supplied,

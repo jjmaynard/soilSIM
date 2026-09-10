@@ -14,13 +14,9 @@ CACHE_TTL_SECONDS
 \description{
 \code{build_cache_key()}/\code{cache_get()}/\code{cache_set()}/\code{CACHE_TTL_SECONDS} are called by
 \code{run_stage1_fusion()}/\code{run_stage1_fusion_group()} (\code{R/raster-fusion.R}) and
-\code{simulate_ssurgo_mapunit_draws()} (\code{R/ssurgo-simulation.R}) but were genuinely undefined
-anywhere in the source bundle they were ported from (\verb{code_ref/reanalysis-platform/}) -
-confirmed by a repo-wide grep; \code{HANDOFF_NOTES.md} lists them as externals "assumed to already
-exist" in that bundle's \emph{target} project, which was never soilSIM.
+\code{simulate_ssurgo_mapunit_draws()} (\code{R/ssurgo-simulation.R}).
 
-Rather than inventing a new scheme or adding a dependency (\code{memoise}/\code{R.cache}), this adapts
-the already-working, already-tested disk-RDS cache pattern from
+The implementation adapts the disk-RDS cache pattern from
 \code{R/ssurgo-acquisition.R}'s \code{generate_ssurgo_cache_key()}/\code{check_ssurgo_cache()}/
 \code{cache_ssurgo_data()} (\code{digest}-based keying, age/TTL invalidation via file mtime) -
 generalized here to the AOI/property-id/depth/kind shape the raster fusion code expects.

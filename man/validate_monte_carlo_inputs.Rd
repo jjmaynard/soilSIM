@@ -2,7 +2,7 @@
 % Please edit documentation in R/monte-carlo.R
 \name{validate_monte_carlo_inputs}
 \alias{validate_monte_carlo_inputs}
-\title{Validate Monte Carlo Inputs (Enhanced)}
+\title{Validate Monte Carlo Inputs}
 \usage{
 validate_monte_carlo_inputs(
   soil_data,

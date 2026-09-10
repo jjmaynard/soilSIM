@@ -19,7 +19,7 @@ or \code{NULL} if the underlying \code{fetchSOLUS()} prediction fetch fails.
 }
 \description{
 The truncation-depth signal for bedrock/restriction-aware AWC (\code{remarginalized_awc()}'s
-\code{restriction_depth} argument, MULTI_PROPERTY_FUSION_PLAN.md task S2). Default variable is
+\code{restriction_depth} argument). Default variable is
 \code{"anylithicdpt"} - trained (per SOLUS100's own published methodology) \strong{only} on
 \code{reskind \%in\% c("Lithic bedrock", "Paralithic bedrock")} records, making it hard-bedrock-specific
 by construction; no separate SSURGO-side hard/soft classifier is needed since SOLUS already

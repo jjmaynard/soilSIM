@@ -18,7 +18,7 @@ mukey_draws_closed_form_fit_raster(
 element a numeric vector of real simulated draws for that mukey.}
 
 \item{family}{One of "normal", "beta", "gamma", "lognormal". \code{"lognormal"} (added
-\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.12) fits \code{mu}/\code{sigma} directly from
+) fits \code{mu}/\code{sigma} directly from
 \code{log(draws)} - the same LOG-SPACE parameterization \code{fuse_lognormal_adaptive()}'s large-AOI
 branch already uses internally (\code{normal_to_lognormal_params()}'s output shape), so the merge
 there is a drop-in replacement of the percentile-triplet-derived log-space fit, not a new
@@ -42,7 +42,7 @@ Precomputes a family-native parameter fit (Normal \code{mu}/\code{sigma}, Beta \
 broadcasts the result onto every cell sharing that mukey via one vectorized categorical lookup
 (\code{terra::subst()}) - not a per-cell computation, unlike \code{fuse_general_kde()}'s raw_draws branch
 (which needs a per-cell \code{density()} call and so is meaningfully slower). Verified cheap
-(\code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} tasks P2.6/P2.10): at 100,172 synthetic cells and 150
+: at 100,172 synthetic cells and 150
 unique mukeys, the whole precompute+broadcast pipeline measured ~0.18s total - negligible next
 to the existing family-specific fit costs it complements (beta's Newton-Raphson fit alone
 measured ~20s at the same cell count), because cost here scales with mukey CARDINALITY, not

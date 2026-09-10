@@ -4,22 +4,14 @@
 #' @description Shared foundation used by both `statistics.R` and
 #'   `monte-carlo.R` (and, for the ILR pieces, `bayesian-updating.R`).
 #'
-#'   The percentile-triplet fitting/quantile functions below are adapted from
-#'   validated closed-form math originally written as `terra::SpatRaster`
-#'   arithmetic (`code_ref/reanalysis-platform/distribution_fitting_raster.R`):
-#'   stripped of all `terra::` calls, the underlying math is ordinary base-R
-#'   vector arithmetic, so it ports directly. The Beta fit (vectorized
-#'   Newton-Raphson MLE) was validated there against `fitdistrplus::fitdist()`
-#'   to ~1e-3 to 1e-5; the metalog fit (exact linear solve when the number of
-#'   interior percentiles equals the number of terms) was validated to ~1e-12
-#'   against `rmetalog::metalog()` - this project therefore never needs the
-#'   `rmetalog` package (which `code_ref/brdf/distribution_fitting.R`
-#'   documents as prone to hangs and a reproduced segfault).
+#'   The percentile-triplet fitting/quantile functions are closed-form base-R vector
+#'   arithmetic. The Beta fit is a vectorized Newton-Raphson MLE (matches
+#'   `fitdistrplus::fitdist()` to ~1e-3 to 1e-5); the metalog fit is an exact linear solve
+#'   when the number of interior percentiles equals the number of terms (matches
+#'   `rmetalog::metalog()` to ~1e-12), so the `rmetalog` package is not required.
 #'
-#'   The ILR (isometric log-ratio) transform is ported verbatim from
-#'   `code_ref/reanalysis-platform/texture_ilr_fusion.R`, itself validated to
-#'   match `compositions::ilr()` exactly - so this package needs no
-#'   `compositions` dependency either.
+#'   The ILR (isometric log-ratio) transform matches `compositions::ilr()` exactly, so the
+#'   `compositions` package is not required either.
 #' @name distributions
 NULL
 
@@ -160,9 +152,7 @@ quantile_beta <- function(fit, q) {
 
 #' Piecewise-linear inverse-CDF quantile function, exact at the given knots
 #'
-#' Tails are clamped to the min/max value (`rule = 2`) rather than
-#' extrapolated, matching `code_ref/brdf/distribution_fitting.R`'s
-#' `sim_linear_cdf()`.
+#' Tails are clamped to the min/max value (`rule = 2`) rather than extrapolated.
 #'
 #' @param probs,values Matching, sorted percentile probabilities/values.
 #' @param q Vector of probabilities to evaluate at.
@@ -189,9 +179,7 @@ quantile_triangular <- function(fit, q) {
 
 #' Draw random samples from a triangular distribution
 #'
-#' Ported verbatim from `code_ref/brdf/property_simulation.R`'s `tri_dist()`
-#' (originally adapted from the `triangle` package), used by
-#' `R/depth-simulation.R`'s profile-depth simulators. Kept as its own
+#' Used by `R/depth-simulation.R`'s profile-depth simulators. Kept as its own
 #' random-draw implementation rather than layered on `quantile_triangular()`
 #' (a deterministic inverse-CDF evaluator with different degenerate-input
 #' handling) so its exact edge-case behavior is preserved: it errors on
@@ -354,10 +342,8 @@ quantile_metalog_with_fallback <- function(fit, infeasible, full_probs, full_val
 
 #' Resolve a property's distribution family from its own percentile skew
 #'
-#' Adapted from `code_ref/reanalysis-platform/property_fusion_dispatch.R`'s
-#' `resolve_property_dist()`: computed directly from this row's own l/r/h
-#' (no spatial/AOI aggregation needed in a tabular context). Deliberately
-#' narrow - never resolves to `"metalog"` (that stays an explicit config
+#' Computed directly from this row's own l/r/h (no spatial/AOI aggregation in a tabular
+#' context). Deliberately narrow - never resolves to `"metalog"` (that stays an explicit config
 #' choice), matching the reference's own documented restriction.
 #'
 #' @param l,r,h Low/representative/high values.
@@ -417,9 +403,8 @@ fit_percentile_triplet <- function(l, r, h, family,
   if (identical(family, "auto")) {
     resolved <- resolve_property_family(l, r, h, bounds = bounds)
     family <- resolved$family
-    # log() is undefined for non-positive values - fall back to normal
-    # exactly as mod04's own get_appropriate_distributions() already skips
-    # lognormal/gamma for non-positive data.
+    # log() is undefined for non-positive values: lognormal/gamma are not used for
+    # non-positive data, so fall back to normal.
     if (identical(family, "lognormal") && any(c(l, r, h) <= 0)) family <- "normal"
   }
 
@@ -483,8 +468,8 @@ quantile_from_fit <- function(u, family, fit) {
 
 #' Validate a fitted distribution's parameters
 #'
-#' Real replacement for the always-`valid=TRUE` `validate_distribution_parameters()`
-#' stub previously in `mod05_monte_carlo.R`.
+#' Checks that a fitted distribution's parameters are structurally complete and in range
+#' for its family.
 #'
 #' @param family One of `fit_percentile_triplet()`'s resolved families.
 #' @param fit The `fit` element of `fit_percentile_triplet()`'s return value.
@@ -525,7 +510,7 @@ validate_fit_parameters <- function(family, fit) {
       # Deliberately NOT gated on `!fit$infeasible`: an infeasible metalog fit
       # still produces correct output via the automatic linear_cdf fallback
       # in quantile_metalog_with_fallback()/quantile_from_fit() - flagging it
-      # invalid here would cause callers (e.g. mod05's setup_distributions())
+      # invalid here would cause callers (e.g. setup_distributions())
       # to discard a perfectly usable (if degraded-to-nonparametric) fit in
       # favor of a cruder triangular guess. Only check structural completeness.
       required <- c("a", "term", "bounds", "boundedness", "infeasible", "fallback_probs", "fallback_values")
@@ -548,9 +533,8 @@ validate_fit_parameters <- function(family, fit) {
 # 2. ILR (ISOMETRIC LOG-RATIO) TRANSFORM + MONTE CARLO MOMENTS
 # ==============================================================================
 #
-# Dependency-free port of code_ref/reanalysis-platform/texture_ilr_fusion.R,
-# validated there to match compositions::ilr() exactly and round-trip to
-# ~1e-14. NOTE: the balance hierarchy (position 1 vs {2,3}, then 2 vs 3) is
+# Matches compositions::ilr() exactly and round-trips to ~1e-14.
+# NOTE: the balance hierarchy (position 1 vs {2,3}, then 2 vs 3) is
 # FIXED by these formulas. The `clay`/`sand`/`silt` parameter and output
 # names below are POSITIONAL-ROLE placeholders (position 1/2/3 in the
 # sequential binary partition), not an identity requirement - callers
@@ -656,9 +640,7 @@ sample_ilr_posterior <- function(mu, Sigma, n = 1000, total = 100) {
 #' Repair a near-correlation matrix to be positive definite
 #'
 #' Floors small/negative eigenvalues, reconstructs, and rescales back to a
-#' unit-diagonal correlation matrix. Relocated verbatim from
-#' `mod05_monte_carlo.R` (already correct there - not one of the confirmed
-#' bugs, just moved so `statistics.R` can share it too).
+#' unit-diagonal correlation matrix.
 #'
 #' @param matrix A square numeric matrix.
 #' @param min_eigenvalue Eigenvalue floor.
@@ -671,9 +653,8 @@ ensure_positive_definite_matrix <- function(matrix, min_eigenvalue = 1e-6) {
 
   # eigen()$vectors carries no dimnames of its own, so the reconstructed
   # matrix below would otherwise silently lose whatever row/column names the
-  # input had (a real, previously-unnoticed gap: callers indexing the result
-  # by property name, e.g. result["propA","propB"], would fail even though
-  # the underlying values were correct) - preserve them explicitly.
+  # input had, so callers indexing the result by property name
+  # (e.g. result["propA","propB"]) would fail - preserve them explicitly.
   original_dimnames <- dimnames(matrix)
 
   eigen_decomp <- eigen(matrix)
@@ -691,8 +672,6 @@ ensure_positive_definite_matrix <- function(matrix, min_eigenvalue = 1e-6) {
 }
 
 #' Validate a correlation matrix's shape and positive-definiteness
-#'
-#' Relocated verbatim from `mod05_monte_carlo.R`.
 #'
 #' @param corr_matrix A candidate correlation matrix.
 #' @param properties Character vector the matrix's dimensions should match.
@@ -724,15 +703,12 @@ validate_correlation_matrix <- function(corr_matrix, properties) {
 
 #' Estimate a correlation matrix robustly from data, with grouped and global fallbacks
 #'
-#' Ports `code_ref/brdf/property_simulation.R`'s `simulate_soil_properties()`
-#' correlation pattern: `Hmisc::rcorr()` per group when the group has enough
+#' `Hmisc::rcorr()` per group when the group has enough
 #' complete observations, else falling back; forces symmetry; repairs
 #' non-positive-definite matrices via `Matrix::nearPD()`. When `group_var` is
 #' supplied, each qualifying group's empirical matrix is combined into a
-#' single size-weighted average (mod05's simulation architecture uses one
-#' correlation matrix for the whole run, not a per-stratum matrix, so this
-#' folds stratification information in without requiring a larger
-#' architecture change).
+#' single size-weighted average, so stratification information is folded into the
+#' one correlation matrix used for the whole run.
 #'
 #' @param data A data frame of numeric property columns (one row per
 #'   horizon), optionally with a grouping column named by `group_var`.
@@ -863,7 +839,7 @@ estimate_correlation_matrix_robust <- function(data, group_var = NULL, min_group
 #' (e.g. `"ilr1"`/`"ilr2"`) so they can flow through the existing generic
 #' Cholesky-copula simulation machinery like any other property. If only
 #' some members are present, the group stays inactive (a logged WARN) and
-#' those properties simulate independently via the legacy path.
+#' those properties simulate independently.
 #'
 #' `members` declares which real property occupies `ilr_forward()`/
 #' `ilr_inverse()`'s position 1/2/3 (their `clay`/`sand`/`silt` naming is a

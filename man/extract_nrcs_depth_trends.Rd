@@ -26,5 +26,6 @@ extract_nrcs_depth_trends(
 List of depth trends by property and group
 }
 \description{
-Enhanced version with Module 8 validation and error handling.
+Predicts each stratified-grouped NRCS GP model's depth trend on a common depth
+grid, returning one data frame of predicted values per property.
 }

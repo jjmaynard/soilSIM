@@ -14,7 +14,7 @@ process_component_data_working_compatible(
 \arguments{
 \item{raw_data}{Raw SSURGO data containing component information}
 
-\item{standardize_names}{Logical; standardize column names using Module 8}
+\item{standardize_names}{Logical; standardize column names}
 
 \item{remove_invalid}{Logical; remove invalid component records}
 
@@ -24,5 +24,5 @@ process_component_data_working_compatible(
 List with processed component data and processing statistics
 }
 \description{
-Enhanced component processing using Module 8 utilities
+Process Component Data (Working Compatible)
 }

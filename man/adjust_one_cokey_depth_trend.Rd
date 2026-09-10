@@ -14,8 +14,9 @@ adjust_one_cokey_depth_trend(cokey_data, properties, min_depths, config = NULL)
 \item{min_depths}{Minimum distinct depths required to attempt GP fitting.}
 
 \item{config}{Optional Monte Carlo config, passed through to \code{apply_local_gp_adjustments()}
-(\code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 10) - see
-\code{maybe_adjust_soil_data_depth_trend()}'s own \code{config} docs.}
+\itemize{
+\item see \code{maybe_adjust_soil_data_depth_trend()}'s own \code{config} docs.
+}}
 }
 \value{
 \code{cokey_data}, depth-trend-adjusted where possible.

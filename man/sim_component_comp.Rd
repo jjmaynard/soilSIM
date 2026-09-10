@@ -28,13 +28,11 @@ This returns one row per \strong{component} (\code{cokey}), but \code{simulate_a
 functions - this function alone does not satisfy their requirement.
 }
 
-\section{\code{sim_comppct}'s derivation is unusual - documented, not "fixed"}{
+\section{\code{sim_comppct}'s derivation}{
 
-\verb{sim_comppct <- round(sum(<n_simulations> triangular draws of comppct) / 100)} - this is
+\verb{sim_comppct <- round(sum(<n_simulations> triangular draws of comppct) / 100)}, which is
 \code{round(n_simulations * comppct_r / 100)} in expectation (e.g. \code{comppct_r = 30},
-\code{n_simulations = 1000} -> \code{sim_comppct} ~= 300), not an independently-meaningful simulation
-count. Ported verbatim (preserve-behavior convention) since the legacy pipeline's exact intent
-for this derivation isn't independently confirmable from this file alone - do not assume it
-means something more sensible than what's written here.
+\code{n_simulations = 1000} -> \code{sim_comppct} ~= 300). It is not an independently-meaningful
+simulation count.
 }
 

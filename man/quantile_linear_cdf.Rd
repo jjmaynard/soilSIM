@@ -12,7 +12,5 @@ quantile_linear_cdf(probs, values, q)
 \item{q}{Vector of probabilities to evaluate at.}
 }
 \description{
-Tails are clamped to the min/max value (\code{rule = 2}) rather than
-extrapolated, matching \code{code_ref/brdf/distribution_fitting.R}'s
-\code{sim_linear_cdf()}.
+Tails are clamped to the min/max value (\code{rule = 2}) rather than extrapolated.
 }

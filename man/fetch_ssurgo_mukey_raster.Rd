@@ -23,13 +23,9 @@ Fetch a Raster of SSURGO Map Unit Keys for an AOI
 }
 \section{Implementation note}{
 
-Previously this function \emph{also} issued a separate \code{soilDB::SDA_spatialQuery(what="mupolygon")}
-vector fetch and rasterized it onto \code{mukey.wcs()}'s own grid purely as a template, discarding
-that grid's own cell values - \code{soilDB::mukey.wcs()}'s own documented example
-(\code{?soilDB::mukey.wcs}) reads mukey codes directly off its returned raster's values
-(\code{unique(values(res))}), confirming no separate polygon fetch/rasterize step is needed. Dropped
-that redundant fetch (see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md}, task P1.1) - this function
-now issues exactly one network call per cache miss instead of two. Also disk-cached
+\code{soilDB::mukey.wcs()} returns a raster whose cell values are the mukey codes
+(\code{unique(values(res))}), so no separate polygon fetch/rasterize step is needed - the
+function issues exactly one network call per cache miss. The result is disk-cached
 (\code{raster-cache.R}, kind \code{"mukey_grid"}, depth-agnostic key via \code{mukey_grid_cache_key()}) so
 repeated calls for the same AOI across separate top-level user calls hit zero network calls.
 }

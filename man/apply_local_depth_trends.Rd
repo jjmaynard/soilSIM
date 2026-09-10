@@ -28,10 +28,9 @@ apply_local_depth_trends(
 \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 
 \item{config}{Optional config, passed straight through to \code{apply_gp_depth_trends()} - lets
-\code{config$monte_carlo$vertical_correlation_method} (default \code{"joint_copula"} as of
-\code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 13; set to \code{"gp_quantile_retrofit"} to opt
-back into the original algorithm) reach this call site. \code{NULL} (default) resolves to
-\code{"joint_copula"}, matching \code{get_monte_carlo_defaults()}'s own default.}
+\code{config$monte_carlo$vertical_correlation_method} (\code{"joint_copula"} default, or
+\code{"gp_quantile_retrofit"}) reach this call site. \code{NULL} (default) resolves to \code{"joint_copula"},
+matching \code{get_monte_carlo_defaults()}.}
 
 \item{gp_models}{Optional named list of fitted local GP models (as \code{apply_local_gp_adjustments()}
 already has in scope via \code{fit_local_gp_models()}), passed straight through to
@@ -42,5 +41,6 @@ length-scales. Ignored under \code{"gp_quantile_retrofit"}.}
 Adjusted simulation data
 }
 \description{
-Enhanced version with Module 8 error handling.
+Applies locally fitted GP depth-trend predictions to a component's simulation
+data via apply_gp_depth_trends().
 }

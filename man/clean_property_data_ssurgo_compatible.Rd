@@ -28,12 +28,10 @@ violations are counted into the report, values are not changed.}
 List containing cleaned data and (by default) a quality report.
 }
 \description{
-\strong{Deprecated.} Superseded by \code{\link[=clean_property_data]{clean_property_data()}}, which is now the
-single property-value cleaner for the package. This shim forwards to it with
-\code{outlier_policy = "aggressive_iqr"} (the generic \verb{IQR x 3} this function used to apply) and
-\code{generate_report = TRUE}, so existing callers keep their exact behavior. New code should call
-\code{\link[=clean_property_data]{clean_property_data()}} directly and choose an \code{outlier_policy} explicitly - \code{"soil_aware"}
-is the recommended default.
+\strong{Deprecated.} Use \code{\link[=clean_property_data]{clean_property_data()}} directly. This shim forwards to it with
+\code{outlier_policy = "aggressive_iqr"} (a generic \verb{IQR x 3}) and \code{generate_report = TRUE}.
+New code should choose an \code{outlier_policy} explicitly; \code{"soil_aware"} is the recommended
+default.
 }
 \seealso{
 \code{\link[=clean_property_data]{clean_property_data()}}

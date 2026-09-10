@@ -27,5 +27,5 @@ generate_validation_report(
 Success status
 }
 \description{
-Enhanced report generation  I/O utilities and error handling.
+Generate Validation Report
 }

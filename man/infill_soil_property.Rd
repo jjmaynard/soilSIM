@@ -27,6 +27,6 @@ infill_soil_property(
 Data frame with infilled property data
 }
 \description{
-Enhanced version of the core infilling function with comprehensive recovery strategies
+Version of the core infilling function with comprehensive recovery strategies
 and automatic exclusion of unsuitable horizons (R, Cr, O horizons).
 }

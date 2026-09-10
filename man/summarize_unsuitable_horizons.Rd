@@ -17,10 +17,6 @@ List with \code{n_unsuitable} (count) and \code{horizon_types} (unique
 excluded horizon names)
 }
 \description{
-Restores the reporting half of the legacy \code{filter_unsuitable_horizons()}
-(its flagging half is already handled by \code{\link[=is_unsuitable]{is_unsuitable()}}): logs and
-returns a summary of which horizon types were excluded from infilling.
-Uses \code{\link[=log_message]{log_message()}} (this package's established logging convention)
-rather than the legacy \code{cat()}, a deliberate improvement consistent with
-how every other diagnostic message in this package is emitted.
+Logs and returns a summary of which horizon types were excluded from infilling
+(the flagging itself is handled by \code{\link[=is_unsuitable]{is_unsuitable()}}).
 }

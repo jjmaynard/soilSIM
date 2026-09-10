@@ -24,5 +24,5 @@ handful of quantiles. This is what lets raster-fusion routes (\code{R/raster-fus
 \code{fuse_general_kde()}/\code{fuse_texture_group_batch_core()}, once they opt into
 \code{prior_fusion_method = "raw_draws"}) fuse directly against the real empirical distribution
 computed once per unique mukey, rather than resampling a lower-fidelity reconstruction from
-just a few percentile values - see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md} task P2.1.
+just a few percentile values.
 }

@@ -30,5 +30,5 @@ match_soils_to_gp_models(
 Data frame mapping cokeys to GP model groups
 }
 \description{
-Enhanced version with better error handling and fallback strategies
+Match Soils to GP Models
 }

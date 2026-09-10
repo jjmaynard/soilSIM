@@ -2,13 +2,9 @@
 #'
 #' @description `build_cache_key()`/`cache_get()`/`cache_set()`/`CACHE_TTL_SECONDS` are called by
 #'   `run_stage1_fusion()`/`run_stage1_fusion_group()` (`R/raster-fusion.R`) and
-#'   `simulate_ssurgo_mapunit_draws()` (`R/ssurgo-simulation.R`) but were genuinely undefined
-#'   anywhere in the source bundle they were ported from (`code_ref/reanalysis-platform/`) -
-#'   confirmed by a repo-wide grep; `HANDOFF_NOTES.md` lists them as externals "assumed to already
-#'   exist" in that bundle's *target* project, which was never soilSIM.
+#'   `simulate_ssurgo_mapunit_draws()` (`R/ssurgo-simulation.R`).
 #'
-#'   Rather than inventing a new scheme or adding a dependency (`memoise`/`R.cache`), this adapts
-#'   the already-working, already-tested disk-RDS cache pattern from
+#'   The implementation adapts the disk-RDS cache pattern from
 #'   `R/ssurgo-acquisition.R`'s `generate_ssurgo_cache_key()`/`check_ssurgo_cache()`/
 #'   `cache_ssurgo_data()` (`digest`-based keying, age/TTL invalidation via file mtime) -
 #'   generalized here to the AOI/property-id/depth/kind shape the raster fusion code expects.
@@ -70,7 +66,7 @@ mukey_grid_cache_key <- function(aoi_vect) {
 #' `aggregate_depth_window_by_replicate()`. The downloaded tabular data therefore depends only on
 #' the AOI (and the fixed default `properties` list every call site uses - never varied), not on
 #' any depth window. Keying the tabular cache on `top_depth`/`bottom_depth` (as it was before this
-#' function existed - MULTI_PROPERTY_FUSION_PLAN.md task L1) fragments one AOI's cache into one
+#' function existed -) fragments one AOI's cache into one
 #' unusable copy per distinct window ever requested for it, so e.g. `run_stage1_fusion_multi()`'s
 #' wide-span simulation and a later single-window `run_stage1_fusion()` call for the same AOI never
 #' shared a tabular download. Mirrors `mukey_grid_cache_key()`'s fixed-sentinel pattern.
@@ -105,9 +101,8 @@ cache_get <- function(key, ttl_seconds = CACHE_TTL_SECONDS) {
 #' Store a value in the cache under `key`
 #'
 #' @param key A cache key from `build_cache_key()`.
-#' @param kind Unused beyond documenting intent at call sites (matches the original bundle's
-#'   3-argument `cache_set(key, kind, value)` calling convention) - the value is stored keyed
-#'   only by `key`, since `build_cache_key()` already encodes `kind`.
+#' @param kind Unused; documents intent at call sites. The value is stored keyed only by
+#'   `key`, since `build_cache_key()` already encodes `kind`.
 #' @param value The R object to cache (anything `saveRDS()` can serialize, including
 #'   `terra::SpatRaster` objects via their `wrap()`-compatible representation - see Known
 #'   limitation below).

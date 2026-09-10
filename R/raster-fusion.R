@@ -4,48 +4,30 @@
 #'   (e.g. an SSURGO-derived percentile raster set) with a likelihood (e.g.
 #'   an independent percentile raster set from another source), across a
 #'   whole `terra::SpatRaster` AOI at once. This is the raster-native
-#'   counterpart of `R/bayesian-updating.R` (itself "intentionally NOT
-#'   called anywhere in `monte-carlo.R`" - a standalone toolkit), ported
-#'   from `code_ref/reanalysis-platform/{bayes_fuse.R,
-#'   property_fusion_dispatch.R, reanalysis-platform-fusion.R}`.
+#'   counterpart of `R/bayesian-updating.R`.
 #'
-#'   Reuses `bayesian-updating.R`'s existing scalar/vector fusion functions
-#'   directly rather than duplicating them - `bayes_update_normal_normal()`,
+#'   Uses `bayesian-updating.R`'s scalar/vector fusion functions
+#'   directly - `bayes_update_normal_normal()`,
 #'   `fuse_beta()`, `fuse_gamma()`, `moments_to_gamma()`/`moments_to_beta()`/
 #'   `beta_to_moments()`/`gamma_to_moments()`, `normal_to_lognormal_params()`/
 #'   `lognormal_to_normal_params()`, `bayesian_update()`, and
 #'   `R/distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`, plus
-#'   `fuse_bivariate_normal()` (also in `bayesian-updating.R`) - are all pure
-#'   elementwise arithmetic, so they already work unchanged on `SpatRaster`
-#'   inputs (confirmed by a dedicated smoke test before this file was
-#'   written; see `bayes_update_normal_normal()`'s own doc comment upstream,
-#'   which claims exactly this property).
+#'   `fuse_bivariate_normal()` - are all pure elementwise arithmetic, so they
+#'   work unchanged on `SpatRaster` inputs.
 #'
-#' @section Formerly out of scope, now implemented:
-#' `run_stage1_fusion()`/`run_stage1_fusion_group()` (the original top-level
-#' orchestrators) were initially **not** ported, since at that point their
-#' dependencies - `build_cache_key()`, `cache_get()`/`cache_set()`,
-#' `fetch_ssurgo_percentiles()`, `fetch_solus_percentiles()` (itself calling
-#' the live `soilDB::fetchSOLUS()` network API) - didn't exist anywhere in
-#' this repo. The source bundle's own `HANDOFF_NOTES.md` confirms it was
-#' built as a handoff package for a *different, sibling project*
-#' ("reanalysis-platform"), not soilSIM, with these exact fetch/cache
-#' functions listed as unresolved integration gaps for that project. Those
-#' gaps have since been closed (`R/raster-cache.R`, `R/ssurgo-simulation.R`,
-#' `R/solus-simulation.R`), and `run_stage1_fusion()`/
-#' `run_stage1_fusion_group()` are now fully implemented below (this is a
-#' historical note, not a current limitation), wiring everything together.
-#' `fuse_property_adaptive()` remains the lower-level entry point for callers
+#' @section Entry points:
+#' `run_stage1_fusion()`/`run_stage1_fusion_group()` are the top-level
+#' orchestrators, wiring the fetch-and-cache layer (`R/raster-cache.R`,
+#' `R/ssurgo-simulation.R`, `R/solus-simulation.R`) to the fusion core.
+#' `fuse_property_adaptive()` is the lower-level entry point for callers
 #' who already have their own pre-fetched `prior_value_rasters`/
 #' `lik_value_rasters` and want to skip the fetch-and-cache wrapper.
 #'
-#' @section Deliberately out of scope:
-#' The global `PROPERTIES` config-list registry from the source bundle's
-#' `config.R` was not ported. `group_members()`/`fuse_property_adaptive()`
-#' below take a per-call config list/member vector directly instead,
-#' reusing soilSIM's own existing `config$monte_carlo$composition_groups`
-#' convention (see `R/distributions.R`'s `resolve_composition_groups()`)
-#' rather than introducing a second, parallel config schema.
+#' @section Configuration:
+#' `group_members()`/`fuse_property_adaptive()` take a per-call config
+#' list/member vector directly, reusing soilSIM's
+#' `config$monte_carlo$composition_groups` convention (see
+#' `R/distributions.R`'s `resolve_composition_groups()`).
 #' @name raster_fusion
 NULL
 
@@ -183,7 +165,7 @@ closed_form_percentiles_raster <- function(param1, param2, qfun, posterior_probs
 #' broadcasts the result onto every cell sharing that mukey via one vectorized categorical lookup
 #' (`terra::subst()`) - not a per-cell computation, unlike `fuse_general_kde()`'s raw_draws branch
 #' (which needs a per-cell `density()` call and so is meaningfully slower). Verified cheap
-#' (`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` tasks P2.6/P2.10): at 100,172 synthetic cells and 150
+#': at 100,172 synthetic cells and 150
 #' unique mukeys, the whole precompute+broadcast pipeline measured ~0.18s total - negligible next
 #' to the existing family-specific fit costs it complements (beta's Newton-Raphson fit alone
 #' measured ~20s at the same cell count), because cost here scales with mukey CARDINALITY, not
@@ -193,7 +175,7 @@ closed_form_percentiles_raster <- function(param1, param2, qfun, posterior_probs
 #' @param mukey_draws A `mukey_draws_lookup()` result - named list keyed by mukey (character), each
 #'   element a numeric vector of real simulated draws for that mukey.
 #' @param family One of "normal", "beta", "gamma", "lognormal". `"lognormal"` (added
-#'   `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.12) fits `mu`/`sigma` directly from
+#') fits `mu`/`sigma` directly from
 #'   `log(draws)` - the same LOG-SPACE parameterization `fuse_lognormal_adaptive()`'s large-AOI
 #'   branch already uses internally (`normal_to_lognormal_params()`'s output shape), so the merge
 #'   there is a drop-in replacement of the percentile-triplet-derived log-space fit, not a new
@@ -249,9 +231,8 @@ mukey_draws_closed_form_fit_raster <- function(mukey_raster, mukey_draws, family
     # match in `from` is to leave the cell's ORIGINAL value unchanged (the raw mukey code number
     # itself), not NA - silently corrupting fuse_closed_form()'s merge_raw_fit() fallback (which
     # relies on is.na() to detect "no raw-draws coverage, use the percentile fit instead") into
-    # treating a mukey code like 602 as a fitted mu/alpha/shape of 602. Confirmed via a live repro
-    # during P2.6 testing: without this, an uncovered cell's Normal-Normal update saw an absurd
-    # prior (mu=602, sigma=602) instead of correctly falling back to the percentile-based fit.
+    # treating a mukey code like 602 as a fitted mu/alpha/shape of 602. Without this, an uncovered cell's Normal-Normal update would see
+    # an absurd prior (mu=602, sigma=602) instead of falling back to the percentile-based fit.
     terra::subst(mukey_raster_plain, from = mukey_codes, to = to, others = NA_real_)
   }), param_names)
 }
@@ -259,7 +240,7 @@ mukey_draws_closed_form_fit_raster <- function(mukey_raster, mukey_draws, family
 #' Per-unique-mukey empirical percentiles from real Monte Carlo draws, broadcast to a raster
 #'
 #' Companion to `mukey_draws_closed_form_fit_raster()` for routes that consume percentile VALUES
-#' directly rather than a family parameter fit - `fuse_metalog_adapter()` (P2.12), whose metalog fit
+#' directly rather than a family parameter fit - `fuse_metalog_adapter()`, whose metalog fit
 #' is an exact linear interpolation through fixed percentile knots (`solve()` on a basis matrix), not
 #' a moment/density fit. There is no "metalog fit to raw draws" analogous to
 #' `mukey_draws_closed_form_fit_raster()`'s normal/beta/gamma/lognormal cases - the real extension
@@ -319,7 +300,7 @@ mukey_draws_percentiles_raster <- function(mukey_raster, mukey_draws, probs) {
 #'   (`qnorm`/`qbeta`/`qgamma` at the fused family parameters) - exact regardless of how extreme
 #'   the requested probability is, unlike `fuse_general_kde()`'s sample/grid-based route.
 #' @param mukey_raster,mukey_draws Optional - opts into `prior_fusion_method = "raw_draws"` for
-#'   this (closed-form) route, added `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.6. Fits the
+#'   this (closed-form) route: fits the
 #'   PRIOR side's family parameters directly from each cell's mukey's real Monte Carlo draws (via
 #'   `mukey_draws_closed_form_fit_raster()`) instead of `fit_normal_raster()`/
 #'   `fit_beta_mle_newton_raster()`/`fit_gamma_mom_raster()`'s percentile-triplet formulas - cells
@@ -420,7 +401,7 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
 #' `bayesian_update()`'s `stats::density()` calls (kernel density estimation over
 #' `seq(grid_min, grid_max, by = grid_resolution)`) are the dominant cost of
 #' `fuse_general_kde()`'s per-cell loop - `Rprof()` profiling on a synthetic 10,000-cell raster
-#' (PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4) attributed 65% of total wall-clock time to `density()`
+#' attributed 65% of total wall-clock time to `density()`
 #' (`dnorm`/`fft` internals) at the `0.01` default, vs. 12% for the per-cell percentile-sampling
 #' step. At `0.01`, a typical soil-property range (e.g. 20-50%) produces a ~3,000-point evaluation
 #' grid per cell, per side. Coarsening to `0.1` cuts that grid ~10x and measured **~2.4x** faster
@@ -440,11 +421,11 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
 FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION <- 0.1
 
 #' Default `winsorize_probs` `fuse_general_kde()` passes to `bayesian_update()` on its `raw_draws`
-#' branch only (see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P3.1).
+#' branch only.
 #'
 #' @section Why this exists:
 #' `bayesian_update()`'s `stats::density(bw = "nrd0")` bandwidth choice is sensitive to outliers a
-#' raw-draws resample can genuinely contain - confirmed via a dedicated adversarial test (P2.7): a
+#' raw-draws resample can genuinely contain - confirmed via a dedicated adversarial test: a
 #' right-skewed synthetic prior's raw resample (realized range ~4-195) produced a measurably wider
 #' KDE bandwidth, and a *less* accurate fused posterior mean on average across 8 seeds, than the
 #' percentile-reconstruction route's resample (confined to ~7-64, the same data's P5-P95 range).
@@ -461,7 +442,7 @@ FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION <- 0.1
 FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS <- c(0.01, 0.99)
 
 #' Default posterior percentile set computed by `fuse_general_kde()` (and, as later routes adopt
-#' it, every other fusion route - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P3.2+).
+#' it, every other fusion route).
 #'
 #' @section Why 9 points, not the 5-point SSURGO/SOLUS input convention:
 #' The 5-point set (`c(0.05, 0.25, 0.5, 0.75, 0.95)`) is what SSURGO/SOLUS happen to provide as raw
@@ -473,8 +454,8 @@ FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS <- c(0.01, 0.99)
 #' median/IQR.
 #'
 #' @section Reliability note:
-#' For the closed-form analytic routes (`qnorm`/`qbeta`/`qgamma`, not yet on this constant as of
-#' P3.2 - see P3.3), extra percentiles are free and exact regardless of how extreme they are. For
+#' For the closed-form analytic routes (`qnorm`/`qbeta`/`qgamma`), extra percentiles are free
+#' and exact regardless of how extreme they are. For
 #' `fuse_general_kde()`'s sample/grid-based route, percentiles are read directly off
 #' `bayesian_update()`'s discretized `posterior_prob` (see that function's own "Grid-based
 #' percentiles" section) - exact relative to `grid_resolution` and NOT resampling-noise-limited,
@@ -498,7 +479,7 @@ FUSE_POSTERIOR_DEFAULT_PROBS <- c(0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95
 #'   `fuse_adaptive()`) resolves to [FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION], not
 #'   `bayesian_update()`'s own standalone default of `0.01` - see that constant's docs for why.
 #' @param mukey_raster,mukey_draws Optional - opts into `prior_fusion_method = "raw_draws"` (see
-#'   `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.2/P2.3). `mukey_raster` must already be
+#'). `mukey_raster` must already be
 #'   aligned to the same grid as `prior_value_rasters`/`lik_value_rasters` (nearest-neighbor
 #'   resampled, since it's categorical - bilinear would fabricate nonsensical mukey codes).
 #'   `mukey_draws` is a `mukey_draws_lookup()` result. When both are supplied, the PRIOR side's
@@ -516,7 +497,7 @@ FUSE_POSTERIOR_DEFAULT_PROBS <- c(0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95
 #'   plain-vector return"), this is an internal orchestration parameter with no external
 #'   plain-vector consumers, so its `NULL` means "use the standard rich default" instead. Also used
 #'   to compute `mu`/`sigma` (via the exact grid-based mean/var, not `mean()`/`var()` on a resampled
-#'   vector - a strictly more accurate replacement for the pre-P3.2 computation, at no extra cost).
+#'   vector - a strictly more accurate replacement for the previous computation, at no extra cost).
 #' @keywords internal
 fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_probs,
                               family, bounds, n_samples, grid_resolution,
@@ -555,7 +536,7 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
   # chunk, and makes an initial probe call with a bare vector (not a
   # matrix) to infer the output layer count - fun must normalize both shapes.
   #
-  # Real-world discovery (not in the original ported source): cells with too many NA percentile
+  # Cells with too many NA percentile
   # values (e.g. at raster edges after terra::resample()/align_percentile_probs() alignment
   # between two differently-extented grids) make extract_percentile_pairs() hard-stop() with
   # "Need at least 2 valid quantile columns." terra::app() is not per-cell-error-tolerant by
@@ -565,7 +546,7 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
   # Fast path (below) batches the percentile-sampling step (sim_linear_cdf_batch()) across every
   # cell in the chunk at once for cells with no missing/-1-sentinel percentile values (the common
   # case) - Rprof() profiling attributed ~9% of fuse_general_kde()'s total wall-clock to
-  # extract_percentile_pairs()'s per-cell dispatch overhead alone (PERFORMANCE_IMPROVEMENT_PLAN.md
+  # extract_percentile_pairs()'s per-cell dispatch overhead alone (
   # Tier 4). bayesian_update()'s density() call still runs per cell (no vectorized form exists in
   # base R), and any cell with a missing value falls back to the original per-cell
   # simulate_from_percentiles() path unchanged, preserving the exact NA-degradation contract above.
@@ -574,11 +555,11 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
   # fast/slow-path vectorized split above - it's a separate, simpler row-by-row branch so the
   # already-tuned default path (still the only path any existing caller reaches, since
   # mukey_raster/mukey_draws default to NULL) is untouched. `bayesian_update()`'s density() call
-  # still runs per cell either way (no vectorized form exists in base R) - but as of P2.13, the
+  # still runs per cell either way (no vectorized form exists in base R) - but, the
   # LIKELIHOOD-side sampling (sim_linear_cdf_batch()) is now batched once across every
   # lik_no_na cell in the chunk up front, the same technique the fast path above already proves
   # out, instead of one row-by-row call per cell inside the loop
-  # (MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P2.13). The PRIOR-side fallback sampling (for a
+  #. The PRIOR-side fallback sampling (for a
   # cell whose mukey has no draws coverage) stays row-by-row - it's the rarer path and out of this
   # task's scope, though the same batching technique would apply there too.
   fun <- function(row_mat) {
@@ -596,7 +577,7 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
       # coverage (NA) or an unknown/empty mukey fall back to the percentile-reconstruction route
       # for that cell only, preserving the existing degrade-to-something-reasonable behavior.
       lik_no_na <- stats::complete.cases(lik_mat) & rowSums(lik_mat == -1, na.rm = TRUE) == 0
-      # P2.13: batch the likelihood-side sampling once across every lik_no_na cell in the chunk,
+      # Batch the likelihood-side sampling once across every lik_no_na cell in the chunk,
       # instead of one sim_linear_cdf_batch() call per cell inside the loop below - lik_row_pos[i]
       # is cell i's row within lik_samples_mat (only meaningful where lik_no_na[i] is TRUE).
       lik_samples_mat <- NULL
@@ -707,8 +688,8 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
 #'   standalone default of `0.01`.
 #' @param verbose If TRUE (default), print the chosen route and why.
 #' @param mukey_raster,mukey_draws Optional - opts into `prior_fusion_method = "raw_draws"` on
-#'   whichever route runs (`fuse_general_kde()` for the general route - task P2.2/P2.3;
-#'   `fuse_closed_form()` for the closed-form route - task P2.6, added at negligible cost since
+#'   whichever route runs (`fuse_general_kde()` for the general route -;
+#'   `fuse_closed_form()` for the closed-form route -, added at negligible cost since
 #'   that route's raw_draws fit is a per-mukey precompute + `terra::subst()` broadcast, not a
 #'   per-cell computation - see `mukey_draws_closed_form_fit_raster()`'s docs). `NULL` (default)
 #'   preserves original behavior exactly on both routes.
@@ -724,7 +705,7 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
 #'     `alpha`/`beta` for "beta", `shape`/`rate` for "gamma") - always this
 #'     shape regardless of which route ran. Also carries `percentiles`: a named list of
 #'     `SpatRaster`s (`"P01"`..`"P99"` by default), one per `posterior_probs` entry, on both
-#'     routes (as of P3.3).
+#'     routes.
 #'   - `route`: one of `"bayesian_update_general"`, `"closed_form_normal"`,
 #'     `"closed_form_beta"`, `"closed_form_gamma"`.
 #'   - `route_detail`: for `family %in% c("beta","gamma")` on the
@@ -801,10 +782,10 @@ fuse_adaptive <- function(prior_value_rasters, lik_value_rasters, percentile_pro
 #'   (`posterior$mu`/`sigma`) would be.
 #' @param mukey_raster,mukey_draws Optional raw-draws inputs (see `fuse_adaptive()`'s docs). Small-AOI
 #'   branch: forwarded to `fuse_adaptive()`'s general route unchanged. Large-AOI closed-form branch
-#'   (added `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.12): each mukey's real draws are fit
+#'   Raw-draws inputs: each mukey's real draws are fit
 #'   directly in log-space (`mukey_draws_closed_form_fit_raster(..., family = "lognormal")`) and
 #'   merged over the percentile-triplet-derived log-space fit wherever a mukey has draws coverage -
-#'   the same merge pattern P2.6 established for normal/beta/gamma on the closed-form route.
+#'   the same merge pattern used for normal/beta/gamma on the closed-form route.
 fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_rasters, lik_probs,
                                      ncell, threshold_cells, n_samples = 500, grid_resolution = NULL, verbose = TRUE,
                                      posterior_probs = NULL, mukey_raster = NULL, mukey_draws = NULL) {
@@ -830,10 +811,10 @@ fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_
   fit_lik <- fit_normal_raster(lik_value_rasters[[idx$lo_idx]], lik_value_rasters[[idx$p50_idx]], lik_value_rasters[[idx$hi_idx]], idx$p_lo, idx$p_hi)
   prior_log <- normal_to_lognormal_params(fit_prior$mu, fit_prior$sigma)
   lik_log <- normal_to_lognormal_params(fit_lik$mu, fit_lik$sigma)
-  # Raw-draws extension (P2.12): fit each mukey's real draws' log() directly (a more faithful
+  # Raw-draws extension: fit each mukey's real draws' log() directly (a more faithful
   # log-space fit than the percentile-triplet-derived approximation above), broadcast via
   # terra::subst(), and merge over prior_log wherever a mukey has draws coverage - the exact
-  # merge_raw_fit() pattern fuse_closed_form() already uses for normal/beta/gamma (P2.6). The
+  # merge_raw_fit() pattern fuse_closed_form() already uses for normal/beta/gamma. The
   # LIKELIHOOD (SOLUS) side has no raw-draws equivalent, same as every other route.
   if (!is.null(mukey_raster) && !is.null(mukey_draws)) {
     raw_prior_log <- mukey_draws_closed_form_fit_raster(mukey_raster, mukey_draws, "lognormal")
@@ -854,7 +835,7 @@ fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_
 #'
 #' @section Known limitation:
 #' This is new glue code with no prior validated version (unlike the rest of
-#' this file's math, which was validated upstream against `fitdistrplus`/
+#' this file's math, which was validated against `fitdistrplus`/
 #' closed-form references) - spot-check against real data before trusting it
 #' in production, per the original source bundle's own caveat.
 #'
@@ -904,9 +885,8 @@ metalog_moments_raster <- function(fit, infeasible_r, full_value_rasters, full_p
 #'   final `bayes_update_normal_normal()` step, so there is no richer distributional shape to draw
 #'   percentiles from beyond that Normal approximation; carries forward this route's existing
 #'   "less-validated glue code" caveat (see `metalog_moments_raster()`'s own docs) to its
-#'   percentile output too, not a new limitation introduced here.
-#' @param mukey_raster,mukey_draws Optional raw-draws inputs (added `MUKEY_DRAWS_FUSION_
-#'   IMPROVEMENT_PLAN.md` task P2.12). Metalog has no moment/density fit analogous to
+#'   percentile output too.
+#' @param mukey_raster,mukey_draws Optional raw-draws inputs. Metalog has no moment/density fit analogous to
 #'   `fuse_closed_form()`'s normal/beta/gamma/lognormal routes (its fit is an exact linear
 #'   interpolation through fixed percentile knots) - the real extension is interpolating through
 #'   each mukey's REAL empirical percentiles (`mukey_draws_percentiles_raster()`) instead of the
@@ -1019,18 +999,17 @@ resolve_property_dist <- function(property_config, prior_value_rasters, prior_pr
 #'   uses its general route.
 #' @param ... Additional arguments passed to `fuse_adaptive()`/`fuse_lognormal_adaptive()`/
 #'   `fuse_metalog_adapter()` (e.g. `n_samples`, `grid_resolution`, `verbose`, `posterior_probs` -
-#'   see [FUSE_POSTERIOR_DEFAULT_PROBS]; reaches every route as of P3.5 - `fuse_metalog_adapter()`
+#'   see [FUSE_POSTERIOR_DEFAULT_PROBS]; reaches every route - `fuse_metalog_adapter()`
 #'   absorbs and ignores the arguments it doesn't use, e.g. `n_samples`). Also how
 #'   `mukey_raster`/`mukey_draws` (opting into `prior_fusion_method = "raw_draws"`, see
 #'   `fuse_general_kde()`'s docs) reach the underlying routes: both the general-KDE and
-#'   closed-form routes support it for `dist %in% c("normal","beta","gamma")` (P2.6), and it
+#'   closed-form routes support it for `dist %in% c("normal","beta","gamma")`, and it
 #'   reaches `fuse_lognormal_adaptive()`'s small-AOI general branch AND large-AOI closed-form
-#'   branch (P2.12) the same way. `fuse_metalog_adapter()` also has a raw-draws fit as of P2.12
+#'   branch the same way. `fuse_metalog_adapter()` also has a raw-draws fit
 #'   (empirical per-mukey percentiles feed the same interpolation machinery) - but
 #'   `resolve_want_raw_draws()`'s default still excludes `dist = "metalog"`, mirroring the
-#'   texture-group route's P2.11 treatment: a fit existing is not the same as its cost/benefit
-#'   being benchmarked, and that default-flip decision is deliberately kept separate (see
-#'   `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`). Explicitly passing `mukey_raster`/`mukey_draws`
+#'   texture-group route's treatment: a fit existing is not the same as its cost/benefit being
+#'   benchmarked, and that default decision is kept separate. Explicitly passing `mukey_raster`/`mukey_draws`
 #'   for `dist = "metalog"` still works.
 #' @return `list(posterior=, route=, route_detail=, n_fallback_cells=, dist=,
 #'   dist_source=, skew_proxy=)`.
@@ -1131,7 +1110,7 @@ group_members <- function(group, composition_groups) {
 #'   here, in cell order, doesn't change the RNG stream order (still
 #'   cell-major) so results are unaffected.
 #' @param mukey_prior_texture_samples Optional - opts into `prior_fusion_method = "raw_draws"`
-#'   (see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4). A named list, keyed by mukey (as
+#'. A named list, keyed by mukey (as
 #'   character), each element an `n_mc x 3` matrix (columns `clay_total`/`sand_total`/
 #'   `silt_total`) of real joint texture draws for that mukey - see
 #'   `mukey_texture_draws_lookup()`. When supplied, `row_mat`'s last column must be the per-cell
@@ -1342,13 +1321,13 @@ texture_group_percentiles_raster <- function(ilr_mu_r, ilr_Sigma_r, posterior_pr
       sand_s <- matrix(comp[, "sand"], nrow = n_mc, ncol = ncell)
       silt_s <- matrix(comp[, "silt"], nrow = n_mc, ncol = ncell)
 
-      # Cells outside real SSURGO/SOLUS coverage (a documented, common occurrence - e.g. P2.5/P2.8's
+      # Cells outside real SSURGO/SOLUS coverage (a documented, common occurrence - e.g..8's
       # live-AOI validation found 401/598 NA cells for one real AOI) arrive here with NA
       # mu1/mu2/S11/S12/S22, which propagates to an all-NA draws column for that cell. quantile()'s
       # default na.rm = FALSE hard-errors on an all-NA input, which - unlike every other per-cell
       # fallback in this file (fuse_general_kde()'s tryCatch-wrapped loop, etc.) - would crash the
       # ENTIRE terra::app() call for the whole raster over one missing-coverage cell. Found live via
-      # MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P3.9's real-AOI validation (exactly the class of
+      #'s real-AOI validation (exactly the class of
       # bug synthetic unit tests, which never included an NA cell, couldn't catch). Degrade that one
       # cell to NA percentiles instead, matching this file's established NA-cell convention.
       col_quantile <- function(col) {
@@ -1377,19 +1356,17 @@ texture_group_percentiles_raster <- function(ilr_mu_r, ilr_Sigma_r, posterior_pr
 #' `R/bayesian-updating.R`'s `fuse_bivariate_normal()`), rather than
 #' independently via `fuse_beta()` per member - independent fusion
 #' measurably breaks sum-to-100 (up to 10.5 percentage points on realistic
-#' synthetic data, per upstream validation). The raster counterpart of the
+#' synthetic data). The raster counterpart of the
 #' already-ported scalar `fuse_texture_group_from_triplets()`.
 #'
 #' @param fetched A list (one entry per group member, in `group_members()`'s
 #'   order) of `list(id=, prior=<named list of ALIGNED percentile-value
 #'   rasters>, prior_probs=, lik=<value rasters>, lik_probs=)`.
 #' @param mukey_raster,mukey_texture_draws Optional - opts into `prior_fusion_method =
-#'   "raw_draws"` (see `fuse_texture_group_batch_core()`'s docs and
-#'   `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4). `mukey_raster` must already be aligned
-#'   to the same grid as `fetched`'s percentile rasters (nearest-neighbor resampled - it's
+#'   "raw_draws"` (see `fuse_texture_group_batch_core()`'s docs). `mukey_raster` must already be
+#'   aligned to the same grid as `fetched`'s percentile rasters (nearest-neighbor resampled - it's
 #'   categorical). `mukey_texture_draws` is a `mukey_texture_draws_lookup()` result. `NULL`
-#'   (default) for either preserves the original percentile-reconstruction behavior exactly -
-#'   bit-identical output to before these parameters existed.
+#'   (default) for either uses the percentile-reconstruction path.
 #' @param posterior_probs Numeric probabilities (0-1) at which to report each fraction's posterior
 #'   percentiles. `NULL` (default) resolves to [FUSE_POSTERIOR_DEFAULT_PROBS]. Computed via
 #'   `texture_group_percentiles_raster()` - see that function's `@section Sum-to-100 caveat` for
@@ -1453,10 +1430,10 @@ fuse_texture_group <- function(fetched, mukey_raster = NULL, mukey_texture_draws
     col_names <- c(col_names, "mukey_code")
   }
 
-  # PERF: previously called estimate_ilr_moments_mc() (3x rnorm(n_mc=2000) + an ILR
+  # estimate_ilr_moments_mc() (3x rnorm(n_mc=2000) + an ILR
   # transform + cov()) twice per raster cell via terra::app()+apply(), an R-level scalar
   # closure dispatched once per cell - the dominant cost for any non-trivial AOI (see
-  # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 1). fuse_texture_group_batch() below computes the
+  #). fuse_texture_group_batch() below computes the
   # same thing for a whole chunk of cells at once via vectorized matrix arithmetic, with the
   # rnorm() draws ordered to consume the RNG stream in EXACTLY the same
   # cell-then-(prior/lik)-then-(clay/sand/silt)-then-mc-draw order the old per-cell loop did,
@@ -1511,27 +1488,19 @@ fuse_texture_group <- function(fetched, mukey_raster = NULL, mukey_texture_draws
 #' Resolve whether a `run_stage1_fusion()` call should fuse against real per-mukey Monte Carlo
 #' draws (`prior_fusion_method = "raw_draws"`) or the percentile-reconstructed approximation.
 #'
-#' `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.10: scope-aware default flip. An explicit
-#' `prior_fusion_method` value ("raw_draws" or "percentile") always wins and is honored exactly as
-#' before - this function only changes what happens when it is unset (`NULL`, the common case).
+#' An explicit `prior_fusion_method` value ("raw_draws" or "percentile") always wins; this
+#' function only decides what happens when it is unset (`NULL`, the common case).
 #'
-#' Unset now defaults to raw_draws for any `dist` whose fusion route actually has a raw-draws fit
-#' implemented: `"normal"`/`"beta"`/`"gamma"` (both AOI-size routes, as of P2.6) and `"lognormal"`
-#' (both its small-AOI general branch and large-AOI closed-form branch, as of P2.6/P2.12). `"auto"`
-#' is included too: `resolve_property_dist()`'s auto-selection only ever resolves to
-#' `"beta"`/`"normal"`/`"lognormal"` (see its own code) - **never** `"metalog"` - so it's safe to
-#' default in as well. Only an explicit `dist = "metalog"` keeps the original percentile-
-#' reconstruction default - **not** because no raw-draws fit exists for it (P2.12 added one, an
-#' empirical-percentile variant of `fuse_metalog_adapter()`'s own interpolation), but because its
-#' cost/benefit hasn't been benchmarked, exactly mirroring the texture-group route's P2.11
-#' treatment: that default-flip decision is deliberately kept separate from "does a fit exist."
+#' Unset defaults to raw_draws for any `dist` whose fusion route has a raw-draws fit:
+#' `"normal"`/`"beta"`/`"gamma"` (both AOI-size routes) and `"lognormal"` (both its small-AOI
+#' general branch and large-AOI closed-form branch). `"auto"` is included, since
+#' `resolve_property_dist()`'s auto-selection only ever resolves to `"beta"`/`"normal"`/
+#' `"lognormal"`, never `"metalog"`. An explicit `dist = "metalog"` uses the percentile
+#' reconstruction: `fuse_metalog_adapter()` has an empirical-percentile raw-draws variant, but
+#' its cost/benefit is not benchmarked, so it is kept off by default.
 #'
-#' This default was set only after confirming the added cost is modest at any AOI size: raw_draws
-#' costs 16-25% more than the default on the general-KDE route (P2.9) and ~0.18s of overhead on top
-#' of the closed-form route's own ~19.73s fit cost at 100,172 cells/150 mukeys (P2.6/P2.10
-#' investigation) - i.e. this flip trades a small, bounded cost increase for fusing against real
-#' simulated data instead of a 5-9 point percentile reconstruction, for every property that can use
-#' it, without the caller having to know to ask for it.
+#' On the general-KDE route raw_draws costs about 16-25% more than the percentile path; on the
+#' closed-form route it adds about 0.18s on top of the fit cost at 100,172 cells / 150 mukeys.
 #'
 #' @param prior_fusion_method `property_config$prior_fusion_method` - `NULL`/unset resolves per
 #'   `dist` (see above); `"raw_draws"`/`"percentile"` are explicit overrides, always honored.
@@ -1642,7 +1611,7 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 #' @return `list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=,
 #'   route_detail=, n_fallback_cells=)`, or `NULL` if the SSURGO or SOLUS side failed.
 #'   `posterior`'s shape depends on `dist` - see `fuse_property_adaptive()`'s docs. As of
-#'   `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` tasks P3.2-P3.5, `posterior` also carries a
+#', `posterior` also carries a
 #'   `percentiles` field (a named list of `SpatRaster`s, `"P01"`..`"P99"` by default - see
 #'   [FUSE_POSTERIOR_DEFAULT_PROBS]) regardless of `dist`, for every non-compositional property -
 #'   this function doesn't expose its own `posterior_probs` parameter (matching the existing
@@ -1656,24 +1625,18 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 #' not bit-identical to, a full-property simulation's matching column - the pipeline is unseeded by
 #' default (a fresh draw either way), and even with `seed` set, a subset consumes the RNG stream
 #' differently from a full run; (2) a map unit whose components carry no data for *this* property
-#' no longer benefits from
-#' those components' other properties being present, so a single-property prior - and hence the
-#' fused posterior - can be `NA` for a few cells a full-property run would have covered. Those
-#' cells genuinely lack data for the property in question.
-#' @section Fusion fidelity - `prior_fusion_method` (default changed at P2.10):
+#' does not gain from those components' other properties being present, so a single-property
+#' prior - and hence the fused posterior - can be `NA` for a few cells a full-property run would
+#' have covered. Those cells genuinely lack data for the property in question.
+#' @section Fusion fidelity - `prior_fusion_method`:
 #' Controls whether fusion runs against each mukey's real per-cell Monte Carlo draws
 #' (`"raw_draws"`) or a percentile-reconstructed approximation (`"percentile"`) - see
-#' `fuse_general_kde()`'s docs and `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` tasks
-#' P2.2/P2.3/P2.6/P2.10. **As of P2.10, leaving `property_config$prior_fusion_method` unset
-#' defaults to `"raw_draws"`** for `dist %in% c("auto","normal","beta","gamma","lognormal")` - see
-#' `resolve_want_raw_draws()` for the exact rule and the benchmark numbers behind it. Only an
-#' explicit `dist = "metalog"` keeps the pre-P2.10 default - `fuse_metalog_adapter()` does have a
-#' raw-draws fit as of P2.12, but its cost/benefit is unbenchmarked (mirroring the texture-group
-#' route's P2.11 treatment), so the default stays conservative until that's measured. Set
-#' `property_config$prior_fusion_method = "percentile"` explicitly to opt back into the original
-#' behavior for any `dist` (e.g. to match older cached/tested output, or avoid the live simulation
-#' dependency); `"raw_draws"` explicitly forces it on even for `dist = "metalog"`, now genuinely
-#' used there (P2.12), not just accepted-and-ignored.
+#' `fuse_general_kde()`'s docs. Leaving `property_config$prior_fusion_method` unset defaults to
+#' `"raw_draws"` for `dist %in% c("auto","normal","beta","gamma","lognormal")` - see
+#' `resolve_want_raw_draws()` for the exact rule. An explicit `dist = "metalog"` uses
+#' `"percentile"`. Set `property_config$prior_fusion_method = "percentile"` explicitly to force
+#' the percentile path for any `dist` (e.g. to avoid the live simulation dependency);
+#' `"raw_draws"` forces it on even for `dist = "metalog"`.
 #'
 #' The real draws are held in memory only for the duration of this one call, never disk-cached
 #' (see `simulate_ssurgo_mapunit_draws()`'s docs for why) - so raw_draws fusion (whether defaulted
@@ -1822,26 +1785,20 @@ stage1_fuse_texture_group_from_fetched <- function(fetched, want_raw_draws = FAL
 #'   non-compositional properties get) - or `NULL` if any member's SSURGO/SOLUS fetch failed.
 #'   `run_stage1_fusion()`'s own dispatch slices this down to the single requested member
 #'   (`group_result[[property_config$id]]`) to keep its own per-property return contract
-#'   consistent regardless of `dist`. `percentiles` (added
-#'   `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P3.6) is THIS member's own fraction's
+#'   consistent regardless of `dist`. `percentiles` is THIS member's own fraction's
 #'   percentiles (a named list of `SpatRaster`s) - see `fuse_texture_group()`'s `@section
 #'   Sum-to-100 caveat`: unlike `value`, these do NOT generally sum to 100 across the group's three
 #'   members.
 #' @section Higher-fidelity fusion (opt-in):
 #' Set `prior_fusion_method = "raw_draws"` on ANY member's `property_configs` entry to fuse the
 #' whole group against the real joint (clay, sand, silt) Monte Carlo draws instead of independent
-#' percentile-reconstructed marginals - see `fuse_texture_group()`'s docs and
-#' `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4/P2.5. Checked across all members (not just
-#' one) since the group is always fused jointly regardless of which member's config carries the
-#' setting. Like `run_stage1_fusion()`'s equivalent section, this forces the shared simulation to
-#' run even when every member's own `"ssurgo"` percentile cache is already warm (the draws that
-#' produced those cached percentiles weren't kept - see `simulate_ssurgo_mapunit_draws()`'s docs).
-#' Unset on every member (default) preserves the original percentile-reconstruction behavior
-#' exactly. **Unlike `run_stage1_fusion()`'s P2.10 default flip, this default is intentionally
-#' unchanged** - the joint texture-group raw-draws route
-#' (`fuse_texture_group_batch_core()`'s per-cell Cholesky/MC sampler) has no equivalent
-#' `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` P2.9-style cost benchmark yet, so flipping its default
-#' too would be an unverified assumption, not a data-driven decision.
+#' percentile-reconstructed marginals - see `fuse_texture_group()`'s docs. It is checked across
+#' all members (not just one), since the group is always fused jointly regardless of which
+#' member's config carries the setting. This forces the shared simulation to run even when every
+#' member's own `"ssurgo"` percentile cache is already warm (the draws that produced those cached
+#' percentiles are not kept - see `simulate_ssurgo_mapunit_draws()`'s docs). Unset on every
+#' member (default) uses the percentile-reconstruction path; unlike `run_stage1_fusion()`, the
+#' joint texture-group route does not default to raw draws.
 #' @export
 run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, property_configs,
                                      top_depth, bottom_depth, parallel = FALSE, n_cores = NULL,
@@ -1853,7 +1810,7 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
 
   # The "kind" strings below encode want_raw_draws (e.g. "texture_group" vs
   # "texture_group_raw_draws") so a cached FUSED result from one prior_fusion_method is never
-  # silently served back to a caller requesting the other - found live while testing P2.5: without
+  # silently served back to a caller requesting the other: without
   # this, switching prior_fusion_method for the same AOI/depth-window returned a stale,
   # method-mismatched cached group result (the group-level cache stores the fused POSTERIOR, unlike
   # run_stage1_fusion()'s own "ssurgo" cache, which only stores the pre-fusion PRIOR - re-fused
@@ -1876,10 +1833,10 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
     # member is missing, run the shared mukey-raster fetch + Monte Carlo simulation ONCE here
     # rather than once per member. simulate_cokey_generalized() already simulates every
     # recognized property (clay/sand/silt/db/ph/...) jointly per cokey in one pass, so calling
-    # fetch_ssurgo_percentiles() independently per texture member used to re-run that same
-    # (expensive - the dominant cost of the whole fusion pipeline) simulation 3 times for a
-    # 3-member group, to extract 3 columns that a single simulation pass already produces
-    # together. percentiles_from_draws() (R/ssurgo-simulation.R) is the shared quantile/
+    # fetch_ssurgo_percentiles() independently per texture member would re-run that expensive
+    # simulation (the dominant cost of the whole fusion pipeline) 3 times for a 3-member group,
+    # to extract 3 columns a single simulation pass already produces together.
+    # percentiles_from_draws() (R/ssurgo-simulation.R) is the shared quantile/
     # rasterize step, factored out of fetch_ssurgo_percentiles() for exactly this reuse.
     ssurgo_keys <- lapply(members, function(m) build_cache_key(aoi_vect, m$id, top_depth, bottom_depth, "ssurgo"))
     ssurgo_cached <- lapply(ssurgo_keys, cache_get_valid_percentiles)

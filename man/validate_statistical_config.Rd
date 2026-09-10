@@ -13,5 +13,5 @@ validate_statistical_config(config)
 Validation results
 }
 \description{
-Validate statistical analysis configuration using Module 0 utilities
+Validate statistical analysis configuration
 }

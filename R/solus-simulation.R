@@ -3,18 +3,15 @@
 #' @description The SOLUS100 half of the raster fusion prior/likelihood pipeline (see
 #'   `R/raster-fusion.R`): fetches SOLUS100 low/prediction/high rasters via
 #'   `soilDB::fetchSOLUS()` for a requested depth window, in the `list(values=, probs=)` shape
-#'   `fuse_property_adaptive()` expects. Ported from `code_ref/reanalysis-platform/solus_raster.R`.
+#'   `fuse_property_adaptive()` expects.
 #'
 #'   `fetch_solus_low_pred_high()`'s output-layer-naming assumption
-#'   (`paste0(solus_variable, "_", depth_slice, "_cm_", suffix)`) was verified against a live,
-#'   network-connected `soilDB::fetchSOLUS()` call before porting (not assumed from the source
-#'   comments alone) - confirmed exact for `output_type` `"prediction"`/`"95% low prediction
-#'   interval"`/`"95% high prediction interval"` (suffixes `p`/`l`/`h`).
+#'   (`paste0(solus_variable, "_", depth_slice, "_cm_", suffix)`) is verified against a live
+#'   `soilDB::fetchSOLUS()` call for `output_type` `"prediction"` / `"95% low prediction
+#'   interval"` / `"95% high prediction interval"` (suffixes `p`/`l`/`h`).
 #'
-#'   Unlike the original bundle's `config.R`-driven `solus_variable` lookup (which had a
-#'   confirmed-wrong `awc = "awc"` entry - not a valid `fetchSOLUS()` variable), `solus_variable`
-#'   is a direct per-call argument here, consistent with `R/raster-fusion.R`'s decision not to
-#'   port the `PROPERTIES`/`config.R` global registry.
+#'   `solus_variable` is a direct per-call argument (there is no global property registry).
+#'   Note that `awc` is not a valid `fetchSOLUS()` variable.
 #' @name solus_simulation
 NULL
 
@@ -22,19 +19,13 @@ NULL
 #'
 #' `soilDB::fetchSOLUS()`'s `depth_slices` are single depth points (default `c(0, 5, 15, 30, 60,
 #' 100, 150)`, live-verified), not ranges, so a `[top_depth, bottom_depth]` window must be
-#' approximated. This function did not exist anywhere in the source this was ported from
-#' (referenced but never defined) - genuinely new design, not a port: snaps to the native slice
-#' closest to the window's midpoint.
+#' approximated. This function snaps to the native slice closest to the window's midpoint.
 #'
-#' @section Superseded for the fusion pipeline:
-#' `fetch_solus_low_pred_high()` no longer uses this - a single midpoint point-value only equals
-#' the window depth-average when the property is linear in depth, which most soil properties are
-#' not, and it left the SOLUS likelihood representing a different quantity (a point) than the
-#' SSURGO prior side (a genuine thickness-weighted window mean, see
-#' `aggregate_depth_window_by_replicate()`). It now uses `solus_depth_window_weights()` for a
-#' trapezoidal depth-average across the native slices spanning the window. This function is
-#' retained as public API for back-compat and for callers that genuinely want a single nearest
-#' slice.
+#' @section Relationship to the fusion pipeline:
+#' `fetch_solus_low_pred_high()` uses `solus_depth_window_weights()` for a trapezoidal
+#' depth-average across the native slices spanning the window, so the SOLUS likelihood and the
+#' SSURGO prior both represent a thickness-weighted window mean. This function is public API for
+#' callers that want a single nearest slice.
 #'
 #' @param top_depth,bottom_depth Numeric depth window bounds in cm.
 #' @param available_slices Native SOLUS depth points to snap to.
@@ -200,7 +191,7 @@ fetch_solus_percentiles <- function(aoi_vect, solus_variable, top_depth, bottom_
 #'
 #' Batched sibling of `fetch_solus_low_pred_high()`: `soilDB::fetchSOLUS()` accepts `variables`,
 #' `depth_slices`, and `output_type` all as vectors simultaneously (live-verified 2026-09-04 - see
-#' `planning-docs/MULTI_PROPERTY_FUSION_PLAN.md` task S1), so every variable's low/prediction/high
+#'), so every variable's low/prediction/high
 #' rasters for a window can be fetched in **one** network call instead of `3 * length(solus_variables)`
 #' separate ones. The returned layer-naming convention (`paste0(variable, "_", depth, "_cm_",
 #' suffix)`) was confirmed identical to the single-variable case for the fully-batched request
@@ -360,7 +351,7 @@ SOLUS_RESTRICTION_CENSOR_CM <- 201
 #' Fetch a SOLUS100 Restriction-Depth Raster, Right-Censoring-Guarded (S2)
 #'
 #' The truncation-depth signal for bedrock/restriction-aware AWC (`remarginalized_awc()`'s
-#' `restriction_depth` argument, MULTI_PROPERTY_FUSION_PLAN.md task S2). Default variable is
+#' `restriction_depth` argument). Default variable is
 #' `"anylithicdpt"` - trained (per SOLUS100's own published methodology) **only** on
 #' `reskind %in% c("Lithic bedrock", "Paralithic bedrock")` records, making it hard-bedrock-specific
 #' by construction; no separate SSURGO-side hard/soft classifier is needed since SOLUS already

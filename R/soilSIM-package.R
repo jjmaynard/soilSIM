@@ -120,11 +120,9 @@ NULL
 
 #' Package load hook
 #'
-#' Guards against a documented, real crash mode in the raster fusion pipeline
-#' (`R/raster-fusion.R`, `R/raster-cache.R`): a stray system `PROJ_LIB` environment variable
-#' pointing at a version-incompatible external GDAL/PROJ installation silently segfaults
-#' `terra::resample()` (used to align SSURGO/SOLUS grids before fusion) -
-#' `code_ref/reanalysis-platform/HANDOFF_NOTES.md` documents this exact failure and its fix.
+#' Guards against a crash mode in the raster fusion pipeline: a stray system `PROJ_LIB`
+#' environment variable pointing at a version-incompatible external GDAL/PROJ installation
+#' silently segfaults `terra::resample()` (used to align SSURGO/SOLUS grids before fusion).
 #' Idempotent and a no-op when `PROJ_LIB` isn't set - safe to run unconditionally.
 #'
 #' @param libname,pkgname Standard `.onLoad()` arguments, unused.
@@ -135,14 +133,9 @@ NULL
   }
 }
 
-# Column/variable names referenced via bare NSE inside dplyr verbs
-# (mutate()/filter()/group_by()/summarise()/etc.) across the migrated
-# mod01/02/06/07/08 sources, which predate this package's later, more
-# consistent use of the .data[[...]] pronoun. R CMD check's static analysis
-# cannot tell these apart from genuine undefined globals; this is the
-# standard way to declare them as intentional NSE symbols rather than
-# rewriting every call site to .data[[...]] style (a much larger,
-# behavior-risking change out of scope for a migration).
+# Column/variable names referenced by bare name inside dplyr verbs
+# (mutate()/filter()/group_by()/summarise()/etc.). Declared here so R CMD check's
+# static analysis does not flag them as undefined global variables.
 utils::globalVariables(c(
   "adequate_depth_range", "adequate_observations", "adequate_profiles", "chkey",
   "cokey", "compname", "component", "comppct_r", "depth", "depth_bin", "depth_range",
@@ -159,7 +152,7 @@ utils::globalVariables(c(
   "mukey", "id", "hzname", "sim_comppct", "hzdept_l", "hzdept_h", "hzdepb_l",
   "hzdepb_h", "hzthk_l", "rfv_l", "rfv_r", "rfv_h", "genhz", "distinctness",
   "bound_sd", "top", "bottom", "thickness_sd", "Thickness",
-  # R/depth-simulation.R::attach_osd_boundary_distinctness() (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md
+  # R/depth-simulation.R::attach_osd_boundary_distinctness() (
   # Phase 9 case-insensitive join fix) - a dplyr::mutate()-created NSE column, not a real global.
   "compname_upper",
   # R/aws-simulation.R (van Genuchten / ROSETTA-based AWS modeling)

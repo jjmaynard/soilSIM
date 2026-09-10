@@ -52,4 +52,11 @@ sum can exceed - or their P5s' sum can fall short of - 100). This is an expected
 property of taking marginal percentiles of a compositional joint distribution, not a defect.
 }
 
+\keyword{(exactly}
+\keyword{class}
 \keyword{internal}
+\keyword{of}
+\keyword{real-AOI}
+\keyword{s}
+\keyword{the}
+\keyword{validation}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/monte-carlo.R
 \name{apply_simulation_constraints}
 \alias{apply_simulation_constraints}
-\title{Apply Simulation Constraints (Enhanced)}
+\title{Apply Simulation Constraints}
 \usage{
 apply_simulation_constraints(
   simulation_results,
@@ -32,5 +32,5 @@ of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 Constrained simulation results with quality metrics
 }
 \description{
-Enhanced constraint application
+Apply Simulation Constraints
 }

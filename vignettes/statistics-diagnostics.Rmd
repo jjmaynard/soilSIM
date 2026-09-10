@@ -28,7 +28,7 @@ can see what each parameter actually controls:
 6. The QA/reporting layer - `validate_statistical_results()`, `generate_statistical_quality_report()`,
    `get_statistical_analysis_defaults()`, `validate_statistical_config()`
 
-See `soilSIM/docs/02_statistics_diagnostics.md` for the full function-level architecture reference
+See the "Statistics & Diagnostics" architecture article for the full function-level architecture reference
 behind this group.
 
 Because this vignette is about statistical *behavior* rather than any particular real dataset, it

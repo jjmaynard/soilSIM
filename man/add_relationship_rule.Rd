@@ -28,9 +28,7 @@ Updated validation configuration
 }
 \description{
 Adds a cross-property relationship rule (e.g. a sum-to-100 texture
-constraint) to a validation configuration. Note: as in the original
-reference implementation, relationship rules are recorded on the config
-but are not yet consumed by \code{\link[=apply_validation_rules]{apply_validation_rules()}} (which currently
-only enforces \code{range_rules}) - this mirrors the legacy behavior exactly,
-not a bug introduced here.
+constraint) to a validation configuration. Relationship rules are recorded on the
+config but are not consumed by \code{\link[=apply_validation_rules]{apply_validation_rules()}}, which enforces only
+\code{range_rules}.
 }

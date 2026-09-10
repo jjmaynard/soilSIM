@@ -8,7 +8,7 @@ non-negative everywhere). Probes \code{quantile_metalog_linear_raster()} at a
 fixed grid of y-values and flags cells where consecutive probe values
 decrease - a probe, not a proof, but fully vectorized raster arithmetic.
 Streams one probe raster at a time rather than materializing all of them
-(validated upstream to avoid an allocation failure at large cell counts).}
+(avoids an allocation failure at large cell counts).}
 \usage{
 check_metalog_feasibility_raster(
   fit,
@@ -31,5 +31,5 @@ non-negative everywhere). Probes \code{quantile_metalog_linear_raster()} at a
 fixed grid of y-values and flags cells where consecutive probe values
 decrease - a probe, not a proof, but fully vectorized raster arithmetic.
 Streams one probe raster at a time rather than materializing all of them
-(validated upstream to avoid an allocation failure at large cell counts).
+(avoids an allocation failure at large cell counts).
 }

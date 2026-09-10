@@ -8,49 +8,32 @@ Per-cell Bayesian fusion of a prior belief distribution
 (e.g. an SSURGO-derived percentile raster set) with a likelihood (e.g.
 an independent percentile raster set from another source), across a
 whole \code{terra::SpatRaster} AOI at once. This is the raster-native
-counterpart of \code{R/bayesian-updating.R} (itself "intentionally NOT
-called anywhere in \code{monte-carlo.R}" - a standalone toolkit), ported
-from \verb{code_ref/reanalysis-platform/\{bayes_fuse.R, property_fusion_dispatch.R, reanalysis-platform-fusion.R\}}.
+counterpart of \code{R/bayesian-updating.R}.
 
-Reuses \code{bayesian-updating.R}'s existing scalar/vector fusion functions
-directly rather than duplicating them - \code{bayes_update_normal_normal()},
+Uses \code{bayesian-updating.R}'s scalar/vector fusion functions
+directly - \code{bayes_update_normal_normal()},
 \code{fuse_beta()}, \code{fuse_gamma()}, \code{moments_to_gamma()}/\code{moments_to_beta()}/
 \code{beta_to_moments()}/\code{gamma_to_moments()}, \code{normal_to_lognormal_params()}/
 \code{lognormal_to_normal_params()}, \code{bayesian_update()}, and
 \code{R/distributions.R}'s \code{estimate_ilr_moments_mc()}/\code{ilr_inverse()}, plus
-\code{fuse_bivariate_normal()} (also in \code{bayesian-updating.R}) - are all pure
-elementwise arithmetic, so they already work unchanged on \code{SpatRaster}
-inputs (confirmed by a dedicated smoke test before this file was
-written; see \code{bayes_update_normal_normal()}'s own doc comment upstream,
-which claims exactly this property).
+\code{fuse_bivariate_normal()} - are all pure elementwise arithmetic, so they
+work unchanged on \code{SpatRaster} inputs.
 }
-\section{Formerly out of scope, now implemented}{
+\section{Entry points}{
 
-\code{run_stage1_fusion()}/\code{run_stage1_fusion_group()} (the original top-level
-orchestrators) were initially \strong{not} ported, since at that point their
-dependencies - \code{build_cache_key()}, \code{cache_get()}/\code{cache_set()},
-\code{fetch_ssurgo_percentiles()}, \code{fetch_solus_percentiles()} (itself calling
-the live \code{soilDB::fetchSOLUS()} network API) - didn't exist anywhere in
-this repo. The source bundle's own \code{HANDOFF_NOTES.md} confirms it was
-built as a handoff package for a \emph{different, sibling project}
-("reanalysis-platform"), not soilSIM, with these exact fetch/cache
-functions listed as unresolved integration gaps for that project. Those
-gaps have since been closed (\code{R/raster-cache.R}, \code{R/ssurgo-simulation.R},
-\code{R/solus-simulation.R}), and \code{run_stage1_fusion()}/
-\code{run_stage1_fusion_group()} are now fully implemented below (this is a
-historical note, not a current limitation), wiring everything together.
-\code{fuse_property_adaptive()} remains the lower-level entry point for callers
+\code{run_stage1_fusion()}/\code{run_stage1_fusion_group()} are the top-level
+orchestrators, wiring the fetch-and-cache layer (\code{R/raster-cache.R},
+\code{R/ssurgo-simulation.R}, \code{R/solus-simulation.R}) to the fusion core.
+\code{fuse_property_adaptive()} is the lower-level entry point for callers
 who already have their own pre-fetched \code{prior_value_rasters}/
 \code{lik_value_rasters} and want to skip the fetch-and-cache wrapper.
 }
 
-\section{Deliberately out of scope}{
+\section{Configuration}{
 
-The global \code{PROPERTIES} config-list registry from the source bundle's
-\code{config.R} was not ported. \code{group_members()}/\code{fuse_property_adaptive()}
-below take a per-call config list/member vector directly instead,
-reusing soilSIM's own existing \code{config$monte_carlo$composition_groups}
-convention (see \code{R/distributions.R}'s \code{resolve_composition_groups()})
-rather than introducing a second, parallel config schema.
+\code{group_members()}/\code{fuse_property_adaptive()} take a per-call config
+list/member vector directly, reusing soilSIM's
+\code{config$monte_carlo$composition_groups} convention (see
+\code{R/distributions.R}'s \code{resolve_composition_groups()}).
 }
 

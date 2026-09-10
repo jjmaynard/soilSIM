@@ -16,7 +16,7 @@ analyze_soil_statistics(
 )
 }
 \arguments{
-\item{processed_data}{Processed SSURGO data from Module 2}
+\item{processed_data}{Processed SSURGO data from the statistics step}
 
 \item{analysis_config}{List of analysis configuration parameters}
 
@@ -38,7 +38,7 @@ detection, multivariate Mahalanobis outliers, stratified + ILR texture correlati
 return \strong{different, non-interchangeable shapes} - notably \code{distribution_analysis$fitted_distributions[[prop]]}
 is a flat stats list under \verb{_safe} and a family-name-keyed list of fit objects under enhanced.
 Both chains stay public API. Whether the default should ever flip is a separate, later,
-benchmark-driven decision (see \code{RASTER_STATISTICS_INTEGRATION_PLAN.md} Problem B).}
+benchmark-driven decision.}
 
 \item{verbose}{Logical; provide detailed progress messages}
 }
@@ -46,7 +46,7 @@ benchmark-driven decision (see \code{RASTER_STATISTICS_INTEGRATION_PLAN.md} Prob
 List containing comprehensive statistical analysis results
 }
 \description{
-Enhanced statistical analysis leveraging Module 0 utilities for data validation,
+Statistical analysis for data validation,
 error handling, logging, and statistical computations.
 }
 \examples{

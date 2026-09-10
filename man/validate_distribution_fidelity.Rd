@@ -24,5 +24,5 @@ validate_distribution_fidelity(
 Distribution fidelity assessment
 }
 \description{
-Enhanced distribution validation  utilities.
+Validate Distribution Fidelity
 }

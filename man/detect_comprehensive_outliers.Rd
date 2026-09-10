@@ -2,7 +2,7 @@
 % Please edit documentation in R/statistics.R
 \name{detect_comprehensive_outliers}
 \alias{detect_comprehensive_outliers}
-\title{Detect Comprehensive Outliers (Enhanced)}
+\title{Detect Comprehensive Outliers}
 \usage{
 detect_comprehensive_outliers(data, properties, config)
 }
@@ -14,8 +14,8 @@ detect_comprehensive_outliers(data, properties, config)
 \item{config}{Configuration}
 }
 \value{
-Enhanced outlier analysis results
+outlier analysis results
 }
 \description{
-Enhanced outlier detection using Module 0 utilities
+Detect Comprehensive Outliers
 }

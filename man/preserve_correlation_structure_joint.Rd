@@ -2,7 +2,7 @@
 % Please edit documentation in R/multivariate-adjustment.R
 \name{preserve_correlation_structure_joint}
 \alias{preserve_correlation_structure_joint}
-\title{Preserve Correlation Structure via a Joint Depth x Property Copula (Phase 3)}
+\title{Preserve Correlation Structure via a Joint Depth x Property Copula}
 \usage{
 preserve_correlation_structure_joint(
   property_matrices,
@@ -34,15 +34,14 @@ simulations) - same shape \code{preserve_correlation_structure()} consumes.}
 \item{gp_models}{Optional named list of fitted GP models (as returned by
 \code{fit_local_gp_model_single()}, or raw \code{GPfit}-classed objects), keyed by property. When
 supplied, the depth kernel's length-scale is derived from \code{extract_depth_length_scale()}
-applied to every property with a usable model, averaged across them (reusing the
-already-fitted, already-cross-validated GP fits per \code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md}
-Phase 1, rather than a new estimation step). When \code{NULL}/empty (e.g. this function is called
+applied to every property with a usable model, averaged across them (reusing each property's
+already-fitted, already-cross-validated GP fit). When \code{NULL}/empty (e.g. this function is called
 standalone, without the fitted models available), falls back to a length-scale spanning the
 full depth range (\code{diff(range(depths))}) - a conservative "moderate smooth correlation across
 the whole profile" default that keeps this function usable without requiring GP models.}
 
 \item{boundary_distinctness}{Optional per-depth \code{bound_sd} vector, passed through to
-\code{build_depth_correlation_kernel()} for discontinuity gating (Phase 1c/1d). \code{NULL} (default)
+\code{build_depth_correlation_kernel()} for discontinuity gating. \code{NULL} (default)
 skips gating.}
 
 \item{kernel}{\code{"exponential"} (default) or \code{"matern"} - passed through to
@@ -50,7 +49,7 @@ skips gating.}
 }
 \value{
 List of adjusted property matrices - same shape/contract as
-\code{preserve_correlation_structure()}'s return value. Degrades gracefully to the original,
+\code{preserve_correlation_structure()}'s return value. Degrades gracefully to the
 unadjusted \code{property_matrices} (with a warning) on insufficient dimensions or a sampling/
 mapping failure, matching \code{preserve_correlation_structure()}'s own graceful-failure contract.
 }
@@ -58,7 +57,7 @@ mapping failure, matching \code{preserve_correlation_structure()}'s own graceful
 Drop-in alternative to \code{preserve_correlation_structure()} - same required parameters, in the
 same order, so existing call sites work unchanged - that replaces its sequential
 \code{gp_ratio}/single-"primary-property" retrofit with the joint Kronecker-copula sampler from
-\code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 2 (\code{sample_joint_depth_property_copula()} +
+the joint Kronecker-copula sampler (sample_joint_depth_property_copula() +
 \code{apply_copula_to_marginals()}), so depth correlation and property correlation are satisfied
 SIMULTANEOUSLY by construction rather than approximated by a rank-copying retrofit.
 \code{primary_property} is accepted (for signature compatibility with

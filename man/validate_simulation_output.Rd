@@ -2,7 +2,7 @@
 % Please edit documentation in R/monte-carlo.R
 \name{validate_simulation_output}
 \alias{validate_simulation_output}
-\title{Validate Simulation Output (Enhanced)}
+\title{Validate Simulation Output}
 \usage{
 validate_simulation_output(
   simulation_results,
@@ -23,8 +23,8 @@ log level so \code{INFO}-level progress messages print for the duration
 of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 }
 \value{
-Enhanced validation results
+validation results
 }
 \description{
-Enhanced output validation
+Validate Simulation Output
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/statistics.R
 \name{analyze_property_distributions}
 \alias{analyze_property_distributions}
-\title{Analyze Property Distributions (Enhanced)}
+\title{Analyze Property Distributions}
 \usage{
 analyze_property_distributions(data, properties, config)
 }
@@ -14,8 +14,8 @@ analyze_property_distributions(data, properties, config)
 \item{config}{Configuration}
 }
 \value{
-Enhanced distribution analysis results
+distribution analysis results
 }
 \description{
-Enhanced distribution analysis using Module 0 utilities
+Analyze Property Distributions
 }

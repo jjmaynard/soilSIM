@@ -32,18 +32,16 @@ apply_gp_depth_trends(
 
 \item{config}{Optional Monte Carlo config (as from \code{get_monte_carlo_defaults()}) whose
 \code{monte_carlo$vertical_correlation_method} selects between \code{"joint_copula"}
-(default as of \code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 13 - dispatches to
+(the default; dispatches to
 \code{preserve_correlation_structure_joint()}, drawing depth correlation and property
-correlation simultaneously) and \code{"gp_quantile_retrofit"} (the original algorithm,
-still fully supported as an explicit opt-out - dispatches to
+correlation simultaneously) and \code{"gp_quantile_retrofit"} (an explicit opt-out that dispatches to
 \code{preserve_correlation_structure()}). \code{NULL} (default) resolves to
 \code{"joint_copula"}, matching \code{get_monte_carlo_defaults()}'s own default - set
 \code{config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"} explicitly to
-opt back into the original behavior. Under \code{"joint_copula"},
+select the quantile-retrofit method. Under \code{"joint_copula"},
 \code{config$monte_carlo$vertical_correlation_gating} (default \code{FALSE}) separately
-controls whether \code{bound_sd}-based discontinuity gating (Phase 1c/1d) is applied - kept
-independent of the core method choice since its numeric defaults are not yet empirically
-calibrated (Phase 8).}
+controls whether \code{bound_sd}-based discontinuity gating is applied. Its numeric defaults are conservative and kept independent of the core
+method choice.}
 
 \item{gp_models}{Optional named list of fitted GP models (as \code{fit_local_gp_model_single()}
 returns), keyed by property - passed through to \code{preserve_correlation_structure_joint()}
@@ -56,6 +54,6 @@ Ignored entirely under \code{"gp_quantile_retrofit"}.}
 Adjusted simulation data
 }
 \description{
-Enhanced core function that applies GP-derived depth trends using Module 8 utilities
-for robust error handling and validation.
+Applies GP-predicted depth trends to one component's simulation data, optionally
+preserving within-depth cross-property correlations.
 }

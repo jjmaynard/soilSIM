@@ -21,9 +21,8 @@ download_ssurgo_tabular(
 
 \item{properties}{Character vector. Soil properties to download.
 Default: c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o", "cec7", "om",
-"wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar") - the last 5 added in
-MULTI_PROPERTY_FUSION_PLAN.md task P2 (needs a matching row in
-\code{create_ssurgo_property_lookup_working()} to actually reach the SQL query - already present).}
+"wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar"). Each needs a matching
+row in \code{create_ssurgo_property_lookup_working()} to reach the SQL query.}
 
 \item{include_restrictions}{Logical. Whether to include horizon restriction data for
 unsuitable horizon detection (default: TRUE)}
@@ -37,10 +36,9 @@ unsuitable horizon detection (default: TRUE)}
 \item{mukey_raster}{Optional, already-fetched \code{terra::SpatRaster} of mukey codes for this same
 AOI (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}) - passed through to
 \code{\link{process_aoi_and_get_mukeys_working}} so it can skip its own independent
-\code{soilDB::mukey.wcs()} call. \code{NULL} (default) preserves this function's original
-behavior exactly (it fetches its own grid) - see \code{MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md}
-task P1.2 for why this exists (raster-fusion callers that already fetched a mukey grid for
-the same AOI can now reuse it instead of triggering a second network call).}
+\code{soilDB::mukey.wcs()} call. \code{NULL} (default): this function fetches its own grid.
+Raster-fusion callers that already fetched a mukey grid for the same AOI can pass it here
+to avoid a second network call.}
 
 \item{verbose}{Logical. Provide detailed progress messages (default: FALSE)}
 }
@@ -62,7 +60,7 @@ none. Always empty for a cache hit (see Component recovery section below).
 }
 }
 \description{
-Enhanced version of the proven download_ssurgo_tabular function with additional
+Version of the proven download_ssurgo_tabular function with additional
 caching, validation, and reporting capabilities while maintaining compatibility
 with existing soil property simulation workflows.
 }

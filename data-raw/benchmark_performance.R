@@ -1,12 +1,12 @@
 # Maintainer-run performance benchmark harness - NOT part of the package build (data-raw/ is
 # excluded via .Rbuildignore) and NOT part of the automated testthat suite (performance numbers
 # are hardware-dependent and would make CI flaky). Run manually before/after a perf-related change
-# to get a real before/after number, per PERFORMANCE_IMPROVEMENT_PLAN.md's methodology.
+# to get a real before/after number.
 #
 # Run from within a checkout of the soilSIM package directory (working directory = soilSIM/),
 # e.g. via `Rscript data-raw/benchmark_performance.R` from inside soilSIM/. In this dev
 # environment, always `unset PROJ_LIB` in the same shell invocation before running (a documented,
-# terra-related environment quirk - see HANDOFF_NOTES.md/.onLoad()).
+# terra-related environment quirk - see .onLoad()).
 #
 # Each benchmark function is self-contained (prints its own label + timing) so you can source this
 # file and call just the one you need, e.g.:
@@ -133,13 +133,7 @@ benchmark_gp_hyperparameter_optimization <- function() {
 # 5. General-KDE raster fusion (exercises fuse_general_kde()'s per-cell approxfun()+density()
 #    path, reached via fuse_adaptive() whenever ncell <= threshold_cells). Synthetic percentile
 #    rasters, bypassing network fetch - same style as the synthetic-raster fuse_texture_group()
-#    benchmark referenced in PERFORMANCE_IMPROVEMENT_PLAN.md's Tier 1 log, not the
-#    network-hitting benchmark_texture_group_fusion() above.
-#
-#    Added for PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4: the plan's own "Confirmed NOT bugs"
-#    section previously waved this function off as "already gated behind threshold_cells -
-#    working as designed" with no benchmark behind that call - the one unverified assumption in
-#    an otherwise fully-benchmarked audit. This closes that gap.
+#    benchmark, not the network-hitting benchmark_texture_group_fusion() above.
 # ---------------------------------------------------------------------------
 make_synthetic_percentile_rasters <- function(ncell, base_p5, base_p50, base_p95, seed = 42) {
   nr <- max(1, floor(sqrt(ncell)))
@@ -300,7 +294,7 @@ benchmark_check_property_data_availability <- function(n_rows = 20000) {
 
 # ---------------------------------------------------------------------------
 # 10. fuse_general_kde()'s raw_draws route vs the default percentile-reconstruction route
-#     (MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P2.9) - raw_draws does a per-cell mukey lookup
+#     - raw_draws does a per-cell mukey lookup
 #     against real Monte Carlo draws instead of reconstructing from a 5-percentile summary, so
 #     it's expected to cost more; this quantifies by how much, at a representative cell count and
 #     mukey cardinality, using the same synthetic-raster style as benchmark #5 (no live network).
@@ -354,8 +348,8 @@ benchmark_fuse_general_kde_raw_draws <- function(ncell = 2000, n_unique_mukeys =
 }
 
 # ---------------------------------------------------------------------------
-# 11. fuse_texture_group() default vs raw_draws (RASTER_STATISTICS_INTEGRATION_PLAN.md-adjacent -
-#    MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P2.11). Mirrors benchmark_fuse_general_kde_raw_
+# 11. fuse_texture_group() default vs raw_draws (
+#    Mirrors benchmark_fuse_general_kde_raw_
 #    draws() above, but for the joint texture-group route (fuse_texture_group_batch_core()'s
 #    per-cell Cholesky/MC sampler), which P2.9 never benchmarked - only the single-property
 #    general-KDE route was measured there.
@@ -524,7 +518,7 @@ compare_perpixel_vs_zonal <- function(prop_id = "clay_total", solus_var = "clayt
 }
 
 # ---------------------------------------------------------------------------
-# A.7 - run_stage1_fusion_multi() vs a run_stage1_fusion() loop (MULTI_PROPERTY_FUSION_PLAN.md D7).
+# A.7 - run_stage1_fusion_multi() vs a run_stage1_fusion() loop.
 #   The whole point of run_stage1_fusion_multi() is to run the (dominant-cost) SSURGO Monte Carlo
 #   simulation ONCE for N properties x M windows instead of N*M times. This measures that.
 #   Live: SDA + SOLUS. Clears the soilSIM disk cache between arms so both actually simulate.
@@ -533,7 +527,7 @@ compare_perpixel_vs_zonal <- function(prop_id = "clay_total", solus_var = "clayt
 # binding in soilDB's own namespace (fetchSOLUS is looked up there fresh on every `soilDB::`-
 # qualified call, so this counts every call regardless of how deep it's invoked from) - restored
 # via on.exit() even if `expr` errors. Used below to make S1's "1 call/window instead of up to
-# 3*n_vars" claim (MULTI_PROPERTY_FUSION_PLAN.md task S1) an observed number, not an assertion.
+# 3*n_vars" claim an observed number, not an assertion.
 .count_fetchSOLUS_calls <- function(expr) {
   ns <- asNamespace("soilDB")
   orig <- get("fetchSOLUS", envir = ns)

@@ -2,21 +2,17 @@
 #'
 #' @description The SSURGO half of the raster fusion prior/likelihood pipeline (see
 #'   `R/raster-fusion.R`): given a `terra::SpatVector` AOI, rasterizes SSURGO map units,
-#'   Monte Carlo-simulates per-component soil properties (reusing already-ported
-#'   `sim_component_comp()`/`simulate_cokey_generalized()` from `R/property-simulation.R`),
+#'   Monte Carlo-simulates per-component soil properties (via
+#'   `sim_component_comp()`/`simulate_cokey_generalized()` in `R/property-simulation.R`),
 #'   aggregates to a requested depth window, and rasterizes per-mukey percentiles for
-#'   `fuse_property_adaptive()` to consume. Ported from
-#'   `code_ref/reanalysis-platform/{ssurgo_simulation.R, ssurgo_prior.R}`.
+#'   `fuse_property_adaptive()` to consume.
 #'
-#'   Reuses `R/kssl-reference-correlations.R`'s already-built-in, already-shipped
+#'   Uses `R/kssl-reference-correlations.R`'s
 #'   `.kssl_property_matrices()`/`.kssl_texture_matrices()` genhz-keyed correlation matrices
 #'   directly as `simulate_cokey_generalized()`'s `correlation_matrices`/
-#'   `txt_correlation_matrices` arguments, rather than re-reading the raw
-#'   `data/global_cor_matrices.rds`/`data/global_cor_texture_matrices.rds` files at runtime the
-#'   way the source's `load_global_correlation_matrices()` did (those files already back
-#'   `R/sysdata.rda`, built once via `data-raw/build_kssl_reference_correlations.R` - no new
-#'   asset-loading code needed). Similarly reuses `classify_genhz()` (already exported from
-#'   `kssl-reference-correlations.R`) in place of the source's `aqp::generalizeHz()` call.
+#'   `txt_correlation_matrices` arguments (these back `R/sysdata.rda`, built once via
+#'   `data-raw/build_kssl_reference_correlations.R`), and `classify_genhz()` for the
+#'   generalized-horizon assignment.
 #'
 #'   `download_ssurgo_tabular()`'s (`R/ssurgo-acquisition.R`) default `properties` and always-included
 #'   base columns (`comppct_l/r/h`, all `_l/_r/_h` horizon triplets) already match
@@ -39,13 +35,9 @@ NULL
 #'   the grid fetch returns nothing.
 #'
 #' @section Implementation note:
-#' Previously this function *also* issued a separate `soilDB::SDA_spatialQuery(what="mupolygon")`
-#' vector fetch and rasterized it onto `mukey.wcs()`'s own grid purely as a template, discarding
-#' that grid's own cell values - `soilDB::mukey.wcs()`'s own documented example
-#' (`?soilDB::mukey.wcs`) reads mukey codes directly off its returned raster's values
-#' (`unique(values(res))`), confirming no separate polygon fetch/rasterize step is needed. Dropped
-#' that redundant fetch (see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`, task P1.1) - this function
-#' now issues exactly one network call per cache miss instead of two. Also disk-cached
+#' `soilDB::mukey.wcs()` returns a raster whose cell values are the mukey codes
+#' (`unique(values(res))`), so no separate polygon fetch/rasterize step is needed - the
+#' function issues exactly one network call per cache miss. The result is disk-cached
 #' (`raster-cache.R`, kind `"mukey_grid"`, depth-agnostic key via `mukey_grid_cache_key()`) so
 #' repeated calls for the same AOI across separate top-level user calls hit zero network calls.
 #' @export
@@ -104,8 +96,7 @@ infill_soil_data <- function(df, water_retention_method = c("saxton_rawls", "gen
 #' @param properties Character vector of property column names to adjust.
 #' @param min_depths Minimum distinct depths required to attempt GP fitting.
 #' @param config Optional Monte Carlo config, passed through to `apply_local_gp_adjustments()`
-#'   (`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 10) - see
-#'   `maybe_adjust_soil_data_depth_trend()`'s own `config` docs.
+#'   - see `maybe_adjust_soil_data_depth_trend()`'s own `config` docs.
 #' @return `cokey_data`, depth-trend-adjusted where possible.
 #' @keywords internal
 adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths, config = NULL) {
@@ -121,21 +112,19 @@ adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths, con
 #' Applies `apply_local_gp_adjustments()` (`R/multivariate-adjustment.R` - fits its own local GP
 #' per property from each cokey's own within-simulation depth trend, no pre-supplied GP models
 #' needed) per cokey, when `GPfit` is installed and a cokey has enough distinct depths. Cokeys
-#' with fewer than `min_depths` distinct depths pass through unadjusted, exactly as the original
-#' per-cokey guard did.
+#' with fewer than `min_depths` distinct depths pass through unadjusted.
 #'
 #' Each cokey's GP fitting is completely independent of every other cokey's, so this step is
-#' embarrassingly parallel - profiling on a real AOI showed it as the dominant cost of the whole
+#' embarrassingly parallel and is the dominant cost of the whole
 #' SSURGO simulation pipeline (see `apply_local_gp_adjustments()`/`fit_local_gp_model_single()`),
 #' so for AOIs with many cokeys, `parallel = TRUE` can give a further speedup roughly proportional
-#' to available cores on top of the sequential-path optimizations already applied there.
+#' to available cores.
 #'
 #' @param sim_long Long-format simulated data with `cokey`, `hzdept_r`, and property columns.
 #' @param properties Character vector of property column names to adjust.
-#' @param min_depths Minimum distinct depths required to attempt GP fitting (default 2, matching
-#'   the source's `length(unique_depths) >= 2` guard).
+#' @param min_depths Minimum distinct depths required to attempt GP fitting (default 2).
 #' @param parallel Logical; if `TRUE`, process cokeys across multiple `future::multisession`
-#'   worker processes (default `FALSE` - sequential, matching prior behavior exactly). Falls back
+#'   worker processes (default `FALSE`, sequential). Falls back
 #'   to sequential processing if the parallel setup itself errors. See `run_parallel_lapply()`
 #'   (`R/parallel-utils.R`).
 #' @param n_cores Number of worker processes to use when `parallel = TRUE` (default
@@ -143,10 +132,11 @@ adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths, con
 #' @param config Optional Monte Carlo config, passed through to
 #'   `adjust_one_cokey_depth_trend()` -> `apply_local_gp_adjustments()` ->
 #'   `apply_gp_depth_trends()`. `config$monte_carlo$vertical_correlation_method` (default
-#'   `"joint_copula"` as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 13; set to
-#'   `"gp_quantile_retrofit"` to opt back into the original algorithm) selects the
+#'   `"joint_copula"`, or `"gp_quantile_retrofit"`) selects the
 #'   vertical-correlation method; `NULL` (default) resolves to `"joint_copula"`, matching
 #'   `get_monte_carlo_defaults()`'s own default.
+#' @param seed Optional integer. When set, seeds the parallel depth-trend path via
+#'   `future.seed`. `NULL` (default) leaves the RNG stream unseeded.
 #' @return `sim_long`, depth-trend-adjusted where possible.
 #' @export
 maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths = 2,
@@ -184,7 +174,7 @@ maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths 
     # "UNRELIABLE VALUE" warning here), despite the fitted result itself being highly stable
     # across runs/searches (see fit_local_gp_model_single()'s gp_control docs). future_seed =
     # TRUE for parallel-safe RNG streams, not FALSE. An explicit integer `seed` (opt-in
-    # determinism, MULTI_PROPERTY_FUSION_PLAN.md B9) is passed straight through as
+    # determinism) is passed straight through as
     # future.seed's L'Ecuyer seed so the parallel path is reproducible too; NULL keeps the
     # random-per-run parallel-safe stream.
     future_seed = if (is.null(seed)) TRUE else seed,
@@ -239,8 +229,8 @@ aggregate_depth_window_by_replicate <- function(sim_long, top_depth, bottom_dept
 #'   `"soc"`, `"om"`, `"cec"`, `"cec7"`, `"clay"`, `"claytotal"`, `"sand"`,
 #'   `"sandtotal"`, `"silt"`, `"silttotal"`, `"rock_fragments"`/`"rfv"`/`"fragvol"`,
 #'   `"wthirdbar"`/`"water_retention_third_bar"`/`"wr_3b"`,
-#'   `"wfifteenbar"`/`"water_retention_15_bar"`/`"wr_15b"`, or (MULTI_PROPERTY_FUSION_PLAN.md task
-#'   P2) `"caco3"`, `"ec"`, `"ecec"`, `"gypsum"`, `"sar"`.
+#'   `"wfifteenbar"`/`"water_retention_15_bar"`/`"wr_15b"`, or `"caco3"`, `"ec"`, `"ecec"`,
+#'   `"gypsum"`, `"sar"`.
 #' @return The corresponding column name in `simulate_cokey_generalized()`'s output.
 #' @export
 property_to_sim_column <- function(property_id) {
@@ -260,7 +250,7 @@ property_to_sim_column <- function(property_id) {
     # posteriors (needed by remarginalized_awc()).
     water_retention_third_bar = "wr_3b", wthirdbar = "wr_3b", wr_3b = "wr_3b",
     water_retention_15_bar = "wr_15b", wfifteenbar = "wr_15b", wr_15b = "wr_15b",
-    # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2) - self-mapping, same as
+    # 5 chemistry properties - self-mapping, same as
     # simulate_cokey_generalized()'s param_order names (no SSURGO-stem alias needed; the SOLUS
     # variable name, the SSURGO chorizon column stem, and the id are all identical spellings).
     caco3 = "caco3", ec = "ec", ecec = "ecec", gypsum = "gypsum", sar = "sar"
@@ -333,16 +323,14 @@ normalize_requested_properties <- function(requested_properties) {
 #' @param config Optional Monte Carlo config, passed through to
 #'   `maybe_adjust_soil_data_depth_trend()` -> `apply_local_gp_adjustments()` ->
 #'   `apply_gp_depth_trends()`. `config$monte_carlo$vertical_correlation_method` (default
-#'   `"joint_copula"` as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 13; set to
-#'   `"gp_quantile_retrofit"` to opt back into the original algorithm) selects this top-level
-#'   entry point's vertical-correlation method; `NULL` (default) resolves to `"joint_copula"`,
+#'   `"joint_copula"` default, or `"gp_quantile_retrofit"`) selects this top-level entry
+#'   point's vertical-correlation method; `NULL` (default) resolves to `"joint_copula"`,
 #'   matching `get_monte_carlo_defaults()`'s own default.
 #' @param mukey_raster Optional, already-fetched `terra::SpatRaster` of mukey codes for this same
 #'   `aoi_vect` (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}), passed through to
 #'   `download_ssurgo_tabular()` so its tabular fetch reuses it instead of issuing a second,
-#'   independent `soilDB::mukey.wcs()` call - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task
-#'   P1.2/P1.3. Only consulted on a `"ssurgo_tabular"` cache miss. `NULL` (default) preserves
-#'   original behavior exactly.
+#'   independent `soilDB::mukey.wcs()` call. Only consulted on a `"ssurgo_tabular"` cache
+#'   miss. `NULL` (default): the tabular fetch issues its own call.
 #' @param requested_properties `NULL` (default) simulates every recognized property, bit-identical
 #'   to before. Otherwise a character vector (any vocabulary `normalize_requested_properties()`
 #'   accepts) restricting `simulate_cokey_generalized()` to just those (plus texture coupling) -
@@ -373,27 +361,16 @@ normalize_requested_properties <- function(requested_properties) {
 #'   `download_ssurgo_tabular()`'s "Component recovery" section.
 #' @section Cache invalidation:
 #' This function's own disk cache (`build_cache_key()`/`cache_get()`/`cache_set()` via
-#' `ssurgo_tabular_cache_key()`, keyed by `aoi_vect` **only** - depth-independent as of
-#' MULTI_PROPERTY_FUSION_PLAN.md task L1, since `download_ssurgo_tabular()` takes no depth-window
-#' argument and fetches every horizon for every AOI mukey regardless) is separate from
-#' `download_ssurgo_tabular()`'s own `cache_dir` parameter (always `NULL` here). One AOI's tabular
-#' download is shared across every depth window/call requested for that AOI. A cache entry written
-#' before component recovery shipped predates it entirely - clear that cache entry (or the whole
-#' cache directory) to pick up recovered components. Entries written before the L1 fix (keyed by
-#' `aoi_vect`/depth window) are simply orphaned and age out via the normal TTL - no migration
-#' needed.
+#' `ssurgo_tabular_cache_key()`) is keyed by `aoi_vect` **only** - `download_ssurgo_tabular()`
+#' takes no depth-window argument and fetches every horizon for every AOI mukey - and is
+#' separate from `download_ssurgo_tabular()`'s own `cache_dir` parameter (always `NULL` here).
+#' One AOI's tabular download is shared across every depth window/call requested for that AOI.
+#' Clear the cache entry (or the whole cache directory) to force a fresh fetch.
 #'
-#' This function's own SIMULATED output (as opposed to the raw tabular SSURGO input it's cached
-#' from) is deliberately NOT disk-cached - every call re-simulates fresh random draws, matching
-#' the original contract exactly. An earlier version of `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`
-#' task P2.1 added an unconditional disk cache here so raster-fusion's raw-draws opt-in
-#' (`R/raster-fusion.R`'s `fuse_general_kde()`) could reuse draws across calls - reverted after
-#' review: it silently froze repeat output for EVERY caller of this function (including ones with
-#' nothing to do with raw-draws fusion, e.g. direct `fetch_ssurgo_percentiles()` use), which broke
-#' this project's own "default unchanged until opted in" convention. Raw-draws fusion instead
-#' reuses draws purely in-memory within one `run_stage1_fusion()` call (compute once, use for both
-#' the percentile cache and `mukey_draws_lookup()`) - see that function's implementation and
-#' `run_stage1_fusion_group()`'s pre-existing `shared_draws` pattern, which already did this.
+#' This function's SIMULATED output is not disk-cached: every call re-simulates fresh random
+#' draws. Raw-draws fusion reuses draws in memory within one `run_stage1_fusion()` call
+#' (computed once, used for both the percentile cache and `mukey_draws_lookup()`); see also
+#' `run_stage1_fusion_group()`'s `shared_draws` pattern.
 #' @export
 simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
                                            parallel = FALSE, n_cores = NULL, config = NULL,
@@ -453,12 +430,12 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
   hz_data$genhz <- classify_genhz(hz_data$hzname)
 
   # Attach OSD-derived boundary distinctness (bound_sd) so the vertical-correlation depth kernel
-  # can gate against genuine horizon discontinuities (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md
-  # Phase 1b/1c) - degrades to bound_sd = NA (no gating) on OSD lookup failure, never blocks the
+  # can gate against genuine horizon discontinuities - degrades to bound_sd = NA (no gating)
+  # on OSD lookup failure, never blocks the
   # rest of this pipeline. Genhz-generic (per soil-series x generalized-horizon-group), not
   # cokey-specific - SSURGO's chorizon table has no per-cokey boundary-distinctness field
-  # (confirmed against the official SSURGO 2.2.6 schema), so this is the only real data source
-  # available (Decision #3, accepted limitation).
+  # (per the SSURGO 2.2.6 schema), so this genhz-generic value is the only data source
+  # available.
   hz_data <- attach_osd_boundary_distinctness(hz_data)
 
   component_data <- sim_component_comp(hz_data, n_simulations = n_mc)
@@ -468,10 +445,9 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
   )
 
   # Extend each genhz's raw 9x9 KSSL matrix to cover the full param_order vocabulary (14 names as
-  # of MULTI_PROPERTY_FUSION_PLAN.md task P2 - must match simulate_cokey_generalized()'s own
-  # param_order, R/property-simulation.R) via build_kssl_fallback_matrix() - the 5 chemistry
-  # properties added in P2 have no KSSL-fit entry, so this overlays the real 9x9 submatrix
-  # unchanged and adds them as identity (uncorrelated), per the confirmed P2 design decision. Built
+  # matching simulate_cokey_generalized()'s param_order, R/property-simulation.R) via
+  # build_kssl_fallback_matrix() - the 5 chemistry properties have no KSSL-fit entry, so this
+  # overlays the real 9x9 submatrix unchanged and adds them as identity (uncorrelated). Built
   # once here (not per-cokey/per-row) since it's deterministic given genhz alone; when real KSSL
   # data for those 5 properties becomes available and the reference matrix is re-fit,
   # build_kssl_fallback_matrix() picks it up automatically with no change needed here.
@@ -613,7 +589,7 @@ percentiles_from_draws <- function(mukey_raster, draws, property_id,
 #' `fuse_general_kde()`/`fuse_texture_group_batch_core()`, once they opt into
 #' `prior_fusion_method = "raw_draws"`) fuse directly against the real empirical distribution
 #' computed once per unique mukey, rather than resampling a lower-fidelity reconstruction from
-#' just a few percentile values - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.1.
+#' just a few percentile values.
 #'
 #' @param draws A data frame from \code{\link{simulate_ssurgo_mapunit_draws}}, for the same
 #'   AOI/depth window the caller's mukey raster covers.
@@ -642,7 +618,7 @@ mukey_draws_lookup <- function(draws, property_id) {
 #' matrix) - something `fuse_texture_group()`'s current percentile-reconstruction fusion discards
 #' entirely, since it draws each fraction independently from its own marginal
 #' percentile-derived normal. Used by `fuse_texture_group_batch_core()`'s `prior_fusion_method =
-#' "raw_draws"` opt-in - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4.
+#' "raw_draws"` opt-in.
 #'
 #' @param draws A data frame from \code{\link{simulate_ssurgo_mapunit_draws}}, for the same
 #'   AOI/depth window the caller's mukey raster covers.

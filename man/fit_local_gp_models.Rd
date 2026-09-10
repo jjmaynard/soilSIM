@@ -30,5 +30,6 @@ docs for why the default is much smaller than \code{GPfit::GP_fit()}'s own defau
 List of fitted local GP models
 }
 \description{
-Enhanced version with Module 8 validation and configuration management.
+Fits one Gaussian-process depth model per property from a single component's
+depth-aggregated values.
 }

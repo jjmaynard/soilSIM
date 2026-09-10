@@ -24,5 +24,5 @@ validate_gp_models(
 Validation results
 }
 \description{
-Enhanced validation with comprehensive diagnostics
+Validate GP Models
 }

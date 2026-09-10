@@ -17,8 +17,8 @@ simulate_cokey_generalized(
 \code{sim_component_comp()}).}
 
 \item{correlation_matrices}{A list of correlation matrices keyed by \code{genhz}, with row/column
-names matching (a subset of) \code{c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc", "caco3", "ec", "ecec", "gypsum", "sar")}. The 5 chemistry properties added in
-MULTI_PROPERTY_FUSION_PLAN.md task P2 have no real KSSL-fit correlation data (see
+names matching (a subset of) \code{c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc", "caco3", "ec", "ecec", "gypsum", "sar")}. The 5 chemistry properties
+\code{caco3}/\code{ec}/\code{ecec}/\code{gypsum}/\code{sar} have no real KSSL-fit correlation data (see
 \code{build_kssl_fallback_matrix()}) - \code{simulate_ssurgo_mapunit_draws()} builds its
 \code{correlation_matrices} through that function so they're present (as identity/uncorrelated)
 rather than missing; a direct caller supplying its own matrix without them will simply never
@@ -42,7 +42,7 @@ A data frame of simulated property values across all rows/realizations, with
 (when \code{sim_cokey} itself has a \code{bound_sd} column - see \code{attach_osd_boundary_distinctness()})
 \code{bound_sd}. The \code{soc} column is an SSURGO-organic-matter-\strong{derived SOC estimate}
 (\code{om * OM_TO_SOC_FACTOR}, the inverse Van Bemmelen factor) - not a lab-measured soil organic
-carbon value. See \code{OM_TO_SOC_FACTOR}'s own docs (MULTI_PROPERTY_FUSION_PLAN.md task P1).
+carbon value. See \code{OM_TO_SOC_FACTOR}'s own docs.
 }
 \description{
 Simulates a flexible set of soil properties (whichever of bulk density, water retention,

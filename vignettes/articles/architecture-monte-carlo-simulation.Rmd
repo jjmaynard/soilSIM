@@ -51,7 +51,7 @@ normalize_monte_carlo_config(simulation_config, default_config)
 - `default_config` - Result of `get_monte_carlo_defaults()`, used only to recognize which flat key names belong under `monte_carlo`.
 
 **Returns**: `simulation_config`, wrapped under `$monte_carlo` if it was flat and its names matched known `monte_carlo` keys; passed through unchanged otherwise.
-**Behavior/rationale**: A flat config previously landed silently as an unused top-level key (confirmed by testing: passing `distribution_type = "normal"` flat left `config$monte_carlo$distribution_type` at `"triangular"` every time) since `merge_configurations()` merges strictly by key path. This function is called immediately before `merge_configurations()` in `generate_monte_carlo_realizations()` to fix that.
+**Behavior/rationale**: `merge_configurations()` merges strictly by key path, so a flat config key (e.g. `distribution_type = "normal"`) would not reach `config$monte_carlo$distribution_type`. This function runs immediately before `merge_configurations()` in `generate_monte_carlo_realizations()` to lift flat keys into the `monte_carlo` sub-list.
 
 ### 4. `validate_monte_carlo_inputs()` - Input Validation
 **Purpose**: Comprehensive validation of `soil_data`, `properties`, an optional `correlation_matrix`, and `n_realizations` before any simulation work happens.
@@ -226,7 +226,7 @@ validate_simulation_output(simulation_results, properties, config)
 ```
 **Parameters**: `simulation_results` - the constrained array; `properties` - property names; `config` - configuration (`min_success_rate`, `outlier_threshold`, `max_outlier_rate`).
 **Returns**: `list(valid=, success_rate=, property_validation=, quality_metrics=, issues=)`.
-**Behavior**: First checks the array has 3 dimensions and the expected property count (fails fast otherwise). For each property, calls `analyze_property_simulation_quality()` (finite-rate, mean/SD, range) and flags a low success rate; runs `detect_outliers()` (IQR method) and flags a high outlier rate (guarding against `NaN` outlier rates - e.g. a property missing from every horizon - which previously crashed the pipeline via an `if (NaN > x)` error instead of degrading gracefully). Computes `calculate_simulation_quality_metrics()` for an overall quality summary, an overall `success_rate` across all properties/horizons/realizations, and sets `valid = FALSE` if that overall rate falls below `min_success_rate`.
+**Behavior**: First checks the array has 3 dimensions and the expected property count (fails fast otherwise). For each property, calls `analyze_property_simulation_quality()` (finite-rate, mean/SD, range) and flags a low success rate; runs `detect_outliers()` (IQR method) and flags a high outlier rate (guarding against `NaN` outlier rates - e.g. a property missing from every horizon - with an `is.finite()` check). Computes `calculate_simulation_quality_metrics()` for an overall quality summary, an overall `success_rate` across all properties/horizons/realizations, and sets `valid = FALSE` if that overall rate falls below `min_success_rate`.
 
 ### 16. `generate_monte_carlo_realizations()` - Master Pipeline
 **Purpose**: The top-level, end-to-end orchestrator: validates inputs and config, prepares data and parameters, optionally fuses observed data, configures correlation and distributions, runs the simulation (sequential or parallel), restores compositional properties, applies constraints, validates output, and compiles diagnostics/quality assessment.

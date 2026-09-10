@@ -25,7 +25,5 @@ the two - keeping the heuristic as a soft prior rather than silently
 discarding an explicit user request. If the intersection is empty (the
 user asked only for families the heuristic wouldn't have suggested),
 falls back to the user's list unfiltered, with a logged warning, rather
-than ignoring it entirely. Previously \code{config} was accepted by every
-caller in this chain but never actually consulted here - \code{distribution_methods}
-was inert.
+than ignoring it entirely.
 }

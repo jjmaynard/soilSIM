@@ -24,10 +24,10 @@ validate_download_inputs_ssurgo(
 \item{max_area_deg2}{Maximum allowed area in square degrees}
 }
 \value{
-List with validation results including Module 8 metadata
+List with validation results including shared metadata
 }
 \description{
-SSURGO-specific input validation that uses Module 8 general validation functions
+SSURGO-specific input validation that uses the shared validation functions
 for parameter validation, logging, and error handling, with custom SSURGO-specific
 business logic for WKT geometry and property validation.
 }

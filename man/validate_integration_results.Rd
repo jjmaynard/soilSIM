@@ -29,5 +29,6 @@ validate_integration_results(
 Validation results list
 }
 \description{
-Enhanced validation using Module 8 validation framework.
+Checks row-count preservation, within-depth correlation preservation, and
+depth-trend realism of an integration result, and returns an overall score.
 }

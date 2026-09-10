@@ -19,9 +19,7 @@ is chosen over \code{"lognormal"}.}
 \code{list(family=, skew_proxy=)}.
 }
 \description{
-Adapted from \code{code_ref/reanalysis-platform/property_fusion_dispatch.R}'s
-\code{resolve_property_dist()}: computed directly from this row's own l/r/h
-(no spatial/AOI aggregation needed in a tabular context). Deliberately
-narrow - never resolves to \code{"metalog"} (that stays an explicit config
+Computed directly from this row's own l/r/h (no spatial/AOI aggregation in a tabular
+context). Deliberately narrow - never resolves to \code{"metalog"} (that stays an explicit config
 choice), matching the reference's own documented restriction.
 }

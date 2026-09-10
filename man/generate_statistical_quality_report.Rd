@@ -2,7 +2,7 @@
 % Please edit documentation in R/statistics.R
 \name{generate_statistical_quality_report}
 \alias{generate_statistical_quality_report}
-\title{Generate Statistical Quality Report (Enhanced)}
+\title{Generate Statistical Quality Report}
 \usage{
 generate_statistical_quality_report(
   original_data,
@@ -36,8 +36,8 @@ generate_statistical_quality_report(
 \item{config}{Configuration}
 }
 \value{
-Enhanced quality report
+quality report
 }
 \description{
-Enhanced quality reporting with comprehensive metrics
+Generate Statistical Quality Report
 }

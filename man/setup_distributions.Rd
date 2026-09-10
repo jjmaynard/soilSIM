@@ -2,7 +2,7 @@
 % Please edit documentation in R/monte-carlo.R
 \name{setup_distributions}
 \alias{setup_distributions}
-\title{Setup Distributions (Enhanced)}
+\title{Setup Distributions}
 \usage{
 setup_distributions(
   simulation_params,
@@ -23,8 +23,8 @@ log level so \code{INFO}-level progress messages print for the duration
 of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 }
 \value{
-Enhanced distribution configuration
+distribution configuration
 }
 \description{
-Enhanced distribution setup
+Setup Distributions
 }

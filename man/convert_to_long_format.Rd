@@ -32,5 +32,6 @@ convert_to_long_format(
 Data frame in long format
 }
 \description{
-Enhanced version with Module 8 error handling and data validation.
+Reshapes a named list of adjusted depth-by-simulation property matrices back into
+long format, re-attaching component metadata.
 }

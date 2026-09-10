@@ -15,12 +15,10 @@ package's ILR core - from low/representative/high (`_l/_r/_h`) triplets
 variability, and boundary distinctness for whole `aqp::SoilProfileCollection`
 profiles, using OSD (Official Series Description) data to inform boundary
 perturbation, with sequential, parallel (`future`/`future.apply`), and
-by-mukey orchestration entry points. Both files were ported from
-`code_ref/brdf/property_simulation.R` and `code_ref/brdf/depth_simulation.R`
-respectively; both are also the two smaller, standalone-horizon-data helpers
-`remove_organic_layer()` and `slice_and_aggregate_soil_data()`
-(`property-simulation.R`), which are not tied to the compositional-simulation
-machinery but shipped from the same legacy file.
+by-mukey orchestration entry points. `property-simulation.R` also holds two
+smaller standalone horizon-data helpers, `remove_organic_layer()` and
+`slice_and_aggregate_soil_data()`, which are not tied to the
+compositional-simulation machinery.
 
 ## Core Functions
 
@@ -39,9 +37,8 @@ machinery but shipped from the same legacy file.
   `hzdept_r` so they stay consistent, zeroes any low/high top-depth value
   that lands exactly on the new top horizon, then recomputes `hzdept_r`/
   `hzdepb_r` (and the low/high pairs, if present and not entirely `NA`) as
-  cumulative sums of the original horizon thicknesses - preserving each
-  horizon's thickness while removing the organic layer's contribution to
-  depth.
+  cumulative sums of the horizon thicknesses - preserving each horizon's
+  thickness while removing the organic layer's contribution to depth.
 
 #### `slice_and_aggregate_soil_data(df, depth_ranges = list(c(0, 30), c(30, 100)))`
 
@@ -80,7 +77,7 @@ machinery but shipped from the same legacy file.
   approximately `round(n_simulations * comppct_r / 100)` in expectation
   (e.g. `comppct_r = 30`, `n_simulations = 1000` gives `sim_comppct` ~= 300)
   - a component-percent-weighted realization count, not an independently
-    meaningful statistic, ported verbatim from the legacy source. This
+    meaningful statistic. This
     output is per-**component**, but the depth-simulation functions below
     need `sim_comppct` on every **horizon** row - see Known Limitations.
 
@@ -90,8 +87,7 @@ machinery but shipped from the same legacy file.
   - `n` - integer, number of samples to generate.
   - `params` - a list of `c(a, b, c)` triples, one per distribution, in
     **`(lower, mode, upper)`** order - note this differs from `tri_dist()`'s
-    own `(a = lower, b = upper, c = mode)` argument convention; preserved
-    exactly as the legacy source defines it.
+    own `(a = lower, b = upper, c = mode)` argument convention.
   - `correlation_matrix` - a square, positive-semi-definite correlation
     matrix, `length(params)` x `length(params)`.
   - `random_seed` - optional integer seed for reproducibility.
@@ -212,10 +208,9 @@ machinery but shipped from the same legacy file.
   already-genhz-averaged `bound_sd` value on arbitrary horizon data, so it
   can also gate the joint-copula vertical-correlation depth kernel (see the
   GP Depth Modeling & Multivariate Adjustment module,
-  `build_depth_correlation_kernel()`) - previously `bound_sd` was computed
-  and consumed only inside `simulate_and_perturb_soil_profiles()`, as
-  `aqp::perturb()`'s `boundary.attr` for horizon-*depth* perturbation, and
-  never reached the property-*value* Monte Carlo simulation pipeline. Calls
+  `build_depth_correlation_kernel()`). `bound_sd` is also used by
+  `simulate_and_perturb_soil_profiles()` as `aqp::perturb()`'s `boundary.attr`
+  for horizon-*depth* perturbation. Calls
   `query_osd_distinctness()`, then reuses the identical
   `dplyr::group_by(id, genhz) |> dplyr::summarise(bound_sd = mean(bound_sd, na.rm = TRUE))`
   aggregation `simulate_and_perturb_soil_profiles()` already used internally,
@@ -519,7 +514,7 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
   - **AWS / van Genuchten modeling** (`R/aws-simulation.R`) is documented in
     `R/soilSIM-package.R` as conceptually downstream in the pipeline (depth-
     sliced, depth-simulated profiles feeding available-water-storage
-    estimation, per the legacy `code/soil_simulation_summary.md` workflow),
+    estimation),
     but there is no direct function-level call between `depth-simulation.R`
     and `aws-simulation.R` in the current codebase - `aws-simulation.R`'s
     own header notes it is self-contained and does not depend on
@@ -574,9 +569,8 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
   calls `sim_component_comp(mu_data, n_simulations = n_simulations)` and
   left-joins the result onto every horizon row by `cokey` internally,
   mirroring the same pattern `R/ssurgo-simulation.R`'s
-  `simulate_ssurgo_mapunit_draws()` already used for the property-simulation
-  path. Its `n_simulations` parameter is no longer unused - it now flows
-  directly into `sim_component_comp()`'s own `n_simulations` argument
+  `simulate_ssurgo_mapunit_draws()` uses for the property-simulation path. Its
+  `n_simulations` parameter flows into `sim_component_comp()`'s own `n_simulations` argument
   (number of triangular draws per component).
 
 ## Usage Example

@@ -35,7 +35,6 @@ simulate_correlated_properties() generates all n_realizations for every
 horizon in one call, with no state carried across horizons or
 realizations, so it can safely be called once per worker with a smaller
 n_realizations chunk and the resulting arrays concatenated along the
-realization dimension. Follows the same Windows-PSOCK-vs-mclapply
-pattern as mod07_multivariate_adjustment.R's process_cokeys_parallel(),
-with a sequential fallback on any error.
+realization dimension. Uses the same Windows-PSOCK-vs-mclapply pattern as process_cokeys_parallel() in
+multivariate-adjustment.R, with a sequential fallback on any error.
 }

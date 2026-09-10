@@ -6,27 +6,10 @@
 \description{
 Component-composition simulation (\code{sim_component_comp()}), correlated
 triangular-distribution sampling (\code{simulate_correlated_triangular()}), and per-cokey
-flexible-property simulation (\code{simulate_cokey_generalized()}), ported from
-\code{code_ref/brdf/property_simulation.R}. Also includes two small standalone horizon-data
-helpers from the same source file (\code{remove_organic_layer()}, \code{slice_and_aggregate_soil_data()}).
+flexible-property simulation (\code{simulate_cokey_generalized()}), plus two small standalone
+horizon-data helpers (\code{remove_organic_layer()}, \code{slice_and_aggregate_soil_data()}).
 
-Reimplemented to avoid two new dependencies, consistent with this project's established
-preference for a small reimplementation over a new package (already avoided \code{rmetalog},
-\code{compositions} elsewhere):
-\itemize{
-\item \code{simulate_correlated_triangular()}'s uncorrelated-normal draw used \code{MASS::mvrnorm(n, mu = rep(0, k), Sigma = diag(k))} - mathematically identical to \code{k} independent
-\code{stats::rnorm(n)} draws when \code{Sigma} is the identity matrix, so no \code{MASS} dependency is
-needed.
-\item \code{simulate_cokey_generalized()}'s texture step used \code{compositions::acomp()}/\code{ilr()}/
-\code{ilrInv()} - replaced with \code{R/distributions.R}'s already-validated \code{ilr_forward()}/
-\code{ilr_inverse()} (documented there as matching \code{compositions::ilr()} exactly), exactly as
-the raster-fusion port (\code{R/raster-fusion.R}) already did for the same reason.
-}
-
-\code{simulate_cokey} (the file's own header flags it as "an earlier, superseded implementation...
-may be dead code") and \code{simulate_soil_properties()} (a name collision with the unrelated,
-already-real \code{simulate_soil_properties()} in \code{R/gp-modeling.R}; duplicates work
-\code{R/monte-carlo.R}'s \code{generate_monte_carlo_realizations()} already does with a better,
-percentile-triplet-family fitting engine rather than triangular-only sampling) are
-deliberately not ported.
+\code{simulate_correlated_triangular()} draws uncorrelated normals with \code{stats::rnorm()} (no
+\code{MASS} dependency), and \code{simulate_cokey_generalized()}'s texture step uses
+\code{R/distributions.R}'s \code{ilr_forward()}/\code{ilr_inverse()} (no \code{compositions} dependency).
 }

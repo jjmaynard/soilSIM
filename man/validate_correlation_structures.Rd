@@ -24,5 +24,5 @@ validate_correlation_structures(
 Correlation validation results
 }
 \description{
-Enhanced correlation validation  utilities and Module 6 integration.
+Validate Correlation Structures
 }

@@ -58,13 +58,10 @@ two \verb{kssl_*}-named values are generic outcomes of any
 }
 }
 \description{
-Ports \code{code_ref/brdf/property_simulation.R}'s \code{simulate_soil_properties()}
-correlation pattern: \code{Hmisc::rcorr()} per group when the group has enough
+\code{Hmisc::rcorr()} per group when the group has enough
 complete observations, else falling back; forces symmetry; repairs
 non-positive-definite matrices via \code{Matrix::nearPD()}. When \code{group_var} is
 supplied, each qualifying group's empirical matrix is combined into a
-single size-weighted average (mod05's simulation architecture uses one
-correlation matrix for the whole run, not a per-stratum matrix, so this
-folds stratification information in without requiring a larger
-architecture change).
+single size-weighted average, so stratification information is folded into the
+one correlation matrix used for the whole run.
 }

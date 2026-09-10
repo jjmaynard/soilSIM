@@ -17,7 +17,7 @@ apply_nrcs_trend_adjustments(
 \arguments{
 \item{cokey_data}{Simulation data for a single cokey}
 
-\item{gp_models}{NRCS GP models from gp_modeling module}
+\item{gp_models}{Fitted NRCS GP depth models}
 
 \item{model_group}{GP model group for this cokey}
 
@@ -30,15 +30,14 @@ apply_nrcs_trend_adjustments(
 \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 
 \item{config}{Optional Monte Carlo config, passed through to \code{apply_gp_depth_trends()} -
-\code{config$monte_carlo$vertical_correlation_method} (default \code{"joint_copula"} as of
-\code{VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md} Phase 13; set to \code{"gp_quantile_retrofit"} to opt
-back into the original algorithm) reaches the NRCS/regional GP path the same way it already
-reaches the local-GP path (Phase 6/11). \code{NULL} (default) resolves to \code{"joint_copula"},
-matching \code{get_monte_carlo_defaults()}'s own default.}
+\code{config$monte_carlo$vertical_correlation_method} (\code{"joint_copula"} default, or
+\code{"gp_quantile_retrofit"}) reaches the NRCS/regional GP path as well as the local-GP path.
+\code{NULL} (default) resolves to \code{"joint_copula"}, matching \code{get_monte_carlo_defaults()}.}
 }
 \value{
 Adjusted simulation data
 }
 \description{
-Enhanced version with Module 8 integration and proper Module 5 function calls.
+Maps each requested property to its NRCS regional GP model, predicts that model's
+depth trend for the component's depths, and applies it via apply_gp_depth_trends().
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/monte-carlo.R
 \name{configure_correlation_structure}
 \alias{configure_correlation_structure}
-\title{Configure Correlation Structure (Enhanced)}
+\title{Configure Correlation Structure}
 \usage{
 configure_correlation_structure(
   simulation_params,
@@ -31,8 +31,8 @@ log level so \code{INFO}-level progress messages print for the duration
 of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 }
 \value{
-Enhanced correlation configuration
+correlation configuration
 }
 \description{
-Enhanced correlation configuration
+Configure Correlation Structure
 }

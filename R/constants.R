@@ -1,7 +1,7 @@
 # Package-wide numeric constants.
 #
-# Small shared magic numbers that were previously repeated as bare literals across several
-# files. Collected here so the policy is stated once and changes in one place.
+# Small shared magic numbers, collected here so each policy is stated once and changed in
+# one place.
 
 #' Default maximum profile depth (cm).
 #'

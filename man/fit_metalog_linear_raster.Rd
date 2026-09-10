@@ -34,7 +34,7 @@ grid, via the existing \code{metalog_basis_matrix()}), then applied to
 different right-hand-side rasters per coefficient.
 }
 \details{
-CAVEAT (from upstream validation): this is the same fast path \code{rmetalog}
+CAVEAT (from validation): this is the same fast path \code{rmetalog}
 itself takes when its solution is already feasible (implied density
 non-negative); \code{rmetalog} also has an LP-based feasibility-correction
 fallback for when it isn't - not reproduced here. Use

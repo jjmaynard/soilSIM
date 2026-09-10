@@ -2,28 +2,12 @@
 #'
 #' @description Component-composition simulation (`sim_component_comp()`), correlated
 #'   triangular-distribution sampling (`simulate_correlated_triangular()`), and per-cokey
-#'   flexible-property simulation (`simulate_cokey_generalized()`), ported from
-#'   `code_ref/brdf/property_simulation.R`. Also includes two small standalone horizon-data
-#'   helpers from the same source file (`remove_organic_layer()`, `slice_and_aggregate_soil_data()`).
+#'   flexible-property simulation (`simulate_cokey_generalized()`), plus two small standalone
+#'   horizon-data helpers (`remove_organic_layer()`, `slice_and_aggregate_soil_data()`).
 #'
-#'   Reimplemented to avoid two new dependencies, consistent with this project's established
-#'   preference for a small reimplementation over a new package (already avoided `rmetalog`,
-#'   `compositions` elsewhere):
-#'   - `simulate_correlated_triangular()`'s uncorrelated-normal draw used `MASS::mvrnorm(n, mu =
-#'     rep(0, k), Sigma = diag(k))` - mathematically identical to `k` independent
-#'     `stats::rnorm(n)` draws when `Sigma` is the identity matrix, so no `MASS` dependency is
-#'     needed.
-#'   - `simulate_cokey_generalized()`'s texture step used `compositions::acomp()`/`ilr()`/
-#'     `ilrInv()` - replaced with `R/distributions.R`'s already-validated `ilr_forward()`/
-#'     `ilr_inverse()` (documented there as matching `compositions::ilr()` exactly), exactly as
-#'     the raster-fusion port (`R/raster-fusion.R`) already did for the same reason.
-#'
-#'   `simulate_cokey` (the file's own header flags it as "an earlier, superseded implementation...
-#'   may be dead code") and `simulate_soil_properties()` (a name collision with the unrelated,
-#'   already-real `simulate_soil_properties()` in `R/gp-modeling.R`; duplicates work
-#'   `R/monte-carlo.R`'s `generate_monte_carlo_realizations()` already does with a better,
-#'   percentile-triplet-family fitting engine rather than triangular-only sampling) are
-#'   deliberately not ported.
+#'   `simulate_correlated_triangular()` draws uncorrelated normals with `stats::rnorm()` (no
+#'   `MASS` dependency), and `simulate_cokey_generalized()`'s texture step uses
+#'   `R/distributions.R`'s `ilr_forward()`/`ilr_inverse()` (no `compositions` dependency).
 #' @name property_simulation
 NULL
 
@@ -31,7 +15,7 @@ NULL
 #'
 #' Removes rows with organic horizons (where `hzname` contains a capital "O") and recalculates
 #' the remaining horizons' depths within each `cokey` group so they stay cumulative and
-#' re-anchored to 0, preserving the original horizon thicknesses.
+#' re-anchored to 0, preserving each horizon's thickness.
 #'
 #' @param df A data frame containing soil horizon data, with columns `cokey`, `hzname`,
 #'   `hzdept_r`, `hzdepb_r`, and optionally `hzdept_l`, `hzdepb_l`, `hzdept_h`, `hzdepb_h`.
@@ -115,9 +99,7 @@ slice_and_aggregate_soil_data <- function(df, depth_ranges = list(c(0, 30), c(30
     dplyr::select(-hzdept_r, -hzdepb_r) |>
     colnames()
 
-  # PERF: previously allocated one single-row data.frame per centimeter of profile depth (a 150cm
-  # profile meant 150+ individual as.data.frame() calls per row) before a final rbind() - see
-  # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3. Vectorized: row_idx repeats each source row's index
+  # Vectorized: row_idx repeats each source row's index
   # once per depth it covers, and depths_vec computes each row's 1cm depth sequence via
   # sequence()'s standard "concatenated per-group seq_len()" trick, instead of building and
   # rbind()-ing one tiny data.frame per depth.
@@ -203,13 +185,11 @@ slice_and_aggregate_soil_data <- function(df, depth_ranges = list(c(0, 30), c(30
 #' `dplyr::left_join()` this output onto horizon-level data by `cokey` before passing it to those
 #' functions - this function alone does not satisfy their requirement.
 #'
-#' @section `sim_comppct`'s derivation is unusual - documented, not "fixed":
-#' `sim_comppct <- round(sum(<n_simulations> triangular draws of comppct) / 100)` - this is
+#' @section `sim_comppct`'s derivation:
+#' `sim_comppct <- round(sum(<n_simulations> triangular draws of comppct) / 100)`, which is
 #' `round(n_simulations * comppct_r / 100)` in expectation (e.g. `comppct_r = 30`,
-#' `n_simulations = 1000` -> `sim_comppct` ~= 300), not an independently-meaningful simulation
-#' count. Ported verbatim (preserve-behavior convention) since the legacy pipeline's exact intent
-#' for this derivation isn't independently confirmable from this file alone - do not assume it
-#' means something more sensible than what's written here.
+#' `n_simulations = 1000` -> `sim_comppct` ~= 300). It is not an independently-meaningful
+#' simulation count.
 #'
 #' @param data Data frame with `mukey`, `cokey`, `compname`, `comppct_l`, `comppct_r`, `comppct_h`
 #'   (one or more rows per component; deduplicated internally).
@@ -254,8 +234,7 @@ sim_component_comp <- function(data, n_simulations = 1000) {
 #' @param n Integer, number of samples to generate.
 #' @param params List of `c(a, b, c)` triples, one per distribution - **note the order here is
 #'   (lower, mode, upper)**, unlike `tri_dist()`'s own `(a = lower, b = upper, c = mode)`
-#'   convention. Preserved exactly as the legacy source defines it; a real source of confusion if
-#'   assumed to match `tri_dist()`'s argument order.
+#'   convention. A real source of confusion if assumed to match `tri_dist()`'s argument order.
 #' @param correlation_matrix A square, positive-semi-definite correlation matrix,
 #'   `length(params)` x `length(params)`.
 #' @param random_seed Optional integer seed for reproducibility.
@@ -302,15 +281,10 @@ simulate_correlated_triangular <- function(n, params, correlation_matrix, random
 #'
 #' @param x A vector of values.
 #' @return The most frequently-occurring value in `x`.
-#' @section Performance:
-#' `table(x)`/`factor(x)` build a full factor/hash table just to count occurrences - `Rprof()`
-#' profiling on `simulate_cokey_generalized()` (its only caller, invoked twice per horizon row)
-#' attributed 22% of that function's total wall-clock to this call alone
-#' (PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4). `tabulate(match(x, ux))` on pre-sorted unique values
-#' computes the same counts without the factor-coercion overhead. Verified to return identical
-#' output (including `table()`'s implicit tie-break - the smallest value among ties, since
-#' `table()` sorts unique values ascending and `which.max()` returns the first maximum) across
-#' ties, negative values, singletons, and random floating-point draws.
+#' @section Behavior:
+#' `tabulate(match(x, ux))` on pre-sorted unique values counts occurrences without the
+#' factor-coercion overhead of `table(x)`/`factor(x)`. On ties it returns the smallest value
+#' among them (unique values are sorted ascending and `which.max()` returns the first maximum).
 #' @export
 calculate_mode <- function(x) {
   ux <- sort(unique(x))
@@ -331,7 +305,7 @@ calculate_mode <- function(x) {
 #' *matrix* itself - Pearson correlation is invariant under a positive linear rescale of one
 #' variable, and triangular-distribution parameters (min/mode/max) transform linearly too - only
 #' the marginal values entering the correlated draw need rescaling, which is exactly where this
-#' constant is used (MULTI_PROPERTY_FUSION_PLAN.md task P1).
+#' constant is used.
 #' @keywords internal
 OM_TO_SOC_FACTOR <- 1 / 1.724
 
@@ -339,8 +313,8 @@ OM_TO_SOC_FACTOR <- 1 / 1.724
 #'
 #' Adds a 1-on-diagonal, 0-cross-correlation row/column for each name in `missing_names` not
 #' already in `m`'s dimnames - the same "uncorrelated with everything, safe default" convention
-#' `build_kssl_fallback_matrix()` uses for properties without KSSL reference data (see
-#' MULTI_PROPERTY_FUSION_PLAN.md task P2). Used by `simulate_cokey_generalized()` as a defensive
+#' `build_kssl_fallback_matrix()` uses for properties without KSSL reference data. Used by
+#' `simulate_cokey_generalized()` as a defensive
 #' fallback so an unrecognized-but-requested property degrades to independence rather than
 #' erroring on `m[keep_cols, keep_cols]`. The result stays positive-definite: a block-diagonal
 #' matrix formed from a positive-definite block (`m`) and an identity block has no negative
@@ -375,8 +349,8 @@ extend_corr_matrix_with_identity <- function(m, missing_names) {
 #'   `sim_component_comp()`).
 #' @param correlation_matrices A list of correlation matrices keyed by `genhz`, with row/column
 #'   names matching (a subset of) `c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec",
-#'   "soc", "caco3", "ec", "ecec", "gypsum", "sar")`. The 5 chemistry properties added in
-#'   MULTI_PROPERTY_FUSION_PLAN.md task P2 have no real KSSL-fit correlation data (see
+#'   "soc", "caco3", "ec", "ecec", "gypsum", "sar")`. The 5 chemistry properties
+#'   `caco3`/`ec`/`ecec`/`gypsum`/`sar` have no real KSSL-fit correlation data (see
 #'   `build_kssl_fallback_matrix()`) - `simulate_ssurgo_mapunit_draws()` builds its
 #'   `correlation_matrices` through that function so they're present (as identity/uncorrelated)
 #'   rather than missing; a direct caller supplying its own matrix without them will simply never
@@ -396,13 +370,13 @@ extend_corr_matrix_with_identity <- function(m, missing_names) {
 #'   (when `sim_cokey` itself has a `bound_sd` column - see `attach_osd_boundary_distinctness()`)
 #'   `bound_sd`. The `soc` column is an SSURGO-organic-matter-**derived SOC estimate**
 #'   (`om * OM_TO_SOC_FACTOR`, the inverse Van Bemmelen factor) - not a lab-measured soil organic
-#'   carbon value. See `OM_TO_SOC_FACTOR`'s own docs (MULTI_PROPERTY_FUSION_PLAN.md task P1).
+#'   carbon value. See `OM_TO_SOC_FACTOR`'s own docs.
 #' @export
 simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_correlation_matrices = NULL,
                                         requested_properties = NULL) {
 
-  # The 5 chemistry properties (caco3/ec/ecec/gypsum/sar) added in MULTI_PROPERTY_FUSION_PLAN.md
-  # task P2 have no real KSSL-fit correlation entry (see correlation_matrices' own @param doc) -
+  # The 5 chemistry properties (caco3/ec/ecec/gypsum/sar) have no real KSSL-fit correlation
+  # entry (see correlation_matrices' own @param doc) -
   # they simulate uncorrelated with everything else by default until real KSSL lab data covering
   # them becomes available for a re-fit.
   param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc",
@@ -446,12 +420,8 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
   }
 
   # ensure_positive_definite_matrix(txt_corr) is a deterministic function of genhz_val alone
-  # (txt_corr is looked up per genhz_val, with the same pooled fallback every time it's
-  # missing) - Rprof() profiling found this call (eigen() + isSymmetric.matrix() internally)
-  # recomputed identically on every row accounted for 18% of simulate_cokey_generalized()'s
-  # total wall-clock (PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4), despite there typically being only
-  # a handful of distinct genhz values across a whole cokey's rows. Cache per genhz_val instead
-  # of recomputing per row.
+  # (txt_corr is looked up per genhz_val, with the same pooled fallback when missing), so
+  # cache it per genhz_val rather than recomputing eigen() on every row.
   pd_txt_corr_cache <- list()
 
   for (i in seq_len(nrow(sim_cokey))) {
@@ -473,10 +443,7 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
     if (is.null(local_corr)) {
       # classify_genhz() returns NA for a raw hzname that doesn't parse into one of the 7
       # KSSL-covered master-horizon categories (blank/garbled/nonstandard hzname text).
-      # This lookup happens before this loop's tryCatch() below, so an unmatched genhz
-      # used to crash simulate_cokey_generalized() for the row's ENTIRE cokey - even when
-      # every property VALUE on this row was otherwise complete/infilled. Degrade to the
-      # pooled, genhz-agnostic matrix instead of aborting the cokey.
+      # Degrade to the pooled, genhz-agnostic matrix rather than aborting the whole cokey.
       local_corr <- pooled_property_corr
     }
 
@@ -489,7 +456,7 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
       # .kssl_texture_matrices() is documented as exactly singular for genhz E/Cr/R even
       # when correctly matched (see R/kssl-reference-correlations.R) - chol() inside
       # simulate_correlated_triangular() would otherwise error deterministically for those
-      # groups (again, before this loop's tryCatch() below - a whole-cokey crash). Nudge
+      # groups. Nudge
       # to the nearest positive-definite matrix defensively; cheap, and the same pattern
       # already used elsewhere in this package (e.g. build_kssl_fallback_matrix()). Cached per
       # genhz_val (see pd_txt_corr_cache's own comment above) since it's deterministic given
@@ -502,8 +469,7 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
         pd_txt_corr_cache[[genhz_val]] <- ensure_positive_definite_matrix(txt_corr_raw)
       }
       txt_corr <- pd_txt_corr_cache[[genhz_val]]
-      # Order here (sand, silt, clay) must match txt_corr's own row/column order - preserved
-      # exactly as the legacy source wires it, not changed.
+      # Order here (sand, silt, clay) must match txt_corr's own row/column order.
       params_txt <- list(
         c(row$sandtotal_l, row$sandtotal_r, row$sandtotal_h),
         c(row$silttotal_l, row$silttotal_r, row$silttotal_h),
@@ -512,9 +478,8 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
 
       # A texture triplet with a leftover NA (e.g. infilling couldn't recover a value for
       # this specific row) makes simulate_correlated_triangular()'s internal `if (c == a)`
-      # check evaluate to NA ("missing value where TRUE/FALSE needed") - this call happens
-      # before this loop's own tryCatch() below, so it used to crash the row's ENTIRE
-      # cokey. Contain the failure to "no texture for this row" instead: ilr1_lrh/ilr2_lrh
+      # check evaluate to NA ("missing value where TRUE/FALSE needed"). Contain the failure to
+      # "no texture for this row" instead: ilr1_lrh/ilr2_lrh
       # stay NULL (as initialized above), and the has_texture check further below already
       # treats NULL ilr1_lrh/ilr2_lrh as "texture unavailable for this row" gracefully.
       texture_result <- tryCatch({
@@ -566,14 +531,14 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
     cec_set <- get_param_set(row, "cec7")
     if ("cec" %in% keep_params && !is.null(cec_set)) param_list[["cec"]] <- cec_set
 
-    # om -> soc conversion (MULTI_PROPERTY_FUSION_PLAN.md task P1): SSURGO reports organic
+    # om -> soc conversion: SSURGO reports organic
     # matter, not organic carbon - convert via the Van Bemmelen factor so this triplet is
     # SOC-scale before it enters the correlated draw. See OM_TO_SOC_FACTOR's own docs for why
     # the KSSL correlation matrix itself needs no corresponding change (scale invariance).
     om_set <- get_param_set(row, "om")
     if ("soc" %in% keep_params && !is.null(om_set)) param_list[["soc"]] <- om_set * OM_TO_SOC_FACTOR
 
-    # 5 chemistry properties (MULTI_PROPERTY_FUSION_PLAN.md task P2) - same SSURGO-stem-triplet
+    # 5 chemistry properties - same SSURGO-stem-triplet
     # gating pattern as every property above, no conversion needed (SSURGO's units already match
     # SOLUS100's: caco3/gypsum are % by weight, ec is dS/m, ecec is cmol(+)/kg, sar is unitless).
     caco3_set <- get_param_set(row, "caco3")
@@ -657,10 +622,8 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
       sim_data$hzdept_r <- row$hzdept_r
       sim_data$hzdepb_r <- row$hzdepb_r
 
-      # OSD-derived boundary distinctness (VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 1b) -
-      # optional column, only present when the caller ran attach_osd_boundary_distinctness() on
-      # its input first (e.g. simulate_ssurgo_mapunit_draws()); absent for any pre-existing caller
-      # that never had a bound_sd column, so this can't break an existing sim_cokey input.
+      # OSD-derived boundary distinctness - optional column, present only when the caller ran
+      # attach_osd_boundary_distinctness() on its input first (e.g. simulate_ssurgo_mapunit_draws()).
       if ("bound_sd" %in% names(row)) {
         sim_data$bound_sd <- row$bound_sd
       }
@@ -679,7 +642,7 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
   # above), sim_data_out can legitimately mix rows that have sand_total/silt_total/
   # clay_total columns with rows that don't. Base rbind() requires identical columns
   # across all inputs and errors ("numbers of columns of arguments do not match") on that
-  # mismatch - previously an unguarded whole-cokey crash. bind_rows() unions columns and
+  # mismatch. bind_rows() unions columns and
   # fills the missing ones with NA, which is the correct semantics here (that row simply
   # has no simulated texture).
   # Preserve the pre-existing "no surviving rows -> NULL" contract (relied on by callers
