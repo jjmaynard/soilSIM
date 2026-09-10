@@ -352,7 +352,7 @@ generate_monte_carlo_realizations()  [MASTER PIPELINE]
 
 **Downstream consumers of this file's output**:
 - **GP depth modeling & multivariate adjustment** (`core-gp.R`, `core-gp.R`) - call `generate_monte_carlo_realizations()` directly per cokey (choosing a single flat correlation matrix via `select_simulation_correlation_matrix()` from a genhz-keyed set), then flatten the resulting `[horizon, property, realization]` array to long format (`result$simulation_data`) for depth-trend and NRCS/local GP adjustment.
-- **Statistics & Diagnostics** (`validation-diagnostics.R`) - consumes the long-format simulation data (columns per property plus `simulation_number`, `hzdept_r`, `cokey`, etc.) for quality-assessment reporting, depth-binned summaries, and cross-property/cross-depth diagnostics.
+- **Statistics & Diagnostics** (`diagnostics.R`) - consumes the long-format simulation data (columns per property plus `simulation_number`, `hzdept_r`, `cokey`, etc.) for quality-assessment reporting, depth-binned summaries, and cross-property/cross-depth diagnostics.
 
 ## Data Flow In/Out
 

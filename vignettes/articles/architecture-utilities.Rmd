@@ -102,7 +102,7 @@ The package ships two independent WKT-validation code paths that do **not** call
 
 **Returns**: List with `valid`, `errors`, `warnings`, `property_stats` (`total_requested`, `valid_properties`, `invalid_properties`, `validation_method`, `invalid_property_names`).
 
-**Algorithm/behavior**: Rejects non-character/empty `properties` immediately. Resolves the available-property set via `get_available_properties(property_lookup)`; if that returns zero properties, validation is skipped entirely (a warning is recorded, not an error). Otherwise computes `valid_props <- intersect(properties, available_props)` and `invalid_props <- setdiff(...)`; if `strict_mode` and the invalid fraction exceeds `max_invalid_pct`, marks `valid <- FALSE`. Separately warns if the *valid* property count exceeds `performance_threshold`, and fails if there are zero valid properties regardless of `strict_mode`. This is the function actually called elsewhere in the package (`core-gp.R`, `validation-diagnostics.R`) - always with `property_lookup = "laboratory"` in current call sites.
+**Algorithm/behavior**: Rejects non-character/empty `properties` immediately. Resolves the available-property set via `get_available_properties(property_lookup)`; if that returns zero properties, validation is skipped entirely (a warning is recorded, not an error). Otherwise computes `valid_props <- intersect(properties, available_props)` and `invalid_props <- setdiff(...)`; if `strict_mode` and the invalid fraction exceeds `max_invalid_pct`, marks `valid <- FALSE`. Separately warns if the *valid* property count exceeds `performance_threshold`, and fails if there are zero valid properties regardless of `strict_mode`. This is the function actually called elsewhere in the package (`core-gp.R`, `diagnostics.R`) - always with `property_lookup = "laboratory"` in current call sites.
 
 ##### `get_available_properties(property_lookup)`
 
@@ -363,23 +363,23 @@ utils.R
 
 ### Consumers (functions from this file used elsewhere, per source grep)
 - **`is_unsuitable()`** - the single most widely reused function: `R/adapter-ssurgo-acquire.R`, `R/adapter-ssurgo-process.R`, `R/adapter-ssurgo-infill.R` (three call sites), `R/core-gp.R`, `R/core-montecarlo.R`.
-- **`validate_data_quality()`** - `R/adapter-ssurgo-acquire.R`, `R/adapter-ssurgo-process.R`, `R/core-gp.R`, `R/core-gp.R`, `R/statistics.R`, `R/validation-diagnostics.R` (multiple call sites).
+- **`validate_data_quality()`** - `R/adapter-ssurgo-acquire.R`, `R/adapter-ssurgo-process.R`, `R/core-gp.R`, `R/core-gp.R`, `R/statistics.R`, `R/diagnostics.R` (multiple call sites).
 - **`validate_properties_with_synonyms()`** - `R/adapter-ssurgo-acquire.R`, `R/core-montecarlo.R`, `R/statistics.R`, `R/adapter-ssurgo-infill.R`.
 - **`validate_wkt_geometry()`** - `R/adapter-ssurgo-acquire.R`.
-- **`validate_properties()`** (the non-synonym variant) - `R/core-gp.R`, `R/validation-diagnostics.R` (all current call sites pass `"laboratory"` as the lookup).
-- **`validate_numeric_ranges()`** - `R/adapter-ssurgo-process.R`, `R/validation-diagnostics.R`.
+- **`validate_properties()`** (the non-synonym variant) - `R/core-gp.R`, `R/diagnostics.R` (all current call sites pass `"laboratory"` as the lookup).
+- **`validate_numeric_ranges()`** - `R/adapter-ssurgo-process.R`, `R/diagnostics.R`.
 - **`standardize_property_names()`** - `R/core-gp.R`, `R/adapter-ssurgo-process.R` (two call sites).
 - **`safe_coalesce()`** - `R/core-gp.R`.
 - **`handle_missing_values()`** - `R/statistics.R`.
-- **`detect_outliers()`** - `R/core-montecarlo.R` (two call sites), `R/statistics.R` (two call sites), `R/adapter-ssurgo-process.R`, `R/validation-diagnostics.R` (three call sites).
-- **`safe_correlation()`** - `R/statistics.R` (multiple call sites), `R/validation-diagnostics.R` (three call sites).
+- **`detect_outliers()`** - `R/core-montecarlo.R` (two call sites), `R/statistics.R` (two call sites), `R/adapter-ssurgo-process.R`, `R/diagnostics.R` (three call sites).
+- **`safe_correlation()`** - `R/statistics.R` (multiple call sites), `R/diagnostics.R` (three call sites).
 - **`calculate_confidence_intervals()`** - `R/statistics.R`.
-- **`get_default_configuration()`** - `R/core-gp.R`, `R/core-gp.R` (multiple call sites), `R/adapter-ssurgo-acquire.R` (two call sites), `R/statistics.R`, `R/validation-diagnostics.R` (multiple call sites), `R/core-montecarlo.R`.
+- **`get_default_configuration()`** - `R/core-gp.R`, `R/core-gp.R` (multiple call sites), `R/adapter-ssurgo-acquire.R` (two call sites), `R/statistics.R`, `R/diagnostics.R` (multiple call sites), `R/core-montecarlo.R`.
 - **`merge_configurations()`** - `R/core-montecarlo.R` (two call sites, one inside its own roxygen-documented helper), `R/statistics.R` (two call sites), `R/adapter-ssurgo-process.R`.
 - **`load_configuration()`** - `R/adapter-ssurgo-acquire.R`.
 - **`setup_logging()`** - `R/core-montecarlo.R`, `R/statistics.R`, `R/adapter-ssurgo-acquire.R`.
-- **`handle_workflow_error()`** - used pervasively as the `error =` handler inside `tryCatch()` throughout `R/core-gp.R`, `R/core-gp.R`, `R/core-montecarlo.R`, `R/adapter-ssurgo-acquire.R`, `R/validation-diagnostics.R`.
-- **`track_progress()`** - `R/core-gp.R` (two call sites), `R/core-montecarlo.R`, `R/validation-diagnostics.R` (multiple call sites).
+- **`handle_workflow_error()`** - used pervasively as the `error =` handler inside `tryCatch()` throughout `R/core-gp.R`, `R/core-gp.R`, `R/core-montecarlo.R`, `R/adapter-ssurgo-acquire.R`, `R/diagnostics.R`.
+- **`track_progress()`** - `R/core-gp.R` (two call sites), `R/core-montecarlo.R`, `R/diagnostics.R` (multiple call sites).
 
 Functions defined in this file but **not currently called from any other file in the package** (confirmed by source grep): `check_required_columns()`, `convert_depth_units()`, `export_workflow_metadata()`, `validate_wkt_string()`, `parse_wkt_geometry()`, `validate_geometry_validity()`, `validate_geometry_area()`, `validate_geometry_complexity()`, `validate_coordinate_bounds()`, `get_validation_defaults()`, `validate_geographic_context()`, `validate_projected_context()`, `get_default_synonyms()`, `get_available_properties()`/`get_predefined_properties()`/`extract_properties_from_dataframe()`/`create_property_lookup()` (these four are called only from within `utils.R` itself, via `validate_properties()`).
 

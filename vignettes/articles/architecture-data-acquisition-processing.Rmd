@@ -103,7 +103,7 @@ download_ssurgo_tabular(
 process_ssurgo_data(
   raw_data,                    # Raw SSURGO data from download functions.
   processing_options = list(), # Overrides merged over defaults (see below).
-  validate_results = TRUE,     # Logical. Run Statistics & Diagnostics validation (validation-diagnostics.R) on the output.
+  validate_results = TRUE,     # Logical. Run Statistics & Diagnostics validation (diagnostics.R) on the output.
   max_depth = 250,             # Numeric. Maximum depth (cm) retained.
   verbose = getOption("ssurgo.verbose", FALSE)
 )

@@ -2017,7 +2017,7 @@ create_model_summary <- function(gp_models, processed_nrcs_data) {
 #' Runs `n_folds`-fold cross-validation of [GPfit::GP_fit()] for each supplied
 #' correlation-family candidate, returning the mean held-out RMSE per
 #' candidate. Shared helper used by [optimize_gp_hyperparameters()] and
-#' `perform_gp_cross_validation()` (validation-diagnostics.R) so the
+#' `perform_gp_cross_validation()` (diagnostics.R) so the
 #' fold-splitting logic is not duplicated across files.
 #'
 #' @param X Predictor matrix (one row per observation).

@@ -4,7 +4,7 @@ title: "Statistics & Diagnostics"
 
 ## Overview
 
-This functional group covers two files — `R/statistics.R` and `R/validation-diagnostics.R` — that together provide the package's analytical and quality-assurance layer. `statistics.R` performs statistical characterization of processed SSURGO soil property data: correlation analysis (including compositional/ILR-aware texture correlations), distribution fitting via `fitdistrplus`, outlier detection (univariate IQR/Z-score and multivariate Mahalanobis), and descriptive property statistics with confidence intervals. `validation-diagnostics.R` performs end-to-end quality assurance across the *entire* simulation workflow, not just this group's own output: it checks Monte Carlo convergence and coverage, correlation-structure preservation through the simulation pipeline, Gaussian-process (GP) depth-trend model performance, and soil-science plausibility of final simulated values, then rolls all of that into a single weighted quality score, grade, and optional diagnostic report/plots. In the overall soilSIM pipeline this group sits downstream of data acquisition and processing: it consumes cleaned/infilled SSURGO data for its own statistical analysis, and separately consumes the *outputs* of the Monte Carlo, GP-modeling, and multivariate-adjustment (correlation) groups to validate the workflow as a whole.
+This functional group covers two files — `R/statistics.R` and `R/diagnostics.R` — that together provide the package's analytical and quality-assurance layer. `statistics.R` performs statistical characterization of processed SSURGO soil property data: correlation analysis (including compositional/ILR-aware texture correlations), distribution fitting via `fitdistrplus`, outlier detection (univariate IQR/Z-score and multivariate Mahalanobis), and descriptive property statistics with confidence intervals. `diagnostics.R` performs end-to-end quality assurance across the *entire* simulation workflow, not just this group's own output: it checks Monte Carlo convergence and coverage, correlation-structure preservation through the simulation pipeline, Gaussian-process (GP) depth-trend model performance, and soil-science plausibility of final simulated values, then rolls all of that into a single weighted quality score, grade, and optional diagnostic report/plots. In the overall soilSIM pipeline this group sits downstream of data acquisition and processing: it consumes cleaned/infilled SSURGO data for its own statistical analysis, and separately consumes the *outputs* of the Monte Carlo, GP-modeling, and multivariate-adjustment (correlation) groups to validate the workflow as a whole.
 
 ## Core Functions
 
@@ -128,7 +128,7 @@ The enhanced-chain functions read statistical parameters through the internal he
 
 **Minor exported helpers in `statistics.R`** (each documented above only in brief, or not separately elaborated): `filter_valid_numeric_properties()` (drops properties with no finite values, non-exported), and internal `_safe` counterparts `run_comprehensive_correlation_analysis_safe()`, `analyze_property_distributions_safe()`, `detect_comprehensive_outliers_safe()`, `validate_statistical_results_safe()`, `generate_statistical_quality_report_safe()` (all non-exported; these are the lighter-weight versions actually wired into `analyze_soil_statistics()`). Small numeric utilities `calculate_condition_number()`, `calculate_skewness()`, `calculate_kurtosis()` are also non-exported.
 
-### Workflow Validation & Diagnostics (`validation-diagnostics.R`)
+### Workflow Validation & Diagnostics (`diagnostics.R`)
 
 #### 1. `validate_complete_workflow()` — Master Validation Entry Point
 
@@ -336,9 +336,9 @@ generate_statistical_quality_report()                [exported, standalone]
 └── generate_analysis_recommendations()
 
 
-validation-diagnostics.R
+diagnostics.R
 ========================================================================
-validate_complete_workflow()                          [MASTER — validation-diagnostics.R]
+validate_complete_workflow()                          [MASTER — diagnostics.R]
 ├── initialize_validation_structure()
 ├── extract_and_validate_components()
 │   └── validate_data_quality()                       [utils.R]
@@ -425,7 +425,7 @@ generate_validation_report()                          [standalone]
 **From within soilSIM**:
 - `R/utils.R` (the [Utilities](architecture-utilities.html) module) — the single heaviest dependency for both files: `log_message()`, `handle_workflow_error()`, `setup_logging()`, `get_default_configuration()`, `merge_configurations()`, `validate_parameters()`, `validate_properties()`, `validate_properties_with_synonyms()`, `validate_data_quality()`, `validate_numeric_ranges()`, `handle_missing_values()`, `safe_correlation()`, `detect_outliers()`, `calculate_confidence_intervals()`, `track_progress()`, `get_default_quality_thresholds()`, `get_package_versions()`.
 - `R/core-distributions.R` — `ilr_forward()` (isometric log-ratio transform for compositional texture correlation), `validate_correlation_matrix()` (singular; the real per-matrix check backing `validate_correlation_matrices()`, plural, in `statistics.R`), `quantile_from_fit()` (theoretical quantiles from a fitted distribution, used throughout the Monte Carlo fidelity checks).
-- `R/core-gp.R` — `calculate_model_diagnostics()`, `predict_gp_depth_trends()`, `assess_trend_monotonicity()`, `assess_realistic_values()`, `k_fold_gp_cv()` — all consumed only by `validation-diagnostics.R`'s GP-validation functions.
+- `R/core-gp.R` — `calculate_model_diagnostics()`, `predict_gp_depth_trends()`, `assess_trend_monotonicity()`, `assess_realistic_values()`, `k_fold_gp_cv()` — all consumed only by `diagnostics.R`'s GP-validation functions.
 - `R/core-montecarlo.R` — `generate_simulation_diagnostics()`, called from `validate_monte_carlo_quality()` (argument-count mismatch fixed — see `validate_monte_carlo_quality()` above).
 
 **External packages**:
@@ -433,7 +433,7 @@ generate_validation_report()                          [standalone]
 - `stats` — correlation, `cor()`, `cov()`, `mahalanobis()`, `chol()`, `eigen()`, `quantile()`, `sd()`, `var()`, `shapiro.test()`, `ks.test()`, `qchisq()`, `weighted.mean()`, `complete.cases()`.
 - `Matrix` — `nearPD()`, used to repair a non-positive-definite covariance matrix before Mahalanobis distance computation in `detect_multivariate_outliers()`.
 - `Hmisc` (declared package Import, used indirectly via `utils.R`'s statistical helpers such as `calculate_confidence_intervals()`).
-- `dplyr` / `tidyr` — `dplyr::filter()` (depth/bin subsetting in `validation-diagnostics.R`), `tidyr::pivot_longer()` / `dplyr::everything()` (Monte Carlo diagnostic plot reshaping).
+- `dplyr` / `tidyr` — `dplyr::filter()` (depth/bin subsetting in `diagnostics.R`), `tidyr::pivot_longer()` / `dplyr::everything()` (Monte Carlo diagnostic plot reshaping).
 - `ggplot2`, `corrplot` (Suggests-only) — diagnostic plot rendering in `generate_comprehensive_diagnostics()`; every plot block checks `requireNamespace()` first and degrades to an empty list rather than erroring if unavailable.
 - `rmarkdown`, `tinytex` (Suggests-only) — richer HTML/PDF report rendering in `generate_html_report()`/`generate_pdf_report()`, with a dependency-free fallback in both cases.
 - `grDevices`, `graphics` — PDF/PNG diagnostic plot fallbacks.
