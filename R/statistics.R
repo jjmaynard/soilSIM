@@ -279,7 +279,7 @@ analyze_soil_statistics <- function(processed_data,
   log_message("INFO", paste("Overall quality score:", round(quality_report$overall_quality_score %||% 0.8, 3)), category = "Statistics")
 
   # Return comprehensive results
-  return(list(
+  return(new_soilSIM_statistics(list(
     correlation_matrices = correlation_analysis,
     distribution_analysis = distribution_analysis,
     outlier_analysis = outlier_analysis,
@@ -289,7 +289,7 @@ analyze_soil_statistics <- function(processed_data,
     quality_report = quality_report,
     data_validation = data_validation,
     processed_data = if(config$return_processed_data %||% FALSE) processed_data_clean else NULL
-  ))
+  )))
 }
 
 #' Filter Valid Numeric Properties

@@ -23,7 +23,7 @@ names (e.g. a subset/all of \code{c("sandtotal_r","silttotal_r","claytotal_r")})
 Raw Pearson correlations among compositional (simplex-constrained) parts
 like sand/silt/clay percentages are spuriously negative due to the
 sum-to-100 constraint - \code{ilr_correlations} (isometric log-ratio space, via
-the dependency-free \code{ilr_forward()} in \code{distributions.R}) avoids that
+the dependency-free \code{ilr_forward()} in \code{core-distributions.R}) avoids that
 artifact and is the statistically defensible view for compositional data.
 Both are reported: \code{raw_correlations} for continuity with prior behavior,
 \code{ilr_correlations} as the added analytical value (only computed when all

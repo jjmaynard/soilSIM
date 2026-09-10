@@ -18,5 +18,5 @@ validate_correlation_matrices(matrices, config)
 }
 \description{
 Validates each matrix with the shared \code{validate_correlation_matrix()}
-(\code{distributions.R}).
+(\code{core-distributions.R}).
 }

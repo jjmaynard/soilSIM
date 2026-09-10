@@ -480,7 +480,7 @@ build_stratified_gp_models <- function(processed_nrcs_data,
 
   log_message("INFO", "=== STRATIFIED GP MODEL BUILDING COMPLETE ===", category = "GPModeling")
 
-  return(gp_models)
+  return(new_soilSIM_gp_models(gp_models))
 }
 
 #' Fit Individual GP Model

@@ -26,8 +26,8 @@ that operates on any low/representative/high triplet or prior/likelihood
 pair regardless of where the numbers came from, and a set of
 source-specific \strong{adapters} that acquire, process, and shape a given soil
 data product's output into that generic form. SSURGO
-(\code{ssurgo-acquisition.R}, \code{ssurgo-processing.R}, \code{ssurgo-simulation.R}) and
-SOLUS100 (\code{solus-simulation.R}) are the two adapters shipped today; new
+(\code{adapter-ssurgo-acquire.R}, \code{adapter-ssurgo-process.R}, \code{adapter-ssurgo-simulate.R}) and
+SOLUS100 (\code{adapter-solus.R}) are the two adapters shipped today; new
 data sources are intended to plug in as additional adapters alongside
 them, reusing the same core rather than duplicating it.
 }
@@ -100,7 +100,7 @@ jointly in ILR space.
 
 \section{Multi-source raster fusion pipeline}{
 
-\code{\link[=fuse_property_adaptive]{fuse_property_adaptive()}}/\code{\link[=fuse_texture_group]{fuse_texture_group()}} (in \code{raster-fusion.R})
+\code{\link[=fuse_property_adaptive]{fuse_property_adaptive()}}/\code{\link[=fuse_texture_group]{fuse_texture_group()}} (in \code{core-fusion.R})
 are the generic raster-native fusion core, combining prior and likelihood
 \code{SpatRaster} inputs cell-by-cell over an area of interest; the SSURGO
 adapter (\code{\link[=simulate_ssurgo_mapunit_draws]{simulate_ssurgo_mapunit_draws()}}) supplies the prior side and the

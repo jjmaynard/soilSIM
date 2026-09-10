@@ -384,7 +384,7 @@ generate_monte_carlo_realizations <- function(soil_data,
   log_message("INFO", paste("Success rate:", round(output_validation$success_rate * 100, 1), "%"), category = "MonteCarlo")
   log_message("INFO", paste("Overall quality score:", round(quality_assessment$overall_quality_score, 3)), category = "MonteCarlo")
 
-  return(final_results)
+  return(new_soilSIM_simulation(final_results))
 }
 
 #' Simulate Correlated Properties
