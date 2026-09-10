@@ -5,13 +5,13 @@ title: "Multi-Source Raster Fusion Pipeline"
 ## Overview
 
 This pipeline is soilSIM's core-vs-adapter architecture made concrete. A generic **fusion core**
-(`R/distribution-fitting-raster.R`, `R/raster-fusion.R`, `R/raster-cache.R`) implements
+(`R/core-distributions-raster.R`, `R/core-fusion.R`, `R/cache.R`) implements
 distribution fitting, Bayesian prior/likelihood fusion, and disk caching purely in terms of
 `terra::SpatRaster` percentile-value inputs — it has no knowledge of SSURGO, SOLUS, or any other
 specific data source, and will fuse *any* prior/likelihood `SpatRaster` pair sharing a common
 probability grid. Two **adapters** currently plug into that core over a shared area of interest
-(AOI): `R/ssurgo-simulation.R` supplies the **prior** side (SSURGO map units, Monte Carlo-simulated
-to per-cell percentiles), and `R/solus-simulation.R` supplies the **likelihood** side (SOLUS100's
+(AOI): `R/adapter-ssurgo-simulate.R` supplies the **prior** side (SSURGO map units, Monte Carlo-simulated
+to per-cell percentiles), and `R/adapter-solus.R` supplies the **likelihood** side (SOLUS100's
 own published low/prediction/high percentiles, fetched directly). Neither adapter is special-cased
 by the core: both simply produce a `list(values = <named list of percentile-value SpatRasters>,
 probs = <matching probabilities>)` structure, which is all `fuse_property_adaptive()` requires from
@@ -21,7 +21,7 @@ sources — without any change to the fitting/fusion/caching core itself.
 
 ## Core Functions
 
-### Generic core (distribution-fitting-raster.R, raster-fusion.R, raster-cache.R)
+### Generic core (core-distributions-raster.R, core-fusion.R, cache.R)
 
 #### 1. `fit_normal_raster()` / `quantile_normal_raster()`
 **Purpose**: Fit a Normal distribution's `mu`/`sigma` rasters from three percentile-value rasters
@@ -117,7 +117,7 @@ rasters for `alpha`, `beta`, and `alpha+beta`, forms the 2x2 score vector (`S1`,
 
 #### 5. `fit_metalog_linear_raster()` / `quantile_metalog_linear_raster()`
 **Purpose**: Fit a metalog distribution via an exactly-determined linear solve, vectorized as
-raster arithmetic — the raster counterpart of `R/distributions.R`'s `fit_metalog_linear()`. EXACT
+raster arithmetic — the raster counterpart of `R/core-distributions.R`'s `fit_metalog_linear()`. EXACT
 when feasible (implied density non-negative everywhere); matches `rmetalog::metalog()` to ~1e-12, but reproduces none of `rmetalog`'s LP-based feasibility-correction
 fallback for when it isn't feasible — see `check_metalog_feasibility_raster()` below.
 
@@ -127,7 +127,7 @@ fit_metalog_linear_raster(value_rasters, probs, bounds, boundedness)
 # value_rasters - list of INTERIOR percentile-value rasters (excluding p=0/p=1 if present)
 # probs         - matching interior probabilities
 # bounds        - c(lower, upper); required unless boundedness = "u"
-# boundedness   - one of "u"/"sl"/"su"/"b" (see distributions.R's metalog_to_z())
+# boundedness   - one of "u"/"sl"/"su"/"b" (see core-distributions.R's metalog_to_z())
 
 quantile_metalog_linear_raster(fit, q, bounds, boundedness)
 # fit                  - output of fit_metalog_linear_raster()
@@ -139,7 +139,7 @@ quantile function returns a single `SpatRaster`.
 
 **Behavior**: The number of interior percentiles must equal the number of metalog terms, making the
 fit an exactly-determined linear system rather than an optimization. The fixed, non-spatial
-probability-grid basis matrix `Y` (from `R/distributions.R`'s existing, reused
+probability-grid basis matrix `Y` (from `R/core-distributions.R`'s existing, reused
 `metalog_basis_matrix()`) and its inverse `Y_inv` are computed once in plain R; each percentile
 value raster is transformed to z-space via the existing, reused `metalog_to_z()`; each coefficient
 raster `a[[j]]` is then `Reduce(+, Y_inv[j,i] * z_rasters[[i]])` across `i`. Quantile evaluation
@@ -189,7 +189,7 @@ not just the interior ones used to fit the metalog) where infeasible.
 
 #### 8. `fit_gamma_mom_raster()`
 **Purpose**: Method-of-moments Gamma fit from a list of percentile-value rasters — a thin raster
-wrapper around `R/bayesian-updating.R`'s existing scalar `moments_to_gamma()`.
+wrapper around `R/core-fusion.R`'s existing scalar `moments_to_gamma()`.
 
 **Parameters**:
 ```r
@@ -267,7 +267,7 @@ moment-matches the posterior samples back into the requested family — wrapped 
 aborting the whole raster operation. Above threshold, delegates to the internal
 `fuse_closed_form()`: fits both sides in the requested family (`fit_normal_raster()` for normal,
 `fit_beta_mle_newton_raster()` for beta, `fit_gamma_mom_raster()` for gamma) and fuses via
-`bayesian-updating.R`'s `bayes_update_normal_normal()`/`fuse_beta()`/`fuse_gamma()`; for beta/gamma,
+`core-fusion.R`'s `bayes_update_normal_normal()`/`fuse_beta()`/`fuse_gamma()`; for beta/gamma,
 cells where the native same-family fusion is infeasible fall back per-cell to Normal-moment fusion
 (`bayes_update_normal_normal()` on each side's moment-derived mean/sd), re-expressed back into the
 requested family via `moments_to_beta()`/`moments_to_gamma()`, with `n_fallback_cells` counting how
@@ -302,7 +302,7 @@ is set, else `"normal"` if `abs(skew_proxy) < threshold` (default `0.15`, overri
 #### 12. `fuse_property_adaptive()` — main pipeline entry point
 **Purpose**: Fuse one property's prior and likelihood percentile rasters, dispatching automatically
 to the right distribution family and fusion route from a `property_config` list. This is the
-raster-native counterpart of `bayesian-updating.R`'s `fuse_property()`, the toolkit's top-level
+raster-native counterpart of `core-fusion.R`'s `fuse_property()`, the toolkit's top-level
 entry point for non-compositional properties (see `fuse_texture_group()` for the compositional
 case), and the function every adapter (SSURGO prior + SOLUS likelihood, or any future pair) is
 ultimately built to feed.
@@ -345,7 +345,7 @@ posterior/route/route_detail/n_fallback_cells.
 
 #### 13. `group_members()`
 **Purpose**: Look up a compositional group's member property ids, in configured order, reusing
-soilSIM's own `config$monte_carlo$composition_groups` convention (see `R/distributions.R`'s
+soilSIM's own `config$monte_carlo$composition_groups` convention (see `R/core-distributions.R`'s
 `resolve_composition_groups()`) rather than a separate config schema.
 
 **Parameters**:
@@ -366,7 +366,7 @@ hardcoded to literal clay/sand/silt names).
 (isometric log-ratio) fusion, rather than independently fusing each member with `fuse_beta()` —
 independent fusion measurably breaks sum-to-100 (up to about 10 percentage points on realistic
 synthetic data). The raster counterpart of the scalar `fuse_texture_group_from_triplets()`
-(`bayesian-updating.R`).
+(`core-fusion.R`).
 
 **Parameters**:
 ```r
@@ -382,9 +382,9 @@ ilr_Sigma = <3-layer raster (S11,S12,S22), shared>), dist = "texture_ilr", route
 
 **Behavior**: Requires exactly 3 members (`stopifnot(length(fetched) == 3)` — clay/sand/silt).
 Builds one combined `terra::rast()` stack of every member's prior/likelihood
-low/median/high-percentile layers, then per cell (via `terra::app()`) calls `R/distributions.R`'s
+low/median/high-percentile layers, then per cell (via `terra::app()`) calls `R/core-distributions.R`'s
 `estimate_ilr_moments_mc()` on each side's clay/sand/silt triplet to get `mu`/`Sigma` in
-2-dimensional ILR space, fuses the two sides via `bayesian-updating.R`'s `fuse_bivariate_normal()`,
+2-dimensional ILR space, fuses the two sides via `core-fusion.R`'s `fuse_bivariate_normal()`,
 and returns the fused `mu1`/`mu2`/`S11`/`S12`/`S22` per cell. Afterward, `ilr_inverse()` converts the
 fused `mu1`/`mu2` raster values back to a 3-column point estimate (one column per fraction) for a
 point-estimate output layer per member; the full `ilr_mu`/`ilr_Sigma` rasters are also returned
@@ -416,7 +416,7 @@ shape depends on `dist` — see `fuse_property_adaptive()`.
 `run_stage1_fusion_group()` and slices out this property's own result. Otherwise: builds a cache key
 via `build_cache_key(..., "ssurgo")`, checks `cache_get()`/`unwrap_percentile_list()`, and on a miss
 calls `fetch_ssurgo_percentiles()` and caches the result (`wrap_percentile_list()` first, per
-`raster-cache.R`'s known limitation); repeats the same cache-or-fetch pattern for the SOLUS side
+`cache.R`'s known limitation); repeats the same cache-or-fetch pattern for the SOLUS side
 via `fetch_solus_percentiles()` under kind `"solus"`. Because the SSURGO prior (~30 m, from
 `mukey.wcs()`) and the SOLUS likelihood (100 m) sit on different grids, the prior is
 `terra::resample(..., method = "bilinear")`'d onto the SOLUS grid before fusion, since every fusion
@@ -554,7 +554,7 @@ if stale or missing, otherwise `readRDS()`s (wrapped in `tryCatch`). `cache_set(
 directory if needed and `saveRDS()`s the value (wrapped in `tryCatch`) — see Known Limitations for
 the `SpatRaster` wrap/unwrap caveat that both this function and its callers must handle manually.
 
-### SSURGO adapter (ssurgo-simulation.R)
+### SSURGO adapter (adapter-ssurgo-simulate.R)
 
 #### 19. `fetch_ssurgo_mukey_raster()`
 **Purpose**: Fetch a categorical (factor) raster of SSURGO map unit keys covering an AOI — the
@@ -613,7 +613,7 @@ maybe_adjust_soil_data_depth_trend(sim_long, properties, min_depths = 2)
 
 **Behavior**: Warns and returns `sim_long` unchanged if `GPfit` isn't installed. Otherwise, groups
 by `cokey` and, for each cokey with at least `min_depths` distinct non-`NA` depths, applies
-`R/multivariate-adjustment.R`'s `apply_local_gp_adjustments()` (which fits its own local GP per
+`R/core-gp.R`'s `apply_local_gp_adjustments()` (which fits its own local GP per
 property from that cokey's own within-simulation depth trend — no pre-supplied GP models needed);
 cokeys below the threshold pass through unadjusted.
 
@@ -699,7 +699,7 @@ coordinates as degrees). Checks a `"ssurgo_tabular"`-kind disk cache first, keye
 via `ssurgo_tabular_cache_key()` (depth-independent as of task L1 — `download_ssurgo_tabular()`
 takes no depth-window argument and fetches every horizon for every AOI mukey regardless, so one
 AOI's tabular download is shared across every depth window/call requested for it); on a miss, calls
-`R/ssurgo-acquisition.R`'s `download_ssurgo_tabular()` and unwraps its `$ssurgo_data`, caching that
+`R/adapter-ssurgo-acquire.R`'s `download_ssurgo_tabular()` and unwraps its `$ssurgo_data`, caching that
 data frame directly (no `wrap()` needed — it's tabular, not a raster). Then: `infill_soil_data()`;
 removes organic horizons (`remove_organic_layer()`) if any `hzname` contains `"O"`; derives `genhz`
 via `classify_genhz()`; simulates component composition via `sim_component_comp()` and left-joins
@@ -791,7 +791,7 @@ column via `property_to_sim_column()`, computes `stats::quantile(..., probs = pr
 group, reshapes into a `mukey` + one-column-per-percentile data frame, and rasterizes via
 `rasterize_mukey_percentiles()`.
 
-### SOLUS100 adapter (solus-simulation.R)
+### SOLUS100 adapter (adapter-solus.R)
 
 #### 28. `closest_solus_depth_slice()`
 **Purpose**: Snap a `[top_depth, bottom_depth]` depth window to the nearest native SOLUS depth
@@ -894,12 +894,12 @@ with its own `warning()` naming it. The scalar `fetch_solus_low_pred_high()` /
 `fetch_solus_percentiles()` (#29/#30) are unchanged and remain what single-property
 `run_stage1_fusion()` uses.
 
-### Per-pixel ensemble bridge (raster-fusion-bridge.R)
+### Per-pixel ensemble bridge (core-fusion.R)
 
 Wires the fused posterior back into the modelling framework as a **per-pixel** product, without
 touching either existing pipeline.
 
-#### 31. `extract_mukey_joint_ensemble()` *(ssurgo-simulation.R)*
+#### 31. `extract_mukey_joint_ensemble()` *(adapter-ssurgo-simulate.R)*
 Runs `simulate_ssurgo_mapunit_draws(depth_windows=)` once and returns, per mukey, the retained bag
 of **joint** multivariate realizations as `[n_replicate x n_property]` matrices, one per depth
 window, row-aligned on `(cokey, simulation_number)` so cross-property and cross-window rank
@@ -959,7 +959,7 @@ including valid shallower windows, rather than just that one window's contributi
 single-layer effective-thickness raster is recycled across the multi-layer `fc`/`wp` realization
 stack by `terra`'s own arithmetic recycling, in place of a scalar `thickness` factor.
 
-#### 34b. `fetch_solus_site_level()` / `fetch_solus_restriction_depth()` *(solus-simulation.R)*
+#### 34b. `fetch_solus_site_level()` / `fetch_solus_restriction_depth()` *(adapter-solus.R)*
 **Purpose**: Fetch a SOLUS100 **site-level** (depth-independent) variable - `anylithicdpt`
 (depth to bedrock) / `resdept` (depth to restriction) are the two relevant ones - requested via
 `fetchSOLUS()`'s special `depth_slices = "all"`, and turn it into the censoring-guarded
@@ -987,7 +987,7 @@ petrocalcic, etc. included) - offered as a broader, more conservative (more trun
 non-default alternative.
 
 #### 35. `saxton_rawls_raster()` *(internal)*
-The vectorized `terra`-native counterpart of `calculate_saxton_rawls_single()` (`R/data-infilling.R`)
+The vectorized `terra`-native counterpart of `calculate_saxton_rawls_single()` (`R/adapter-ssurgo-infill.R`)
 - identical equations and clamps (including the `|sand+silt+clay-100| > 5` texture renormalization),
 but every operation is a `terra` `Arith`/`Math`/`clamp`/`ifel`, so it runs on a whole multi-layer
 realization stack in one pass. Returns `list(fc =, wp =)` volumetric % rasters.
@@ -1047,13 +1047,13 @@ pedotransfer-model error.
                     +-----------------------------+-----------------------------+
                     |                                                           |
                     v                                                           v
-   SSURGO adapter (ssurgo-simulation.R)                        SOLUS100 adapter (solus-simulation.R)
+   SSURGO adapter (adapter-ssurgo-simulate.R)                        SOLUS100 adapter (adapter-solus.R)
    fetch_ssurgo_mukey_raster()                                 closest_solus_depth_slice()
      -> soilDB::mukey.wcs() + soilDB::SDA_spatialQuery()        fetch_solus_low_pred_high()
    simulate_ssurgo_mapunit_draws()                                -> soilDB::fetchSOLUS() x3
-     -> download_ssurgo_tabular() [R/ssurgo-acquisition.R, cached]    (low / pred / high)
+     -> download_ssurgo_tabular() [R/adapter-ssurgo-acquire.R, cached]    (low / pred / high)
      -> infill_soil_data() -> classify_genhz()                 fetch_solus_percentiles()
-     -> sim_component_comp() [R/property-simulation.R]            -> list(values=list(P025,P50,P975),
+     -> sim_component_comp() [R/core-simulation.R]            -> list(values=list(P025,P50,P975),
      -> simulate_cokey_generalized() [property-simulation.R]           probs=c(.025,.5,.975))
      -> maybe_adjust_soil_data_depth_trend()
      -> aggregate_depth_window_by_replicate()
@@ -1076,9 +1076,9 @@ pedotransfer-model error.
                              └── dispatch on dist:
                                    ├── normal/beta/gamma -> fuse_adaptive()
                                    │      ├── fuse_closed_form()  (large AOI)
-                                   │      │     uses distribution-fitting-raster.R's
+                                   │      │     uses core-distributions-raster.R's
                                    │      │     fit_normal_raster()/fit_beta_mle_newton_raster()/
-                                   │      │     fit_gamma_mom_raster(), and bayesian-updating.R's
+                                   │      │     fit_gamma_mom_raster(), and core-fusion.R's
                                    │      │     bayes_update_normal_normal()/fuse_beta()/fuse_gamma()
                                    │      └── fuse_general_kde()   (small AOI)
                                    │            uses simulate_from_percentiles()/bayesian_update()
@@ -1097,14 +1097,14 @@ pedotransfer-model error.
   JOINTLY via ILR (estimate_ilr_moments_mc()/fuse_bivariate_normal()/ilr_inverse()) instead of
   three independent fuse_property_adaptive() calls, to preserve sum-to-100.
 
-  raster-cache.R (build_cache_key() / cache_get() / cache_set() / wrap_percentile_list() /
+  cache.R (build_cache_key() / cache_get() / cache_set() / wrap_percentile_list() /
   unwrap_percentile_list()) sits ALONGSIDE both adapters and both top-level orchestrators,
   disk-caching SSURGO tabular data, SSURGO/SOLUS percentile rasters, and texture-group/per-
   property posterior results under tools::R_user_dir("soilSIM", "cache"), keyed by
   AOI + property/group id + depth window + kind.
 
 
-  PER-PIXEL ENSEMBLE BRIDGE (raster-fusion-bridge.R) - optional, purely additive layer on top:
+  PER-PIXEL ENSEMBLE BRIDGE (core-fusion.R) - optional, purely additive layer on top:
 
   extract_mukey_joint_ensemble(aoi, depth_windows)          run_stage1_fusion_multi(aoi, configs,
     -> simulate_ssurgo_mapunit_draws(depth_windows=)          depth_windows)  -- ONE simulation for
@@ -1142,50 +1142,50 @@ pedotransfer-model error.
 - `terra` — used throughout every file in this pipeline (`SpatRaster`/`SpatVector` arithmetic,
   `terra::app()`/`terra::lapp()`/`terra::ifel()`/`terra::rasterize()`/`terra::resample()`/
   `terra::catalyze()`/`terra::wrap()`/`terra::unwrap()`).
-- `soilDB::fetchSOLUS()` — the live network API `solus-simulation.R`'s
+- `soilDB::fetchSOLUS()` — the live network API `adapter-solus.R`'s
   `fetch_solus_low_pred_high()` calls for SOLUS100 low/prediction/high rasters.
 - `soilDB::mukey.wcs()` / `soilDB::SDA_spatialQuery()` — the live network APIs
-  `ssurgo-simulation.R`'s `fetch_ssurgo_mukey_raster()` calls for SSURGO map unit grids/polygons.
-- `digest` — `raster-cache.R`'s `build_cache_key()` hashes the AOI's WKT via `digest::digest()`.
+  `adapter-ssurgo-simulate.R`'s `fetch_ssurgo_mukey_raster()` calls for SSURGO map unit grids/polygons.
+- `digest` — `cache.R`'s `build_cache_key()` hashes the AOI's WKT via `digest::digest()`.
 - `dplyr` — used throughout the SSURGO adapter for grouping/joining/summarizing
   (`dplyr::group_by()`/`left_join()`/`summarise()`/`group_modify()`).
 - `GPfit` (optional) — guarded by `requireNamespace()` in
   `maybe_adjust_soil_data_depth_trend()`; skipped with a warning if unavailable.
 
 **soilSIM dependencies**:
-- `R/distributions.R` — `distribution-fitting-raster.R` directly reuses
+- `R/core-distributions.R` — `core-distributions-raster.R` directly reuses
   `metalog_basis_matrix()`/`metalog_to_z()`/`metalog_from_z()` unchanged, since they're pure
   elementwise arithmetic that already works on `SpatRaster` inputs (confirmed by a dedicated smoke
-  test before this file was written, not merely assumed); `raster-fusion.R`'s `fuse_texture_group()`
+  test before this file was written, not merely assumed); `core-fusion.R`'s `fuse_texture_group()`
   similarly reuses `estimate_ilr_moments_mc()`/`ilr_inverse()` directly, and
   `resolve_composition_groups()`'s composition-group config convention is reused rather than
   duplicated.
-- `R/bayesian-updating.R` — `raster-fusion.R` reuses `bayes_update_normal_normal()`, `fuse_beta()`,
+- `R/core-fusion.R` — `core-fusion.R` reuses `bayes_update_normal_normal()`, `fuse_beta()`,
   `fuse_gamma()`, `moments_to_gamma()`/`moments_to_beta()`/`beta_to_moments()`/`gamma_to_moments()`,
   `normal_to_lognormal_params()`/`lognormal_to_normal_params()`, `bayesian_update()`, and
   `fuse_bivariate_normal()` directly, unmodified — all are pure elementwise arithmetic, so they
   already work unchanged on `SpatRaster` inputs exactly as they do on plain numerics.
-- `R/property-simulation.R` — feeds the SSURGO adapter's Monte Carlo step: `sim_component_comp()`
+- `R/core-simulation.R` — feeds the SSURGO adapter's Monte Carlo step: `sim_component_comp()`
   and `simulate_cokey_generalized()` are called directly from
   `simulate_ssurgo_mapunit_draws()`.
-- `R/ssurgo-acquisition.R` — `download_ssurgo_tabular()` is called by
+- `R/adapter-ssurgo-acquire.R` — `download_ssurgo_tabular()` is called by
   `simulate_ssurgo_mapunit_draws()` for the underlying tabular SSURGO fetch (cached separately from
   the raster-fusion cache's own `"ssurgo"`/`"solus"` kinds, under a `"ssurgo_tabular"` kind, keyed
-  by AOI alone - see `ssurgo_tabular_cache_key()`, `R/raster-cache.R`).
-- `R/data-infilling.R` — `infill_soil_property()` is called by `infill_soil_data()`.
-- `R/kssl-reference-correlations.R` — `.kssl_property_matrices()`/`.kssl_texture_matrices()`
+  by AOI alone - see `ssurgo_tabular_cache_key()`, `R/cache.R`).
+- `R/adapter-ssurgo-infill.R` — `infill_soil_property()` is called by `infill_soil_data()`.
+- `R/core-correlations.R` — `.kssl_property_matrices()`/`.kssl_texture_matrices()`
   (already built into `R/sysdata.rda`) and `classify_genhz()` are called by
   `simulate_ssurgo_mapunit_draws()`.
-- `R/multivariate-adjustment.R` — `apply_local_gp_adjustments()` is called by
+- `R/core-gp.R` — `apply_local_gp_adjustments()` is called by
   `maybe_adjust_soil_data_depth_trend()`.
-- `R/monte-carlo.R` — `simulate_from_percentiles()` is called (per cell, inside `terra::app()`) by
+- `R/core-montecarlo.R` — `simulate_from_percentiles()` is called (per cell, inside `terra::app()`) by
   `fuse_general_kde()`. The per-pixel bridge additionally reuses `fuse_observed_data_into_priors()`'s
   `observed_data_by_mukey=` parameter (the A.1 opt-in) as the sink for `zonal_distribution_from_posterior()`.
-- `R/data-infilling.R` — the per-pixel bridge's `saxton_rawls_raster()` is a `terra`-native port of
+- `R/adapter-ssurgo-infill.R` — the per-pixel bridge's `saxton_rawls_raster()` is a `terra`-native port of
   this file's `calculate_saxton_rawls_single()` (the equations are duplicated, not called, because
   the scalar function's `max()`/`min()`/`if` do not vectorize over a raster stack).
 
-`run_stage1_fusion()`/`run_stage1_fusion_group()` (`R/raster-fusion.R`) are the top-level AOI
+`run_stage1_fusion()`/`run_stage1_fusion_group()` (`R/core-fusion.R`) are the top-level AOI
 orchestrators tying all of the above together — the single entry points a downstream caller
 needs, hiding the fetch/cache/align/fuse sequence behind one call per property (or
 per compositional group) per AOI/depth window.
@@ -1216,13 +1216,13 @@ per compositional group) per AOI/depth window.
 
 ## Known Limitations
 
-1. **`metalog_moments_raster()` is new, less-validated glue code** (`R/raster-fusion.R`). Unlike the
+1. **`metalog_moments_raster()` is new, less-validated glue code** (`R/core-fusion.R`). Unlike the
    rest of this pipeline's math — validated against `fitdistrplus`/closed-form references —
    the mean/variance-via-quadrature computation in `metalog_moments_raster()` is less validated
    and should be spot-checked against real data before being trusted in production.
 
 2. **`SpatRaster`/`SpatVector` objects do not survive a plain `saveRDS()`/`readRDS()` round-trip**
-   (`R/raster-cache.R`). These objects hold an external pointer to in-memory/on-disk GDAL state.
+   (`R/cache.R`). These objects hold an external pointer to in-memory/on-disk GDAL state.
    `cache_get()`/`cache_set()` themselves do not wrap/unwrap automatically, since not every cached
    value is a raster (e.g. Monte Carlo draw data frames aren't). Callers caching raster values must
    call `terra::wrap()` before `cache_set()` and `terra::unwrap()` after `cache_get()` — which is
@@ -1282,7 +1282,7 @@ fused <- fuse_property_adaptive(
 cat("route:", fused$route, "\n")
 plot(fused$posterior$alpha)
 
-# --- Per-pixel joint ensemble + per-pixel AWC (raster-fusion-bridge.R) ---
+# --- Per-pixel joint ensemble + per-pixel AWC (core-fusion.R) ---
 windows <- list(c(0, 5), c(5, 15), c(15, 30))
 
 # 1. one joint SSURGO Monte Carlo, retained per mukey, aligned across windows

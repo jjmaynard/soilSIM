@@ -2,7 +2,7 @@
 #' @description Static, pre-computed, genetic-horizon-keyed (O/A/E/B/C/Cr,
 #'   plus R for the texture matrix) correlation matrices fit once from KSSL
 #'   lab data.
-#'   These functions let `monte-carlo.R`'s correlation-structure estimation
+#'   These functions let `core-montecarlo.R`'s correlation-structure estimation
 #'   optionally fall back to this reference data (via
 #'   `config$monte_carlo$correlation_fallback = "kssl_global"`) instead of a
 #'   plain identity matrix when there isn't enough SSURGO data to estimate
@@ -48,10 +48,10 @@ NULL
 #' simulated `soc` *values* as genuine SOC-scale estimates, not raw OM.
 #'
 #' `ilr1`/`ilr2` map directly (same names) - valid only because
-#' `monte-carlo.R`'s `composition_groups$texture$members` default is
+#' `core-montecarlo.R`'s `composition_groups$texture$members` default is
 #' `(sandtotal, silttotal, claytotal)`, matching the sequential binary
 #' partition `compositions::ilr()` uses to build the KSSL matrix (sand vs
-#' silt+clay, then silt vs clay). See `distributions.R`'s ILR section
+#' silt+clay, then silt vs clay). See `core-distributions.R`'s ILR section
 #' header for the positional-role convention this depends on.
 #'
 #' `caco3`/`ec`/`ecec`/`gypsum`/`sar` -> themselves: these 5 chemistry

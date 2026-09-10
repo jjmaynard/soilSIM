@@ -1,11 +1,11 @@
 #' @title Disk Cache for Raster Fusion Fetch Results
 #'
 #' @description `build_cache_key()`/`cache_get()`/`cache_set()`/`CACHE_TTL_SECONDS` are called by
-#'   `run_stage1_fusion()`/`run_stage1_fusion_group()` (`R/raster-fusion.R`) and
-#'   `simulate_ssurgo_mapunit_draws()` (`R/ssurgo-simulation.R`).
+#'   `run_stage1_fusion()`/`run_stage1_fusion_group()` (`R/core-fusion.R`) and
+#'   `simulate_ssurgo_mapunit_draws()` (`R/adapter-ssurgo-simulate.R`).
 #'
 #'   The implementation adapts the disk-RDS cache pattern from
-#'   `R/ssurgo-acquisition.R`'s `generate_ssurgo_cache_key()`/`check_ssurgo_cache()`/
+#'   `R/adapter-ssurgo-acquire.R`'s `generate_ssurgo_cache_key()`/`check_ssurgo_cache()`/
 #'   `cache_ssurgo_data()` (`digest`-based keying, age/TTL invalidation via file mtime) -
 #'   generalized here to the AOI/property-id/depth/kind shape the raster fusion code expects.
 #'
@@ -61,7 +61,7 @@ mukey_grid_cache_key <- function(aoi_vect) {
 
 #' Build a cache key for one AOI's raw SSURGO tabular download (depth-independent)
 #'
-#' `download_ssurgo_tabular()` (`R/ssurgo-acquisition.R`) takes no depth-window argument at all -
+#' `download_ssurgo_tabular()` (`R/adapter-ssurgo-acquire.R`) takes no depth-window argument at all -
 #' it fetches every horizon for every AOI mukey; depth filtering happens later, per call, in
 #' `aggregate_depth_window_by_replicate()`. The downloaded tabular data therefore depends only on
 #' the AOI (and the fixed default `properties` list every call site uses - never varied), not on

@@ -15,7 +15,7 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height
 
 This vignette is the clearest example of soilSIM's core architecture: a generic, data-source-agnostic
 raster fusion **core** (`fuse_property_adaptive()`, built on the same Bayesian-updating primitives
-as the scalar `bayesian-updating.R` toolkit) combined with two concrete data-source **adapters** -
+as the scalar `core-fusion.R` toolkit) combined with two concrete data-source **adapters** -
 SSURGO (supplying the prior) and SOLUS100 (supplying the likelihood) - over a shared, real area of
 interest (AOI). The architecture is designed so future data sources (e.g. HWSD, SoilGrids) could
 plug in as new adapters supplying either side, without changing the fusion core. See
@@ -279,10 +279,10 @@ per-fraction uncertainty, not as a second composition that should also sum to 10
 
 ## Under the hood: scalar Bayesian updating
 
-Both fusion routes above ultimately reduce to elementwise arithmetic on `bayesian-updating.R`'s
+Both fusion routes above ultimately reduce to elementwise arithmetic on `core-fusion.R`'s
 scalar fusion functions (`bayes_update_normal_normal()`, `fuse_beta()`/`fuse_gamma()`,
 `bayesian_update()`'s general grid-KDE fusion) - they already work unchanged on `SpatRaster` inputs
-via `terra`'s operator overloading, so the raster-native code in `raster-fusion.R` reuses them
+via `terra`'s operator overloading, so the raster-native code in `core-fusion.R` reuses them
 directly rather than reimplementing the same math per-cell. See
 the "Bayesian Updating" architecture article for these building blocks used directly on scalar
 prior/likelihood pairs, independent of any raster or AOI.
@@ -295,4 +295,4 @@ which calls `run_stage1_fusion()`/`run_stage1_fusion_group()` live against NRCS 
 (SSURGO) and `soilDB::fetchSOLUS()` (SOLUS100) for the AOI above. Re-run that script to refresh it.
 Producing this vignette's data surfaced and fixed a real caching bug in
 `run_stage1_fusion_group()` (it wasn't wrapping/unwrapping `SpatRaster`s around its disk cache,
-silently corrupting the cached texture-group result on a second read) - fixed in `R/raster-fusion.R`.
+silently corrupting the cached texture-group result on a second read) - fixed in `R/core-fusion.R`.

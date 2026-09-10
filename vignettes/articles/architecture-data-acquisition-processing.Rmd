@@ -4,7 +4,7 @@ title: "Data Acquisition & Processing"
 
 ## Overview
 
-This functional group is soilSIM's SSURGO data-source adapter. It is the entry point of the entire soilSIM pipeline: it acquires raw tabular soil survey data from USDA-NRCS's Soil Data Access (SDA) service for a user-specified area of interest, cleans and standardizes that data (parsing malformed strings, removing statistical/physical outliers, aggregating rock-fragment fractions, flagging unsuitable horizons), and then infills missing low/representative/high ("triplet") property values using a hierarchy of pedologically-informed recovery strategies (horizon-name matching, depth-weighted averaging, within- and cross-component interpolation, related-property estimation, and pedotransfer functions such as Saxton-Rawls). The three files covered here - `ssurgo-acquisition.R`, `ssurgo-processing.R`, and `data-infilling.R` - together turn a WKT polygon and a list of property names into a complete, gap-free horizon/component data set with `_l`/`_r`/`_h` triplet columns, ready to be handed to the [Statistics & Diagnostics](architecture-statistics-diagnostics.html) module and the [Monte Carlo Simulation](architecture-monte-carlo-simulation.html) core.
+This functional group is soilSIM's SSURGO data-source adapter. It is the entry point of the entire soilSIM pipeline: it acquires raw tabular soil survey data from USDA-NRCS's Soil Data Access (SDA) service for a user-specified area of interest, cleans and standardizes that data (parsing malformed strings, removing statistical/physical outliers, aggregating rock-fragment fractions, flagging unsuitable horizons), and then infills missing low/representative/high ("triplet") property values using a hierarchy of pedologically-informed recovery strategies (horizon-name matching, depth-weighted averaging, within- and cross-component interpolation, related-property estimation, and pedotransfer functions such as Saxton-Rawls). The three files covered here - `adapter-ssurgo-acquire.R`, `adapter-ssurgo-process.R`, and `adapter-ssurgo-infill.R` - together turn a WKT polygon and a list of property names into a complete, gap-free horizon/component data set with `_l`/`_r`/`_h` triplet columns, ready to be handed to the [Statistics & Diagnostics](architecture-statistics-diagnostics.html) module and the [Monte Carlo Simulation](architecture-monte-carlo-simulation.html) core.
 
 ## Core Functions
 
@@ -82,7 +82,7 @@ download_ssurgo_tabular(
 
 **Algorithm**: Checks which representative-value (`_r`) property columns are actually present and flags rows missing any of them (`missing_required_properties`); computes an effective restriction top depth (`dplyr::coalesce(resdept_l, resdept_r)`) and whether the horizon lies at/below it; pattern-matches `reskind` against bedrock/pan/cemented keywords combined with the missing-properties and below-restriction flags (`has_reskind_restriction`); flags cemented/indurated texture (`is_cemented`); pattern-matches `hzname`/`desgnmaster` for restriction-suggestive designations (`Cr`/`Cd`/`Cx`, "R" master, fragipan/duripan/etc., or an `m`-suffix) and for organic horizons (`organic_horizon`); flags cemented/indurated/bedrock texture class or in-lieu-texture (`texture_suggests_restriction`); ORs the restriction indicators into `is_potentially_restrictive`. Finally calls `is_unsuitable(ssurgo_data, hzname_col = "hzname")` inside a `tryCatch`, falling back to a simplified regex + organic/restrictive-flag combination if that call errors.
 
-## Utility Functions (ssurgo-acquisition.R)
+## Utility Functions (adapter-ssurgo-acquire.R)
 
 - **`validate_download_inputs_ssurgo(aoi_wkt, properties, include_restrictions = TRUE, strict_geometry = TRUE, max_area_deg2 = 100)`** - SSURGO-specific input validator; runs `validate_parameters()` for basic type/range checks, then `validate_wkt_geometry()` (bounds `[-180,180] x [-90,90]`, area limits, vertex/part complexity limits) and `validate_properties_with_synonyms(property_lookup = "ssurgo")`, merging errors/warnings into one result with `valid`, `errors`, `warnings`, `corrected_parameters`, and `validation_metadata`.
 - **`validate_download_inputs_ssurgo_with_config(aoi_wkt, properties, include_restrictions = TRUE, config_file = NULL, log_validation = TRUE)`** - config-file-aware wrapper around the same geometry/property validation logic, loading defaults via `load_configuration()`/`get_default_configuration("validation")` and optionally generating a report via `generate_validation_report_ssurgo()`.
@@ -180,7 +180,7 @@ process_horizon_data_working_compatible(
 
 **Algorithm**: Coalesces each of the four candidate signals to `NA_real_` if unavailable (validation score weight 0.40, retention 0.25, horizon completeness 0.25, component retention 0.10), takes the weighted mean over only the non-`NA` signals (renormalizing the weights actually used), and maps the resulting score to a letter grade via fixed thresholds (>=0.9 Excellent, >=0.8 Good, >=0.7 Acceptable, >=0.6 Needs Improvement, else Poor).
 
-## Utility Functions (ssurgo-processing.R)
+## Utility Functions (adapter-ssurgo-process.R)
 
 - **`identify_soil_property_columns_working(df)`** - returns the base names (e.g. `"sandtotal"`) of columns in `df` ending in `_r` that match a fixed list of 13 known SSURGO properties.
 - **`calculate_property_completeness_working(df)`** - fraction of non-`NA` `_r` values per identified property.
@@ -261,7 +261,7 @@ infill_water_retention_saxton_rawls_integrated(
 
 **Algorithm**: Requires all four texture/bulk-density columns to be present (returns `df` unchanged with a warning log otherwise). Computes/reuses `unsuitable_horizon`, builds a suitable+in-depth processing mask, and (unless `overwrite`) restricts to rows where the target `_r` value is still missing. Row by row, calls `calculate_saxton_rawls_single()` with the row's texture/bulk-density/RFV(default 0)/OM(default 2%) values and writes back `field_capacity`/`wilting_point` (and their `_l`/`_h` spreads if `add_ranges`), annotating `infill_method`.
 
-## Utility Functions (data-infilling.R)
+## Utility Functions (adapter-ssurgo-infill.R)
 
 - **`clean_property_data()`** - see entry 11. `infill_soil_property()` calls it with the default `outlier_policy = "soil_aware"`; the same call `process_ssurgo_data()` now makes.
 - **`get_default_property_config(property_name)`** - returns a built-in config (`type`, `units`, `typical_range`, `fallback_range`, and property-specific flags like `clay_dependent`/`horizon_effects`/`related_properties`) for texture, bulk density, water retention, RFV, CEC, pH, and organic-matter/carbon properties, or a generic fallback.

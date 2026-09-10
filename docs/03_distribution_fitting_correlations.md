@@ -1,11 +1,11 @@
 # Distribution Fitting & Correlation Matrices
 
 ## Overview
-This functional group is soilSIM's generic, **data-source-agnostic statistical core**. Nothing in `R/distributions.R`, `R/percentile-sampling.R`, or `R/kssl-reference-correlations.R` knows or cares whether a low/representative/high (or arbitrary-count) percentile triplet came from SSURGO, SOLUS, a KSSL lab table, or a fused/Bayesian-updated posterior - these files take plain numeric percentile values and physical bounds as input and hand back fitted-distribution objects, quantile functions, ILR-transformed compositional coordinates, and repaired positive-definite correlation matrices. Because of that neutrality, this group is consumed directly by every downstream simulation/fusion function in the package (`statistics.R`, `monte-carlo.R`, `bayesian-updating.R`, `gp-modeling.R`, `raster-fusion.R`, `depth-simulation.R`) regardless of where the percentile data originated. It is the single place where the package's core probability-distribution math and compositional-data math live, so it is validated once (against `fitdistrplus`, `rmetalog`, and `compositions` reference implementations, per the file-header provenance notes) and reused everywhere rather than re-derived per data source.
+This functional group is soilSIM's generic, **data-source-agnostic statistical core**. Nothing in `R/core-distributions.R`, `R/core-distributions.R`, or `R/core-correlations.R` knows or cares whether a low/representative/high (or arbitrary-count) percentile triplet came from SSURGO, SOLUS, a KSSL lab table, or a fused/Bayesian-updated posterior - these files take plain numeric percentile values and physical bounds as input and hand back fitted-distribution objects, quantile functions, ILR-transformed compositional coordinates, and repaired positive-definite correlation matrices. Because of that neutrality, this group is consumed directly by every downstream simulation/fusion function in the package (`statistics.R`, `core-montecarlo.R`, `core-fusion.R`, `core-gp.R`, `core-fusion.R`, `core-simulation.R`) regardless of where the percentile data originated. It is the single place where the package's core probability-distribution math and compositional-data math live, so it is validated once (against `fitdistrplus`, `rmetalog`, and `compositions` reference implementations, per the file-header provenance notes) and reused everywhere rather than re-derived per data source.
 
 ## Core Functions
 
-### A. Percentile-Triplet Distribution Fitting (`distributions.R`, section 1)
+### A. Percentile-Triplet Distribution Fitting (`core-distributions.R`, section 1)
 
 #### 1. **`fit_normal_triplet()` / `quantile_normal()`** - Exact closed-form Normal fit
 **Purpose**: Fit/evaluate a Normal distribution from a low/median/high percentile triplet.
@@ -45,7 +45,7 @@ tri_dist(n = 1, a = 0, b = 1, c = (a + b) / 2)
 ```
 **Parameters**: `fit` - `list(min=, mode=, max=)`; `q` - probabilities; `n` - sample count (or a vector whose length is used); `a`/`b`/`c` - min/max/mode.
 **Returns**: `quantile_triangular()` - numeric vector (falls back to a constant-`mode` vector when `max <= min` or non-finite); `tri_dist()` - numeric vector of length `n`, or all-`NaN` for a degenerate/invalid triangle.
-**Algorithm**: `quantile_triangular()` is the standard closed-form triangular inverse-CDF split at the mode fraction `fc = (mode-min)/(max-min)`. `tri_dist()` is a separately-maintained random-draw implementation kept distinct from `quantile_triangular()` specifically to preserve its own edge-case contract: it errors on invalid `n` but returns `NaN` (not an error) when `a > c`, `b < c`, or any parameter is infinite/`NA`. Used by `R/depth-simulation.R`'s profile-depth simulators.
+**Algorithm**: `quantile_triangular()` is the standard closed-form triangular inverse-CDF split at the mode fraction `fc = (mode-min)/(max-min)`. `tri_dist()` is a separately-maintained random-draw implementation kept distinct from `quantile_triangular()` specifically to preserve its own edge-case contract: it errors on invalid `n` but returns `NaN` (not an error) when `a > c`, `b < c`, or any parameter is infinite/`NA`. Used by `R/core-simulation.R`'s profile-depth simulators.
 
 #### 5. **Metalog fitting: `fit_metalog_linear()` / `quantile_metalog_linear()` / `check_metalog_feasible()` / `quantile_metalog_with_fallback()`**
 **Purpose**: A dependency-free (no `rmetalog`) closed-form metalog distribution fitter, used when the number of interior percentiles equals the number of desired metalog terms.
@@ -68,7 +68,7 @@ quantile_metalog_with_fallback(fit, infeasible, full_probs, full_values, q)
 **Algorithm**: Computes a skew proxy `((h-r) - (r-l)) / (h-l)` (asymmetry of the high-side vs. low-side spread around the representative value). If `bounds` is supplied, always resolves to `"beta"`; otherwise `"normal"` if the skew proxy is finite and within `skew_threshold` of zero, else `"lognormal"`. Deliberately never resolves to `"metalog"` - that stays an explicit, opted-in config choice.
 
 #### 7. **`fit_percentile_triplet()`** - MASTER percentile-triplet dispatcher
-**Purpose**: The single entry point `monte-carlo.R`'s `extract_property_parameters()` calls to turn a SSURGO-style `_l/_r/_h` triplet into a family-appropriate fit.
+**Purpose**: The single entry point `core-montecarlo.R`'s `extract_property_parameters()` calls to turn a SSURGO-style `_l/_r/_h` triplet into a family-appropriate fit.
 **Signature**:
 ```r
 fit_percentile_triplet(l, r, h, family,
@@ -93,9 +93,9 @@ fit_percentile_triplet(l, r, h, family,
 **Returns**: `list(valid=, message=)`.
 **Algorithm**: `family`-specific structural/numeric checks: `triangular`/`uniform` require finite `min <= max` and (if present) `mode` inside `[min, max]`; `normal`/`lognormal` require finite `mean`/`sd` with `sd >= 0`; `beta` requires positive finite `shape1`/`shape2` and `lower < upper`; `metalog` checks only structural completeness (`a`, `term`, `bounds`, `boundedness`, `infeasible`, `fallback_probs`, `fallback_values` all present) - deliberately NOT gated on `!fit$infeasible`, since an infeasible metalog fit still produces correct output via the automatic `linear_cdf` fallback, so flagging it invalid would cause callers to discard a usable fit in favor of a cruder guess; `linear_cdf` requires >= 2 matching `probs`/`values`.
 
-### B. ILR (Isometric Log-Ratio) Compositional Transforms (`distributions.R`, section 2)
+### B. ILR (Isometric Log-Ratio) Compositional Transforms (`core-distributions.R`, section 2)
 
-These formulas match `compositions::ilr()` exactly and round-trip to ~1e-14. The balance hierarchy (position 1 vs. {2,3}, then 2 vs. 3) is fixed by these formulas; the `clay`/`sand`/`silt` parameter and output names are **positional-role placeholders** (position 1/2/3 of the sequential binary partition), not an identity requirement - callers (via `monte-carlo.R`'s `composition_groups$texture$members`) determine which real property occupies which position.
+These formulas match `compositions::ilr()` exactly and round-trip to ~1e-14. The balance hierarchy (position 1 vs. {2,3}, then 2 vs. 3) is fixed by these formulas; the `clay`/`sand`/`silt` parameter and output names are **positional-role placeholders** (position 1/2/3 of the sequential binary partition), not an identity requirement - callers (via `core-montecarlo.R`'s `composition_groups$texture$members`) determine which real property occupies which position.
 
 #### 10. **`ilr_forward()` / `ilr_inverse()`** - Forward/inverse ILR transform
 **Signatures**:
@@ -125,8 +125,8 @@ estimate_ilr_moments_mc(low_clay, rep_clay, high_clay,
 **Returns**: An `n x 3` matrix (`clay`, `sand`, `silt`).
 **Algorithm**: Cholesky-factors `Sigma`, draws `n` standard bivariate Normal vectors, transforms them by the Cholesky factor and shifts by `mu`, then maps every draw back to composition space via `ilr_inverse()` - guaranteed to sum to `total` and stay in `[0, total]` for every draw by construction.
 
-#### 13. **Composition-group orchestration: `resolve_composition_groups()` / `restore_composition_properties()`** (`distributions.R`, section 4)
-**Purpose**: Let `monte-carlo.R`'s generic Cholesky-copula simulation engine treat a 3-part composition (e.g. sand/silt/clay) as two ordinary simulated pseudo-properties (`ilr1`/`ilr2`) instead of needing bespoke compositional logic in the simulation core.
+#### 13. **Composition-group orchestration: `resolve_composition_groups()` / `restore_composition_properties()`** (`core-distributions.R`, section 4)
+**Purpose**: Let `core-montecarlo.R`'s generic Cholesky-copula simulation engine treat a 3-part composition (e.g. sand/silt/clay) as two ordinary simulated pseudo-properties (`ilr1`/`ilr2`) instead of needing bespoke compositional logic in the simulation core.
 **Signatures**:
 ```r
 resolve_composition_groups(properties, config)
@@ -136,7 +136,7 @@ restore_composition_properties(simulation_results, sim_properties, properties, g
 **Returns**: `resolve_composition_groups()` returns `list(sim_properties=, groups=)` (`groups` is a named list of `list(members=, pseudo=, active=)`); `restore_composition_properties()` returns an array dimnamed over the original `properties`.
 **Algorithm**: `resolve_composition_groups()` checks, per configured group, whether ALL of its `members` are present in `properties`; if so it splices in the group's `pseudo` names (`ilr1`/`ilr2`) at the position of the first member and marks the group `active = TRUE`; if only some members are present, the group is left inactive and a `log_message("WARN", ...)` is emitted (those properties then simulate independently). `restore_composition_properties()` reverses this: passthrough (non-group) properties are copied straight through; for each active group, `ilr_inverse()` is applied per horizon (vectorized over realizations) and the resulting `clay`/`sand`/`silt` columns are written into `group$members[1]`/`[2]`/`[3]` **by position**, not by name matching - the `members` declaration is what fixes which real property occupies each ILR position.
 
-### C. Correlation-Matrix Estimation & Repair (`distributions.R`, section 3)
+### C. Correlation-Matrix Estimation & Repair (`core-distributions.R`, section 3)
 
 #### 14. **`ensure_positive_definite_matrix()`** - Eigenvalue-floor PD repair
 **Signature**: `ensure_positive_definite_matrix(matrix, min_eigenvalue = 1e-6)`
@@ -163,9 +163,9 @@ estimate_correlation_matrix_robust(data, group_var = NULL, min_group_n = 5,
 **Returns**: `list(matrix=, method=, n_obs=)`. `method` is one of `"empirical_grouped"`, `"kssl_fallback_grouped"`, `"empirical_grouped_kssl_blended"`, `"empirical_pooled"`, or `global_fallback_method`'s value.
 **Algorithm**: An internal `repair_and_symmetrize()` closure forces symmetry (`(m + t(m))/2`) and, if `chol()` fails (not PD), repairs via `Matrix::nearPD(m, corr = TRUE)$mat`. An internal `compute_one()` closure computes `Hmisc::rcorr(..., type = "pearson")$r` on complete-observation rows if there are more than `min_group_n` of them, discarding the result on any `NA`/non-finite value or `rcorr()` failure. If `group_var` is supplied: for each group, tries `compute_one()`; on failure, falls back to the matching entry in `group_fallback_matrices` (repaired/reordered to the data's columns) if present; groups with neither are dropped. All surviving groups (empirical and/or substituted) are combined into one matrix via an `n_obs`-weighted average, repaired again, and `method` is set to `"empirical_grouped"` (all empirical), `"kssl_fallback_grouped"` (all substituted), or `"empirical_grouped_kssl_blended"` (mixed). If no groups qualify (or `group_var` wasn't supplied), falls back to `compute_one()` on the pooled data (`method = "empirical_pooled"`). If that also fails, returns `global_fallback` with `method = global_fallback_method`.
 
-### D. Arbitrary-Percentile-Count Sampling (`percentile-sampling.R`)
+### D. Arbitrary-Percentile-Count Sampling (`core-distributions.R`)
 
-This file consolidates several "simulate a distribution from summary percentiles" approaches behind one dispatcher, generalizing `distributions.R`'s fixed 3-point (`fit_percentile_triplet()`) machinery to an arbitrary number of known percentiles (e.g. P0/P5/P50/P95/P100, or any other set). `method = "metalog"` is deliberately not offered here (it would require the `rmetalog` package, which the project avoids per validated hang/segfault history) - `distributions.R`'s own dependency-free `fit_metalog_linear()` covers that need instead.
+This file consolidates several "simulate a distribution from summary percentiles" approaches behind one dispatcher, generalizing `core-distributions.R`'s fixed 3-point (`fit_percentile_triplet()`) machinery to an arbitrary number of known percentiles (e.g. P0/P5/P50/P95/P100, or any other set). `method = "metalog"` is deliberately not offered here (it would require the `rmetalog` package, which the project avoids per validated hang/segfault history) - `core-distributions.R`'s own dependency-free `fit_metalog_linear()` covers that need instead.
 
 #### 17. **`simulate_from_percentiles()`** - MASTER percentile-reconstruction dispatcher
 **Signature**:
@@ -207,9 +207,9 @@ simulate_from_percentiles(quantile_df,
 **Returns**: A data frame, one row per method, with mean Kolmogorov-Smirnov statistic and mean absolute relative mean/SD error across replicates.
 **Algorithm**: Per replicate, draws `n_true` ground-truth samples, computes the "known" percentiles from them, reconstructs `n_sim` samples per method via `simulate_from_percentiles()`, and scores each reconstruction against the true draws (`stats::ks.test()`, relative mean/SD error); scores are averaged across `n_reps` replicates and sorted by KS statistic. Used to empirically justify which method to prefer for a given data shape.
 
-### E. KSSL Reference Correlations (`kssl-reference-correlations.R`)
+### E. KSSL Reference Correlations (`core-correlations.R`)
 
-Static, pre-computed, genetic-horizon-keyed (O/A/E/B/C/Cr, plus R for the texture matrix) correlation matrices fit once from KSSL lab data, stored internally as package sysdata. These let `monte-carlo.R`'s correlation-structure estimation optionally fall back to real lab-derived correlations (`config$monte_carlo$correlation_fallback = "kssl_global"`) instead of a plain identity matrix when there isn't enough SSURGO data to estimate correlations empirically.
+Static, pre-computed, genetic-horizon-keyed (O/A/E/B/C/Cr, plus R for the texture matrix) correlation matrices fit once from KSSL lab data, stored internally as package sysdata. These let `core-montecarlo.R`'s correlation-structure estimation optionally fall back to real lab-derived correlations (`config$monte_carlo$correlation_fallback = "kssl_global"`) instead of a plain identity matrix when there isn't enough SSURGO data to estimate correlations empirically.
 
 #### 22. **`classify_genhz()`** - Horizon name to master-horizon classifier
 **Signature**: `classify_genhz(hzname)`
@@ -241,7 +241,7 @@ correlations up automatically, no code changes needed anywhere that calls it.
 ## Internal Connections
 
 ```
-distributions.R
+core-distributions.R
 ├── fit_percentile_triplet() [MASTER FITTER]
 │   ├── resolve_property_family()               (family = "auto")
 │   ├── fit_normal_triplet()                    (normal / lognormal)
@@ -285,7 +285,7 @@ distributions.R
     └── does NOT call ensure_positive_definite_matrix() - it uses its own
         chol()/nearPD()-based repair path instead
 
-percentile-sampling.R
+core-distributions.R
 ├── simulate_from_percentiles() [MASTER DISPATCH]
 │   ├── extract_percentile_pairs()  [internal, shared front end]
 │   ├── sim_linear_cdf()   [internal]
@@ -300,12 +300,12 @@ percentile-sampling.R
 ├── calculate_summary_statistics()  [standalone]
 └── validate_percentile_methods_synthetic() --> simulate_from_percentiles() (per method, per replicate)
 
-kssl-reference-correlations.R
+core-correlations.R
 ├── classify_genhz()  [standalone]
 └── build_kssl_fallback_matrix() [MASTER]
     ├── .kssl_property_matrices()      [internal accessor, this file]
     ├── .kssl_property_name_map        [internal lookup vector, this file]
-    └── ensure_positive_definite_matrix()  [CROSS-FILE call into distributions.R]
+    └── ensure_positive_definite_matrix()  [CROSS-FILE call into core-distributions.R]
 ```
 
 ## Pipeline (representative call path through this functional group)
@@ -318,7 +318,7 @@ Raw percentile input
 +-------------------------------+       +--------------------------------------+
 | fit_percentile_triplet()      |  OR   | simulate_from_percentiles()          |
 | (fixed 3-point: l/r/h)        |       | (arbitrary percentile count)         |
-| distributions.R               |       | percentile-sampling.R                |
+| core-distributions.R               |       | core-distributions.R                |
 +-------------------------------+       +--------------------------------------+
         |                                          |
         v                                          v
@@ -368,7 +368,7 @@ Meanwhile, in parallel: correlation structure needed by the Cholesky-copula step
 
 ### 1. Percentile-triplet fitting feeding Monte Carlo simulation
 ```r
-# monte-carlo.R's extract_property_parameters() calls the master fitter,
+# core-montecarlo.R's extract_property_parameters() calls the master fitter,
 # then quantile_from_fit() turns correlated uniform draws into simulated values
 triplet_fit <- fit_percentile_triplet(l, r, h, family = "auto", bounds = bounds)
 simulated_values <- quantile_from_fit(correlated_uniforms, triplet_fit$family, triplet_fit$fit)
@@ -386,7 +386,7 @@ composition <- sample_ilr_posterior(ilr_moments$mu, ilr_moments$Sigma, n = 1000)
 
 ### 3. Correlation-matrix estimation with a KSSL lab-data fallback
 ```r
-# monte-carlo.R builds group_fallback_matrices from KSSL data before calling
+# core-montecarlo.R builds group_fallback_matrices from KSSL data before calling
 # the robust estimator, so sparse SSURGO groups borrow real lab correlations
 # instead of an uninformative identity matrix
 kssl_fallbacks <- setNames(
@@ -412,19 +412,19 @@ final_matrix <- ensure_positive_definite_matrix(candidate_matrix, min_eigenvalue
 
 ### External package dependencies
 - **`stats`** - `qnorm()`, `qbeta()`, `qunif()`, `rnorm()`, `runif()`, `cov()`, `approxfun()`, `splinefun()`, `density()`, `ks.test()`, `quantile()`, `sd()`, `mad()`, `var()`, `aggregate()` - the base probability/statistics machinery nearly every function in this group is built on.
-- **`fitdistrplus`** - `fitdist()`, used by `percentile-sampling.R`'s `sim_beta()` for a general MLE Beta fit (loaded lazily via `requireNamespace()`; not used by `distributions.R`'s own closed-form Beta fitter, which needs no external package).
+- **`fitdistrplus`** - `fitdist()`, used by `core-distributions.R`'s `sim_beta()` for a general MLE Beta fit (loaded lazily via `requireNamespace()`; not used by `core-distributions.R`'s own closed-form Beta fitter, which needs no external package).
 - **`Matrix`** - `nearPD()`, used inside `estimate_correlation_matrix_robust()`'s repair closure as the fallback when `chol()` reports a candidate correlation matrix is not positive definite.
 - **`Hmisc`** - `rcorr()`, used inside `estimate_correlation_matrix_robust()` to compute empirical Pearson correlations per group/pooled dataset.
-- **`truncnorm`** - `rtruncnorm()`, used by `percentile-sampling.R`'s `sim_kde()` (loaded lazily via `requireNamespace()`) to seed the KDE reconstruction.
+- **`truncnorm`** - `rtruncnorm()`, used by `core-distributions.R`'s `sim_kde()` (loaded lazily via `requireNamespace()`) to seed the KDE reconstruction.
 
 ### Consumers within soilSIM (this group is upstream of essentially everything)
-- **`monte-carlo.R`** - the primary consumer: `fit_percentile_triplet()`/`quantile_from_fit()` drive its Cholesky-copula property simulation; `resolve_composition_groups()`/`restore_composition_properties()`/`ilr_inverse()` handle texture composition groups; `estimate_correlation_matrix_robust()`/`build_kssl_fallback_matrix()` supply its correlation structure.
+- **`core-montecarlo.R`** - the primary consumer: `fit_percentile_triplet()`/`quantile_from_fit()` drive its Cholesky-copula property simulation; `resolve_composition_groups()`/`restore_composition_properties()`/`ilr_inverse()` handle texture composition groups; `estimate_correlation_matrix_robust()`/`build_kssl_fallback_matrix()` supply its correlation structure.
 - **`statistics.R`** - shares `ensure_positive_definite_matrix()` and (per the file header) other matrix/fit utilities for its own summary-statistics and correlation work.
-- **`bayesian-updating.R`** - uses the ILR transform pieces (`ilr_forward()`/`ilr_inverse()`/`sample_ilr_posterior()`) for compositional posterior updates.
-- **`gp-modeling.R`** - consumes fitted-distribution/quantile machinery for Gaussian-process-based property prediction workflows.
-- **`raster-fusion.R`** - fuses percentile rasters from multiple sources, relying on this group's percentile-triplet/quantile-function machinery at the per-cell level.
-- **`depth-simulation.R`** - uses `tri_dist()` directly for profile-depth simulation.
-- **`distribution-fitting-raster.R`** - the `terra::SpatRaster`-native sibling implementation of this file's closed-form fitters.
+- **`core-fusion.R`** - uses the ILR transform pieces (`ilr_forward()`/`ilr_inverse()`/`sample_ilr_posterior()`) for compositional posterior updates.
+- **`core-gp.R`** - consumes fitted-distribution/quantile machinery for Gaussian-process-based property prediction workflows.
+- **`core-fusion.R`** - fuses percentile rasters from multiple sources, relying on this group's percentile-triplet/quantile-function machinery at the per-cell level.
+- **`core-simulation.R`** - uses `tri_dist()` directly for profile-depth simulation.
+- **`core-distributions-raster.R`** - the `terra::SpatRaster`-native sibling implementation of this file's closed-form fitters.
 
 ## Data Flow In/Out
 

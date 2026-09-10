@@ -15,14 +15,14 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height
 
 The other vignettes in this package (`getting-started-monte-carlo.Rmd`, `raster-fusion-ssurgo-solus.Rmd`)
 walk through top-level *pipeline* functions end to end. This vignette instead zooms in on a single
-thematic group of low-level, pure-math functions - `R/bayesian-updating.R` - and works through each one
+thematic group of low-level, pure-math functions - `R/core-fusion.R` - and works through each one
 individually: what it computes, what each parameter controls, and how varying that parameter changes the
 result. It is the finer-grained, "read the primitives" companion to `raster-fusion-ssurgo-solus.Rmd`,
 which exercises this exact math implicitly (raster-native, cell by cell) inside its fusion pipeline but
 never isolates it. See the "Bayesian Updating" architecture article for the full function-level reference this
 vignette is based on.
 
-`bayesian-updating.R` fuses a **prior** belief about a soil property (e.g. an SSURGO-derived estimate)
+`core-fusion.R` fuses a **prior** belief about a soil property (e.g. an SSURGO-derived estimate)
 with a **likelihood** - newly observed data (e.g. lab or field measurements) - into a **posterior**
 belief that combines both, weighted by how confident (precise) each side is. All examples below use
 small, clearly-labeled synthetic prior/likelihood values - no network access or real SSURGO/SOLUS data
@@ -58,7 +58,7 @@ represents a more confident belief.
 - `lik_mu`, `lik_sigma` - the likelihood's mean and standard deviation, in the same units.
 
 All four arguments are plain numeric scalars or equal-length vectors (the function is fully vectorized,
-which is what lets `raster-fusion.R` reuse it unchanged across every cell of a `SpatRaster`).
+which is what lets `core-fusion.R` reuse it unchanged across every cell of a `SpatRaster`).
 
 ### A worked example
 
@@ -414,7 +414,7 @@ that sums to 100 by construction.
 
 A small, illustrative example directly in ILR-coordinate space (not full clay/sand/silt triplets - that
 full workflow is `fuse_texture_group_from_triplets()`, which wraps this function together with
-`distributions.R`'s `estimate_ilr_moments_mc()`/`sample_ilr_posterior()`; see
+`core-distributions.R`'s `estimate_ilr_moments_mc()`/`sample_ilr_posterior()`; see
 the "Bayesian Updating" architecture article for that whole chain). Here we fuse two independent bivariate
 Normal beliefs about a 2D ILR coordinate pair directly:
 
@@ -531,9 +531,9 @@ fuse_property(prior_clay, lik_clay, family = "normal", method = "general")
 
 ## Where this fits in soilSIM
 
-`bayesian-updating.R` is a standalone toolkit, intentionally not called anywhere in `monte-carlo.R` -
+`core-fusion.R` is a standalone toolkit, intentionally not called anywhere in `core-montecarlo.R` -
 these are independently-tested building blocks for a future "update an SSURGO-derived prior against
-observed/field data" feature. `R/raster-fusion.R` is the one place these exact functions are already
+observed/field data" feature. `R/core-fusion.R` is the one place these exact functions are already
 assembled into a complete pipeline, applying them unchanged to `SpatRaster` cell values (via `terra`'s
 operator overloading) rather than plain scalars/vectors - see `raster-fusion-ssurgo-solus.Rmd` for that
 pipeline in action, and the "Bayesian Updating" architecture article /

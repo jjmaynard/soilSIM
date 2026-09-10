@@ -1,7 +1,7 @@
 #' @title Raster SOLUS Percentile Likelihood
 #'
 #' @description The SOLUS100 half of the raster fusion prior/likelihood pipeline (see
-#'   `R/raster-fusion.R`): fetches SOLUS100 low/prediction/high rasters via
+#'   `R/core-fusion.R`): fetches SOLUS100 low/prediction/high rasters via
 #'   `soilDB::fetchSOLUS()` for a requested depth window, in the `list(values=, probs=)` shape
 #'   `fuse_property_adaptive()` expects.
 #'
@@ -165,7 +165,7 @@ fetch_solus_low_pred_high <- function(aoi_vect, solus_variable, top_depth, botto
 
 #' Fetch SOLUS100 Percentile-Value Rasters for an AOI
 #'
-#' The top-level SOLUS "likelihood" entry point for `R/raster-fusion.R`'s
+#' The top-level SOLUS "likelihood" entry point for `R/core-fusion.R`'s
 #' `fuse_property_adaptive()`.
 #'
 #' @param aoi_vect A `terra::SpatVector` AOI.

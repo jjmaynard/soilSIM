@@ -233,7 +233,7 @@ test_that("end-to-end ILR texture simulation: every realization sums to 100 and 
 test_that("REGRESSION: composition_groups$texture$members role order is an internal reparameterization - simulated clay/sand/silt marginals are statistically invariant to the old (clay,sand,silt) order vs the new default (sand,silt,clay)", {
   # The default role order changed (to align soilSIM's ILR convention with
   # the optional KSSL reference-correlation fallback's convention - see
-  # kssl-reference-correlations.R). ilr_forward()/ilr_inverse() themselves
+  # core-correlations.R). ilr_forward()/ilr_inverse() themselves
   # were NOT touched - only which real property occupies position 1/2/3.
   # This locks in the claim (made in get_monte_carlo_defaults()'s doc
   # comment) that simulated clay/sand/silt output is statistically

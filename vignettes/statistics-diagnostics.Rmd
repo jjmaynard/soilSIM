@@ -35,7 +35,7 @@ Because this vignette is about statistical *behavior* rather than any particular
 uses small, synthetic soil-property data built with a **known** correlation structure and a handful
 of **known** outliers, so the effect of each parameter can be isolated from real-data messiness. None
 of the numbers below describe an actual soil - see "The synthetic dataset" for exactly how it was
-built. (soilSIM's percentile-triplet distribution-fitting *core*, `R/distributions.R`, is covered in a
+built. (soilSIM's percentile-triplet distribution-fitting *core*, `R/core-distributions.R`, is covered in a
 sibling vignette; this one stays focused on how the statistics layer *uses* distribution fitting.)
 
 ```{r setup}
@@ -352,7 +352,7 @@ dist_result$summary
 
 This is distinct from the *statistics-layer* usage above only in scope - the underlying
 percentile-triplet distribution-fitting machinery that turns each SSURGO horizon's low/representative/
-high values into a single fitted distribution for Monte Carlo simulation lives in `R/distributions.R`
+high values into a single fitted distribution for Monte Carlo simulation lives in `R/core-distributions.R`
 and is covered in its own sibling vignette.
 
 ## 4. Outlier detection
@@ -488,7 +488,7 @@ bad_check$warnings
 
 `validate_statistical_results()` takes the outputs assembled in the sections above and rolls them into
 one validity assessment - real per-matrix checks for correlation (via `validate_correlation_matrix()`
-in `R/distributions.R`), plus a validation score penalizing errors and warnings:
+in `R/core-distributions.R`), plus a validation score penalizing errors and warnings:
 
 ```{r}
 validation_result <- validate_statistical_results(

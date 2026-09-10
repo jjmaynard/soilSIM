@@ -1,20 +1,20 @@
 #' @title Raster SSURGO Percentile Prior: Mukey Lookup and Monte Carlo Draws
 #'
 #' @description The SSURGO half of the raster fusion prior/likelihood pipeline (see
-#'   `R/raster-fusion.R`): given a `terra::SpatVector` AOI, rasterizes SSURGO map units,
+#'   `R/core-fusion.R`): given a `terra::SpatVector` AOI, rasterizes SSURGO map units,
 #'   Monte Carlo-simulates per-component soil properties (via
-#'   `sim_component_comp()`/`simulate_cokey_generalized()` in `R/property-simulation.R`),
+#'   `sim_component_comp()`/`simulate_cokey_generalized()` in `R/core-simulation.R`),
 #'   aggregates to a requested depth window, and rasterizes per-mukey percentiles for
 #'   `fuse_property_adaptive()` to consume.
 #'
-#'   Uses `R/kssl-reference-correlations.R`'s
+#'   Uses `R/core-correlations.R`'s
 #'   `.kssl_property_matrices()`/`.kssl_texture_matrices()` genhz-keyed correlation matrices
 #'   directly as `simulate_cokey_generalized()`'s `correlation_matrices`/
 #'   `txt_correlation_matrices` arguments (these back `R/sysdata.rda`, built once via
 #'   `data-raw/build_kssl_reference_correlations.R`), and `classify_genhz()` for the
 #'   generalized-horizon assignment.
 #'
-#'   `download_ssurgo_tabular()`'s (`R/ssurgo-acquisition.R`) default `properties` and always-included
+#'   `download_ssurgo_tabular()`'s (`R/adapter-ssurgo-acquire.R`) default `properties` and always-included
 #'   base columns (`comppct_l/r/h`, all `_l/_r/_h` horizon triplets) already match
 #'   `sim_component_comp()`/`simulate_cokey_generalized()`'s expected SSURGO-stem input vocabulary
 #'   directly - the only translation table genuinely needed is `property_to_sim_column()`, mapping
@@ -26,7 +26,7 @@ NULL
 #' Fetch a Raster of SSURGO Map Unit Keys for an AOI
 #'
 #' @param aoi_vect A `terra::SpatVector` (projected, e.g. EPSG:5070) - the AOI footprint itself,
-#'   not widened to its bounding box (unlike `R/ssurgo-acquisition.R`'s
+#'   not widened to its bounding box (unlike `R/adapter-ssurgo-acquire.R`'s
 #'   `process_aoi_and_get_mukeys_working()`, which bbox-widens for its tabular by-mukey-list
 #'   query - `soilDB::mukey.wcs()` bbox-clips internally regardless of input polygon shape, so
 #'   both resolve to the same extent; passing the footprint here avoids widening the *cached*
@@ -38,7 +38,7 @@ NULL
 #' `soilDB::mukey.wcs()` returns a raster whose cell values are the mukey codes
 #' (`unique(values(res))`), so no separate polygon fetch/rasterize step is needed - the
 #' function issues exactly one network call per cache miss. The result is disk-cached
-#' (`raster-cache.R`, kind `"mukey_grid"`, depth-agnostic key via `mukey_grid_cache_key()`) so
+#' (`cache.R`, kind `"mukey_grid"`, depth-agnostic key via `mukey_grid_cache_key()`) so
 #' repeated calls for the same AOI across separate top-level user calls hit zero network calls.
 #' @export
 fetch_ssurgo_mukey_raster <- function(aoi_vect) {
@@ -109,7 +109,7 @@ adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths, con
 
 #' Depth-Trend GP Adjustment, Guarded by `GPfit` Availability
 #'
-#' Applies `apply_local_gp_adjustments()` (`R/multivariate-adjustment.R` - fits its own local GP
+#' Applies `apply_local_gp_adjustments()` (`R/core-gp.R` - fits its own local GP
 #' per property from each cokey's own within-simulation depth trend, no pre-supplied GP models
 #' needed) per cokey, when `GPfit` is installed and a cokey has enough distinct depths. Cokeys
 #' with fewer than `min_depths` distinct depths pass through unadjusted.
@@ -126,7 +126,7 @@ adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths, con
 #' @param parallel Logical; if `TRUE`, process cokeys across multiple `future::multisession`
 #'   worker processes (default `FALSE`, sequential). Falls back
 #'   to sequential processing if the parallel setup itself errors. See `run_parallel_lapply()`
-#'   (`R/parallel-utils.R`).
+#'   (`R/parallel.R`).
 #' @param n_cores Number of worker processes to use when `parallel = TRUE` (default
 #'   `max(1, parallel::detectCores() - 1)`).
 #' @param config Optional Monte Carlo config, passed through to
@@ -244,7 +244,7 @@ property_to_sim_column <- function(property_id) {
     silt = "silt_total", silttotal = "silt_total", silt_total = "silt_total",
     rock_fragments = "rfv", rfv = "rfv", fragvol = "rfv",  # `fragvol` = fetchSOLUS()'s rock-fragment id
     # Water retention: simulate_cokey_generalized() already emits `wr_3b`/`wr_15b`
-    # (`.kssl_property_name_map` in R/kssl-reference-correlations.R maps wthirdbar/wfifteenbar to
+    # (`.kssl_property_name_map` in R/core-correlations.R maps wthirdbar/wfifteenbar to
     # them) and SSURGO_SIM_PROPERTY_COLUMNS lists them, but this id->column map was missing the
     # entries - added so run_stage1_fusion()/percentiles_from_draws() can produce water-retention
     # posteriors (needed by remarginalized_awc()).
@@ -287,7 +287,7 @@ property_to_sim_column <- function(property_id) {
 normalize_requested_properties <- function(requested_properties) {
   if (is.null(requested_properties)) return(NULL)
 
-  # Must match simulate_cokey_generalized()'s own param_order exactly (R/property-simulation.R).
+  # Must match simulate_cokey_generalized()'s own param_order exactly (R/core-simulation.R).
   param_order <- c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc",
                    "caco3", "ec", "ecec", "gypsum", "sar")
   texture_sentinel <- c("ilr1", "ilr2")
@@ -393,7 +393,7 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
     req_props <- NULL
   }
 
-  # download_ssurgo_tabular()/process_aoi_and_get_mukeys_working() (R/ssurgo-acquisition.R)
+  # download_ssurgo_tabular()/process_aoi_and_get_mukeys_working() (R/adapter-ssurgo-acquire.R)
   # always assume their aoi_wkt argument is lon/lat EPSG:4326 (hardcoded there), regardless of
   # aoi_vect's actual CRS - extracting WKT directly from an already-projected aoi_vect (e.g.
   # EPSG:5070, as this pipeline's other functions expect) would silently mislabel projected
@@ -445,7 +445,7 @@ simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_m
   )
 
   # Extend each genhz's raw 9x9 KSSL matrix to cover the full param_order vocabulary (14 names as
-  # matching simulate_cokey_generalized()'s param_order, R/property-simulation.R) via
+  # matching simulate_cokey_generalized()'s param_order, R/core-simulation.R) via
   # build_kssl_fallback_matrix() - the 5 chemistry properties have no KSSL-fit entry, so this
   # overlays the real 9x9 submatrix unchanged and adds them as identity (uncorrelated). Built
   # once here (not per-cokey/per-row) since it's deterministic given genhz alone; when real KSSL
@@ -585,7 +585,7 @@ percentiles_from_draws <- function(mukey_raster, draws, property_id,
 #'
 #' The raw-draws analogue of \code{\link{percentiles_from_draws}}: groups `draws` by `mukey` the
 #' same way, but keeps each mukey's full vector of simulated values instead of collapsing it to a
-#' handful of quantiles. This is what lets raster-fusion routes (`R/raster-fusion.R`'s
+#' handful of quantiles. This is what lets raster-fusion routes (`R/core-fusion.R`'s
 #' `fuse_general_kde()`/`fuse_texture_group_batch_core()`, once they opt into
 #' `prior_fusion_method = "raw_draws"`) fuse directly against the real empirical distribution
 #' computed once per unique mukey, rather than resampling a lower-fidelity reconstruction from
@@ -651,7 +651,7 @@ mukey_texture_draws_lookup <- function(draws) {
 #' \code{\link{simulate_ssurgo_mapunit_draws}} and returns, per mukey, the **retained bag of joint
 #' realizations** - every simulated property together, row-aligned across depth windows, so the
 #' KSSL cross-property and cross-depth rank structure is preserved. This is the input to
-#' `remarginalize_ensemble_to_posterior()` (`R/raster-fusion-bridge.R`), which transforms each
+#' `remarginalize_ensemble_to_posterior()` (`R/core-fusion.R`), which transforms each
 #' pixel's marginals to a fused posterior while keeping this ensemble's empirical copula.
 #'
 #' Replicates are aligned across windows on `(cokey, simulation_number)`; a replicate that has no
@@ -757,7 +757,7 @@ extract_mukey_joint_ensemble <- function(aoi_vect, depth_windows, n_mc = 1000,
 
 #' Fetch SSURGO Percentile-Value Rasters for an AOI
 #'
-#' The top-level SSURGO "prior" entry point for `R/raster-fusion.R`'s `fuse_property_adaptive()`:
+#' The top-level SSURGO "prior" entry point for `R/core-fusion.R`'s `fuse_property_adaptive()`:
 #' rasterizes map units, Monte Carlo-simulates the requested property, and returns per-cell
 #' percentile-value rasters in the `list(values=, probs=)` shape `fuse_property_adaptive()` expects.
 #'

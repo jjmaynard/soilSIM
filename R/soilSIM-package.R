@@ -19,8 +19,8 @@
 #' pair regardless of where the numbers came from, and a set of
 #' source-specific **adapters** that acquire, process, and shape a given soil
 #' data product's output into that generic form. SSURGO
-#' (`ssurgo-acquisition.R`, `ssurgo-processing.R`, `ssurgo-simulation.R`) and
-#' SOLUS100 (`solus-simulation.R`) are the two adapters shipped today; new
+#' (`adapter-ssurgo-acquire.R`, `adapter-ssurgo-process.R`, `adapter-ssurgo-simulate.R`) and
+#' SOLUS100 (`adapter-solus.R`) are the two adapters shipped today; new
 #' data sources are intended to plug in as additional adapters alongside
 #' them, reusing the same core rather than duplicating it.
 #'
@@ -75,7 +75,7 @@
 #' jointly in ILR space.
 #'
 #' @section Multi-source raster fusion pipeline:
-#' [fuse_property_adaptive()]/[fuse_texture_group()] (in `raster-fusion.R`)
+#' [fuse_property_adaptive()]/[fuse_texture_group()] (in `core-fusion.R`)
 #' are the generic raster-native fusion core, combining prior and likelihood
 #' `SpatRaster` inputs cell-by-cell over an area of interest; the SSURGO
 #' adapter ([simulate_ssurgo_mapunit_draws()]) supplies the prior side and the
@@ -148,17 +148,17 @@ utils::globalVariables(c(
   "simulation_number", "soil_group", "taxclname", "taxgrtgroup", "taxorder",
   "taxpartsize", "taxsuborder", "test_group", "texcl", "texture_suggests_restriction",
   "total_obs", "unsuitable_horizon", "value",
-  # R/depth-simulation.R (SSURGO horizon-depth simulation)
+  # R/core-simulation.R (SSURGO horizon-depth simulation)
   "mukey", "id", "hzname", "sim_comppct", "hzdept_l", "hzdept_h", "hzdepb_l",
   "hzdepb_h", "hzthk_l", "rfv_l", "rfv_r", "rfv_h", "genhz", "distinctness",
   "bound_sd", "top", "bottom", "thickness_sd", "Thickness",
-  # R/depth-simulation.R::attach_osd_boundary_distinctness() (
+  # R/core-simulation.R::attach_osd_boundary_distinctness() (
   # Phase 9 case-insensitive join fix) - a dplyr::mutate()-created NSE column, not a real global.
   "compname_upper",
-  # R/aws-simulation.R (van Genuchten / ROSETTA-based AWS modeling)
+  # R/model-aws.R (van Genuchten / ROSETTA-based AWS modeling)
   "alpha", "n", "theta_r", "theta_s", "contributing_fraction", "variable",
-  # R/property-simulation.R (component-composition / correlated-triangular simulation)
+  # R/core-simulation.R (component-composition / correlated-triangular simulation)
   "Depth", "comppct_l", "comppct_h",
-  # R/ssurgo-processing.R::hz_quant_prob_mukey()
+  # R/adapter-ssurgo-process.R::hz_quant_prob_mukey()
   "sand", "silt", "clay", "prob", "txt_class"
 ))

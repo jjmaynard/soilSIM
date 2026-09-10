@@ -492,7 +492,7 @@ clean_property_data_ssurgo_compatible <- function(df, property_name,
 #
 # String parsing, type conversion, and range limiting are handled by
 # advanced_string_parser_vectorized(), vectorized_type_conversion(), and
-# apply_basic_range_limits() in data-infilling.R, which this file calls directly.
+# apply_basic_range_limits() in adapter-ssurgo-infill.R, which this file calls directly.
 
 #' Identify Soil Property Columns
 #'

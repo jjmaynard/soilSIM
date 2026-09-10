@@ -108,7 +108,7 @@ make_soil_data_hzname_only <- function(n_horizons = 12,
 }
 
 #' Build a synthetic multi-horizon data frame with hzdept/hzdepb l/r/h depth
-#' triplets, for `R/depth-simulation.R`'s plain-data-frame functions
+#' triplets, for `R/core-simulation.R`'s plain-data-frame functions
 #' (`simulate_soil_profile_top_down()`/`_bottom_up()`/`_thickness()`,
 #' `infill_missing_depth_variability()`).
 #'
@@ -124,7 +124,7 @@ make_depth_horizon_data <- function(cokey = "1", mukey = "1", compname = "testse
 }
 
 #' Build a synthetic `aqp::SoilProfileCollection` for
-#' `R/depth-simulation.R`'s SoilProfileCollection-level functions
+#' `R/core-simulation.R`'s SoilProfileCollection-level functions
 #' (`simulate_and_perturb_soil_profiles()` and friends).
 #'
 #' Adds a constant `sim_comppct` column since `simulate_and_perturb_soil_profiles()`
@@ -144,7 +144,7 @@ make_soil_profile_collection <- function(sim_comppct = 5) {
 
 #' Build a synthetic data frame shaped exactly like
 #' `soilDB::ROSETTA(..., include.sd = TRUE)`'s output (plus a caller-added
-#' `layerID`), for offline `simulate_vg_aws()` testing (`R/aws-simulation.R`).
+#' `layerID`), for offline `simulate_vg_aws()` testing (`R/model-aws.R`).
 #' `alpha`/`npar` are in log10 space, matching `simulate_vg_aws()`'s
 #' `10^(...)` back-transform.
 make_rosetta_shaped_data <- function() {
@@ -164,7 +164,7 @@ make_rosetta_shaped_data <- function() {
 #' variable names (`sand_total`/`silt_total`/`clay_total`/
 #' `bulk_density_third_bar`/`water_retention_third_bar`/
 #' `water_retention_15_bar`) plus `compname`/`hzdept_r`/`hzdepb_r`/`cokey`,
-#' for the live `calculate_aws_df()` test (`R/aws-simulation.R`).
+#' for the live `calculate_aws_df()` test (`R/model-aws.R`).
 make_aws_texture_data <- function() {
   data.frame(
     cokey = c("1", "1"), compname = c("testseries", "testseries"),
@@ -178,12 +178,12 @@ make_aws_texture_data <- function() {
 }
 
 #' Build a small synthetic percentile-value `terra::SpatRaster` stack, for
-#' `R/distribution-fitting-raster.R`/`R/raster-fusion.R` tests (the first
+#' `R/core-distributions-raster.R`/`R/core-fusion.R` tests (the first
 #' `SpatRaster`-native code in soilSIM - no prior fixture pattern to reuse).
 #'
 #' Every layer is spatially constant (same value in every cell) by default,
 #' so results can be cross-checked cell-by-cell against the equivalent
-#' scalar functions in `R/distributions.R`/`R/bayesian-updating.R`.
+#' scalar functions in `R/core-distributions.R`/`R/core-fusion.R`.
 #'
 #' @param values_by_prob Named numeric vector, e.g. `c(P5 = 2, P50 = 10, P95 = 18)`.
 #' @param nrow,ncol Raster dimensions (small - these are cheap correctness
@@ -198,7 +198,7 @@ make_percentile_rasters <- function(values_by_prob, nrow = 2, ncol = 2) {
 }
 
 #' Build synthetic component-level data for `sim_component_comp()` testing
-#' (`R/property-simulation.R`) - `mukey`/`cokey`/`compname`/`comppct_l/r/h`,
+#' (`R/core-simulation.R`) - `mukey`/`cokey`/`compname`/`comppct_l/r/h`,
 #' one row per component.
 make_component_data <- function() {
   data.frame(
@@ -209,7 +209,7 @@ make_component_data <- function() {
 }
 
 #' Build synthetic data for `recover_missing_horizon_components()`/
-#' `synthesize_component_horizons_from_siblings()` testing (`R/ssurgo-acquisition.R`).
+#' `synthesize_component_horizons_from_siblings()` testing (`R/adapter-ssurgo-acquire.R`).
 #'
 #' `ssurgo_data`: two sibling cokeys ("10","11") sharing `compname = "compA"`, each with an A and
 #' a Bt horizon (deliberately different exact depths/values so averaging is verifiable), plus one
@@ -260,7 +260,7 @@ make_component_recovery_fixture <- function() {
 }
 
 #' Build a genhz-keyed list of small, positive-definite correlation matrices
-#' for `simulate_cokey_generalized()` testing (`R/property-simulation.R`),
+#' for `simulate_cokey_generalized()` testing (`R/core-simulation.R`),
 #' covering `db`/`ph` plus the `ilr1`/`ilr2` texture pseudo-properties (present
 #' so the same fixture works whether or not the texture path is exercised -
 #' `simulate_cokey_generalized()` only subsets the columns it actually needs).
@@ -274,7 +274,7 @@ make_property_correlation_matrices <- function(genhz = c("A", "B")) {
 }
 
 #' Build a genhz-keyed list of 3x3 sand/silt/clay correlation matrices for
-#' `simulate_cokey_generalized()`'s texture step (`R/property-simulation.R`).
+#' `simulate_cokey_generalized()`'s texture step (`R/core-simulation.R`).
 make_texture_correlation_matrices <- function(genhz = c("A", "B")) {
   m <- matrix(c(1, -0.4, -0.4, -0.4, 1, -0.3, -0.4, -0.3, 1), nrow = 3)
   stats::setNames(lapply(genhz, function(g) m), genhz)

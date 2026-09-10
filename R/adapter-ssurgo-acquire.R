@@ -544,7 +544,7 @@ fetch_ssurgo_all_components_working <- function(mukey_list, verbose = FALSE) {
 #' averaging entirely rather than guessed at - verified before choosing this: no depth-or-property-
 #' based genhz fallback exists anywhere in soilSIM. `classify_genhz()` is the package's single
 #' hzname-to-generalized-horizon mapper (used here, in the SSURGO simulation path, and in the
-#' OSD boundary-distinctness lookup in `R/depth-simulation.R`).
+#' OSD boundary-distinctness lookup in `R/core-simulation.R`).
 #'
 #' @section Averaging rule per genhz group:
 #' \itemize{
@@ -699,7 +699,7 @@ recover_missing_horizon_components <- function(ssurgo_data, all_components, verb
     if ("chkey" %in% names(ssurgo_data)) ssurgo_data$chkey <- as.character(ssurgo_data$chkey)
     ssurgo_data <- dplyr::bind_rows(ssurgo_data, dplyr::bind_rows(synthesized_list))
     # bind_rows() fills structurally-absent columns with NA, not the real rows' correct defaults -
-    # backfill explicitly so ensure_infilling_columns() (R/data-infilling.R) never sees NA here.
+    # backfill explicitly so ensure_infilling_columns() (R/adapter-ssurgo-infill.R) never sees NA here.
     if (!"infill_method" %in% names(ssurgo_data)) ssurgo_data$infill_method <- ""
     ssurgo_data$infill_method[is.na(ssurgo_data$infill_method)] <- ""
     if (!"component_synthesized" %in% names(ssurgo_data)) ssurgo_data$component_synthesized <- FALSE

@@ -4,23 +4,23 @@
 
 This functional group covers two source files that together simulate the
 compositional and morphological variability of SSURGO soil components and
-profiles. `R/property-simulation.R` simulates component-composition
+profiles. `R/core-simulation.R` simulates component-composition
 percentages (`sim_component_comp()`) and per-cokey correlated soil
 properties - including compositional sand/silt/clay texture via the
 package's ILR core - from low/representative/high (`_l/_r/_h`) triplets
 (`simulate_cokey_generalized()`, built on `simulate_correlated_triangular()`).
-`R/depth-simulation.R` simulates horizon depths, horizon-thickness
+`R/core-simulation.R` simulates horizon depths, horizon-thickness
 variability, and boundary distinctness for whole `aqp::SoilProfileCollection`
 profiles, using OSD (Official Series Description) data to inform boundary
 perturbation, with sequential, parallel (`future`/`future.apply`), and
-by-mukey orchestration entry points. `property-simulation.R` also holds two
+by-mukey orchestration entry points. `core-simulation.R` also holds two
 smaller standalone horizon-data helpers, `remove_organic_layer()` and
 `slice_and_aggregate_soil_data()`, which are not tied to the
 compositional-simulation machinery.
 
 ## Core Functions
 
-### property-simulation.R
+### core-simulation.R
 
 #### `remove_organic_layer(df)`
 
@@ -154,7 +154,7 @@ compositional-simulation machinery.
   `message()` rather than aborting the whole call. Results across rows are
   `rbind()`-ed into the final data frame.
 
-### depth-simulation.R
+### core-simulation.R
 
 #### `get_aws_data_by_mukey(mukeys)`
 
@@ -169,7 +169,7 @@ compositional-simulation machinery.
   results are grouped by `chkey` and `rfv_l`/`rfv_r`/`rfv_h` are summed
   (`na.rm = TRUE`) before being re-merged onto the main result and
   deduplicated. Deliberately does *not* reuse
-  `execute_ssurgo_query_working()` (`R/ssurgo-acquisition.R`): that function
+  `execute_ssurgo_query_working()` (`R/adapter-ssurgo-acquire.R`): that function
   only selects `chf.fragsize_r`, never `chf.fragvol_l/r/h`, so its rock
   fragment path produces no data - delegating to it here would silently
   drop rock fragment volume.
@@ -218,7 +218,7 @@ compositional-simulation machinery.
   of the requested case - a real bug (found via real-AOI validation, not
   synthetic test fixtures) where a naive exact-case join against
   `hz_data$compname` silently produced all-`NA` `bound_sd` for every row.
-  Wired into `simulate_ssurgo_mapunit_draws()` (`ssurgo-simulation.R`)
+  Wired into `simulate_ssurgo_mapunit_draws()` (`adapter-ssurgo-simulate.R`)
   immediately after `classify_genhz()`; unconditional, so `bound_sd` (all-`NA`
   or resolved) is always present in that pipeline's output regardless of
   whether the joint-copula method's discontinuity gating is actually enabled
@@ -403,13 +403,13 @@ compositional-simulation machinery.
 ## Internal Connections
 
 ```
-property-simulation.R
+core-simulation.R
 ======================
-tri_dist() [R/distributions.R]
+tri_dist() [R/core-distributions.R]
     │
     ├──► sim_component_comp() ──► one row per cokey, + sim_comppct
     │
-    └──► simulate_correlated_triangular() ◄── ilr_forward()/ilr_inverse() [R/distributions.R]
+    └──► simulate_correlated_triangular() ◄── ilr_forward()/ilr_inverse() [R/core-distributions.R]
                   │                                (texture only)
                   ▼
          simulate_cokey_generalized() ──► one row per horizon x realization,
@@ -432,7 +432,7 @@ calculate_mode() ─────────────────────
                   │
                   ▼
 
-depth-simulation.R
+core-simulation.R
 ======================
 get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
                   │
@@ -479,7 +479,7 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
   (`aqp::depths<-`, `aqp::horizons()`, `aqp::hzdesgnname<-`,
   `aqp::generalizeHz()`, `aqp::hzDistinctnessCodeToOffset()`,
   `aqp::perturb()`, `aqp::combine()`, `aqp::profile_id<-`) - used throughout
-  `depth-simulation.R` only; `property-simulation.R` has no `aqp` dependency.
+  `core-simulation.R` only; `core-simulation.R` has no `aqp` dependency.
 - **`soilDB`** - `soilDB::SDA_query()` (`get_aws_data_by_mukey()`) and
   `soilDB::fetchOSD()` (`query_osd_distinctness()`) for live SSURGO/OSD
   database access.
@@ -488,33 +488,33 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
   (`future::plan(future::multisession)`, `future.apply::future_lapply()`).
 - **`dplyr`** - data manipulation throughout both files (`group_by`,
   `mutate`, `left_join`, `select`, `summarise`, `rowwise`, etc.).
-- **`R/distributions.R`** (soilSIM internal) - `tri_dist()` (used by both
+- **`R/core-distributions.R`** (soilSIM internal) - `tri_dist()` (used by both
   files: `sim_component_comp()`/`simulate_correlated_triangular()` in
-  `property-simulation.R`; all four depth-simulation functions in
-  `depth-simulation.R`) and `ilr_forward()`/`ilr_inverse()` (used only by
+  `core-simulation.R`; all four depth-simulation functions in
+  `core-simulation.R`) and `ilr_forward()`/`ilr_inverse()` (used only by
   `simulate_cokey_generalized()` for compositional texture handling).
-- **`R/ssurgo-acquisition.R` / `R/ssurgo-processing.R`** (soilSIM internal) -
+- **`R/adapter-ssurgo-acquire.R` / `R/adapter-ssurgo-process.R`** (soilSIM internal) -
   upstream SSURGO data-source adapters; `get_aws_data_by_mukey()` in this
   group duplicates rather than reuses
   `execute_ssurgo_query_working()`'s query (see that function's docs for
   why), but both ultimately query the same underlying SSURGO tables.
 - **Downstream consumers**:
-  - **`R/ssurgo-simulation.R`'s `simulate_ssurgo_mapunit_draws()`** is a
+  - **`R/adapter-ssurgo-simulate.R`'s `simulate_ssurgo_mapunit_draws()`** is a
     real, live in-package consumer of this group: it calls
     `remove_organic_layer()` and `sim_component_comp()` directly, performs
     the `sim_comppct` component-to-horizon join itself, then calls
     `simulate_cokey_generalized()` per cokey - i.e. it exercises exactly the
-    `property-simulation.R` half of this group (component composition +
+    `core-simulation.R` half of this group (component composition +
     per-cokey property simulation) as part of the multi-source raster
     fusion pipeline's SSURGO adapter (prior-side data for
-    `R/raster-fusion.R`'s `fuse_property_adaptive()`/`fuse_texture_group()`).
-    It does **not** call anything in `depth-simulation.R`.
-  - **AWS / van Genuchten modeling** (`R/aws-simulation.R`) is documented in
+    `R/core-fusion.R`'s `fuse_property_adaptive()`/`fuse_texture_group()`).
+    It does **not** call anything in `core-simulation.R`.
+  - **AWS / van Genuchten modeling** (`R/model-aws.R`) is documented in
     `R/soilSIM-package.R` as conceptually downstream in the pipeline (depth-
     sliced, depth-simulated profiles feeding available-water-storage
     estimation),
-    but there is no direct function-level call between `depth-simulation.R`
-    and `aws-simulation.R` in the current codebase - `aws-simulation.R`'s
+    but there is no direct function-level call between `core-simulation.R`
+    and `model-aws.R` in the current codebase - `model-aws.R`'s
     own header notes it is self-contained and does not depend on
     `sim_component_comp()` or any other helper from this group.
 
@@ -566,7 +566,7 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
   or perform the component-to-horizon join~~ **Fixed**: this function now
   calls `sim_component_comp(mu_data, n_simulations = n_simulations)` and
   left-joins the result onto every horizon row by `cokey` internally,
-  mirroring the same pattern `R/ssurgo-simulation.R`'s
+  mirroring the same pattern `R/adapter-ssurgo-simulate.R`'s
   `simulate_ssurgo_mapunit_draws()` uses for the property-simulation path. Its
   `n_simulations` parameter flows into `sim_component_comp()`'s own `n_simulations` argument
   (number of triangular draws per component).

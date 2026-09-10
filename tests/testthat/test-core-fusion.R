@@ -1,3 +1,297 @@
+test_that("bayes_update_normal_normal() satisfies its documented invariants", {
+  post <- bayes_update_normal_normal(prior_mu = 10, prior_sigma = 2, lik_mu = 12, lik_sigma = 1)
+  expect_true(post$sigma <= min(2, 1))
+  expect_true(post$mu >= min(10, 12) && post$mu <= max(10, 12))
+
+  swapped <- bayes_update_normal_normal(prior_mu = 12, prior_sigma = 1, lik_mu = 10, lik_sigma = 2)
+  expect_equal(post$mu, swapped$mu, tolerance = 1e-9)
+  expect_equal(post$sigma, swapped$sigma, tolerance = 1e-9)
+})
+
+test_that("bayes_update_normal_normal() posterior sigma is strictly tighter when informative on both sides", {
+  post <- bayes_update_normal_normal(10, 2, 12, 1)
+  expect_true(post$sigma < 1)
+})
+
+test_that("normal_to_lognormal_params()/lognormal_to_normal_params() round trip", {
+  mu <- 5; sigma <- 1.2
+  log_params <- normal_to_lognormal_params(mu, sigma)
+  back <- lognormal_to_normal_params(log_params$mu, log_params$sigma)
+  expect_equal(back$mu, mu, tolerance = 1e-9)
+  expect_equal(back$sigma, sigma, tolerance = 1e-9)
+})
+
+test_that("fuse_beta()/fuse_gamma() feasibility flags correctly identify infeasible combinations", {
+  feasible <- fuse_beta(prior_alpha = 3, prior_beta = 5, lik_alpha = 2, lik_beta = 4)
+  expect_true(feasible$feasible)
+  infeasible <- fuse_beta(prior_alpha = 0.3, prior_beta = 0.3, lik_alpha = 0.3, lik_beta = 0.3)
+  expect_false(infeasible$feasible)
+
+  feasible_g <- fuse_gamma(prior_shape = 3, prior_rate = 1, lik_shape = 2, lik_rate = 1)
+  expect_true(feasible_g$feasible)
+  infeasible_g <- fuse_gamma(prior_shape = 0.2, prior_rate = 1, lik_shape = 0.2, lik_rate = 1)
+  expect_false(infeasible_g$feasible)
+})
+
+test_that("fuse_beta() conjugate result matches grid-based numerical Bayesian updating", {
+  set.seed(21)
+  prior_samples <- rbeta(20000, 5, 3)
+  lik_samples <- rbeta(20000, 4, 6)
+  fused <- fuse_beta(5, 3, 4, 6)
+  expect_true(fused$feasible)
+
+  numeric_post <- bayesian_update(prior_samples, lik_samples, grid_range = c(0, 1), grid_resolution = 0.001)
+  expect_equal(mean(numeric_post), fused$alpha / (fused$alpha + fused$beta), tolerance = 0.02)
+})
+
+test_that("moments_to_beta()/beta_to_moments() and moments_to_gamma()/gamma_to_moments() round trip", {
+  beta_params <- moments_to_beta(mean = 0.3, var = 0.02)
+  back_moments <- beta_to_moments(beta_params$alpha, beta_params$beta)
+  expect_equal(back_moments$mean, 0.3, tolerance = 1e-6)
+  expect_equal(back_moments$var, 0.02, tolerance = 1e-6)
+
+  gamma_params <- moments_to_gamma(mean = 5, var = 2)
+  back_gamma <- gamma_to_moments(gamma_params$shape, gamma_params$rate)
+  expect_equal(back_gamma$mean, 5, tolerance = 1e-6)
+  expect_equal(back_gamma$var, 2, tolerance = 1e-6)
+})
+
+test_that("bayes_fuse() dispatches correctly by family", {
+  n <- bayes_fuse(list(mu = 10, sigma = 2), list(mu = 12, sigma = 1), family = "normal")
+  expect_equal(n, bayes_update_normal_normal(10, 2, 12, 1))
+
+  b <- bayes_fuse(list(alpha = 3, beta = 5), list(alpha = 2, beta = 4), family = "beta")
+  expect_equal(b, fuse_beta(3, 5, 2, 4))
+
+  g <- bayes_fuse(list(shape = 3, rate = 1), list(shape = 2, rate = 1), family = "gamma")
+  expect_equal(g, fuse_gamma(3, 1, 2, 1))
+})
+
+test_that("bayesian_update() general route posterior mean lands between prior and likelihood means", {
+  set.seed(23)
+  prior_samples <- rnorm(2000, 5, 1)
+  lik_samples <- rnorm(2000, 8, 1)
+  post <- bayesian_update(prior_samples, lik_samples, n = 2000)
+  expect_true(mean(post) > 5 && mean(post) < 8)
+})
+
+test_that("bayesian_update()'s general route roughly reproduces bayes_update_normal_normal() for two actual Normals", {
+  set.seed(29)
+  prior_samples <- rnorm(20000, 10, 2)
+  lik_samples <- rnorm(20000, 12, 1)
+  closed_form <- bayes_update_normal_normal(10, 2, 12, 1)
+  general <- bayesian_update(prior_samples, lik_samples, grid_resolution = 0.02, n = 5000)
+  expect_equal(mean(general), closed_form$mu, tolerance = 0.15)
+  expect_equal(sd(general), closed_form$sigma, tolerance = 0.15)
+})
+
+test_that("bayesian_update() respects its n argument", {
+  set.seed(31)
+  post <- bayesian_update(rnorm(500), rnorm(500), n = 250)
+  expect_length(post, 250)
+})
+
+test_that("fuse_bivariate_normal() matches a Monte Carlo density-multiplication cross-check", {
+  mu1 <- c(0, 0); Sigma1 <- diag(c(1, 1))
+  mu2 <- c(1, 1); Sigma2 <- diag(c(0.5, 0.5))
+  fused <- fuse_bivariate_normal(mu1, Sigma1, mu2, Sigma2)
+
+  # Cross-check: precision-weighted mean should sit closer to the more
+  # confident (smaller-variance) side (mu2), and posterior variance should
+  # be smaller than both inputs'.
+  expect_true(fused$mu[1] > mu1[1] && fused$mu[1] < mu2[1] * 1.01)
+  expect_true(all(diag(fused$Sigma) < diag(Sigma1)))
+  expect_true(all(diag(fused$Sigma) < diag(Sigma2)))
+})
+
+test_that("fuse_texture_group_from_triplets() produces posterior samples summing to 100 and staying in bounds", {
+  set.seed(37)
+  prior_triplets <- list(clay = c(15, 20, 25), sand = c(35, 40, 45), silt = c(35, 40, 45))
+  lik_triplets <- list(clay = c(20, 25, 30), sand = c(30, 35, 40), silt = c(35, 40, 45))
+
+  result <- fuse_texture_group_from_triplets(
+    prior_triplets, lik_triplets, z_prior = qnorm(0.95), z_lik = qnorm(0.95), n_samples = 500
+  )
+  expect_equal(rowSums(result$posterior_samples), rep(100, 500), tolerance = 1e-6)
+  expect_true(all(result$posterior_samples >= 0 & result$posterior_samples <= 100))
+})
+
+test_that("fuse_texture_group_from_triplets() avoids the sum-to-100 violation independent per-fraction fusion has", {
+  set.seed(41)
+  prior_triplets <- list(clay = c(10, 15, 20), sand = c(50, 60, 70), silt = c(20, 25, 30))
+  lik_triplets <- list(clay = c(15, 20, 25), sand = c(40, 50, 60), silt = c(25, 30, 35))
+
+  joint <- fuse_texture_group_from_triplets(prior_triplets, lik_triplets, qnorm(0.95), qnorm(0.95), n_samples = 200)
+  expect_equal(rowSums(joint$posterior_samples), rep(100, 200), tolerance = 1e-6)
+
+  # Independent per-fraction fusion (naive baseline): fit a Beta to each side/
+  # fraction, fuse independently, and show the resulting point estimates do
+  # NOT sum to 100 - the exact defect the joint ILR path exists to avoid.
+  fit_beta_from_triplet <- function(triplet) {
+    fit_beta_mle_newton(triplet, bounds = c(0, 100))
+  }
+  independent_alpha_beta <- lapply(list(clay = list(prior_triplets$clay, lik_triplets$clay),
+                                        sand = list(prior_triplets$sand, lik_triplets$sand),
+                                        silt = list(prior_triplets$silt, lik_triplets$silt)),
+                                    function(pair) {
+                                      prior_fit <- fit_beta_from_triplet(pair[[1]])
+                                      lik_fit <- fit_beta_from_triplet(pair[[2]])
+                                      fuse_beta(prior_fit$shape1, prior_fit$shape2, lik_fit$shape1, lik_fit$shape2)
+                                    })
+  independent_means <- vapply(independent_alpha_beta, function(f) f$alpha / (f$alpha + f$beta), numeric(1)) * 100
+  expect_false(isTRUE(all.equal(sum(independent_means), 100, tolerance = 1e-6)))
+})
+
+test_that("fuse_property() dispatches on input shape and errors on mismatched method override", {
+  set.seed(43)
+  general_result <- fuse_property(rnorm(200, 5, 1), rnorm(200, 8, 1))
+  expect_true(is.numeric(general_result))
+
+  closed_form_result <- fuse_property(list(mu = 10, sigma = 2), list(mu = 12, sigma = 1), family = "normal")
+  expect_equal(closed_form_result, bayes_update_normal_normal(10, 2, 12, 1))
+
+  expect_error(fuse_property(rnorm(10), list(mu = 1, sigma = 1)), "SAME shape")
+  expect_error(fuse_property(list(mu = 1, sigma = 1), list(mu = 2, sigma = 1), family = "normal", method = "general"), "implies")
+  expect_error(fuse_property(list(alpha = 1), list(alpha = 2)), "family is required")
+})
+
+test_that("structural boundary: core-fusion.R never calls back into core-montecarlo.R", {
+  # core-fusion.R must stay genuinely standalone/independently testable
+  # - its own primitives never change to accommodate the pipeline wiring, the
+  # pipeline (core-montecarlo.R) is the only side that knows about the bridge.
+  # Reading source .R files by relative path isn't reliable once the package
+  # is installed (R CMD check runs tests against the installed/lazy-loaded
+  # package, not the source tree), so this inspects the loaded function
+  # BODIES via deparse(body()), which works identically under
+  # devtools::load_all() or a real install.
+  bayesian_updating_exports <- c(
+    "bayes_update_normal_normal", "normal_to_lognormal_params", "lognormal_to_normal_params",
+    "fuse_beta", "fuse_gamma", "moments_to_beta", "moments_to_gamma", "beta_to_moments",
+    "gamma_to_moments", "bayes_fuse", "bayesian_update", "fuse_bivariate_normal",
+    "fuse_texture_group_from_triplets", "fuse_property"
+  )
+  monte_carlo_only_functions <- c(
+    "generate_monte_carlo_realizations", "simulate_correlated_properties", "sim_component_compositions",
+    "setup_distributions", "prepare_simulation_parameters", "configure_correlation_structure",
+    "apply_simulation_constraints", "extract_property_parameters", "estimate_property_correlations",
+    "prepare_simulation_data", "run_sequential_simulation", "run_parallel_simulation",
+    "validate_monte_carlo_inputs", "validate_simulation_output", "get_monte_carlo_defaults",
+    "normalize_monte_carlo_config", "get_constraint_rules", "get_sum_constraints",
+    "as_lrh_triplet"
+  )
+
+  for (bu_fn in bayesian_updating_exports) {
+    fn_obj <- get(bu_fn, envir = asNamespace("soilSIM"))
+    fn_src <- paste(deparse(body(fn_obj)), collapse = "\n")
+    for (mc_fn in monte_carlo_only_functions) {
+      expect_false(
+        grepl(paste0("\\b", mc_fn, "\\("), fn_src),
+        info = paste(bu_fn, "should not call", mc_fn)
+      )
+    }
+  }
+})
+
+test_that("structural boundary: fuse_observed_data_into_priors()/fuse_one_property_prior() are the ONLY core-montecarlo.R functions bridging into core-fusion.R", {
+  # The Bayesian-updating wiring (fuse_observed_data_into_priors(), and its
+  # helper fuse_one_property_prior()) is the intentional, sole bridge between
+  # the two files - every OTHER core-montecarlo.R function should remain exactly
+  # as decoupled from core-fusion.R as before this feature was added.
+  bayesian_updating_exports <- c(
+    "bayes_update_normal_normal", "normal_to_lognormal_params", "lognormal_to_normal_params",
+    "fuse_beta", "fuse_gamma", "moments_to_beta", "moments_to_gamma", "beta_to_moments",
+    "gamma_to_moments", "bayes_fuse", "bayesian_update", "fuse_bivariate_normal",
+    "fuse_texture_group_from_triplets", "fuse_property"
+  )
+  other_monte_carlo_functions <- c(
+    "generate_monte_carlo_realizations", "simulate_correlated_properties", "sim_component_compositions",
+    "setup_distributions", "prepare_simulation_parameters", "configure_correlation_structure",
+    "apply_simulation_constraints", "extract_property_parameters", "estimate_property_correlations",
+    "prepare_simulation_data", "run_sequential_simulation", "run_parallel_simulation",
+    "validate_monte_carlo_inputs", "validate_simulation_output", "get_monte_carlo_defaults",
+    "normalize_monte_carlo_config", "get_constraint_rules", "get_sum_constraints",
+    "as_lrh_triplet"
+  )
+
+  for (mc_fn in other_monte_carlo_functions) {
+    fn_obj <- get(mc_fn, envir = asNamespace("soilSIM"))
+    fn_src <- paste(deparse(body(fn_obj)), collapse = "\n")
+    for (bu_fn in bayesian_updating_exports) {
+      expect_false(
+        grepl(paste0("\\b", bu_fn, "\\("), fn_src),
+        info = paste(mc_fn, "should not call", bu_fn)
+      )
+    }
+  }
+
+  # Positive confirmation the bridge functions DO reference core-fusion.R,
+  # so this test would actually fail (not just vacuously pass) if the bridge
+  # were ever accidentally removed.
+  bridge_src <- paste(
+    deparse(body(get("fuse_observed_data_into_priors", envir = asNamespace("soilSIM")))),
+    deparse(body(get("fuse_one_property_prior", envir = asNamespace("soilSIM")))),
+    collapse = "\n"
+  )
+  expect_true(grepl("fuse_texture_group_from_triplets\\(", bridge_src))
+  expect_true(grepl("bayes_update_normal_normal\\(", bridge_src))
+})
+
+test_that("bayesian_update()'s posterior_probs parameter doesn't change the underlying sample() draw, and NULL preserves the original plain-vector return exactly", {
+  # MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P3.8. bit-for-bit regression: the code path up to
+  # and including the sample() call must be byte-identical whether or not posterior_probs is later
+  # requested - `identical()`, not `expect_equal()` with a tolerance, is the right check here since
+  # the same RNG state should produce the exact same draws.
+  set.seed(101)
+  prior <- rnorm(500, 20, 5)
+  lik <- rnorm(500, 22, 4)
+
+  set.seed(202)
+  without_probs <- bayesian_update(prior, lik, grid_resolution = 0.1)
+  set.seed(202)
+  with_probs <- bayesian_update(prior, lik, grid_resolution = 0.1, posterior_probs = c(0.5))
+
+  expect_true(is.numeric(without_probs) && is.null(dim(without_probs)))
+  expect_identical(without_probs, with_probs$samples)
+})
+
+test_that("bayesian_update()'s posterior_probs percentiles are monotonic and centered near the exact grid-based mean", {
+  set.seed(103)
+  prior <- rnorm(1000, 20, 5)
+  lik <- rnorm(1000, 22, 4)
+  probs <- c(0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99)
+
+  post <- bayesian_update(prior, lik, grid_resolution = 0.05, posterior_probs = probs)
+  expect_named(post, c("samples", "mean", "var", "percentiles", "value_grid", "posterior_prob"))
+  expect_named(post$percentiles, paste0("P", round(probs * 100)))
+  expect_true(all(diff(post$percentiles) >= 0))
+  # The median (P50) should sit close to the exact grid-based mean for this roughly symmetric case.
+  expect_equal(unname(post$percentiles["P50"]), post$mean, tolerance = 1)
+})
+
+test_that("bayesian_update()'s grid-based percentiles don't visibly change as n (resample size) varies - confirms resampling noise is not in the percentile computation path", {
+  # MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P3.2's own verification note: for a fixed
+  # grid_resolution, grid-based percentiles/mean/var should be identical regardless of n, since
+  # they're read directly off the discretized posterior_prob/value_grid, not off the resampled
+  # `samples` vector (which n only controls the length of).
+  set.seed(107)
+  prior <- rnorm(800, 20, 5)
+  lik <- rnorm(800, 22, 4)
+  probs <- c(0.05, 0.5, 0.95)
+
+  post_small_n <- bayesian_update(prior, lik, grid_resolution = 0.05, n = 10, posterior_probs = probs)
+  post_large_n <- bayesian_update(prior, lik, grid_resolution = 0.05, n = 5000, posterior_probs = probs)
+
+  expect_identical(post_small_n$percentiles, post_large_n$percentiles)
+  expect_identical(post_small_n$mean, post_large_n$mean)
+  expect_identical(post_small_n$var, post_large_n$var)
+  # Only the resampled `samples` vector's length differs with n.
+  expect_length(post_small_n$samples, 10)
+  expect_length(post_large_n$samples, 5000)
+})
+
+
+# --- merged from test-raster-fusion.R (P1 reorg) ---
+
 test_that("fit_gamma_mom_raster() matches the scalar moments_to_gamma() cell-by-cell", {
   rasters <- make_percentile_rasters(c(a = 8, b = 10, c = 12))
   fit_r <- fit_gamma_mom_raster(list(rasters$a, rasters$b, rasters$c))
@@ -1224,4 +1518,818 @@ test_that("fuse_general_kde(raw_draws) degrades a cell with no matching mukey dr
                               mukey_raster = mukey_raster, mukey_draws = mukey_draws)
   mu <- terra::values(result$posterior$mu)[, 1]
   expect_true(all(is.finite(mu)))  # cell 2 (no draws) must still degrade to a finite fallback, not NA/error
+})
+
+
+# --- merged from test-raster-fusion-bridge.R (P1 reorg) ---
+
+# ---------------------------------------------------------------------------
+# core-fusion.R : A.3 zonal_distribution_from_posterior(),
+#                          A.4 remarginalize_ensemble_to_posterior(),
+#                          A.5 remarginalized_awc()
+# All offline: synthetic mukey rasters + synthetic run_stage1_fusion()-shaped posteriors.
+# ---------------------------------------------------------------------------
+
+.default_probs <- c(0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99)
+
+# a 4x4 factor mukey raster: top half mukey "100", bottom half mukey "200"
+.mk_raster <- function() {
+  r <- terra::rast(nrows = 4, ncols = 4, xmin = 0, xmax = 4, ymin = 0, ymax = 4,
+                   vals = rep(c(100L, 100L, 200L, 200L), each = 4))
+  names(r) <- "mukey"
+  terra::as.factor(r)
+}
+
+# posterior with spatially-CONSTANT percentile layers at qnorm(probs, mean, sd)
+.const_posterior <- function(template, mean = 10, sd = 2, probs = .default_probs) {
+  vals <- stats::qnorm(probs, mean, sd)
+  list(percentiles = stats::setNames(
+    lapply(vals, function(v) terra::setValues(template, rep(v, terra::ncell(template)))),
+    paste0("P", round(probs * 100))
+  ))
+}
+
+# posterior whose P5/P50/P95 differ by mukey region (for the zonal test)
+.regional_posterior <- function(mk) {
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  layer <- function(v100, v200) {
+    terra::setValues(tmpl, ifelse(terra::values(mk)[, 1] == 100, v100, v200))
+  }
+  list(percentiles = list(
+    P5  = layer(1, 4),
+    P50 = layer(2, 5),
+    P95 = layer(3, 6)
+  ))
+}
+
+# synthetic ensemble: 2 mukeys, correlated wr_3b/wr_15b + rfv, 2 windows
+.synth_ensemble <- function(mk, n = 40) {
+  set.seed(1)
+  one_window <- function(bump) {
+    mkcode <- rep(c("100", "200"), each = n)
+    wr3 <- c(stats::runif(n, 25, 40), stats::runif(n, 20, 35)) + bump
+    wr15 <- wr3 * 0.45 + stats::rnorm(2 * n, 0, 0.5)   # strong rank dependence on wr3
+    data.frame(
+      mukey = mkcode,
+      cokey = "1",
+      simulation_number = rep(seq_len(n), 2),
+      wr_3b = wr3, wr_15b = wr15, rfv = c(stats::runif(n, 0, 15), stats::runif(n, 5, 25)),
+      top = 0, bottom = 5
+    )
+  }
+  dbw <- list("0-5" = one_window(0), "5-15" = one_window(1.5))
+  extract_mukey_joint_ensemble(
+    aoi_vect = NULL, depth_windows = list(c(0, 5), c(5, 15)),
+    draws_by_window = dbw, mukey_raster = mk,
+    properties = c("wr_3b", "wr_15b", "rfv")
+  )
+}
+
+# synthetic ensemble for the Saxton-Rawls AWC path: sand/silt/clay/db/soc/rfv, 2 windows
+.synth_ensemble_sr <- function(mk, n = 40) {
+  set.seed(3)
+  one_window <- function(bump) {
+    sand <- c(stats::runif(n, 35, 55), stats::runif(n, 20, 40)) + bump
+    clay <- c(stats::runif(n, 12, 25), stats::runif(n, 20, 35))
+    data.frame(
+      mukey = rep(c("100", "200"), each = n), cokey = "1",
+      simulation_number = rep(seq_len(n), 2),
+      sand_total = sand, clay_total = clay, silt_total = pmax(0, 100 - sand - clay),
+      db = c(stats::runif(n, 1.3, 1.5), stats::runif(n, 1.2, 1.45)),
+      soc = c(stats::runif(n, 0.5, 1.5), stats::runif(n, 1.0, 2.5)),
+      rfv = c(stats::runif(n, 0, 10), stats::runif(n, 5, 20)),
+      top = 0, bottom = 5
+    )
+  }
+  dbw <- list("0-5" = one_window(0), "5-15" = one_window(2))
+  extract_mukey_joint_ensemble(
+    aoi_vect = NULL, depth_windows = list(c(0, 5), c(5, 15)),
+    draws_by_window = dbw, mukey_raster = mk,
+    properties = c("sand_total", "silt_total", "clay_total", "db", "soc", "rfv")
+  )
+}
+
+test_that("zonal_distribution_from_posterior() reduces each mukey to its own low/rep/high", {
+  mk <- .mk_raster()
+  post <- .regional_posterior(mk)
+  z <- zonal_distribution_from_posterior(post, mk, probs = c(0.05, 0.5, 0.95))
+
+  expect_setequal(names(z), c("100", "200"))
+  expect_equal(unname(z[["100"]]), c(1, 2, 3))
+  expect_equal(unname(z[["200"]]), c(4, 5, 6))
+  expect_named(z[["100"]], c("low", "rep", "high"))
+})
+
+test_that("zonal_distribution_from_posterior() rejects a mean path / non-matching probs", {
+  mk <- .mk_raster()
+  post <- .regional_posterior(mk)
+  expect_error(zonal_distribution_from_posterior(post, mk, probs = c(0.5, 0.05, 0.95)), "ascending")
+  expect_error(zonal_distribution_from_posterior(post, mk, probs = c(0.05, 0.5, 0.90)), "exact posterior percentile")
+})
+
+test_that("remarginalize_ensemble_to_posterior() recovers the posterior marginal per pixel", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble(mk)
+
+  pbpw <- list(wr_3b = list("0-5" = .const_posterior(tmpl, mean = 30, sd = 3)))
+  out <- remarginalize_ensemble_to_posterior(ens, pbpw, n_out = 30, summarize = TRUE,
+                                             probs = c(0.1, 0.5, 0.9))
+
+  got <- out$percentiles$wr_3b$`0-5`
+  # posterior is spatially constant -> every pixel's re-marginalized quantiles match the
+  # piecewise-linear inverse-CDF of the posterior knots at the requested probs
+  knot_p <- .default_probs
+  knot_v <- stats::qnorm(knot_p, 30, 3)
+  expect_equal(as.numeric(terra::global(got$P10, "mean", na.rm = TRUE)),
+               stats::approx(knot_p, knot_v, xout = 0.1, rule = 2)$y, tolerance = 0.5)
+  expect_equal(as.numeric(terra::global(got$P50, "mean", na.rm = TRUE)),
+               stats::approx(knot_p, knot_v, xout = 0.5, rule = 2)$y, tolerance = 0.3)
+  # spatially constant (top vs bottom mukey identical, since posterior is constant)
+  expect_lt(as.numeric(terra::global(got$P50, "sd", na.rm = TRUE)), 1e-6)
+})
+
+test_that("remarginalize_ensemble_to_posterior() preserves the cross-property rank copula", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble(mk)
+
+  pbpw <- list(
+    wr_3b  = list("0-5" = .const_posterior(tmpl, mean = 30, sd = 4)),
+    wr_15b = list("0-5" = .const_posterior(tmpl, mean = 13, sd = 2))
+  )
+  out <- remarginalize_ensemble_to_posterior(ens, pbpw, n_out = 30, summarize = FALSE)
+  n_kept <- out$n_kept
+
+  # source Spearman for mukey 100 (first n_kept rows)
+  src <- ens$by_mukey[["100"]]$windows[["0-5"]][seq_len(n_kept), ]
+  src_rho <- suppressWarnings(stats::cor(src[, "wr_3b"], src[, "wr_15b"], method = "spearman"))
+
+  # transformed Spearman at a mukey-100 pixel (cell 1)
+  a <- as.numeric(terra::values(out$ensemble$wr_3b$`0-5`)[1, ])
+  b <- as.numeric(terra::values(out$ensemble$wr_15b$`0-5`)[1, ])
+  trans_rho <- suppressWarnings(stats::cor(a, b, method = "spearman"))
+
+  expect_equal(trans_rho, src_rho, tolerance = 1e-6)
+})
+
+test_that("remarginalize_ensemble_to_posterior() gives NA (not fabricated values) for a mukey with no data for a property", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble(mk)
+  # wipe mukey 200's wr_3b for the 0-5 window (e.g. every cokey's sim failed there)
+  ens$by_mukey[["200"]]$windows[["0-5"]][, "wr_3b"] <- NA_real_
+
+  pbpw <- list(
+    wr_3b  = list("0-5" = .const_posterior(tmpl, mean = 30, sd = 4)),
+    wr_15b = list("0-5" = .const_posterior(tmpl, mean = 13, sd = 2))
+  )
+  out <- remarginalize_ensemble_to_posterior(ens, pbpw, n_out = 30, summarize = FALSE)
+
+  v <- terra::values(out$ensemble$wr_3b$`0-5`)
+  mk2 <- mk; levels(mk2) <- NULL
+  mkv <- terra::values(mk2)[, 1]                       # bottom-half cells are mukey 200
+  # base rank()'s default na.last = TRUE would have ranked the NAs 1..n and produced finite values;
+  # na.last = "keep" keeps them NA -> those cells are NA.
+  expect_true(all(is.na(v[mkv == 200, ])))
+  expect_false(any(is.na(v[mkv == 100, ])))            # mukey 100 untouched
+})
+
+.mk_post <- function(tmpl, m, s) {
+  list("0-5" = .const_posterior(tmpl, m, s), "5-15" = .const_posterior(tmpl, m, s))
+}
+
+test_that("saxton_rawls_raster() matches calculate_saxton_rawls_single() across a texture x BD x OM x RFV grid", {
+  # Both call the shared coefficient core .saxton_rawls_gravimetric(); the only remaining
+  # difference is the clamp/renorm container ops, which must be numerically identical.
+  tmpl <- terra::rast(nrows = 2, ncols = 2, vals = 1)
+  set.seed(3)
+  grid <- expand.grid(sand = c(10, 40, 70, 92), clay = c(3, 15, 35, 58),
+                      bd = c(0.9, 1.4, 1.9), rfv = c(0, 12, 60), om = c(0.2, 2, 8))
+  grid$silt <- pmax(0, 100 - grid$sand - grid$clay)
+  # a handful of rows whose texture triple is deliberately off 100 to exercise renormalisation
+  grid <- rbind(grid, data.frame(sand = c(50, 30), clay = c(25, 20), bd = 1.4, rfv = 5, om = 2,
+                                 silt = c(40, 35)))
+
+  for (i in sample(nrow(grid), 40)) {
+    g <- grid[i, ]
+    single <- calculate_saxton_rawls_single(g$sand, g$clay, g$silt, g$bd, g$rfv, g$om)
+    r <- saxton_rawls_raster(terra::setValues(tmpl, g$sand), terra::setValues(tmpl, g$clay),
+                             terra::setValues(tmpl, g$silt), terra::setValues(tmpl, g$bd),
+                             terra::setValues(tmpl, g$rfv), terra::setValues(tmpl, g$om))
+    info <- paste(unlist(g), collapse = ",")
+    # calculate_saxton_rawls_single() rounds its return to 2dp; the raster path doesn't.
+    expect_equal(round(terra::values(r$fc)[1], 2), single$field_capacity, tolerance = 1e-8, info = info)
+    expect_equal(round(terra::values(r$wp)[1], 2), single$wilting_point, tolerance = 1e-8, info = info)
+    expect_lt(terra::values(r$wp)[1], terra::values(r$fc)[1])
+  }
+})
+
+test_that("remarginalized_awc(method = 'saxton_rawls') returns clamped per-pixel AWC (default path)", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble_sr(mk)
+
+  pbpw <- list(
+    sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
+    clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08),
+    soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
+  )
+  res <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.05, 0.5, 0.95))  # method defaults
+
+  expect_named(res$awc_cm, c("P5", "P50", "P95"))
+  expect_setequal(res$windows_used, c("0-5", "5-15"))
+  for (lyr in res$awc_cm) expect_true(all(terra::values(lyr) >= 0, na.rm = TRUE))
+  # 0-15 cm of a loam: AWC ~ 0.12-0.18 vol-frac diff over 15 cm ~ 1.5-3 cm - loose sanity band
+  med <- as.numeric(terra::global(res$awc_cm$P50, "mean", na.rm = TRUE))
+  expect_gt(med, 0.5); expect_lt(med, 6)
+})
+
+test_that("remarginalized_awc(method = 'direct') uses supplied wr_3b/wr_15b posteriors", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble(mk)
+  pbpw <- list(wr_3b = .mk_post(tmpl, 30, 3), wr_15b = .mk_post(tmpl, 13, 2), rfv = .mk_post(tmpl, 8, 3))
+
+  res <- remarginalized_awc(ens, pbpw, method = "direct", n_out = 25, probs = c(0.05, 0.5, 0.95))
+  med <- as.numeric(terra::global(res$awc_cm$P50, "mean", na.rm = TRUE))
+  expect_gt(med, 1); expect_lt(med, 4)   # (30-13)/100 * 15 * (1-.08) ~ 2.3 cm
+})
+
+test_that("remarginalized_awc() errors when required properties are missing", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens_wr <- .synth_ensemble(mk)                    # has wr_3b/wr_15b, not texture
+  expect_error(remarginalized_awc(ens_wr, list(wr_3b = .mk_post(tmpl, 30, 3))),
+               "sand_total/silt_total/clay_total/db")               # saxton_rawls default
+  expect_error(remarginalized_awc(ens_wr, list(wr_3b = .mk_post(tmpl, 30, 3)), method = "direct"),
+               "wr_3b/wr_15b")
+})
+
+test_that("remarginalized_awc(tile_rows=) is numerically identical to the whole-grid run", {
+  r <- terra::rast(nrows = 12, ncols = 6, xmin = 0, xmax = 6, ymin = 0, ymax = 12,
+                   vals = rep(c(100L, 200L), each = 36))
+  names(r) <- "mukey"; mk <- terra::as.factor(r)
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble_sr(mk)
+
+  pbpw <- list(sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
+               clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08))
+
+  whole <- remarginalized_awc(ens, pbpw, n_out = 20)
+  tiled <- remarginalized_awc(ens, pbpw, n_out = 20, tile_rows = 4)
+
+  expect_equal(tiled$n_tiles, 3)
+  expect_equal(whole$n_tiles, 1)
+  for (nm in names(whole$awc_cm)) {
+    expect_equal(terra::values(tiled$awc_cm[[nm]]), terra::values(whole$awc_cm[[nm]]), tolerance = 1e-9)
+  }
+})
+
+# ---------------------------------------------------------------------------
+# S2 - remarginalized_awc(restriction_depth=): bedrock/restriction-depth AWC truncation
+# (MULTI_PROPERTY_FUSION_PLAN.md task S2). Windows are "0-5" (top=0,bottom=5) and "5-15"
+# (top=5,bottom=15) throughout, from .synth_ensemble_sr()'s fixed depth_windows.
+# ---------------------------------------------------------------------------
+
+test_that("remarginalized_awc(restriction_depth = NULL) is bit-identical to omitting the argument", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble_sr(mk)
+  pbpw <- list(
+    sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
+    clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08),
+    soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
+  )
+
+  set.seed(42); a <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.05, 0.5, 0.95))
+  set.seed(42); b <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.05, 0.5, 0.95),
+                                       restriction_depth = NULL)
+  for (nm in names(a$awc_cm)) {
+    expect_equal(terra::values(b$awc_cm[[nm]]), terra::values(a$awc_cm[[nm]]))
+  }
+})
+
+test_that("remarginalized_awc(restriction_depth=) reduces AWC for a restriction straddling a window", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble_sr(mk)
+  pbpw <- list(
+    sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
+    clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08),
+    soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
+  )
+  # 10 cm sits inside the "5-15" window (top=5,bottom=15): that window's effective thickness is
+  # 10-5=5 instead of its nominal 15-5=10 - straddling, partial credit, not full or zero.
+  rd <- terra::setValues(tmpl, rep(10, terra::ncell(tmpl)))
+
+  set.seed(42); unrestricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5))
+  set.seed(42); restricted   <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5),
+                                                   restriction_depth = rd)
+
+  u <- as.numeric(terra::global(unrestricted$awc_cm$P50, "mean", na.rm = TRUE))
+  r <- as.numeric(terra::global(restricted$awc_cm$P50, "mean", na.rm = TRUE))
+  expect_lt(r, u)
+  expect_gt(r, 0)  # partial credit, not zeroed out
+})
+
+test_that("remarginalized_awc(restriction_depth=) zeroes (not NAs) a window entirely below the restriction", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble_sr(mk)
+  pbpw <- list(
+    sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
+    clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08),
+    soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
+  )
+  # 3 cm is above the "5-15" window's top (5) entirely -> that window contributes exactly 0, not
+  # NA (which would incorrectly blank the whole pixel's AWC, including the valid "0-5" window).
+  rd <- terra::setValues(tmpl, rep(3, terra::ncell(tmpl)))
+
+  set.seed(1); res <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5), restriction_depth = rd)
+  expect_false(anyNA(terra::values(res$awc_cm$P50)))
+  expect_true(all(terra::values(res$awc_cm$P50) >= 0, na.rm = TRUE))
+
+  # rd=3 truncates BOTH windows (even "0-5" itself: pmax(0, pmin(5,3) - 0) = 3 cm, not its
+  # nominal 5) - so the restricted AWC must be strictly less than the fully unrestricted run.
+  set.seed(1); unrestricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5))
+  expect_lt(as.numeric(terra::global(res$awc_cm$P50, "mean", na.rm = TRUE)),
+            as.numeric(terra::global(unrestricted$awc_cm$P50, "mean", na.rm = TRUE)))
+})
+
+test_that("remarginalized_awc(restriction_depth = Inf) matches the unrestricted run", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble_sr(mk)
+  pbpw <- list(
+    sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
+    clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08),
+    soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
+  )
+  rd <- terra::setValues(tmpl, rep(Inf, terra::ncell(tmpl)))
+
+  set.seed(7); unrestricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5))
+  set.seed(7); restricted   <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5),
+                                                  restriction_depth = rd)
+  expect_equal(terra::values(restricted$awc_cm$P50), terra::values(unrestricted$awc_cm$P50),
+              tolerance = 1e-9)
+})
+
+test_that("remarginalized_awc(restriction_depth=) treats NA cells as unrestricted (Inf), not propagated NA", {
+  mk <- .mk_raster()
+  tmpl <- terra::rast(mk); names(tmpl) <- "v"
+  ens <- .synth_ensemble_sr(mk)
+  pbpw <- list(
+    sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
+    clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08),
+    soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
+  )
+  rd <- terra::setValues(tmpl, rep(NA_real_, terra::ncell(tmpl)))
+
+  set.seed(9); unrestricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5))
+  set.seed(9); na_restricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5),
+                                                   restriction_depth = rd)
+  expect_false(anyNA(terra::values(na_restricted$awc_cm$P50)))
+  expect_equal(terra::values(na_restricted$awc_cm$P50), terra::values(unrestricted$awc_cm$P50),
+              tolerance = 1e-9)
+})
+
+# ---------------------------------------------------------------------------
+# A.7 - live end-to-end (real AOI -> ensemble -> stage-1 fusion -> re-marginalize -> AWC)
+# ---------------------------------------------------------------------------
+
+test_that("end-to-end: extract_mukey_joint_ensemble -> run_stage1_fusion -> remarginalized_awc (live)", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+  Sys.unsetenv("PROJ_LIB")   # documented terra/PROJ env quirk - see HANDOFF_NOTES.md / .onLoad()
+
+  aoi <- terra::vect(
+    "POLYGON((-121.652 36.610, -121.650 36.610, -121.650 36.612, -121.652 36.612, -121.652 36.610))",
+    crs = "epsg:4326"
+  )
+  testthat::skip_if(is.na(terra::crs(aoi)) || !nzchar(terra::crs(aoi)),
+                    "AOI has no valid CRS (documented PROJ_LIB issue) - not a soilSIM defect.")
+  aoi <- terra::project(aoi, "epsg:5070")
+
+  windows <- list(c(0, 5), c(5, 15))
+  ens <- tryCatch(extract_mukey_joint_ensemble(aoi, windows), error = function(e) NULL)
+  testthat::skip_if(is.null(ens), "live SDA/SSURGO simulation unavailable in this run.")
+
+  # SOLUS100 has no water-retention variable, so the Saxton-Rawls path fuses texture + Db instead.
+  cfg <- function(id, sv) list(id = id, solus_variable = sv, dist = "auto")
+  props <- list(sand_total = "sandtotal", silt_total = "silttotal",
+                clay_total = "claytotal", db = "dbovendry")
+  post <- stats::setNames(vector("list", length(props)), names(props))
+  for (nm in names(props)) {
+    per_w <- list()
+    for (w in windows) {
+      r <- tryCatch(run_stage1_fusion(aoi, cfg(nm, props[[nm]]), w[1], w[2]), error = function(e) NULL)
+      if (!is.null(r)) per_w[[paste0(w[1], "-", w[2])]] <- list(percentiles = r$posterior$percentiles)
+    }
+    post[[nm]] <- per_w
+  }
+  testthat::skip_if(any(vapply(post, length, integer(1)) == 0),
+                    "live SOLUS fusion unavailable in this run.")
+
+  res <- remarginalized_awc(ens, post, n_out = 100)
+  expect_named(res$awc_cm, c("P5", "P25", "P50", "P75", "P95"))
+  expect_s4_class(res$awc_cm$P50, "SpatRaster")
+  v <- terra::values(res$awc_cm$P50)
+  expect_true(all(v >= 0, na.rm = TRUE))
+  expect_true(any(is.finite(v)))
+  # P5 <= P50 <= P95 everywhere
+  expect_true(all(terra::values(res$awc_cm$P5)  <= terra::values(res$awc_cm$P50) + 1e-6, na.rm = TRUE))
+  expect_true(all(terra::values(res$awc_cm$P50) <= terra::values(res$awc_cm$P95) + 1e-6, na.rm = TRUE))
+})
+
+
+# --- merged from test-raster-fusion-multi.R (P1 reorg) ---
+
+# Offline tests for run_stage1_fusion_multi() (MULTI_PROPERTY_FUSION_PLAN.md Change A).
+# Every fetch/simulate is mocked - the point is orchestration (one simulation, per-leaf fusion,
+# cache seeding, partial-failure handling), not the fusion math (covered in test-raster-fusion.R).
+
+probs5 <- c(0.05, 0.25, 0.5, 0.75, 0.95)
+
+.mp_pct <- function(v, n = 1) {
+  stats::setNames(
+    lapply(probs5, function(p) terra::rast(nrows = 1, ncols = n, vals = rep(stats::qnorm(p, v, 2), n))),
+    paste0("P", round(probs5 * 100))
+  )
+}
+.mp_prior <- function(v = 20) list(values = .mp_pct(v), probs = probs5)
+.mp_solus <- function(v = 22) list(values = .mp_pct(v), probs = probs5)
+
+# S1: run_stage1_fusion_multi() fetches SOLUS via the batched fetch_solus_percentiles_multi()
+# (one call per window, every variable at once), not the scalar fetch_solus_percentiles() per
+# (variable, window) - default mock mirrors .mp_solus() for every requested variable.
+.mp_solus_multi <- function(solus_variables, v = 22) {
+  stats::setNames(lapply(solus_variables, function(x) .mp_solus(v)), solus_variables)
+}
+
+.mp_mukey_raster <- function() {
+  r <- terra::rast(nrows = 1, ncols = 1, vals = 900)
+  names(r) <- "mukey"
+  terra::as.factor(r)
+}
+
+.mp_aoi <- function() terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070")
+
+# A recorder for cache_set() calls: returns the mock fn + an environment holding the log.
+.mp_cache_recorder <- function() {
+  log <- new.env(parent = emptyenv())
+  log$calls <- list()
+  list(
+    env = log,
+    fn = function(key, kind, value) {
+      log$calls[[length(log$calls) + 1]] <- list(key = key, kind = kind)
+      invisible(TRUE)
+    }
+  )
+}
+
+test_that("run_stage1_fusion_multi() runs the SSURGO simulation exactly once for N x M leaves", {
+  sim_n <- 0L
+  windows <- list(c(0, 5), c(5, 15), c(15, 30))
+  cfgs <- list(
+    ph  = list(id = "ph",  solus_variable = "ph1to1h2o", dist = "normal"),
+    db  = list(id = "db",  solus_variable = "dbovendry", dist = "normal"),
+    soc = list(id = "soc", solus_variable = "soc",       dist = "normal")
+  )
+
+  testthat::local_mocked_bindings(
+    fetch_ssurgo_mukey_raster = function(...) .mp_mukey_raster(),
+    simulate_ssurgo_mapunit_draws = function(..., depth_windows = NULL) {
+      sim_n <<- sim_n + 1L
+      stats::setNames(lapply(depth_windows, function(w) data.frame(mukey = 1)),
+                      vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), ""))
+    },
+    percentiles_from_draws = function(...) .mp_prior(),
+    fetch_solus_percentiles = function(...) .mp_solus(),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
+    cache_get_valid_percentiles = function(...) NULL,
+    cache_set = function(...) invisible(TRUE),
+    build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
+    mukey_draws_lookup = function(...) NULL,
+    .package = "soilSIM"
+  )
+
+  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)
+
+  expect_equal(sim_n, 1L)
+  expect_named(res, c("ph", "db", "soc"))
+  expect_named(res$ph, c("0-5", "5-15", "15-30"))
+  expect_false(is.null(res$db[["5-15"]]$posterior))
+  expect_true(all(c("prior", "likelihood", "posterior", "dist", "route") %in% names(res$ph[["0-5"]])))
+})
+
+test_that("run_stage1_fusion_multi() seeds the per-(id, window) 'ssurgo' and 'solus' caches", {
+  rec <- .mp_cache_recorder()
+  windows <- list(c(0, 5), c(5, 15))
+  cfgs <- list(ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal"))
+
+  testthat::local_mocked_bindings(
+    fetch_ssurgo_mukey_raster = function(...) .mp_mukey_raster(),
+    simulate_ssurgo_mapunit_draws = function(..., depth_windows = NULL) {
+      stats::setNames(lapply(depth_windows, function(w) data.frame(mukey = 1)),
+                      vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), ""))
+    },
+    percentiles_from_draws = function(...) .mp_prior(),
+    fetch_solus_percentiles = function(...) .mp_solus(),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
+    cache_get_valid_percentiles = function(...) NULL,
+    cache_set = rec$fn,
+    build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
+    mukey_draws_lookup = function(...) NULL,
+    .package = "soilSIM"
+  )
+
+  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)
+
+  kinds_by_key <- vapply(rec$env$calls, function(c) paste(c$key, c$kind), character(1))
+  expect_true("ph_0_5_ssurgo ssurgo" %in% kinds_by_key)
+  expect_true("ph_5_15_ssurgo ssurgo" %in% kinds_by_key)
+  expect_true("ph_0_5_solus solus" %in% kinds_by_key)
+  expect_true("ph_5_15_solus solus" %in% kinds_by_key)
+})
+
+test_that("run_stage1_fusion_multi() validates property_configs and composition-group inputs", {
+  aoi <- .mp_aoi()
+  w <- list(c(0, 5))
+
+  expect_error(run_stage1_fusion_multi(aoi, list(list(id = "ph")), w), "named list")
+  expect_error(
+    run_stage1_fusion_multi(aoi, list(ph = list(id = "clay", solus_variable = "claytotal")), w),
+    "\\$id must match"
+  )
+  expect_error(
+    run_stage1_fusion_multi(aoi, list(clay = list(id = "clay", solus_variable = "claytotal",
+                                                  composition_group = "texture")), w),
+    "composition_groups.*is NULL"
+  )
+  expect_error(
+    run_stage1_fusion_multi(
+      aoi,
+      list(clay = list(id = "clay", solus_variable = "claytotal", composition_group = "texture")),
+      w,
+      composition_groups = list(texture = list(members = c("clay", "sand", "silt")))
+    ),
+    "member\\(s\\) missing.*sand"
+  )
+  expect_error(run_stage1_fusion_multi(aoi, list(ph = list(id = "ph")), list(c(5, 5))), "bottom > top")
+})
+
+test_that("run_stage1_fusion_multi() returns NULL leaves on a per-leaf SOLUS failure and keeps the rest", {
+  windows <- list(c(0, 5))
+  cfgs <- list(
+    ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal"),
+    db = list(id = "db", solus_variable = "dbovendry", dist = "normal")
+  )
+
+  testthat::local_mocked_bindings(
+    fetch_ssurgo_mukey_raster = function(...) .mp_mukey_raster(),
+    simulate_ssurgo_mapunit_draws = function(..., depth_windows = NULL) {
+      stats::setNames(lapply(depth_windows, function(w) data.frame(mukey = 1)),
+                      vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), ""))
+    },
+    percentiles_from_draws = function(...) .mp_prior(),
+    fetch_solus_percentiles = function(aoi_vect, solus_variable, ...) {
+      if (identical(solus_variable, "dbovendry")) NULL else .mp_solus()
+    },
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) {
+      stats::setNames(
+        lapply(solus_variables, function(v) if (identical(v, "dbovendry")) NULL else .mp_solus()),
+        solus_variables
+      )
+    },
+    cache_get_valid_percentiles = function(...) NULL,
+    cache_set = function(...) invisible(TRUE),
+    build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
+    mukey_draws_lookup = function(...) NULL,
+    .package = "soilSIM"
+  )
+
+  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)
+  expect_false(is.null(res$ph[["0-5"]]))
+  expect_null(res$db[["0-5"]])
+})
+
+test_that("run_stage1_fusion_multi() is quiet by default and honors simplify = TRUE", {
+  windows <- list(c(0, 5))
+  cfgs <- list(ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal"))
+
+  testthat::local_mocked_bindings(
+    fetch_ssurgo_mukey_raster = function(...) .mp_mukey_raster(),
+    simulate_ssurgo_mapunit_draws = function(..., depth_windows = NULL) {
+      stats::setNames(lapply(depth_windows, function(w) data.frame(mukey = 1)),
+                      vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), ""))
+    },
+    percentiles_from_draws = function(...) .mp_prior(),
+    fetch_solus_percentiles = function(...) .mp_solus(),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
+    cache_get_valid_percentiles = function(...) NULL,
+    cache_set = function(...) invisible(TRUE),
+    build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
+    mukey_draws_lookup = function(...) NULL,
+    .package = "soilSIM"
+  )
+
+  expect_silent(res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows))
+
+  res_s <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, simplify = TRUE)
+  expect_named(res_s$ph[["0-5"]], "percentiles")
+  expect_true(all(grepl("^P", names(res_s$ph[["0-5"]]$percentiles))))
+})
+
+test_that("run_stage1_fusion_multi(seed=) seeds up front and forwards the seed to the simulation", {
+  seen_seed <- NULL
+  windows <- list(c(0, 5))
+  cfgs <- list(ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal"))
+
+  testthat::local_mocked_bindings(
+    fetch_ssurgo_mukey_raster = function(...) .mp_mukey_raster(),
+    simulate_ssurgo_mapunit_draws = function(..., depth_windows = NULL, seed = NULL) {
+      seen_seed <<- seed
+      stats::setNames(lapply(depth_windows, function(w) data.frame(mukey = 1)),
+                      vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), ""))
+    },
+    percentiles_from_draws = function(...) .mp_prior(),
+    fetch_solus_percentiles = function(...) .mp_solus(),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
+    cache_get_valid_percentiles = function(...) NULL,
+    cache_set = function(...) invisible(TRUE),
+    build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
+    mukey_draws_lookup = function(...) NULL,
+    .package = "soilSIM"
+  )
+
+  # forwards the seed to the shared simulation
+  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, seed = 11)
+  expect_identical(seen_seed, 11)
+
+  # top-of-function set.seed(seed) makes the whole call (incl. the RNG-using fusion step)
+  # reproducible: two runs at the same seed leave the stream in the same place.
+  runif(1)
+  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, seed = 11)
+  s1 <- .Random.seed
+  runif(3)
+  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, seed = 11)
+  expect_identical(.Random.seed, s1)
+
+  seen_seed <- NULL
+  run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)  # no seed
+  expect_null(seen_seed)
+})
+
+test_that("run_stage1_fusion_multi() skips the simulation when nothing needs it (all caches warm, no raw_draws)", {
+  sim_n <- 0L
+  windows <- list(c(0, 5))
+  # prior_fusion_method = "percentile" -> resolve_want_raw_draws() FALSE for dist = "normal"
+  cfgs <- list(ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal",
+                         prior_fusion_method = "percentile"))
+
+  testthat::local_mocked_bindings(
+    fetch_ssurgo_mukey_raster = function(...) .mp_mukey_raster(),
+    simulate_ssurgo_mapunit_draws = function(...) { sim_n <<- sim_n + 1L; list() },
+    percentiles_from_draws = function(...) .mp_prior(),
+    fetch_solus_percentiles = function(...) .mp_solus(),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
+    cache_get_valid_percentiles = function(...) .mp_prior(),  # everything warm
+    cache_set = function(...) invisible(TRUE),
+    build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
+    mukey_draws_lookup = function(...) NULL,
+    .package = "soilSIM"
+  )
+
+  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)
+  expect_equal(sim_n, 0L)
+  expect_false(is.null(res$ph[["0-5"]]$posterior))
+})
+
+test_that("run_stage1_fusion_multi() distributes a compositional group's members and fuses the group once", {
+  fuse_n <- 0L
+  windows <- list(c(0, 5), c(5, 15))
+  comp <- list(texture = list(members = c("clay", "sand", "silt")))
+  cfgs <- list(
+    clay = list(id = "clay", solus_variable = "claytotal", composition_group = "texture"),
+    sand = list(id = "sand", solus_variable = "sandtotal", composition_group = "texture"),
+    silt = list(id = "silt", solus_variable = "silttotal", composition_group = "texture"),
+    ph   = list(id = "ph",   solus_variable = "ph1to1h2o", dist = "normal")
+  )
+
+  fake_member <- function(id) list(
+    posterior = list(percentiles = .mp_pct(15)),
+    dist = "texture_ilr", route = "closed_form_ilr_group",
+    route_detail = NULL, n_fallback_cells = 0
+  )
+
+  testthat::local_mocked_bindings(
+    fetch_ssurgo_mukey_raster = function(...) .mp_mukey_raster(),
+    simulate_ssurgo_mapunit_draws = function(..., depth_windows = NULL) {
+      stats::setNames(lapply(depth_windows, function(w) data.frame(mukey = 1)),
+                      vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), ""))
+    },
+    percentiles_from_draws = function(...) .mp_prior(),
+    fetch_solus_percentiles = function(...) .mp_solus(),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
+    cache_get_valid_percentiles = function(...) NULL,
+    cache_set = function(...) invisible(TRUE),
+    build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
+    mukey_draws_lookup = function(...) NULL,
+    stage1_fuse_texture_group_from_fetched = function(fetched, ...) {
+      fuse_n <<- fuse_n + 1L
+      stats::setNames(lapply(fetched, function(f) fake_member(f$id)), vapply(fetched, `[[`, "", "id"))
+    },
+    .package = "soilSIM"
+  )
+
+  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, composition_groups = comp)
+
+  expect_equal(fuse_n, 2L)  # once per window, not once per member
+  expect_equal(res$clay[["0-5"]]$dist, "texture_ilr")
+  expect_equal(res$sand[["5-15"]]$dist, "texture_ilr")
+  expect_true(all(c("prior", "likelihood", "posterior") %in% names(res$ph[["0-5"]])))  # standalone unaffected
+})
+
+# ---------------------------------------------------------------------------
+# S1 - batched SOLUS fetch: one fetch_solus_percentiles_multi() call per window (covering every
+# variable needed by any standalone config or group member), not one fetch_solus_percentiles()
+# call per (variable, window).
+# ---------------------------------------------------------------------------
+
+test_that("run_stage1_fusion_multi() fetches SOLUS once per window (batched), not once per variable", {
+  batch_calls <- list()
+  windows <- list(c(0, 5), c(5, 15), c(15, 30))
+  comp <- list(texture = list(members = c("clay", "sand", "silt")))
+  cfgs <- list(
+    ph   = list(id = "ph",   solus_variable = "ph1to1h2o", dist = "normal"),
+    db   = list(id = "db",   solus_variable = "dbovendry", dist = "normal"),
+    clay = list(id = "clay", solus_variable = "claytotal", composition_group = "texture"),
+    sand = list(id = "sand", solus_variable = "sandtotal", composition_group = "texture"),
+    silt = list(id = "silt", solus_variable = "silttotal", composition_group = "texture")
+  )
+  fake_member <- function(id) list(
+    posterior = list(percentiles = .mp_pct(15)),
+    dist = "texture_ilr", route = "closed_form_ilr_group",
+    route_detail = NULL, n_fallback_cells = 0
+  )
+
+  testthat::local_mocked_bindings(
+    fetch_ssurgo_mukey_raster = function(...) .mp_mukey_raster(),
+    simulate_ssurgo_mapunit_draws = function(..., depth_windows = NULL) {
+      stats::setNames(lapply(depth_windows, function(w) data.frame(mukey = 1)),
+                      vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), ""))
+    },
+    percentiles_from_draws = function(...) .mp_prior(),
+    fetch_solus_percentiles = function(...) stop("fetch_solus_percentiles() (scalar) should not be called when the batch succeeds"),
+    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, top_depth, bottom_depth) {
+      batch_calls[[length(batch_calls) + 1]] <<- list(vars = sort(solus_variables), window = c(top_depth, bottom_depth))
+      .mp_solus_multi(solus_variables)
+    },
+    cache_get_valid_percentiles = function(...) NULL,
+    cache_set = function(...) invisible(TRUE),
+    build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
+    mukey_draws_lookup = function(...) NULL,
+    stage1_fuse_texture_group_from_fetched = function(fetched, ...) {
+      stats::setNames(lapply(fetched, function(f) fake_member(f$id)), vapply(fetched, `[[`, "", "id"))
+    },
+    .package = "soilSIM"
+  )
+
+  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows, composition_groups = comp)
+
+  # One batch call per window (3), not one per (variable, window) (would be 5 * 3 = 15).
+  expect_equal(length(batch_calls), 3L)
+  expect_equal(sort(batch_calls[[1]]$vars),
+               sort(c("ph1to1h2o", "dbovendry", "claytotal", "sandtotal", "silttotal")))
+  expect_false(is.null(res$ph[["0-5"]]))
+  expect_false(is.null(res$db[["15-30"]]))
+  expect_equal(res$clay[["5-15"]]$dist, "texture_ilr")
+})
+
+test_that("run_stage1_fusion_multi() falls back to the scalar SOLUS fetch when the batched request errors", {
+  scalar_calls <- 0L
+  windows <- list(c(0, 5))
+  cfgs <- list(ph = list(id = "ph", solus_variable = "ph1to1h2o", dist = "normal"))
+
+  testthat::local_mocked_bindings(
+    fetch_ssurgo_mukey_raster = function(...) .mp_mukey_raster(),
+    simulate_ssurgo_mapunit_draws = function(..., depth_windows = NULL) {
+      stats::setNames(lapply(depth_windows, function(w) data.frame(mukey = 1)),
+                      vapply(depth_windows, function(w) paste0(w[[1]], "-", w[[2]]), ""))
+    },
+    percentiles_from_draws = function(...) .mp_prior(),
+    fetch_solus_percentiles = function(...) { scalar_calls <<- scalar_calls + 1L; .mp_solus() },
+    fetch_solus_percentiles_multi = function(...) stop("simulated whole-batch fetchSOLUS() failure"),
+    cache_get_valid_percentiles = function(...) NULL,
+    cache_set = function(...) invisible(TRUE),
+    build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
+    mukey_draws_lookup = function(...) NULL,
+    .package = "soilSIM"
+  )
+
+  res <- run_stage1_fusion_multi(.mp_aoi(), cfgs, windows)
+
+  expect_equal(scalar_calls, 1L)
+  expect_false(is.null(res$ph[["0-5"]]))
 })

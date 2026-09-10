@@ -5,8 +5,8 @@
 #'   `parallel::makeCluster()`/`parLapply()` on Windows and `parallel::mclapply()` elsewhere,
 #'   explicit `library(soilSIM)` on Windows workers, explicit `soil_workflow_log_config`
 #'   propagation) shared by `process_cokeys_parallel()`
-#'   (`multivariate-adjustment.R`), `run_parallel_simulation()` (`monte-carlo.R`), and
-#'   `maybe_adjust_soil_data_depth_trend()` (`ssurgo-simulation.R`).
+#'   (`core-gp.R`), `run_parallel_simulation()` (`core-montecarlo.R`), and
+#'   `maybe_adjust_soil_data_depth_trend()` (`adapter-ssurgo-simulate.R`).
 #' @name parallel_utils
 NULL
 

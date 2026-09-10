@@ -2497,7 +2497,7 @@ get_predefined_properties <- function(source_name) {
   switch(tolower(source_name),
 
          "ssurgo" = {
-           # create_ssurgo_property_lookup_working() lives in ssurgo-acquisition.R. The
+           # create_ssurgo_property_lookup_working() lives in adapter-ssurgo-acquire.R. The
            # tryCatch() below degrades to a WARN plus an empty vector, since this switch
            # has no other way to signal an unknown or unavailable source.
            tryCatch({
@@ -2811,7 +2811,7 @@ create_property_lookup <- function(properties, synonyms = NULL, metadata = NULL)
 #' duplicating their logic inline. `validation_context`, `complexity_limits`,
 #' and `strict_mode` are all read. The result is the nested
 #' `geometry_stats$complexity_validation$complexity_stats` shape that
-#' `ssurgo-acquisition.R`'s downstream code expects.
+#' `adapter-ssurgo-acquire.R`'s downstream code expects.
 #'
 #' @export
 validate_wkt_geometry <- function(wkt_string,

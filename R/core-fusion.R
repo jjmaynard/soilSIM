@@ -1,24 +1,475 @@
+#' @title Bayesian Updating: Conjugate Fusion and General Grid-KDE Fusion
+#'
+#' @description Scalar (plain-vector) toolkit for fusing a prior belief
+#'   distribution with a likelihood (e.g. an SSURGO-derived prior against
+#'   field-measured data).
+#'
+#'   These are standalone building blocks. The raster fusion pipeline in
+#'   `core-fusion.R` supplies the equivalent primitives used in the
+#'   production SSURGO x SOLUS100 workflow; the tabular Monte Carlo pipeline
+#'   in `core-montecarlo.R` does not call these functions directly.
+#'
+#'   Three tiers, in increasing order of generality/cost:
+#'   1. `bayes_update_normal_normal()` - exact, closed-form, Normal-only.
+#'   2. `fuse_beta()`/`fuse_gamma()` - exact, closed-form, same-family-only
+#'      (each family's kernel parameters simply ADD - the same principle
+#'      `bayes_update_normal_normal()` uses for Normal's natural parameters,
+#'      applied to Beta/Gamma), with a `feasible` flag and a documented
+#'      moment-based fallback route when infeasible.
+#'   3. `bayesian_update()` - fully general grid-KDE Bayes' rule (any shape,
+#'      any family, even mismatched sides), at the cost of needing raw
+#'      samples (not distributional parameters) on both sides.
+#'
+#'   `fuse_bivariate_normal()`/`fuse_texture_group_from_triplets()` extend
+#'   tier 1 to the joint 3-part-composition ILR case (clay/sand/silt texture,
+#'   in whichever role order `core-montecarlo.R`'s `composition_groups$texture$members`
+#'   configures - see `core-distributions.R`'s ILR section header), since
+#'   independent per-fraction fusion (e.g. three separate `fuse_beta()`
+#'   calls) measurably breaks sum-to-100 (up to about 10 percentage points on
+#'   realistic synthetic data).
+#' @name bayesian_updating
+NULL
+
+# ==============================================================================
+# Tier 1: Normal-Normal conjugate fusion
+# ==============================================================================
+
+#' Precision-weighted conjugate Normal-Normal posterior
+#'
+#' @param prior_mu,prior_sigma Prior mean/sd (numeric scalar or vector).
+#' @param lik_mu,lik_sigma Likelihood mean/sd (numeric scalar or vector, same
+#'   length as the prior args).
+#' @return `list(mu = posterior mean, sigma = posterior sd)`.
+#'
+#' @details Invariants (see `tests/testthat/test-bayesian-updating.R`):
+#'   posterior `sigma <= min(prior_sigma, lik_sigma)`; posterior `mu` is
+#'   bounded between `prior_mu` and `lik_mu`; symmetric under swapping
+#'   `(prior_mu, prior_sigma)` <-> `(lik_mu, lik_sigma)`.
+#' @export
+bayes_update_normal_normal <- function(prior_mu, prior_sigma, lik_mu, lik_sigma) {
+  prior_prec <- 1 / (prior_sigma^2)
+  lik_prec   <- 1 / (lik_sigma^2)
+  post_prec  <- prior_prec + lik_prec
+  post_sigma <- sqrt(1 / post_prec)
+  post_mu    <- (prior_mu * prior_prec + lik_mu * lik_prec) / post_prec
+  list(mu = post_mu, sigma = post_sigma)
+}
+
+#' Moment-match a raw-space Lognormal's mean/sd onto its underlying Normal's mu/sigma
+#'
+#' Needed because several properties (e.g. SOC, CEC) are strictly positive
+#' and right-skewed - fusing their raw mean/sd as if Normal lets the
+#' posterior put real probability mass below zero, which is physically
+#' impossible. `bayes_update_normal_normal()` is reused in log-space instead.
+#'
+#' @param mu,sigma Raw-space mean/sd.
+#' @return `list(mu = log-space mu, sigma = log-space sigma)`.
+#' @export
+normal_to_lognormal_params <- function(mu, sigma) {
+  sigma_log <- sqrt(log(1 + (sigma / mu)^2))
+  mu_log <- log(mu) - sigma_log^2 / 2
+  list(mu = mu_log, sigma = sigma_log)
+}
+
+#' Inverse of `normal_to_lognormal_params()`
+#'
+#' Converts log-space Normal(mu, sigma) parameters back to the raw-space
+#' Lognormal's mean/sd.
+#' @param mu_log,sigma_log Log-space mean/sd.
+#' @return `list(mu = raw-space mean, sigma = raw-space sd)`.
+#' @export
+lognormal_to_normal_params <- function(mu_log, sigma_log) {
+  mu <- exp(mu_log + sigma_log^2 / 2)
+  sigma <- sqrt((exp(sigma_log^2) - 1) * exp(2 * mu_log + sigma_log^2))
+  list(mu = mu, sigma = sigma)
+}
+
+# ==============================================================================
+# Tier 2: Beta-Beta and Gamma-Gamma conjugate fusion
+# ==============================================================================
+
+#' Fuse two independent Beta belief distributions via density multiplication
+#'
+#' `Beta(a1,b1) x Beta(a2,b2) -> Beta(a1+a2-1, b1+b2-1)`, derived from the
+#' Beta kernel `x^(a-1)(1-x)^(b-1)`. Requires `a1+a2 > 1` and `b1+b2 > 1` to
+#' remain a valid distribution; `feasible` flags where that fails.
+#'
+#' @param prior_alpha,prior_beta,lik_alpha,lik_beta Numeric scalars or vectors.
+#' @return `list(alpha=, beta=, feasible=)`.
+#' @export
+fuse_beta <- function(prior_alpha, prior_beta, lik_alpha, lik_beta) {
+  alpha <- prior_alpha + lik_alpha - 1
+  beta <- prior_beta + lik_beta - 1
+  feasible <- (prior_alpha + lik_alpha > 1) & (prior_beta + lik_beta > 1)
+  list(alpha = alpha, beta = beta, feasible = feasible)
+}
+
+#' Fuse two independent Gamma (shape/rate) belief distributions
+#'
+#' `Gamma(k1,r1) x Gamma(k2,r2) -> Gamma(k1+k2-1, r1+r2)`, derived from the
+#' Gamma kernel `x^(k-1)exp(-r*x)`. Requires `k1+k2 > 1` to remain valid.
+#'
+#' @param prior_shape,prior_rate,lik_shape,lik_rate Numeric scalars or vectors.
+#' @return `list(shape=, rate=, feasible=)`.
+#' @export
+fuse_gamma <- function(prior_shape, prior_rate, lik_shape, lik_rate) {
+  shape <- prior_shape + lik_shape - 1
+  rate <- prior_rate + lik_rate
+  feasible <- (prior_shape + lik_shape > 1)
+  list(shape = shape, rate = rate, feasible = feasible)
+}
+
+#' Method-of-moments Gamma fit
+#'
+#' Used by the closed-form same-family fusion route's infeasible-cell
+#' fallback (re-express as Normal moments, fuse as Normal, convert back).
+#' @param mean,var Mean/variance to convert.
+#' @return `list(shape=, rate=)`.
+#' @export
+moments_to_gamma <- function(mean, var) {
+  list(shape = mean^2 / var, rate = mean / var)
+}
+
+#' Method-of-moments Beta fit
+#'
+#' Used by the closed-form same-family fusion route's infeasible-cell
+#' fallback (re-express as Normal moments, fuse as Normal, convert back).
+#' @param mean,var Mean/variance to convert.
+#' @return `list(alpha=, beta=)`.
+#' @export
+moments_to_beta <- function(mean, var) {
+  common <- mean * (1 - mean) / var - 1
+  list(alpha = mean * common, beta = (1 - mean) * common)
+}
+
+#' Beta's mean/variance as a function of its own (alpha, beta)
+#'
+#' The inverse direction of `moments_to_beta()` - used to re-express an
+#' infeasible same-family fusion's inputs as Normal moments before falling
+#' back to `bayes_update_normal_normal()`.
+#' @param alpha,beta Beta shape parameters.
+#' @return `list(mean=, var=)`.
+#' @export
+beta_to_moments <- function(alpha, beta) {
+  list(mean = alpha / (alpha + beta), var = (alpha * beta) / ((alpha + beta)^2 * (alpha + beta + 1)))
+}
+
+#' Gamma's mean/variance as a function of its own (shape, rate)
+#'
+#' The inverse direction of `moments_to_gamma()` - used to re-express an
+#' infeasible same-family fusion's inputs as Normal moments before falling
+#' back to `bayes_update_normal_normal()`.
+#' @param shape,rate Gamma shape/rate parameters.
+#' @return `list(mean=, var=)`.
+#' @export
+gamma_to_moments <- function(shape, rate) {
+  list(mean = shape / rate, var = shape / rate^2)
+}
+
+#' Fuse a prior and likelihood belief distribution of the same family
+#'
+#' @param prior_params,lik_params Named lists of that family's parameters:
+#'   `list(mu=,sigma=)` for `"normal"`, `list(alpha=,beta=)` for `"beta"`,
+#'   `list(shape=,rate=)` for `"gamma"`.
+#' @param family One of `"normal"`, `"beta"`, `"gamma"`. Both sides must
+#'   already be fit in this same family - there is no closed form for fusing
+#'   mismatched families; use `bayesian_update()` for that.
+#' @return The matching `fuse_*()` function's return value.
+#' @export
+bayes_fuse <- function(prior_params, lik_params, family = c("normal", "beta", "gamma")) {
+  family <- match.arg(family)
+  switch(family,
+    normal = bayes_update_normal_normal(prior_params$mu, prior_params$sigma, lik_params$mu, lik_params$sigma),
+    beta = fuse_beta(prior_params$alpha, prior_params$beta, lik_params$alpha, lik_params$beta),
+    gamma = fuse_gamma(prior_params$shape, prior_params$rate, lik_params$shape, lik_params$rate)
+  )
+}
+
+# ==============================================================================
+# Tier 3: fully general grid-KDE Bayesian updating
+# ==============================================================================
+
+#' Combine a prior and likelihood distribution into a posterior via grid-based KDE
+#'
+#' Estimates prior and likelihood densities over a shared value grid via
+#' kernel density estimation, multiplies them per Bayes' rule, and samples
+#' from the resulting (normalized) posterior. Fully general - no
+#' distributional family assumption, no requirement that both sides match -
+#' at the cost of needing raw samples (not distributional parameters) and
+#' being considerably more expensive than the closed-form tiers above.
+#'
+#' @param prior_distribution,likelihood_distribution Numeric vectors of samples.
+#' @param grid_range Optional length-2 vector giving the grid's min/max. If
+#'   `NULL`, derived from the combined range of both inputs, padded by 1.
+#' @param grid_resolution Step size of the evaluation grid.
+#' @param n Number of posterior samples to draw.
+#' @param winsorize_probs Optional length-2 vector `c(lower, upper)` (e.g. `c(0.01, 0.99)`). When
+#'   supplied, each side's sample is independently clipped to its OWN `quantile()` range at these
+#'   probabilities before the `stats::density(bw = "nrd0")` call. `NULL` (default) preserves this
+#'   function's original behavior exactly.
+#' @param posterior_probs Optional numeric vector of probabilities (0-1) at which to report
+#'   posterior percentiles (e.g. `c(0.05, 0.5, 0.95)`). `NULL` (default) preserves this function's
+#'   original return shape EXACTLY - a plain numeric vector of `n` posterior samples - so every
+#'   existing caller (`fuse_property()`, `R/core-montecarlo.R`'s `fuse_observed_data_into_priors()`,
+#'   this file's own tests) is completely unaffected. When supplied, the return shape changes to
+#'   the richer list described below (see `@return`); see `@section Grid-based percentiles` for why
+#'   this is the primary use case for `posterior_probs`, not `quantile()` on the resampled vector.
+#' @return When `posterior_probs` is `NULL` (default): a numeric vector of `n` samples drawn from
+#'   the posterior distribution (unchanged from this function's original contract). When
+#'   `posterior_probs` is supplied: a list with -
+#'   - `samples`: the same `n`-length resampled vector as the `NULL` case (still available for
+#'     callers that want actual posterior draws, e.g. downstream Monte Carlo propagation).
+#'   - `mean`, `var`: the posterior mean/variance computed EXACTLY from the discretized
+#'     `posterior_prob`/`value_grid` distribution (`sum(value_grid * posterior_prob)` and its
+#'     variance analogue) - zero resampling noise, strictly at least as accurate as `mean(samples)`/
+#'     `var(samples)` for any `n`.
+#'   - `percentiles`: a named numeric vector (names `"P5"`, `"P50"`, ... matching `posterior_probs`),
+#'     read directly off `cumsum(posterior_prob)` - also zero resampling noise, accurate to within
+#'     `grid_resolution`.
+#'   - `value_grid`, `posterior_prob`: the underlying discretized distribution itself, for callers
+#'     that want to compute something these three summaries don't cover.
+#'
+#' @section Grid-based percentiles have zero resampling noise:
+#' This function already computes the FULL discretized posterior distribution
+#' (`posterior_prob` over `value_grid`) before its final step, which historically only existed to
+#' hand back a plain vector (`sample(value_grid, size = n, prob = posterior_prob, replace = TRUE)`).
+#' Reading percentiles/moments directly off `posterior_prob`'s cumulative distribution - finding
+#' where `cumsum(posterior_prob)` crosses each target probability - is exact relative to
+#' `grid_resolution` and has no resampling noise at all, unlike `quantile(samples, probs = ...)`
+#' would have. No amount of increasing `n` improves on reading percentiles directly off an
+#' already-fully-known discrete distribution, so this is `posterior_probs`' primary computation
+#' path, not a convenience wrapper around the resampled `samples` vector.
+#'
+#' @section Known limitation (raw-draws fusion vs. percentile-reconstruction fusion):
+#' A dedicated adversarial test found that for
+#' a skewed prior fused against a weak/wide likelihood, `soilSIM`'s `prior_fusion_method =
+#' "raw_draws"` route (a genuine empirical resample as the prior side) can produce a fused posterior
+#' mean measurably *less* close to the prior population's true mean than the default
+#' percentile-reconstruction route, in a way that first looked like a bandwidth-selection bug. Task
+#' P3.1's follow-up investigation ruled that out directly (forcing both routes onto the exact same
+#' `stats::density()` bandwidth left the gap essentially unchanged) and traced the real mechanism to
+#' `R/core-distributions.R`'s `sim_linear_cdf_batch()`: reconstructing a distribution from only 5
+#' percentile knots is an inherent information-loss approximation for skewed shapes (confirmed
+#' method-agnostic - `linear_cdf`/`spline`/`kde` reconstruction all show a comparable P75-P95
+#' overshoot on the same synthetic scenario), not a defect in this function or in raw_draws. See
+#' that task's write-up for the full investigation; `winsorize_probs` remains available below as a
+#' harmless, independently-useful safety net for genuine extreme-outlier inputs, not as a fix for
+#' this finding (there was nothing here to fix).
+#' @export
+bayesian_update <- function(prior_distribution, likelihood_distribution, grid_range = NULL,
+                             grid_resolution = 0.01, n = 1000, winsorize_probs = NULL,
+                             posterior_probs = NULL) {
+  if (!is.null(winsorize_probs)) {
+    clip <- function(x) {
+      bounds <- stats::quantile(x, probs = winsorize_probs, na.rm = TRUE, names = FALSE)
+      pmin(pmax(x, bounds[1]), bounds[2])
+    }
+    prior_distribution <- clip(prior_distribution)
+    likelihood_distribution <- clip(likelihood_distribution)
+  }
+
+  if (is.null(grid_range)) {
+    grid_min <- min(c(prior_distribution, likelihood_distribution)) - 1
+    grid_max <- max(c(prior_distribution, likelihood_distribution)) + 1
+  } else {
+    grid_min <- grid_range[1]
+    grid_max <- grid_range[2]
+  }
+
+  value_grid <- seq(grid_min, grid_max, by = grid_resolution)
+
+  prior_density <- density(prior_distribution, bw = "nrd0", from = grid_min, to = grid_max, n = length(value_grid))
+  likelihood_density <- density(likelihood_distribution, bw = "nrd0", from = grid_min, to = grid_max, n = length(value_grid))
+
+  prior_prob <- approxfun(prior_density$x, prior_density$y)(value_grid)
+  likelihood_prob <- approxfun(likelihood_density$x, likelihood_density$y)(value_grid)
+
+  prior_prob <- prior_prob / sum(prior_prob)
+  likelihood_prob <- likelihood_prob / sum(likelihood_prob)
+
+  posterior_prob <- prior_prob * likelihood_prob
+  posterior_prob <- posterior_prob / sum(posterior_prob)
+
+  samples <- sample(value_grid, size = n, prob = posterior_prob, replace = TRUE)
+
+  if (is.null(posterior_probs)) {
+    return(samples)
+  }
+
+  # Grid-based exact percentiles/moments - see @section Grid-based percentiles above for why this
+  # is preferred over quantile()/mean()/var() on `samples`.
+  cdf <- cumsum(posterior_prob)
+  idx <- pmin(findInterval(posterior_probs, cdf) + 1L, length(value_grid))
+  percentiles <- stats::setNames(value_grid[idx], paste0("P", round(posterior_probs * 100)))
+
+  mean_exact <- sum(value_grid * posterior_prob)
+  var_exact <- sum((value_grid - mean_exact)^2 * posterior_prob)
+
+  list(
+    samples = samples,
+    mean = mean_exact,
+    var = var_exact,
+    percentiles = percentiles,
+    value_grid = value_grid,
+    posterior_prob = posterior_prob
+  )
+}
+
+# ==============================================================================
+# Joint (compositional) fusion for texture (clay/sand/silt)
+# ==============================================================================
+
+#' Fuse two independent bivariate Normal beliefs about the same 2D quantity
+#'
+#' Precision MATRICES add - the direct multivariate generalization of
+#' `bayes_update_normal_normal()`'s scalar-precision addition.
+#'
+#' @param mu1,mu2 Length-2 mean vectors.
+#' @param Sigma1,Sigma2 2x2 covariance matrices.
+#' @return `list(mu = fused mean vector, Sigma = fused covariance matrix)`.
+#' @export
+fuse_bivariate_normal <- function(mu1, Sigma1, mu2, Sigma2) {
+  P1 <- solve(Sigma1)
+  P2 <- solve(Sigma2)
+  Sigma_post <- solve(P1 + P2)
+  list(mu = as.numeric(Sigma_post %*% (P1 %*% mu1 + P2 %*% mu2)), Sigma = Sigma_post)
+}
+
+#' Fuse two full clay/sand/silt low-rep-high triplets jointly via ILR fusion
+#'
+#' Wraps `core-distributions.R`'s `estimate_ilr_moments_mc()` (once per side) +
+#' `fuse_bivariate_normal()` + `sample_ilr_posterior()` for future joint
+#' texture-prior updating. Independent per-fraction fusion (e.g. three
+#' separate `fuse_beta()` calls) measurably breaks sum-to-100 (documented
+#' upstream: up to 10.5 percentage points on realistic synthetic data) -
+#' this is why the fusion happens jointly, in ILR space, instead.
+#'
+#' @param prior_triplets,lik_triplets Named list with elements `clay`,
+#'   `sand`, `silt`, each a length-3 numeric vector `c(low, rep, high)`. These
+#'   keys are positional-role placeholders matching `estimate_ilr_moments_mc()`'s
+#'   `low_clay`/`low_sand`/`low_silt` parameter naming (position 1/2/3 of the
+#'   ILR sequential binary partition - see `core-distributions.R`'s ILR section
+#'   header), not an identity requirement; callers (e.g.
+#'   `core-montecarlo.R`'s `fuse_observed_data_into_priors()`) build them from
+#'   `composition_groups$texture$members` in configured order.
+#' @param z_prior,z_lik Standard-normal quantile matching each side's
+#'   low/high interval (e.g. `qnorm(0.95)` for a 5th/95th-percentile
+#'   low/high).
+#' @param n_mc Monte Carlo sample size passed to `estimate_ilr_moments_mc()`.
+#' @param n_samples Number of posterior composition samples to draw.
+#' @param total Composition target sum (default 100).
+#' @return `list(posterior_samples = <n_samples x 3 matrix, columns clay/sand/silt,
+#'   guaranteed sum-to-`total` by construction>, ilr_mu=, ilr_Sigma=)`.
+#' @export
+fuse_texture_group_from_triplets <- function(prior_triplets, lik_triplets, z_prior, z_lik,
+                                              n_mc = 2000, n_samples = 1000, total = 100) {
+  prior_moments <- estimate_ilr_moments_mc(
+    low_clay = prior_triplets$clay[1], rep_clay = prior_triplets$clay[2], high_clay = prior_triplets$clay[3],
+    low_sand = prior_triplets$sand[1], rep_sand = prior_triplets$sand[2], high_sand = prior_triplets$sand[3],
+    low_silt = prior_triplets$silt[1], rep_silt = prior_triplets$silt[2], high_silt = prior_triplets$silt[3],
+    z = z_prior, n_mc = n_mc
+  )
+  lik_moments <- estimate_ilr_moments_mc(
+    low_clay = lik_triplets$clay[1], rep_clay = lik_triplets$clay[2], high_clay = lik_triplets$clay[3],
+    low_sand = lik_triplets$sand[1], rep_sand = lik_triplets$sand[2], high_sand = lik_triplets$sand[3],
+    low_silt = lik_triplets$silt[1], rep_silt = lik_triplets$silt[2], high_silt = lik_triplets$silt[3],
+    z = z_lik, n_mc = n_mc
+  )
+
+  fused <- fuse_bivariate_normal(prior_moments$mu, prior_moments$Sigma, lik_moments$mu, lik_moments$Sigma)
+  posterior_samples <- sample_ilr_posterior(fused$mu, fused$Sigma, n = n_samples, total = total)
+
+  list(posterior_samples = posterior_samples, ilr_mu = fused$mu, ilr_Sigma = fused$Sigma)
+}
+
+# ==============================================================================
+# Tabular dispatch entry point
+# ==============================================================================
+
+#' Fuse a prior and likelihood belief distribution, dispatching by input shape
+#'
+#' Unlike the raster-native reference (`fuse_adaptive()`), which dispatches
+#' between the general and closed-form routes by AOI cell count - a concept
+#' with no tabular analogue - this dispatches on the SHAPE of `prior`/
+#' `likelihood`: atomic numeric vectors (raw samples) route to the fully
+#' general `bayesian_update()`; named lists of family-native parameters
+#' route to the closed-form `bayes_fuse()`. This removes the "which
+#' heuristic" ambiguity entirely, since the caller's input shape already
+#' determines which route applies.
+#'
+#' @param prior,likelihood Either numeric vectors of raw samples (both sides
+#'   must be vectors), or named lists of family-native parameters matching
+#'   `family` (both sides must be lists).
+#' @param family Required when `prior`/`likelihood` are parameter lists; one
+#'   of `"normal"`, `"beta"`, `"gamma"`. Ignored (and inferred as "general")
+#'   when `prior`/`likelihood` are raw-sample vectors.
+#' @param bounds Unused currently; kept for interface symmetry with
+#'   percentile-triplet-based callers.
+#' @param method Optional assertion/override: `"general"` or `"closed_form"`.
+#'   Errors if it doesn't match what the input shape implies, rather than
+#'   silently overriding it.
+#' @param n_samples,grid_resolution Passed to `bayesian_update()` for the
+#'   general route.
+#' @return For the general route: a numeric vector of posterior samples
+#'   (`bayesian_update()`'s native output). For the closed-form route: the
+#'   family-native posterior parameter list (`bayes_fuse()`'s native output).
+#'   These are NOT the same shape - documented deliberately rather than
+#'   forced into a fake-uniform contract, since the caller already knows
+#'   which shape it's passing in and therefore which shape it gets back.
+#' @export
+fuse_property <- function(prior, likelihood, family = NULL, bounds = NULL, method = NULL,
+                           n_samples = 1000, grid_resolution = 0.01) {
+  prior_is_vector <- is.atomic(prior) && is.numeric(prior)
+  lik_is_vector <- is.atomic(likelihood) && is.numeric(likelihood)
+
+  if (prior_is_vector != lik_is_vector) {
+    stop("fuse_property(): prior and likelihood must be the SAME shape (both raw-sample vectors, or both parameter lists).")
+  }
+
+  resolved_method <- if (prior_is_vector) "general" else "closed_form"
+  if (!is.null(method) && !identical(method, resolved_method)) {
+    stop(sprintf(
+      "fuse_property(): method = '%s' was requested but the input shape implies '%s' - pass matching inputs or omit method.",
+      method, resolved_method
+    ))
+  }
+
+  if (resolved_method == "general") {
+    return(bayesian_update(prior, likelihood, grid_resolution = grid_resolution, n = n_samples))
+  }
+
+  if (is.null(family)) {
+    stop("fuse_property(): family is required when prior/likelihood are parameter lists (closed_form route).")
+  }
+  bayes_fuse(prior, likelihood, family = family)
+}
+
+
+# ============================================================================
+# merged from core-fusion.R (P1 file reorg)
+# ============================================================================
+
 #' @title Raster-Native Bayesian Fusion (Prior x Likelihood, per Cell)
 #'
 #' @description Per-cell Bayesian fusion of a prior belief distribution
 #'   (e.g. an SSURGO-derived percentile raster set) with a likelihood (e.g.
 #'   an independent percentile raster set from another source), across a
 #'   whole `terra::SpatRaster` AOI at once. This is the raster-native
-#'   counterpart of `R/bayesian-updating.R`.
+#'   counterpart of `R/core-fusion.R`.
 #'
-#'   Uses `bayesian-updating.R`'s scalar/vector fusion functions
+#'   Uses `core-fusion.R`'s scalar/vector fusion functions
 #'   directly - `bayes_update_normal_normal()`,
 #'   `fuse_beta()`, `fuse_gamma()`, `moments_to_gamma()`/`moments_to_beta()`/
 #'   `beta_to_moments()`/`gamma_to_moments()`, `normal_to_lognormal_params()`/
 #'   `lognormal_to_normal_params()`, `bayesian_update()`, and
-#'   `R/distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`, plus
+#'   `R/core-distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`, plus
 #'   `fuse_bivariate_normal()` - are all pure elementwise arithmetic, so they
 #'   work unchanged on `SpatRaster` inputs.
 #'
 #' @section Entry points:
 #' `run_stage1_fusion()`/`run_stage1_fusion_group()` are the top-level
-#' orchestrators, wiring the fetch-and-cache layer (`R/raster-cache.R`,
-#' `R/ssurgo-simulation.R`, `R/solus-simulation.R`) to the fusion core.
+#' orchestrators, wiring the fetch-and-cache layer (`R/cache.R`,
+#' `R/adapter-ssurgo-simulate.R`, `R/adapter-solus.R`) to the fusion core.
 #' `fuse_property_adaptive()` is the lower-level entry point for callers
 #' who already have their own pre-fetched `prior_value_rasters`/
 #' `lik_value_rasters` and want to skip the fetch-and-cache wrapper.
@@ -27,7 +478,7 @@
 #' `group_members()`/`fuse_property_adaptive()` take a per-call config
 #' list/member vector directly, reusing soilSIM's
 #' `config$monte_carlo$composition_groups` convention (see
-#' `R/distributions.R`'s `resolve_composition_groups()`).
+#' `R/core-distributions.R`'s `resolve_composition_groups()`).
 #' @name raster_fusion
 NULL
 
@@ -38,7 +489,7 @@ NULL
 #' Method-of-moments Gamma fit from a list of percentile-value rasters
 #'
 #' Thin raster wrapper around the existing scalar `moments_to_gamma()`
-#' (`bayesian-updating.R`) - the mean/variance computation is the only
+#' (`core-fusion.R`) - the mean/variance computation is the only
 #' genuinely raster-specific part (combining a *list* of rasters via `Reduce()`).
 #' @param value_rasters List of percentile-value SpatRasters.
 #' @return `list(shape = SpatRaster, rate = SpatRaster)`.
@@ -982,7 +1433,7 @@ resolve_property_dist <- function(property_config, prior_value_rasters, prior_pr
 #' Fuse one property's prior and likelihood, dispatching to the right
 #' family/route automatically from `property_config`.
 #'
-#' The raster-native counterpart of `bayesian-updating.R`'s `fuse_property()`,
+#' The raster-native counterpart of `core-fusion.R`'s `fuse_property()`,
 #' and this toolkit's top-level entry point for non-compositional properties
 #' (see `fuse_texture_group()` for the compositional/texture case) - the
 #' raster analogue of `run_stage1_fusion()` minus the SSURGO/SOLUS
@@ -1049,11 +1500,11 @@ fuse_property_adaptive <- function(prior_value_rasters, prior_probs,
 #' Look up a compositional group's member property ids, in configured order
 #'
 #' Reuses soilSIM's own `config$monte_carlo$composition_groups` convention
-#' (see `R/distributions.R`'s `resolve_composition_groups()`) rather than
+#' (see `R/core-distributions.R`'s `resolve_composition_groups()`) rather than
 #' the original source bundle's separate `PROPERTIES`/`config.R` global
 #' registry - order is trusted from the config, not hardcoded to literal
 #' "clay"/"sand"/"silt" names, exactly like the already-ported
-#' `fuse_texture_group_from_triplets()` (`bayesian-updating.R`) already
+#' `fuse_texture_group_from_triplets()` (`core-fusion.R`) already
 #' documents ("positional-role placeholders... not an identity requirement").
 #'
 #' @param group Composition group name (e.g. `"texture"`).
@@ -1261,7 +1712,7 @@ fuse_texture_group_batch_core <- function(row_mat, clay_id, sand_id, silt_id, pr
 #' Raster-native ILR-posterior percentile sampler for `fuse_texture_group()`
 #'
 #' Draws `n_mc` bivariate-Normal ILR-space samples per cell from the fused `(mu1, mu2, S11, S12,
-#' S22)` posterior - the same distribution `R/distributions.R`'s `sample_ilr_posterior()` draws
+#' S22)` posterior - the same distribution `R/core-distributions.R`'s `sample_ilr_posterior()` draws
 #' from in the scalar case, here vectorized raster-wide via `terra::app()` - applies each cell's
 #' own 2x2 Cholesky factor (closed-form: `u11 = sqrt(S11)`, `u12 = S12/u11`, `u22 = sqrt(S22 -
 #' u12^2)`, matching base R's `chol()` upper-triangular convention exactly), `ilr_inverse()`s the
@@ -1352,8 +1803,8 @@ texture_group_percentiles_raster <- function(ilr_mu_r, ilr_Sigma_r, posterior_pr
 }
 
 #' Fuse a compositional group's members JOINTLY via ILR fusion
-#' (`R/distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`,
-#' `R/bayesian-updating.R`'s `fuse_bivariate_normal()`), rather than
+#' (`R/core-distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`,
+#' `R/core-fusion.R`'s `fuse_bivariate_normal()`), rather than
 #' independently via `fuse_beta()` per member - independent fusion
 #' measurably breaks sum-to-100 (up to 10.5 percentage points on realistic
 #' synthetic data). The raster counterpart of the
@@ -1581,8 +2032,8 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 
 #' Run Stage 1 Fusion for One Property/Depth over an AOI
 #'
-#' Fetches the (cached) SSURGO prior (`R/ssurgo-simulation.R`'s `fetch_ssurgo_percentiles()`) and
-#' SOLUS likelihood (`R/solus-simulation.R`'s `fetch_solus_percentiles()`) percentiles, aligns the
+#' Fetches the (cached) SSURGO prior (`R/adapter-ssurgo-simulate.R`'s `fetch_ssurgo_percentiles()`) and
+#' SOLUS likelihood (`R/adapter-solus.R`'s `fetch_solus_percentiles()`) percentiles, aligns the
 #' SSURGO grid onto the SOLUS grid via `terra::resample()`, then fuses via
 #' `fuse_property_adaptive()`.
 #'
@@ -1836,7 +2287,7 @@ run_stage1_fusion_group <- function(aoi_vect, group, composition_groups, propert
     # fetch_ssurgo_percentiles() independently per texture member would re-run that expensive
     # simulation (the dominant cost of the whole fusion pipeline) 3 times for a 3-member group,
     # to extract 3 columns a single simulation pass already produces together.
-    # percentiles_from_draws() (R/ssurgo-simulation.R) is the shared quantile/
+    # percentiles_from_draws() (R/adapter-ssurgo-simulate.R) is the shared quantile/
     # rasterize step, factored out of fetch_ssurgo_percentiles() for exactly this reuse.
     ssurgo_keys <- lapply(members, function(m) build_cache_key(aoi_vect, m$id, top_depth, bottom_depth, "ssurgo"))
     ssurgo_cached <- lapply(ssurgo_keys, cache_get_valid_percentiles)
@@ -2142,4 +2593,477 @@ run_stage1_fusion_multi <- function(aoi_vect, property_configs, depth_windows,
   rm(draws_by_window)
   gc(verbose = FALSE)
   result
+}
+
+
+# ============================================================================
+# merged from core-fusion.R (P1 file reorg)
+# ============================================================================
+
+#' @title Per-Pixel Ensemble Re-Marginalization (raster-fusion <-> tabular MC bridge)
+#'
+#' @description Transforms the per-mukey joint Monte Carlo ensemble from
+#'   `extract_mukey_joint_ensemble()` (`R/adapter-ssurgo-simulate.R`) onto the SOLUS grid so that each
+#'   pixel's marginal distributions match `run_stage1_fusion()`'s SOLUS-fused posterior, while
+#'   preserving the ensemble's empirical copula (cross-property and cross-depth-window rank
+#'   structure). This is the "per-pixel" answer to wiring raster fusion into the modelling
+#'   framework.
+#'
+#'   `zonal_distribution_from_posterior()` is the cheap mukey-collapsed comparison arm (feeds
+#'   `observed_data_by_mukey` in `generate_monte_carlo_realizations()`); `remarginalize_ensemble_to_posterior()`
+#'   is the per-pixel transform; `remarginalized_awc()` is the first derived-quantity consumer
+#'   (available water capacity, via `saxton_rawls_raster()` since SOLUS100 has no water-retention
+#'   variable). Nothing here touches either existing pipeline - purely additive.
+#' @name raster_fusion_bridge
+NULL
+
+#' Probabilities behind a `run_stage1_fusion()` posterior's percentile layers
+#' @param posterior A `run_stage1_fusion()`-style `list(percentiles = <named P.. rasters>, ...)`.
+#' @return Numeric probabilities in (0, 1), ascending, parsed from the `"P<pct>"` layer names.
+#' @keywords internal
+posterior_percentile_probs <- function(posterior) {
+  nm <- names(posterior$percentiles)
+  if (is.null(nm) || !all(grepl("^P[0-9]+$", nm))) {
+    stop("posterior_percentile_probs(): posterior$percentiles must be a list named 'P1'/'P50'/... .")
+  }
+  p <- as.numeric(sub("^P", "", nm)) / 100
+  if (is.unsorted(p)) stop("posterior_percentile_probs(): percentile layers are not in ascending order.")
+  p
+}
+
+#' Zonal (per-mukey) Reduction of a Fused Posterior Raster - Benchmark Baseline
+#'
+#' Collapses `run_stage1_fusion()`'s per-pixel posterior to one distribution per mukey by taking
+#' `terra::zonal()` means of its percentile layers, in the `low`/`rep`/`high` shape
+#' `fuse_observed_data_into_priors()`'s `observed_data_by_mukey` accepts. **Percentile-based only -
+#' there is deliberately no point-estimate ("mean") path**, which would narrow the fed-back prior
+#' and understate uncertainty (see the design doc's Problem A redraft).
+#'
+#' Its sole purpose is the A.6 benchmark: the mukey-collapsed comparison arm for
+#' `remarginalize_ensemble_to_posterior()`, run through the *same* tabular Monte Carlo machinery
+#' via `observed_data_by_mukey`. Kept `@keywords internal` until that benchmark says whether the
+#' cheap path is adequate for production (then promote) or not (then delete).
+#'
+#' @param posterior A `run_stage1_fusion()`-style `list(percentiles = , ...)`.
+#' @param mukey_raster A categorical mukey `terra::SpatRaster` (any grid - resampled to the
+#'   posterior grid via nearest-neighbour internally).
+#' @param probs Length-3 ascending probabilities for the `low`/`rep`/`high` triplet; each must be
+#'   one of the posterior's own percentile-layer probabilities (no interpolation).
+#' @return Named list keyed by mukey code, each element `c(low =, rep =, high =)`.
+#' @keywords internal
+zonal_distribution_from_posterior <- function(posterior, mukey_raster,
+                                              probs = c(0.05, 0.5, 0.95)) {
+  if (length(probs) != 3 || is.unsorted(probs)) {
+    stop("zonal_distribution_from_posterior(): `probs` must be 3 ascending probabilities.")
+  }
+  post_probs <- posterior_percentile_probs(posterior)
+  if (!all(probs %in% post_probs)) {
+    stop(sprintf("zonal_distribution_from_posterior(): every `probs` value must be an exact posterior percentile (have %s).",
+                 paste(post_probs, collapse = ", ")))
+  }
+  layer_for <- function(p) posterior$percentiles[[paste0("P", round(p * 100))]]
+  ref <- layer_for(probs[1])
+
+  mk <- terra::resample(mukey_raster, ref, method = "near")
+  mk_labels <- terra::cats(mk)[[1]]
+  label_col <- names(mk_labels)[2]
+
+  reduce_one <- function(p) {
+    z <- terra::zonal(layer_for(p), mk, fun = "mean", na.rm = TRUE)
+    stats::setNames(z[[2]], as.character(z[[1]]))
+  }
+  lo <- reduce_one(probs[1]); rp <- reduce_one(probs[2]); hi <- reduce_one(probs[3])
+
+  mukeys <- Reduce(intersect, list(names(lo), names(rp), names(hi)))
+  # zonal() keys by the factor label when the raster is categorical; map back to the mukey code.
+  code_of <- function(key) {
+    if (!is.null(mk_labels) && key %in% as.character(mk_labels[[1]])) {
+      as.character(mk_labels[[label_col]][match(key, as.character(mk_labels[[1]]))])
+    } else {
+      key
+    }
+  }
+  stats::setNames(
+    lapply(mukeys, function(k) c(low = unname(lo[k]), rep = unname(rp[k]), high = unname(hi[k]))),
+    vapply(mukeys, code_of, character(1))
+  )
+}
+
+#' Invert a per-pixel posterior CDF at a per-mukey probability, vectorized over the grid
+#'
+#' For a scalar-per-mukey probability raster `u_ras`, returns the raster whose every cell is that
+#' cell's posterior value at its `u`, by piecewise-linear interpolation on the posterior's
+#' percentile knots with `rule = 2` constant extrapolation - the inverse-direction analogue of
+#' `sim_linear_cdf_batch()`.
+#' @param pct Named list of percentile-value `SpatRaster`s (ascending).
+#' @param post_probs Matching ascending probabilities.
+#' @param u_ras A `SpatRaster` of probabilities in (0, 1). **May have many layers** - each of the
+#'   single-layer `pct` rasters is recycled across them, so one call inverts a whole realization
+#'   stack in a fixed `~4 * (length(post_probs) - 1)` terra ops regardless of `nlyr(u_ras)`.
+#' @return A `SpatRaster` of interpolated posterior values, `nlyr(u_ras)` layers.
+#' @keywords internal
+invert_posterior_cdf_raster <- function(pct, post_probs, u_ras) {
+  k <- length(post_probs)
+  # Work on a placeholder where u is NA (arithmetic on NA in terra doesn't reliably propagate to
+  # the final ifel), then restore NA at the end via terra::mask().
+  u <- terra::ifel(is.na(u_ras), 0.5, u_ras)
+  out <- pct[[1]] + u * 0                           # rule = 2 low clamp, broadcast to nlyr(u_ras)
+  for (i in seq_len(k - 1L)) {
+    t <- (u - post_probs[i]) / (post_probs[i + 1L] - post_probs[i])
+    seg_val <- pct[[i]] * (1 - t) + pct[[i + 1L]] * t
+    in_seg <- (u >= post_probs[i]) & (u < post_probs[i + 1L])
+    out <- terra::ifel(in_seg, seg_val, out)
+  }
+  out <- terra::ifel(u >= post_probs[k], pct[[k]], out)
+  terra::mask(out, u_ras)                           # NA wherever the input u was NA
+}
+
+#' Saxton-Rawls water retention (field capacity, wilting point), raster / stack-native
+#'
+#' The vectorized, `terra`-native counterpart of `calculate_saxton_rawls_single()` - identical
+#' equations and clamps, but every operation is `terra` `Arith`/`Math`/`clamp`/`ifel` so it runs
+#' on multi-layer realization stacks in one pass. Used by `remarginalized_awc()`'s default
+#' (`method = "saxton_rawls"`) path, because SOLUS100 publishes **no** water-retention variable -
+#' `wr_3b`/`wr_15b` can never be fused directly, only derived from the fusable
+#' sand/silt/clay/`dbovendry`/`soc`/`fragvol`.
+#'
+#' Because `remarginalized_awc()` re-marginalizes `sand`/`silt`/`clay` to their own fused
+#' posteriors independently, a realization's texture triple may not sum to 100. This
+#' reproduces `calculate_saxton_rawls_single()`'s renormalization: where the texture sum is off
+#' by more than 5 points, the three fractions are rescaled to sum to 100 before the equations run
+#' (the equations themselves use only the sand and clay fractions).
+#'
+#' @param sand,clay,silt,db,rfv,om Percent (or g/cm^3 for `db`) `SpatRaster`s. Any may be single
+#'   or multi-layer; single-layer inputs are recycled.
+#' @return `list(fc =, wp =)` - volumetric % `SpatRaster`s, `wp < fc` enforced.
+#' @keywords internal
+saxton_rawls_raster <- function(sand, clay, silt, db, rfv, om) {
+  sc <- terra::clamp(sand, 0, 100)
+  cc <- terra::clamp(clay, 0, 100)
+  sic <- terra::clamp(silt, 0, 100)
+  tot <- sc + cc + sic
+  renorm <- abs(tot - 100) > 5                       # matches calculate_saxton_rawls_single()
+  s  <- terra::ifel(renorm, sc / tot, sc / 100)
+  cl <- terra::ifel(renorm, cc / tot, cc / 100)
+  dbc <- terra::clamp(db, 0.6, 2.5)
+  rfvf <- terra::clamp(rfv, 0, 95) / 100
+  omf <- terra::clamp(om, 0.1, 50) / 100
+
+  # Shared coefficient core - identical arithmetic to calculate_saxton_rawls_single(), one copy.
+  core <- .saxton_rawls_gravimetric(s, cl, omf)
+
+  fc_v <- terra::clamp(core$fc_g * dbc * (1 - rfvf) * 100, 3, 65)
+  wp_v <- terra::clamp(core$wp_g * dbc * (1 - rfvf) * 100, 1, 45)
+  wp_v <- terra::ifel(wp_v >= fc_v, fc_v * 0.6, wp_v)
+  list(fc = fc_v, wp = wp_v)
+}
+
+#' Per-Pixel Ensemble Re-Marginalization to a Fused Posterior
+#'
+#' Rank-preserving marginal transform: for each property and depth window, maps every retained
+#' source realization through `F_prior` (the mukey ensemble's empirical CDF) then `F_posterior^-1`
+#' (the pixel's fused posterior, piecewise-linear on its percentile knots). Each realization keeps
+#' its rank position in every property and window, so the ensemble's empirical copula
+#' (cross-property, cross-depth rank correlations) carries over; only the marginals become the
+#' pixel's posterior.
+#'
+#' @section Documented approximations:
+#' The copula / correlation structure stays mukey-level (no sub-mukey spatially-varying
+#' dependence); within-depth-window vertical shape comes from the source realization (window
+#' aggregates only - no horizon push-down here); the copula is assumed invariant under
+#' re-marginalization and is the SSURGO tabular one (KSSL + joint-copula vertical correlation) -
+#' SOLUS carries no joint information, so nothing is re-estimated; the preserved correlation is
+#' **rank (Spearman)**, not Pearson; composition (comppct) weighting stays mukey-level (already in
+#' the source ensemble's differential replicate counts). Still strictly better than zonal
+#' aggregation. See `docs/09_multi_source_raster_fusion_pipeline.md` -> "Statistical structure of
+#' the per-pixel bridge" for how this shapes a derived-quantity uncertainty band.
+#'
+#' @param mukey_ensemble An `extract_mukey_joint_ensemble()` result.
+#' @param posterior_by_property_window Named list `[[property]][[window]]` of `run_stage1_fusion()`
+#'   posteriors (each `list(percentiles = , ...)`), on a common grid. Only properties present in
+#'   BOTH this and the ensemble, and windows present in both, are produced.
+#' @param n_out Max source realizations to carry per pixel (default 250). If a mukey has more
+#'   ensemble replicates, the first `n_out` are used (a fixed subsample - same rows across every
+#'   property/window, so the copula is preserved).
+#' @param summarize `TRUE` (default) returns per-pixel percentile rasters (`probs`); `FALSE`
+#'   returns the raw `n_kept`-layer realization stacks (for downstream use, e.g. `remarginalized_awc()`).
+#' @param probs Percentile probabilities for the `summarize = TRUE` output.
+#' @return `list(percentiles = [[property]][[window]] = <named list of P.. SpatRasters>)` when
+#'   `summarize`, else `list(ensemble = [[property]][[window]] = <n_kept-layer SpatRaster>)`. Plus
+#'   `properties`, `window_names`, `n_out`, `n_kept`.
+#' @seealso `extract_mukey_joint_ensemble()`, `zonal_distribution_from_posterior()`, `remarginalized_awc()`
+#' @export
+remarginalize_ensemble_to_posterior <- function(mukey_ensemble, posterior_by_property_window,
+                                                 n_out = 250, summarize = TRUE,
+                                                 probs = c(0.05, 0.25, 0.5, 0.75, 0.95)) {
+  ens <- mukey_ensemble$by_mukey
+  props <- intersect(mukey_ensemble$properties, names(posterior_by_property_window))
+  if (length(props) == 0) {
+    stop("remarginalize_ensemble_to_posterior(): no property is present in both the ensemble and posterior_by_property_window.")
+  }
+
+  # ONE retained realization count across every mukey AND window, so realization r is the same
+  # source draw everywhere - preserves the copula across properties and across depth windows.
+  n_kept <- min(
+    n_out,
+    min(vapply(ens, function(e) min(vapply(e$windows, nrow, integer(1))), integer(1)))
+  )
+  if (n_kept < 1L) stop("remarginalize_ensemble_to_posterior(): the ensemble has no retained realizations.")
+
+  mukey_codes <- suppressWarnings(as.numeric(names(ens)))
+  ok_code <- !is.na(mukey_codes)
+
+  out_pct <- list()
+  out_ens <- list()
+
+  for (p in props) {
+    windows <- intersect(mukey_ensemble$window_names, names(posterior_by_property_window[[p]]))
+    for (w in windows) {
+      posterior <- posterior_by_property_window[[p]][[w]]
+      post_probs <- posterior_percentile_probs(posterior)
+      pct <- posterior$percentiles
+
+      # levels(mk) <- NULL makes the cell values the numeric mukey codes themselves, matching the
+      # terra::subst(from = <numeric codes>) broadcast pattern used in R/core-fusion.R.
+      mk <- terra::resample(mukey_ensemble$mukey_raster, pct[[1]], method = "near")
+      levels(mk) <- NULL
+
+      # [n_mukey x n_kept] rank-probabilities (empirical F_prior), one row per mukey.
+      # na.last = "keep": a mukey with a missing value for this property/window (e.g. some cokey's
+      # texture sim failed) keeps that realization NA rather than letting base rank()'s default
+      # na.last = TRUE rank the NAs 1..n and fabricate a probability for them.
+      u_mat <- do.call(rbind, lapply(names(ens), function(mkc) {
+        v <- ens[[mkc]]$windows[[w]][seq_len(n_kept), p]
+        nf <- sum(is.finite(v))
+        if (nf == 0L) return(rep(NA_real_, n_kept))
+        (rank(v, ties.method = "average", na.last = "keep") - 0.5) / nf
+      }))
+
+      # ONE terra::subst -> an n_kept-layer per-cell u stack; ONE CDF inversion over the 9 knots.
+      u_stack <- terra::subst(mk, from = mukey_codes[ok_code],
+                              to = u_mat[ok_code, , drop = FALSE], others = NA_real_)
+      # terra::subst() with an NA in `to` LEAVES the cell at its raw mukey code rather than NA-ing
+      # it; every real rank-probability is strictly in (0, 1), so clamp anything else to NA (mukey
+      # codes are >> 1) - otherwise invert_posterior_cdf_raster() rule-2-clamps it to the P99 layer.
+      u_stack <- terra::ifel(u_stack > 0 & u_stack < 1, u_stack, NA_real_)
+      inv <- invert_posterior_cdf_raster(pct, post_probs, u_stack)
+      names(inv) <- paste0("r", seq_len(n_kept))
+
+      if (summarize) {
+        qs <- terra::quantile(inv, probs = probs, na.rm = TRUE)
+        out_pct[[p]][[w]] <- stats::setNames(
+          lapply(seq_along(probs), function(i) qs[[i]]),
+          paste0("P", round(probs * 100))
+        )
+      } else {
+        out_ens[[p]][[w]] <- inv
+      }
+    }
+  }
+
+  res <- if (summarize) list(percentiles = out_pct) else list(ensemble = out_ens)
+  c(res, list(properties = props, window_names = mukey_ensemble$window_names,
+              n_out = n_out, n_kept = n_kept))
+}
+
+#' Per-Pixel Available Water Capacity from a Re-Marginalized Ensemble
+#'
+#' Plant-available water capacity (cm, summed over the ensemble's depth windows), per realization,
+#' then summarized per pixel. Deliberately does NOT use `calculate_aws_df()` (ROSETTA + van
+#' Genuchten): that needs a live network POST and its own Monte Carlo per call, so it cannot run
+#' per (pixel, realization).
+#'
+#' @section Method:
+#' - **`"saxton_rawls"`** (default): `SOLUS100 publishes no water-retention variable`, so `wr_3b`/
+#'   `wr_15b` can never be fused directly. Instead the fusable
+#'   `sand_total`/`silt_total`/`clay_total`/`db` (plus optional `soc`, `rfv`) are re-marginalized
+#'   to their per-pixel fused posteriors, then `saxton_rawls_raster()` derives field capacity /
+#'   wilting point per (pixel, realization). `AWC = sum_windows (fc - wp)/100 * thickness` (the
+#'   Saxton-Rawls conversion already applies the rock-fragment correction internally).
+#' - **`"direct"`**: uses `wr_3b`/`wr_15b` posteriors supplied in `posterior_by_property_window`
+#'   directly (`AWC = sum_windows (wr_3b - wr_15b)/100 * thickness * (1 - rfv/100)`). Only usable
+#'   if the caller has a water-retention likelihood from some non-SOLUS source.
+#'
+#' @section Interpreting the per-pixel AWC distribution:
+#' `AWC` is computed **per source realization** and combined by `terra::quantile()` per pixel, so
+#' `awc_cm$P95 - awc_cm$P5` is a genuine 90% credible interval. Because
+#' `remarginalize_ensemble_to_posterior()` threads one realization index through every property and
+#' every window (rank-preserving), each realization's inputs are cross-property *and* vertically
+#' consistent - a "wet" profile is wet at all depths. What the band does and does not capture:
+#' \itemize{
+#'   \item **Marginal** uncertainty of each input property: the full SSURGO x SOLUS fused posterior
+#'     spread per pixel, propagated through Saxton-Rawls. Captured.
+#'   \item **Dependence** (cross-property, cross-depth): the SSURGO tabular copula
+#'     (KSSL + joint-copula vertical correlation), *held fixed*. SOLUS carries no joint information,
+#'     so nothing is re-estimated. The preserved correlation is **rank (Spearman)**, not Pearson.
+#'   \item **Pedotransfer-function error**: NOT propagated. Saxton-Rawls is applied deterministically
+#'     per realization; the +/-15\% band `calculate_saxton_rawls_single()` returns is unused.
+#'   \item **Sub-mukey variation in dependence**: none. Every pixel in a mukey shares the source
+#'     ensemble; only the fused marginals vary pixel-to-pixel.
+#' }
+#' See `docs/09_multi_source_raster_fusion_pipeline.md` -> "Statistical structure of the per-pixel
+#' bridge" for the full treatment.
+#'
+#' @param mukey_ensemble An `extract_mukey_joint_ensemble()` result.
+#' @param posterior_by_property_window As in `remarginalize_ensemble_to_posterior()`, keyed by the
+#'   ensemble's property (sim-column) names. `"saxton_rawls"` needs
+#'   `sand_total`/`silt_total`/`clay_total`/`db` (+ optional `soc`, `rfv`); `"direct"` needs
+#'   `wr_3b`/`wr_15b` (+ optional `rfv`).
+#' @param method `"saxton_rawls"` (default) or `"direct"` - see Method.
+#' @param n_out,probs As in `remarginalize_ensemble_to_posterior()`.
+#' @param rock_fragment If `TRUE` (default) apply the rock-fragment correction when an `rfv`
+#'   posterior is available.
+#' @param soc_to_om Multiplier converting the `soc` posterior (organic carbon %) to organic matter
+#'   % for Saxton-Rawls (default 1.724, the Van Bemmelen factor). Only used by `"saxton_rawls"`.
+#' @param tile_rows Optional. Process the AOI in horizontal row-strips, releasing each strip's
+#'   realization stack before the next. Per-pixel quantiles are cell-independent, so a tiled run is
+#'   numerically identical to `tile_rows = NULL`. `NULL` (default) / `>= nrow` disables tiling.
+#' @param restriction_depth Optional single-layer `terra::SpatRaster` of restriction depth in cm -
+#'   typically `fetch_solus_restriction_depth(aoi_vect)`,
+#'   already right-censoring-guarded (cells with no detected restriction are `Inf`, never
+#'   `SOLUS_RESTRICTION_CENSOR_CM` itself). `NULL` (default) preserves today's behavior exactly -
+#'   every window contributes its full nominal thickness, regardless of bedrock. When supplied,
+#'   resampled once (bilinear - a continuous depth value, not a category) onto the working grid,
+#'   and each window's contribution is scaled by its **effective** thickness
+#'   `pmax(0, pmin(bottom, restriction_depth) - top)` instead of the nominal `bottom - top`: a
+#'   window entirely above the restriction keeps its full thickness, one straddling it gets partial
+#'   credit, one entirely below it contributes exactly **0** (not `NA` - `NA` would incorrectly
+#'   blank the whole pixel's AWC, including valid shallower windows, rather than just this window's
+#'   contribution). A pixel with `restriction_depth` missing/`NA` (e.g. no coverage at the AOI edge)
+#'   is treated the same as `Inf` - no truncation - the same "no evidence -> don't truncate"
+#'   convention this pipeline already uses for other SSURGO/SOLUS coverage gaps, rather than
+#'   propagating `NA` into the AWC total.
+#' @return `list(awc_cm = <named list of P.. SpatRasters>, n_kept =, windows_used =, n_tiles =)`.
+#'   AWC clamped at 0.
+#' @seealso `remarginalize_ensemble_to_posterior()`, `saxton_rawls_raster()`, `calculate_aws_df()`,
+#'   `fetch_solus_restriction_depth()`
+#' @export
+remarginalized_awc <- function(mukey_ensemble, posterior_by_property_window,
+                               method = c("saxton_rawls", "direct"),
+                               n_out = 250, probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
+                               rock_fragment = TRUE, soc_to_om = 1.724, tile_rows = NULL,
+                               restriction_depth = NULL) {
+  method <- match.arg(method)
+  req <- if (method == "saxton_rawls") c("sand_total", "silt_total", "clay_total", "db")
+         else c("wr_3b", "wr_15b")
+  opt <- if (method == "saxton_rawls") c("soc", "rfv") else c("rfv")
+
+  if (!all(req %in% mukey_ensemble$properties)) {
+    stop(sprintf("remarginalized_awc(method = '%s'): the ensemble must carry %s.",
+                 method, paste(req, collapse = "/")))
+  }
+  if (!all(req %in% names(posterior_by_property_window))) {
+    stop(sprintf("remarginalized_awc(method = '%s'): posterior_by_property_window needs %s posteriors.",
+                 method, paste(req, collapse = "/")))
+  }
+  keys <- intersect(c(req, opt), names(posterior_by_property_window))
+  if (!rock_fragment) keys <- setdiff(keys, "rfv")
+  pbpw <- posterior_by_property_window[keys]
+
+  block <- if (method == "saxton_rawls") {
+    function(me, p, rd) .awc_block(me, p, n_out, probs, method = "saxton_rawls", soc_to_om = soc_to_om,
+                                   restriction_depth = rd)
+  } else {
+    function(me, p, rd) .awc_block(me, p, n_out, probs, method = "direct", restriction_depth = rd)
+  }
+
+  w1 <- intersect(mukey_ensemble$window_names, names(pbpw[[req[1]]]))
+  if (length(w1) == 0) stop("remarginalized_awc(): no window has a posterior for the required properties.")
+  ref <- pbpw[[req[1]]][[w1[1]]]$percentiles[[1]]
+
+  # S2: resample restriction_depth onto the working grid ONCE here (not per window inside
+  # .awc_block(), not per tile below) - a continuous depth value, bilinear, matching how every
+  # other continuous SOLUS/SSURGO raster in this pipeline is resampled onto a working grid. NA
+  # cells (e.g. no coverage at the AOI edge) are treated as Inf - "no evidence, don't truncate" -
+  # rather than propagating NA into the AWC total.
+  restriction_depth_aligned <- if (is.null(restriction_depth)) {
+    NULL
+  } else {
+    rd <- terra::resample(restriction_depth, ref, method = "bilinear")
+    terra::ifel(is.na(rd), Inf, rd)
+  }
+
+  if (is.null(tile_rows) || tile_rows >= terra::nrow(ref)) {
+    return(c(block(mukey_ensemble, pbpw, restriction_depth_aligned), list(n_tiles = 1L)))
+  }
+
+  nr <- terra::nrow(ref)
+  ymax0 <- terra::ymax(ref); yres <- terra::yres(ref)
+  x0 <- terra::xmin(ref); x1 <- terra::xmax(ref)
+  starts <- seq(1L, nr, by = as.integer(tile_rows))
+
+  blocks <- lapply(starts, function(s) {
+    e <- min(s + as.integer(tile_rows) - 1L, nr)
+    ext_b <- terra::ext(x0, x1, ymax0 - e * yres, ymax0 - (s - 1L) * yres)
+    me_b <- mukey_ensemble
+    me_b$mukey_raster <- terra::crop(mukey_ensemble$mukey_raster, ext_b, snap = "out")
+    pbpw_b <- lapply(pbpw, function(prop) lapply(prop, function(post) {
+      post$percentiles <- lapply(post$percentiles, terra::crop, y = ext_b, snap = "near")
+      post
+    }))
+    rd_b <- if (is.null(restriction_depth_aligned)) NULL else terra::crop(restriction_depth_aligned, ext_b, snap = "near")
+    block(me_b, pbpw_b, rd_b)
+  })
+
+  merged <- stats::setNames(lapply(seq_along(probs), function(j) {
+    do.call(terra::merge, lapply(blocks, function(b) b$awc_cm[[j]]))
+  }), paste0("P", round(probs * 100)))
+
+  list(awc_cm = merged, n_kept = blocks[[1]]$n_kept,
+       windows_used = blocks[[1]]$windows_used, n_tiles = length(starts))
+}
+
+# One-block (whole-grid) AWC core; called directly, or once per row-strip when tile_rows is set.
+# restriction_depth (S2): NULL (default) = today's unchanged behavior, every window uses its full
+# nominal thickness `th`. Otherwise a single-layer SpatRaster (already resampled onto the working
+# grid, already NA->Inf'd, by the caller) - each window's thickness becomes the per-pixel effective
+# thickness pmax(0, pmin(bottom, restriction_depth) - top), via two terra::clamp() calls (clamp
+# with only `upper` set is exactly pmin(x, upper); with only `lower` set, exactly pmax(x, lower)).
+.awc_block <- function(mukey_ensemble, pbpw, n_out, probs, method, soc_to_om = 1.724,
+                       restriction_depth = NULL) {
+  rm_res <- remarginalize_ensemble_to_posterior(mukey_ensemble, pbpw, n_out = n_out, summarize = FALSE)
+  e <- rm_res$ensemble
+
+  awc <- NULL
+  used <- character(0)
+  for (i in seq_along(mukey_ensemble$window_names)) {
+    w <- mukey_ensemble$window_names[i]
+    win <- mukey_ensemble$depth_windows[[i]]
+    top <- win[1]; bottom <- win[2]
+    th <- if (is.null(restriction_depth)) {
+      bottom - top
+    } else {
+      terra::clamp(terra::clamp(restriction_depth, upper = bottom, values = TRUE) - top,
+                   lower = 0, values = TRUE)
+    }
+
+    if (method == "saxton_rawls") {
+      if (any(vapply(c("sand_total", "silt_total", "clay_total", "db"),
+                     function(p) is.null(e[[p]]) || is.null(e[[p]][[w]]), logical(1)))) next
+      tmpl <- e[["sand_total"]][[w]][[1]]
+      om  <- if (!is.null(e[["soc"]]) && !is.null(e[["soc"]][[w]])) e[["soc"]][[w]] * soc_to_om
+             else terra::setValues(tmpl, 2)
+      rfv <- if (!is.null(e[["rfv"]]) && !is.null(e[["rfv"]][[w]])) e[["rfv"]][[w]]
+             else terra::setValues(tmpl, 0)
+      sr <- saxton_rawls_raster(e[["sand_total"]][[w]], e[["clay_total"]][[w]],
+                                e[["silt_total"]][[w]], e[["db"]][[w]], rfv, om)
+      layer <- (sr$fc - sr$wp) / 100 * th
+    } else {
+      if (is.null(e[["wr_3b"]][[w]]) || is.null(e[["wr_15b"]][[w]])) next
+      layer <- (e[["wr_3b"]][[w]] - e[["wr_15b"]][[w]]) / 100 * th
+      if (!is.null(e[["rfv"]]) && !is.null(e[["rfv"]][[w]])) layer <- layer * (1 - e[["rfv"]][[w]] / 100)
+    }
+
+    awc <- if (is.null(awc)) layer else awc + layer
+    used <- c(used, w)
+  }
+  if (is.null(awc)) stop("remarginalized_awc(): no usable window.")
+
+  awc <- terra::clamp(awc, lower = 0, values = TRUE)
+  qs <- terra::quantile(awc, probs = probs, na.rm = TRUE)
+  list(
+    awc_cm = stats::setNames(lapply(seq_along(probs), function(j) qs[[j]]), paste0("P", round(probs * 100))),
+    n_kept = rm_res$n_kept,
+    windows_used = used
+  )
 }

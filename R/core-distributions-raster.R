@@ -6,7 +6,7 @@
 #'   base-R math functions (`qnorm`, `qbeta`, `digamma`/`trigamma`) - never a
 #'   per-cell optimizer, which is what makes these fast across whole rasters.
 #'
-#'   Reuses `R/distributions.R`'s existing `metalog_basis_matrix()`/
+#'   Reuses `R/core-distributions.R`'s existing `metalog_basis_matrix()`/
 #'   `metalog_to_z()`/`metalog_from_z()` directly rather than duplicating
 #'   them: those functions are pure elementwise arithmetic (`log`/`exp`/`/`
 #'   plus building a small, non-spatial coefficient matrix from the fixed
@@ -173,7 +173,7 @@ quantile_beta_mle_newton_raster <- function(fit, q) {
 #' (excluding p=0/p=1, where logit is undefined) equals the number of
 #' metalog terms, the fit is an EXACTLY-DETERMINED linear system
 #' (`solve(Y, z)`), not an optimization - same closed-form math as
-#' `R/distributions.R`'s `fit_metalog_linear()`, vectorized here as raster
+#' `R/core-distributions.R`'s `fit_metalog_linear()`, vectorized here as raster
 #' arithmetic: `Y`/`Y_inv` are computed once (fixed, non-spatial probability
 #' grid, via the existing `metalog_basis_matrix()`), then applied to
 #' different right-hand-side rasters per coefficient.

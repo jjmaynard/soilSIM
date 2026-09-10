@@ -2461,7 +2461,7 @@ impute_rfv_values <- function(row) {
 #'
 #' The coefficient-bearing heart of the Saxton-Rawls pedotransfer equations, factored out so the
 #' scalar [calculate_saxton_rawls_single()] and the `terra`-native `saxton_rawls_raster()`
-#' (`R/raster-fusion-bridge.R`) share exactly one copy of the regression coefficients. Pure
+#' (`R/core-fusion.R`) share exactly one copy of the regression coefficients. Pure
 #' `Arith`/`Math`-group arithmetic, so it evaluates identically on plain numerics and on
 #' `SpatRaster`s.
 #'

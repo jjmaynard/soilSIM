@@ -16,8 +16,8 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height
 `getting-started-monte-carlo.Rmd` walks the full tabular pipeline end to end, and its final step
 only touches Gaussian-process (GP) depth modeling briefly - fitting one set of stratified GP models
 and plotting a single depth trend. This vignette is a companion, finer-grained tour of the same
-functional group: it walks through the *individual* functions in `R/gp-modeling.R` and
-`R/multivariate-adjustment.R` one at a time, explains what each parameter controls (not just how to
+functional group: it walks through the *individual* functions in `R/core-gp.R` and
+`R/core-gp.R` one at a time, explains what each parameter controls (not just how to
 call the function), and shows parameter effects visually. See
 the "GP Modeling & Multivariate Adjustment" architecture article for the full function-level architecture
 reference this vignette is drawn from.
@@ -382,10 +382,10 @@ correlation survives the depth-trend adjustment nearly intact.
 
 ## Step 7: `preserve_correlation_structure()` / `apply_gp_depth_trends()` - the long-format path
 
-`adjust_multivariate_depthwise_GP()` above (from `gp-modeling.R`) operates directly on
+`adjust_multivariate_depthwise_GP()` above (from `core-gp.R`) operates directly on
 `[depth x simulation]` matrices - the array-based form of this algorithm.
 The pipeline `integrate_monte_carlo_with_gp()` actually calls works on long-format Monte Carlo
-output instead, via `multivariate-adjustment.R`'s `apply_gp_depth_trends()` (reshapes long-format
+output instead, via `core-gp.R`'s `apply_gp_depth_trends()` (reshapes long-format
 rows into matrices, dispatches to `preserve_correlation_structure()` when
 `preserve_correlations = TRUE`, at least two properties are present, and
 `config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"` is explicitly set - see

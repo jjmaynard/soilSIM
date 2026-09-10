@@ -36,8 +36,8 @@ graphs, cross-file dependencies, data flow, and known limitations.
                       │  05 GP depth modeling & adjustment        │
                       │  08 Bayesian updating (scalar)            │
                       │  09 Raster fusion core (distribution-     │
-                      │     fitting-raster.R, raster-fusion.R,    │
-                      │     raster-cache.R)                       │
+                      │     fitting-raster.R, core-fusion.R,    │
+                      │     cache.R)                       │
                       └───────────────┬───────────────────────────┘
                                       │ consumed by / feeds
               ┌───────────────────────┼───────────────────────┐
@@ -132,14 +132,14 @@ on, as standalone building blocks; `04`'s tabular pipeline does not call them di
 
 | #  | Document                                                                              | Functional area                                                 | Key R/ files                                                                                                                |
 | -- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| 01 | [Data Acquisition & Processing](architecture-data-acquisition-processing.html)                 | SSURGO data acquisition, cleaning, infilling                    | `ssurgo-acquisition.R`, `ssurgo-processing.R`, `data-infilling.R`                                                     |
+| 01 | [Data Acquisition & Processing](architecture-data-acquisition-processing.html)                 | SSURGO data acquisition, cleaning, infilling                    | `adapter-ssurgo-acquire.R`, `adapter-ssurgo-process.R`, `adapter-ssurgo-infill.R`                                                     |
 | 02 | [Statistics & Diagnostics](architecture-statistics-diagnostics.html)                           | Statistical characterization + workflow QA                      | `statistics.R`, `validation-diagnostics.R`                                                                              |
-| 03 | [Distribution Fitting & Correlation Matrices](architecture-distribution-fitting-correlations.html)     | Percentile fitting, ILR transforms, correlation matrices (core) | `distributions.R`, `percentile-sampling.R`, `kssl-reference-correlations.R`                                           |
-| 04 | [Monte Carlo Simulation](architecture-monte-carlo-simulation.html)                           | Correlated Monte Carlo simulation engine (core)                 | `monte-carlo.R`                                                                                                           |
-| 05 | [GP Depth Modeling & Multivariate Adjustment](architecture-gp-modeling-multivariate-adjustment.html) | GP depth-trend modeling + MC/GP integration (core)              | `gp-modeling.R`, `multivariate-adjustment.R`                                                                            |
-| 06 | [Profile, Component & Depth Simulation](architecture-profile-component-depth-simulation.html)   | Component composition + horizon depth/thickness simulation      | `property-simulation.R`, `depth-simulation.R`                                                                           |
-| 07 | [AWS / Van Genuchten Modeling](architecture-aws-van-genuchten-modeling.html)                   | Available water storage / Van Genuchten modeling                | `aws-simulation.R`                                                                                                        |
-| 08 | [Bayesian Updating (Scalar)](architecture-bayesian-updating.html)                                     | Scalar Bayesian updating/fusion (core)                          | `bayesian-updating.R`                                                                                                     |
-| 09 | [Multi-Source Raster Fusion Pipeline](architecture-multi-source-raster-fusion-pipeline.html) | Raster-native fusion core + SSURGO/SOLUS100 adapters            | `distribution-fitting-raster.R`, `raster-fusion.R`, `raster-cache.R`, `ssurgo-simulation.R`, `solus-simulation.R` |
+| 03 | [Distribution Fitting & Correlation Matrices](architecture-distribution-fitting-correlations.html)     | Percentile fitting, ILR transforms, correlation matrices (core) | `core-distributions.R`, `core-distributions.R`, `core-correlations.R`                                           |
+| 04 | [Monte Carlo Simulation](architecture-monte-carlo-simulation.html)                           | Correlated Monte Carlo simulation engine (core)                 | `core-montecarlo.R`                                                                                                           |
+| 05 | [GP Depth Modeling & Multivariate Adjustment](architecture-gp-modeling-multivariate-adjustment.html) | GP depth-trend modeling + MC/GP integration (core)              | `core-gp.R`, `core-gp.R`                                                                            |
+| 06 | [Profile, Component & Depth Simulation](architecture-profile-component-depth-simulation.html)   | Component composition + horizon depth/thickness simulation      | `core-simulation.R`, `core-simulation.R`                                                                           |
+| 07 | [AWS / Van Genuchten Modeling](architecture-aws-van-genuchten-modeling.html)                   | Available water storage / Van Genuchten modeling                | `model-aws.R`                                                                                                        |
+| 08 | [Bayesian Updating (Scalar)](architecture-bayesian-updating.html)                                     | Scalar Bayesian updating/fusion (core)                          | `core-fusion.R`                                                                                                     |
+| 09 | [Multi-Source Raster Fusion Pipeline](architecture-multi-source-raster-fusion-pipeline.html) | Raster-native fusion core + SSURGO/SOLUS100 adapters            | `core-distributions-raster.R`, `core-fusion.R`, `cache.R`, `adapter-ssurgo-simulate.R`, `adapter-solus.R` |
 | 10 | [Utilities](architecture-utilities.html)                                                     | Shared validation, logging, config, I/O (leaf module)           | `utils.R`                                                                                                                 |
 

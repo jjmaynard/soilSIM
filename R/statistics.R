@@ -1632,7 +1632,7 @@ generate_outlier_summary <- function(outlier_results) {
 #' Validate a set of correlation matrices
 #'
 #' Validates each matrix with the shared `validate_correlation_matrix()`
-#' (`distributions.R`).
+#' (`core-distributions.R`).
 #'
 #' @param matrices Named list keyed by method, each entry either a matrix or
 #'   `list(matrix=, ...)` (matching `run_comprehensive_correlation_analysis()`'s
@@ -1794,7 +1794,7 @@ generate_correlation_summary <- function(correlation_results) {
 #' Raw Pearson correlations among compositional (simplex-constrained) parts
 #' like sand/silt/clay percentages are spuriously negative due to the
 #' sum-to-100 constraint - `ilr_correlations` (isometric log-ratio space, via
-#' the dependency-free `ilr_forward()` in `distributions.R`) avoids that
+#' the dependency-free `ilr_forward()` in `core-distributions.R`) avoids that
 #' artifact and is the statistically defensible view for compositional data.
 #' Both are reported: `raw_correlations` for continuity with prior behavior,
 #' `ilr_correlations` as the added analytical value (only computed when all

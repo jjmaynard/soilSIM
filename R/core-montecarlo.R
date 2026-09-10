@@ -1,6 +1,6 @@
 #' @title Monte Carlo Simulation Engine
 #' @description Advanced Monte Carlo simulation for correlated soil property generation,
-#'   including flexible per-property distribution families (via `distributions.R`'s
+#'   including flexible per-property distribution families (via `core-distributions.R`'s
 #'   percentile-triplet fitting) and compositional (ILR-based) texture handling.
 #' @name monte_carlo_simulation
 NULL
@@ -696,7 +696,7 @@ setup_distributions <- function(simulation_params, properties, config, verbose =
 #'
 #' Parameter preparation. Composition-group pseudo-properties (e.g.
 #' `"ilr1"`/`"ilr2"`) are special-cased: BOTH are fit together, once per
-#' horizon, via `distributions.R`'s `estimate_ilr_moments_mc()` from the
+#' horizon, via `core-distributions.R`'s `estimate_ilr_moments_mc()` from the
 #' group's real member `_l/_r/_h` triplets - their joint covariance only
 #' makes sense computed jointly, not by looping `extract_property_parameters()`
 #' per pseudo name. The Monte Carlo covariance's ilr1<->ilr2 OFF-DIAGONAL is
@@ -810,7 +810,7 @@ prepare_simulation_parameters <- function(simulation_data, properties, config, c
 }
 
 # ============================================================================
-# 1.5 BAYESIAN-UPDATING WIRING (bridges bayesian-updating.R's standalone
+# 1.5 BAYESIAN-UPDATING WIRING (bridges core-fusion.R's standalone
 # fusion primitives into the simulation pipeline; those primitives themselves
 # are unchanged and remain independently usable/testable)
 # ============================================================================
@@ -819,7 +819,7 @@ prepare_simulation_parameters <- function(simulation_data, properties, config, c
 #'
 #' Orchestrates Bayesian updating against each property's per-horizon prior
 #' fit produced by `prepare_simulation_parameters()`, using
-#' `bayesian-updating.R`'s pure fusion primitives (`bayes_fuse()`,
+#' `core-fusion.R`'s pure fusion primitives (`bayes_fuse()`,
 #' `fuse_property()`, `fuse_texture_group_from_triplets()`). For every
 #' property present in `observed_data`, every horizon's existing prior is
 #' replaced by its fused posterior - each horizon keeps its OWN prior
@@ -1645,7 +1645,7 @@ get_monte_carlo_defaults <- function(verbose = getOption("ssurgo.verbose", FALSE
     # Properties that must be simulated JOINTLY (not independently) because
     # they're compositionally constrained (e.g. sand+silt+clay=100). See
     # resolve_composition_groups()/restore_composition_properties()
-    # (distributions.R). `members` sets which real property occupies
+    # (core-distributions.R). `members` sets which real property occupies
     # `ilr_forward()`/`ilr_inverse()`'s position 1/2/3 (their `clay`/`sand`/
     # `silt` parameter names are positional roles, not an identity requirement.
     # This default, (sandtotal, silttotal, claytotal), matches the sequential binary
@@ -1660,7 +1660,7 @@ get_monte_carlo_defaults <- function(verbose = getOption("ssurgo.verbose", FALSE
     auto_correlation = FALSE,
     # When auto_correlation estimation can't produce a matrix (too little
     # data), what to fall back to: "identity" (independent simulation) or "kssl_global" (an opt-in fallback to the
-    # KSSL reference correlation matrices - see kssl-reference-correlations.R
+    # KSSL reference correlation matrices - see core-correlations.R
     # and estimate_property_correlations()). Defaults to "identity".
     correlation_fallback = "identity",
     # Which method apply_gp_depth_trends() uses to add vertical (depth-to-depth) correlation on
@@ -1951,8 +1951,8 @@ resolve_real_properties <- function(properties, composition_plan = NULL) {
 }
 
 # Triangular quantiles, fit->quantile dispatch, and correlation-matrix utilities live in
-# distributions.R (quantile_triangular(), quantile_from_fit(), ensure_positive_definite_matrix(),
-# validate_correlation_matrix()), shared with statistics.R and bayesian-updating.R.
+# core-distributions.R (quantile_triangular(), quantile_from_fit(), ensure_positive_definite_matrix(),
+# validate_correlation_matrix()), shared with statistics.R and core-fusion.R.
 
 # Sequential/parallel simulation dispatch; both delegate to simulate_correlated_properties().
 run_sequential_simulation <- function(simulation_params, distribution_setup, correlation_config, n_realizations, properties, config) {
@@ -1966,7 +1966,7 @@ run_sequential_simulation <- function(simulation_params, distribution_setup, cor
 #' realizations, so it can safely be called once per worker with a smaller
 #' n_realizations chunk and the resulting arrays concatenated along the
 #' realization dimension. Uses the same Windows-PSOCK-vs-mclapply pattern as process_cokeys_parallel() in
-#' multivariate-adjustment.R, with a sequential fallback on any error.
+#' core-gp.R, with a sequential fallback on any error.
 #'
 #' @param simulation_params List of per-horizon parameter lists.
 #' @param distribution_setup Unused; kept for interface compatibility with `run_sequential_simulation()`.
@@ -2146,7 +2146,7 @@ assess_component_quality <- function(original_data, simulated_data, config) {
 #' `config$monte_carlo$property_distributions[[property_name]]$family`, else
 #' `config$monte_carlo$distribution_type` (default `"triangular"`) - and fits
 #' family-appropriate parameters from its SSURGO `_l/_r/_h` triplet via
-#' `distributions.R`'s `fit_percentile_triplet()`.
+#' `core-distributions.R`'s `fit_percentile_triplet()`.
 #'
 #' @param horizon_data One-row data frame/list for a single horizon.
 #' @param property_name Property name (without `_l`/`_r`/`_h` suffix).
@@ -2226,13 +2226,13 @@ summarize_parameter_extraction <- function(simulation_params, properties, n_hori
 #' fitted mean/mode for each property (for composition-group pseudo-properties
 #' like ilr1/ilr2 there's no raw `_r` column, so the fitted mean IS the
 #' representative value) - plus `genhz` from `simulation_data` if present,
-#' then calls `distributions.R`'s `estimate_correlation_matrix_robust()`
+#' then calls `core-distributions.R`'s `estimate_correlation_matrix_robust()`
 #' (`Hmisc::rcorr()` + PD-repair, genhz-stratified when possible).
 #'
 #' When `config$monte_carlo$correlation_fallback == "kssl_global"` (opt-in;
 #' defaults to `"identity"`), a group that fails
 #' empirical estimation falls back to that group's own KSSL reference
-#' correlation matrix (`kssl-reference-correlations.R`) instead of being
+#' correlation matrix (`core-correlations.R`) instead of being
 #' dropped, and the final identity fallback becomes a KSSL-pooled matrix
 #' instead. `genhz` is auto-derived from `simulation_data$hzname` via
 #' `classify_genhz()` when this is requested and `simulation_data$genhz`
@@ -2390,7 +2390,7 @@ get_relationship_constraints <- function(properties) {
 
 get_physical_constraints <- function(properties) {
   # Real, soil-science-grounded plausible-range bounds (same source values as
-  # data-infilling.R's apply_basic_range_limits()). Only
+  # adapter-ssurgo-infill.R's apply_basic_range_limits()). Only
   # includes properties NOT already covered by get_range_constraints() above,
   # to avoid duplicating the same clamp under two different constraint
   # categories.
@@ -2740,7 +2740,7 @@ assess_simulation_quality <- function(simulation_results, diagnostics, output_va
 
 #' Validate a Horizon's Fitted Distribution Parameters
 #'
-#' Thin wrapper around `distributions.R`'s `validate_fit_parameters()`.
+#' Thin wrapper around `core-distributions.R`'s `validate_fit_parameters()`.
 #'
 #' @param parameters A params object from `extract_property_parameters()`
 #'   (`list(family=, fit=, source=)`).

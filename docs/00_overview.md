@@ -34,8 +34,8 @@ graphs, cross-file dependencies, data flow, and known limitations.
                       │  05 GP depth modeling & adjustment        │
                       │  08 Bayesian updating (scalar)            │
                       │  09 Raster fusion core (distribution-     │
-                      │     fitting-raster.R, raster-fusion.R,    │
-                      │     raster-cache.R)                       │
+                      │     fitting-raster.R, core-fusion.R,    │
+                      │     cache.R)                       │
                       └───────────────┬───────────────────────────┘
                                       │ consumed by / feeds
               ┌───────────────────────┼───────────────────────┐
@@ -130,14 +130,14 @@ on, as standalone building blocks; `04`'s tabular pipeline does not call them di
 
 | #  | Document                                                                              | Functional area                                                 | Key R/ files                                                                                                                |
 | -- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| 01 | [01_data_acquisition_processing.md](01_data_acquisition_processing.md)                 | SSURGO data acquisition, cleaning, infilling                    | `ssurgo-acquisition.R`, `ssurgo-processing.R`, `data-infilling.R`                                                     |
+| 01 | [01_data_acquisition_processing.md](01_data_acquisition_processing.md)                 | SSURGO data acquisition, cleaning, infilling                    | `adapter-ssurgo-acquire.R`, `adapter-ssurgo-process.R`, `adapter-ssurgo-infill.R`                                                     |
 | 02 | [02_statistics_diagnostics.md](02_statistics_diagnostics.md)                           | Statistical characterization + workflow QA                      | `statistics.R`, `validation-diagnostics.R`                                                                              |
-| 03 | [03_distribution_fitting_correlations.md](03_distribution_fitting_correlations.md)     | Percentile fitting, ILR transforms, correlation matrices (core) | `distributions.R`, `percentile-sampling.R`, `kssl-reference-correlations.R`                                           |
-| 04 | [04_monte_carlo_simulation.md](04_monte_carlo_simulation.md)                           | Correlated Monte Carlo simulation engine (core)                 | `monte-carlo.R`                                                                                                           |
-| 05 | [05_gp_modeling_multivariate_adjustment.md](05_gp_modeling_multivariate_adjustment.md) | GP depth-trend modeling + MC/GP integration (core)              | `gp-modeling.R`, `multivariate-adjustment.R`                                                                            |
-| 06 | [06_profile_component_depth_simulation.md](06_profile_component_depth_simulation.md)   | Component composition + horizon depth/thickness simulation      | `property-simulation.R`, `depth-simulation.R`                                                                           |
-| 07 | [07_aws_van_genuchten_modeling.md](07_aws_van_genuchten_modeling.md)                   | Available water storage / Van Genuchten modeling                | `aws-simulation.R`                                                                                                        |
-| 08 | [08_bayesian_updating.md](08_bayesian_updating.md)                                     | Scalar Bayesian updating/fusion (core)                          | `bayesian-updating.R`                                                                                                     |
-| 09 | [09_multi_source_raster_fusion_pipeline.md](09_multi_source_raster_fusion_pipeline.md) | Raster-native fusion core + SSURGO/SOLUS100 adapters            | `distribution-fitting-raster.R`, `raster-fusion.R`, `raster-cache.R`, `ssurgo-simulation.R`, `solus-simulation.R` |
+| 03 | [03_distribution_fitting_correlations.md](03_distribution_fitting_correlations.md)     | Percentile fitting, ILR transforms, correlation matrices (core) | `core-distributions.R`, `core-distributions.R`, `core-correlations.R`                                           |
+| 04 | [04_monte_carlo_simulation.md](04_monte_carlo_simulation.md)                           | Correlated Monte Carlo simulation engine (core)                 | `core-montecarlo.R`                                                                                                           |
+| 05 | [05_gp_modeling_multivariate_adjustment.md](05_gp_modeling_multivariate_adjustment.md) | GP depth-trend modeling + MC/GP integration (core)              | `core-gp.R`, `core-gp.R`                                                                            |
+| 06 | [06_profile_component_depth_simulation.md](06_profile_component_depth_simulation.md)   | Component composition + horizon depth/thickness simulation      | `core-simulation.R`, `core-simulation.R`                                                                           |
+| 07 | [07_aws_van_genuchten_modeling.md](07_aws_van_genuchten_modeling.md)                   | Available water storage / Van Genuchten modeling                | `model-aws.R`                                                                                                        |
+| 08 | [08_bayesian_updating.md](08_bayesian_updating.md)                                     | Scalar Bayesian updating/fusion (core)                          | `core-fusion.R`                                                                                                     |
+| 09 | [09_multi_source_raster_fusion_pipeline.md](09_multi_source_raster_fusion_pipeline.md) | Raster-native fusion core + SSURGO/SOLUS100 adapters            | `core-distributions-raster.R`, `core-fusion.R`, `cache.R`, `adapter-ssurgo-simulate.R`, `adapter-solus.R` |
 | 10 | [10_utilities.md](10_utilities.md)                                                     | Shared validation, logging, config, I/O (leaf module)           | `utils.R`                                                                                                                 |
 

@@ -3,7 +3,7 @@ title: "AWS / Van Genuchten Modeling"
 ---
 
 ## Overview
-This functional area covers available water storage (AWS) modeling: evaluating the closed-form van Genuchten (1980) water-retention curve, Monte Carlo-simulating available water holding capacity (AWHC) from ROSETTA-derived pedotransfer parameters, and depth-slicing/summarizing AWHC per soil component. It is implemented entirely in `R/aws-simulation.R`. The three functions here are self-contained and depend on no other part of the package.
+This functional area covers available water storage (AWS) modeling: evaluating the closed-form van Genuchten (1980) water-retention curve, Monte Carlo-simulating available water holding capacity (AWHC) from ROSETTA-derived pedotransfer parameters, and depth-slicing/summarizing AWHC per soil component. It is implemented entirely in `R/model-aws.R`. The three functions here are self-contained and depend on no other part of the package.
 
 ## Core Functions
 
@@ -100,7 +100,7 @@ calculate_aws_df(sim_data_df)
 
 ### External packages
 ```
-soilSIM (aws-simulation.R)
+soilSIM (model-aws.R)
 ├── soilDB::ROSETTA()   - REQUIRED, live network call (POST to handbook60.org); derives van Genuchten
 │                          pedotransfer parameters (alpha, npar, theta_r, theta_s + SDs) from
 │                          texture/bulk-density/water-retention inputs

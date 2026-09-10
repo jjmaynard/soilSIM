@@ -4,10 +4,10 @@ title: "GP Depth Modeling & Multivariate Adjustment"
 
 ## Overview
 
-This functional area covers two tightly coupled files. `gp-modeling.R` prepares NRCS/SSURGO
+This functional area covers two tightly coupled files. `core-gp.R` prepares NRCS/SSURGO
 component-horizon data and fits Gaussian Process (GP) models of how each soil property trends
 with depth, stratified by soil group (series, taxonomic class, particle-size class, etc., with
-hierarchical fallback to coarser groupings when a stratum is too sparse). `multivariate-adjustment.R`
+hierarchical fallback to coarser groupings when a stratum is too sparse). `core-gp.R`
 takes the output of Monte Carlo simulation (see the Monte Carlo simulation engine module) across an
 entire dataset and integrates it with these fitted GP depth trends, adding realistic vertical
 (depth-to-depth) correlation on top of the GP mean trend while preserving the *within-depth*
@@ -35,7 +35,7 @@ Two vertical-correlation methods are available, selected via
 
 ## Core Functions
 
-### gp-modeling.R
+### core-gp.R
 
 #### `prepare_nrcs_training_data()`
 
@@ -182,7 +182,7 @@ means, nudges each simulation toward `previous_value * gp_ratio` at the *same re
 the current property's own distribution, and re-maps the nudged values back onto the current
 property's original ECDF to keep its marginal distribution shape intact. Logs a post-hoc check of
 maximum correlation-matrix difference (original vs. adjusted) at the first five depths, warning if
-it exceeds 0.1. This is the array-based sibling of `multivariate-adjustment.R`'s
+it exceeds 0.1. This is the array-based sibling of `core-gp.R`'s
 `preserve_correlation_structure()`, which operates on the same algorithm but is invoked from the
 long-format integration pipeline.
 
@@ -398,14 +398,14 @@ RMSE and log-likelihood), `assess_trend_monotonicity()`/`assess_realistic_values
 `validate_gp_models()`), `infer_simulation_properties()` (numeric, non-structural columns of a
 long-format simulation data frame), `apply_nrcs_gp_adjustments_with_correlations()` /
 `apply_local_gp_adjustments_with_correlations()` (thin wrappers that infer the `properties` argument
-and delegate to `multivariate-adjustment.R`'s `apply_nrcs_trend_adjustments()` /
+and delegate to `core-gp.R`'s `apply_nrcs_trend_adjustments()` /
 `apply_local_gp_adjustments()`), `validate_enhanced_simulations()` (row-count-match check used by
 `simulate_soil_properties()`), `select_simulation_correlation_matrix()` and
 `flatten_simulation_array_to_long()` (Monte Carlo input-shaping helpers for
 `simulate_soil_properties()`), and `export_gp_models()`/`load_gp_models()` (RDS-based persistence of
 a fitted GP model set, optionally stripping training data to shrink file size).
 
-### multivariate-adjustment.R
+### core-gp.R
 
 #### `integrate_monte_carlo_with_gp()` - Master Function
 
@@ -495,7 +495,7 @@ preserve_correlation_structure(property_matrices, gp_predictions, depths, primar
 ```
 
 **Purpose**: The original correlation-preserving depth-adjustment algorithm (long-format
-pipeline's counterpart to `gp-modeling.R`'s `adjust_multivariate_depthwise_GP()`), still fully
+pipeline's counterpart to `core-gp.R`'s `adjust_multivariate_depthwise_GP()`), still fully
 supported as an explicit `"gp_quantile_retrofit"` opt-out from `apply_gp_depth_trends()`'s default.
 **Parameters**: `property_matrices` - named list of `[depth x simulation]` matrices;
 `gp_predictions` - named list of per-depth GP mean vectors; `depths` - depth vector; `primary_property`
@@ -771,7 +771,7 @@ linkage).
 ## Internal Connections
 
 ```
-build_stratified_gp_models() [MASTER, gp-modeling.R]
+build_stratified_gp_models() [MASTER, core-gp.R]
 ├── apply_hierarchical_grouping()
 │   └── create_test_grouping() [via select_optimal_grouping(), if strategy = "auto"]
 ├── fit_individual_gp_model()  (per property x final_group)
@@ -795,19 +795,19 @@ predict_gp_depth_trends() [gp-modeling.R]  <- called from BOTH files:
 
 match_soils_to_gp_models() [gp-modeling.R]
 └── apply_matching_hierarchy()
-        (consumed downstream by match_simulations_to_nrcs_models() in multivariate-adjustment.R)
+        (consumed downstream by match_simulations_to_nrcs_models() in core-gp.R)
 
 simulate_soil_properties() [gp-modeling.R, single-cokey convenience path]
 ├── select_simulation_correlation_matrix()
 ├── generate_monte_carlo_realizations()        [Monte Carlo module]
 ├── flatten_simulation_array_to_long()
 ├── apply_nrcs_gp_adjustments_with_correlations()
-│   └── apply_nrcs_trend_adjustments()         [-> multivariate-adjustment.R]
+│   └── apply_nrcs_trend_adjustments()         [-> core-gp.R]
 ├── apply_local_gp_adjustments_with_correlations()
-│   └── apply_local_gp_adjustments()           [-> multivariate-adjustment.R]
+│   └── apply_local_gp_adjustments()           [-> core-gp.R]
 └── validate_enhanced_simulations()
 
-integrate_monte_carlo_with_gp() [MASTER, multivariate-adjustment.R, whole-dataset path]
+integrate_monte_carlo_with_gp() [MASTER, core-gp.R, whole-dataset path]
 ├── detect_simulation_properties()
 ├── process_cokeys_parallel() / process_cokeys_sequential()
 │   └── process_single_cokey()                 (per cokey)
@@ -815,7 +815,7 @@ integrate_monte_carlo_with_gp() [MASTER, multivariate-adjustment.R, whole-datase
 │       ├── apply_nrcs_trend_adjustments()
 │       │   ├── get_nrcs_property_mapping()
 │       │   ├── get_nrcs_gp_predictions()
-│       │   │   └── predict_gp_depth_trends()  [-> gp-modeling.R]
+│       │   │   └── predict_gp_depth_trends()  [-> core-gp.R]
 │       │   └── apply_gp_depth_trends()
 │       │       ├── convert_to_property_matrices()
 │       │       ├── preserve_correlation_structure() / apply_individual_adjustments()
@@ -826,7 +826,7 @@ integrate_monte_carlo_with_gp() [MASTER, multivariate-adjustment.R, whole-datase
 │       │       └── merge_adjusted_data()
 │       └── apply_local_gp_adjustments()
 │           ├── fit_local_gp_models() -> fit_local_gp_model_single() -> GPfit::GP_fit()
-│           ├── generate_local_predictions() -> predict_gp_depth_trends() [-> gp-modeling.R]
+│           ├── generate_local_predictions() -> predict_gp_depth_trends() [-> core-gp.R]
 │           └── apply_local_depth_trends() -> apply_gp_depth_trends()
 ├── combine_and_validate_results()
 ├── validate_integration_results()
@@ -897,7 +897,7 @@ result_data <- apply_nrcs_trend_adjustments(
 )
 ```
 
-### 3. Cross-file delegation (gp-modeling.R wrappers -> multivariate-adjustment.R)
+### 3. Cross-file delegation (core-gp.R wrappers -> core-gp.R)
 
 ```r
 # apply_nrcs_gp_adjustments_with_correlations() [gp-modeling.R]
@@ -914,7 +914,7 @@ apply_nrcs_trend_adjustments(
 
 ```r
 # predict_gp_depth_trends() [gp-modeling.R] - called from get_nrcs_gp_predictions(),
-# generate_local_predictions(), and extract_nrcs_depth_trends() in multivariate-adjustment.R
+# generate_local_predictions(), and extract_nrcs_depth_trends() in core-gp.R
 scaled_depths <- (new_depths - scaling$min) / scaling$range
 predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled_depths))
 ```
@@ -944,7 +944,7 @@ predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled
   `safe_coalesce()`, `get_default_configuration()`, `get_predefined_properties()`, `track_progress()`,
   `get_package_versions()` - these are not defined in either file and are assumed to come from a
   shared validation/utility module elsewhere in the package.
-- No direct call into a `distributions.R`-style correlation-matrix-generation utility was found in
+- No direct call into a `core-distributions.R`-style correlation-matrix-generation utility was found in
   either file; `preserve_correlation_structure()`/`adjust_multivariate_depthwise_GP()` preserve
   correlation implicitly via the shared reference-quantile mechanism rather than by explicitly
   re-applying a target correlation matrix (e.g. no Cholesky step appears in these two files - that

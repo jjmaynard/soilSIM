@@ -17,8 +17,8 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height
 call `run_stage1_fusion()`/`run_stage1_fusion_group()` and get back a fused posterior. This
 vignette opens the hood. `run_stage1_fusion()` is a thin fetch-and-cache wrapper around a handful
 of small, composable, raster-native building blocks - distribution fitting functions
-(`R/distribution-fitting-raster.R`), a fusion core (`R/raster-fusion.R`), and a disk cache
-(`R/raster-cache.R`) - each of which does exactly one thing to a `terra::SpatRaster` (or list of
+(`R/core-distributions-raster.R`), a fusion core (`R/core-fusion.R`), and a disk cache
+(`R/cache.R`) - each of which does exactly one thing to a `terra::SpatRaster` (or list of
 them) and can be called directly. Understanding these individually is what makes the pipeline's
 behavior (which route it took, why a family was resolved a certain way, why two sources' percentiles
 had to be realigned before fusing) legible rather than a black box. See
@@ -210,7 +210,7 @@ terra::plot(blend_stack, col = grDevices::hcl.colors(50, "viridis"), nc = 3)
 
 `fit_gamma_mom_raster()` is a thin raster wrapper: it computes mean/variance rasters across a list
 of percentile-value rasters (the only genuinely raster-specific step, via `Reduce(+, ...)`), then
-delegates to `R/bayesian-updating.R`'s existing scalar `moments_to_gamma()`, which is pure
+delegates to `R/core-fusion.R`'s existing scalar `moments_to_gamma()`, which is pure
 elementwise arithmetic and therefore already works unchanged on `SpatRaster` inputs:
 
 ```{r, fig.width = 9, fig.height = 3.5}
@@ -406,7 +406,7 @@ SOLUS100's raw 95% prediction interval (`P025`-`P975`) implies a mean `sigma` ro
 `r round(sigma_compare$mean_sigma[2] / sigma_compare$mean_sigma[1], 0)`x wider than SSURGO's 5th-95th
 percentile spread for this AOI - a real, known characteristic of SOLUS100's output (its stated
 prediction intervals are often wide), not an artifact of this pipeline. Since fusion weights each
-side by *precision* (`1/sigma^2`, see `bayesian-updating.Rmd`'s worked scalar examples of this exact
+side by *precision* (`1/sigma^2`, see `core-fusion.Rmd`'s worked scalar examples of this exact
 tug-of-war), a `r round(sigma_compare$mean_sigma[2] / sigma_compare$mean_sigma[1], 0)`x wider sigma
 means roughly a `r round((sigma_compare$mean_sigma[2] / sigma_compare$mean_sigma[1])^2, 0)`x lower
 precision - so the posterior mean above (`r round(means$value[3], 2)`) landing close to the prior's

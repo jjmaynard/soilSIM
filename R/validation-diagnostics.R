@@ -1949,7 +1949,7 @@ assess_single_cholesky_decomposition <- function(matrix_data, criteria) {
 #' Assess a Single GP Model's Performance
 #'
 #' Delegates to the already-real `calculate_model_diagnostics()`
-#' (`gp-modeling.R`) for training RMSE, and derives an R-squared from that
+#' (`core-gp.R`) for training RMSE, and derives an R-squared from that
 #' RMSE against the training data's own variance.
 #'
 #' @param group_model Fitted GP model (as produced by
@@ -2025,7 +2025,7 @@ calculate_overall_gp_performance <- function(individual_performance) {
 #' Assess Depth-Trend Realism
 #'
 #' Reuses the already-real `assess_trend_monotonicity()` and
-#' `assess_realistic_values()` (`gp-modeling.R`) to judge whether a
+#' `assess_realistic_values()` (`core-gp.R`) to judge whether a
 #' predicted depth trend is realistic, and counts constraint violations
 #' against `criteria$realistic_ranges` when supplied.
 #'
@@ -2993,7 +2993,7 @@ create_detailed_results <- function(validation_results) {
 #' Perform GP Cross-Validation
 #'
 #' Runs real k-fold cross-validation (reusing the shared [k_fold_gp_cv()]
-#' helper from `gp-modeling.R`) for each property in `gp_models` against the
+#' helper from `core-gp.R`) for each property in `gp_models` against the
 #' matching column of `training_data`, aggregating mean CV RMSE and an
 #' R-squared derived from it.
 #'
