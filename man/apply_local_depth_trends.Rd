@@ -30,7 +30,7 @@ apply_local_depth_trends(
 \item{config}{Optional config, passed straight through to \code{apply_gp_depth_trends()} - lets
 \code{config$monte_carlo$vertical_correlation_method} (\code{"joint_copula"} default, or
 \code{"gp_quantile_retrofit"}) reach this call site. \code{NULL} (default) resolves to \code{"joint_copula"},
-matching \code{get_monte_carlo_defaults()}.}
+matching \code{default_monte_carlo_config()}.}
 
 \item{gp_models}{Optional named list of fitted local GP models (as \code{apply_local_gp_adjustments()}
 already has in scope via \code{fit_local_gp_models()}), passed straight through to

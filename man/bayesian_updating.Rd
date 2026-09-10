@@ -15,13 +15,13 @@ in \code{core-montecarlo.R} does not call these functions directly.
 
 Three tiers, in increasing order of generality/cost:
 \enumerate{
-\item \code{bayes_update_normal_normal()} - exact, closed-form, Normal-only.
+\item \code{fuse_normal_normal()} - exact, closed-form, Normal-only.
 \item \code{fuse_beta()}/\code{fuse_gamma()} - exact, closed-form, same-family-only
 (each family's kernel parameters simply ADD - the same principle
-\code{bayes_update_normal_normal()} uses for Normal's natural parameters,
+\code{fuse_normal_normal()} uses for Normal's natural parameters,
 applied to Beta/Gamma), with a \code{feasible} flag and a documented
 moment-based fallback route when infeasible.
-\item \code{bayesian_update()} - fully general grid-KDE Bayes' rule (any shape,
+\item \code{update_prior()} - fully general grid-KDE Bayes' rule (any shape,
 any family, even mismatched sides), at the cost of needing raw
 samples (not distributional parameters) on both sides.
 }

@@ -4,7 +4,7 @@ title: "Utilities"
 
 ## Overview
 
-`R/utils.R` is the shared-utility foundation for the entire `soilSIM` package. It provides data validation and quality control, logging, configuration management, caching/backup helpers, WKT geometry validation, and property-name/synonym resolution, so that no other functional group in the package (SSURGO acquisition/processing, data infilling, Monte Carlo simulation, GP modeling, multivariate adjustment, statistics, validation/diagnostics) needs to duplicate this logic. It is a **leaf dependency** in the ordinary sense - it sources nothing else in `soilSIM` and is depended on, directly or indirectly, by every other functional group - with one narrow, source-verified exception documented under [Known Limitations](#known-limitations): `get_predefined_properties("ssurgo")` calls `create_ssurgo_property_lookup_working()`, which actually lives in `R/adapter-ssurgo-acquire.R`, not here.
+`R/utils.R` is the shared-utility foundation for the entire `soilSIM` package. It provides data validation and quality control, logging, configuration management, caching/backup helpers, WKT geometry validation, and property-name/synonym resolution, so that no other functional group in the package (SSURGO acquisition/processing, data infilling, Monte Carlo simulation, GP modeling, multivariate adjustment, statistics, validation/diagnostics) needs to duplicate this logic. It is a **leaf dependency** in the ordinary sense - it sources nothing else in `soilSIM` and is depended on, directly or indirectly, by every other functional group - with one narrow, source-verified exception documented under [Known Limitations](#known-limitations): `predefined_properties("ssurgo")` calls `build_ssurgo_property_lookup()`, which actually lives in `R/adapter-ssurgo-acquire.R`, not here.
 
 ## Core Functions
 
@@ -88,11 +88,11 @@ The package ships two independent WKT-validation code paths that do **not** call
 
 **Algorithm/behavior**: Parses with `terra::vect(wkt_string, crs = crs)`. Computes vertex count as `sum(terra::nrow(terra::geom(geom)))` and part count as `terra::nrow(geom)`. Area/units branch on `terra::is.lonlat(geom)`: geographic geometries get a crude `(xmax-xmin)*(ymax-ymin)` bbox-area approximation in `deg^2` (not a true polygon area), projected geometries get `terra::expanse(geom, unit = "m")` in `m^2`. On parse failure, inspects the error message text for the substrings `"GDAL"` and `"CRS"` to append more specific guidance to `errors`/`warnings`. Not called by `validate_wkt_geometry()` or elsewhere in the package.
 
-##### `validate_geometry_validity(geom, strict_mode = TRUE)`, `validate_geometry_area(geom, area_limits, context = "general")`, `validate_geometry_complexity(geom, complexity_limits)`, `validate_coordinate_bounds(geom, bounds_check, context = "general")`, `validate_geographic_context(geom, strict_mode = TRUE)`, `validate_projected_context(geom, crs, strict_mode = TRUE)`, `get_validation_defaults(context, crs)`, `calculate_complexity_score(n_vertices, n_parts, geometry_type)`
+##### `validate_geometry_validity(geom, strict_mode = TRUE)`, `validate_geometry_area(geom, area_limits, context = "general")`, `validate_geometry_complexity(geom, complexity_limits)`, `validate_coordinate_bounds(geom, bounds_check, context = "general")`, `validate_geographic_context(geom, strict_mode = TRUE)`, `validate_projected_context(geom, crs, strict_mode = TRUE)`, `default_diagnostics_config(context, crs)`, `compute_complexity_score(n_vertices, n_parts, geometry_type)`
 
 **Purpose**: A granular, single-responsibility family of geometry checks that together duplicate (with somewhat more nuance) what `validate_wkt_geometry()` does inline. Each takes an already-parsed `terra` geometry (from `parse_wkt_geometry()`, in principle) rather than a raw WKT string.
 
-**Algorithm/behavior (brief, by function)**: `validate_geometry_validity()` calls `terra::is.valid()`; on failure, downgrades to a warning unless `strict_mode`, and additionally attempts `terra::makeValid()` to see if the geometry is auto-fixable, noting that in a warning. `validate_geometry_area()` computes area the same lonlat-branching way as `parse_wkt_geometry()` and compares against `area_limits$min`/`max`, each independently escalatable to an error via `area_limits$min_action`/`max_action == "error"`. `validate_geometry_complexity()` computes vertex/part counts and calls `calculate_complexity_score()`, warning (never erroring) if either exceeds `complexity_limits$max_vertices`/`max_parts`. `validate_coordinate_bounds()` checks the bbox against `bounds_check$xmin/xmax/ymin/ymax`, treating any violation as an error (unlike `validate_wkt_geometry()`'s inline bounds check, which is warning-only). `validate_geographic_context()` additionally checks for physically-impossible lon/lat values (`|lon| > 180`, `|lat| > 90`) in `strict_mode`, and warns if the bbox collapses to a single point. `validate_projected_context()` warns if a "projected" geometry is actually lon/lat, or if coordinate magnitudes exceed `1e8` (possible wrong-CRS indicator). `get_validation_defaults()` returns a `switch()`-selected bundle of `area_limits`/`complexity_limits`/`bounds_check` for `"geographic"`, `"projected"`, `"custom"`, or a final fallback context. `calculate_complexity_score()` is a `log10(vertices) + log10(parts)`, scaled by a `geometry_type`-keyed multiplier (`POINT` 1.0 up to `GEOMETRYCOLLECTION` 2.5), rounded to 2 decimals - it is the only one of this family actually called by another function in the file (`validate_geometry_complexity()`). None of these eight functions is called by `validate_wkt_geometry()` or by any other file in the package.
+**Algorithm/behavior (brief, by function)**: `validate_geometry_validity()` calls `terra::is.valid()`; on failure, downgrades to a warning unless `strict_mode`, and additionally attempts `terra::makeValid()` to see if the geometry is auto-fixable, noting that in a warning. `validate_geometry_area()` computes area the same lonlat-branching way as `parse_wkt_geometry()` and compares against `area_limits$min`/`max`, each independently escalatable to an error via `area_limits$min_action`/`max_action == "error"`. `validate_geometry_complexity()` computes vertex/part counts and calls `compute_complexity_score()`, warning (never erroring) if either exceeds `complexity_limits$max_vertices`/`max_parts`. `validate_coordinate_bounds()` checks the bbox against `bounds_check$xmin/xmax/ymin/ymax`, treating any violation as an error (unlike `validate_wkt_geometry()`'s inline bounds check, which is warning-only). `validate_geographic_context()` additionally checks for physically-impossible lon/lat values (`|lon| > 180`, `|lat| > 90`) in `strict_mode`, and warns if the bbox collapses to a single point. `validate_projected_context()` warns if a "projected" geometry is actually lon/lat, or if coordinate magnitudes exceed `1e8` (possible wrong-CRS indicator). `default_diagnostics_config()` returns a `switch()`-selected bundle of `area_limits`/`complexity_limits`/`bounds_check` for `"geographic"`, `"projected"`, `"custom"`, or a final fallback context. `compute_complexity_score()` is a `log10(vertices) + log10(parts)`, scaled by a `geometry_type`-keyed multiplier (`POINT` 1.0 up to `GEOMETRYCOLLECTION` 2.5), rounded to 2 decimals - it is the only one of this family actually called by another function in the file (`validate_geometry_complexity()`). None of these eight functions is called by `validate_wkt_geometry()` or by any other file in the package.
 
 #### Property-name / synonym resolution
 
@@ -102,19 +102,19 @@ The package ships two independent WKT-validation code paths that do **not** call
 
 **Returns**: List with `valid`, `errors`, `warnings`, `property_stats` (`total_requested`, `valid_properties`, `invalid_properties`, `validation_method`, `invalid_property_names`).
 
-**Algorithm/behavior**: Rejects non-character/empty `properties` immediately. Resolves the available-property set via `get_available_properties(property_lookup)`; if that returns zero properties, validation is skipped entirely (a warning is recorded, not an error). Otherwise computes `valid_props <- intersect(properties, available_props)` and `invalid_props <- setdiff(...)`; if `strict_mode` and the invalid fraction exceeds `max_invalid_pct`, marks `valid <- FALSE`. Separately warns if the *valid* property count exceeds `performance_threshold`, and fails if there are zero valid properties regardless of `strict_mode`. This is the function actually called elsewhere in the package (`core-gp.R`, `diagnostics.R`) - always with `property_lookup = "laboratory"` in current call sites.
+**Algorithm/behavior**: Rejects non-character/empty `properties` immediately. Resolves the available-property set via `available_properties(property_lookup)`; if that returns zero properties, validation is skipped entirely (a warning is recorded, not an error). Otherwise computes `valid_props <- intersect(properties, available_props)` and `invalid_props <- setdiff(...)`; if `strict_mode` and the invalid fraction exceeds `max_invalid_pct`, marks `valid <- FALSE`. Separately warns if the *valid* property count exceeds `performance_threshold`, and fails if there are zero valid properties regardless of `strict_mode`. This is the function actually called elsewhere in the package (`core-gp.R`, `diagnostics.R`) - always with `property_lookup = "laboratory"` in current call sites.
 
-##### `get_available_properties(property_lookup)`
+##### `available_properties(property_lookup)`
 
 **Purpose**: Normalizes four different kinds of `property_lookup` input into a plain character vector of available property names.
 
-**Algorithm/behavior**: Dispatches on the type of `property_lookup`: a length-1 character string is treated as a named source and passed to `get_predefined_properties()`; a function is called and its result coerced via `as.character()`; a longer character vector is returned as-is; a data frame is passed to `extract_properties_from_dataframe()`; anything else logs a warning and returns `character(0)`. The whole dispatch is wrapped in a `tryCatch` that degrades to `character(0)` with a warning on any error.
+**Algorithm/behavior**: Dispatches on the type of `property_lookup`: a length-1 character string is treated as a named source and passed to `predefined_properties()`; a function is called and its result coerced via `as.character()`; a longer character vector is returned as-is; a data frame is passed to `extract_properties_from_dataframe()`; anything else logs a warning and returns `character(0)`. The whole dispatch is wrapped in a `tryCatch` that degrades to `character(0)` with a warning on any error.
 
-##### `get_predefined_properties(source_name)`
+##### `predefined_properties(source_name)`
 
 **Purpose**: Named canned property lists for `"ssurgo"`, `"nrcs"`, `"laboratory"`, and `"basic"` sources.
 
-**Algorithm/behavior**: `"nrcs"`, `"laboratory"`, and `"basic"` return small hard-coded character vectors. `"ssurgo"` is different in kind: it calls `create_ssurgo_property_lookup_working()` - a function defined not in `utils.R` but in `R/adapter-ssurgo-acquire.R` - inside a `tryCatch`, and extracts its `$Property` column if present. This is the one place `utils.R` reaches outside its own file for a live function call (see Known Limitations); the call is defensively guarded, so if `adapter-ssurgo-acquire.R`'s function isn't loaded/available the branch just logs a WARN and returns `character(0)` rather than erroring. Unrecognized `source_name` also logs a WARN and returns `character(0)`.
+**Algorithm/behavior**: `"nrcs"`, `"laboratory"`, and `"basic"` return small hard-coded character vectors. `"ssurgo"` is different in kind: it calls `build_ssurgo_property_lookup()` - a function defined not in `utils.R` but in `R/adapter-ssurgo-acquire.R` - inside a `tryCatch`, and extracts its `$Property` column if present. This is the one place `utils.R` reaches outside its own file for a live function call (see Known Limitations); the call is defensively guarded, so if `adapter-ssurgo-acquire.R`'s function isn't loaded/available the branch just logs a WARN and returns `character(0)` rather than erroring. Unrecognized `source_name` also logs a WARN and returns `character(0)`.
 
 ##### `extract_properties_from_dataframe(df)`
 
@@ -126,9 +126,9 @@ The package ships two independent WKT-validation code paths that do **not** call
 
 **Returns**: List with `valid`, `errors`, `warnings`, `property_stats` (`total_requested`, `valid_properties`, `invalid_properties`, `success_rate`, `synonym_matches`, `validation_method`, `valid_property_names`, `invalid_property_names`).
 
-**Algorithm/behavior**: Unlike `validate_properties()`, this function ignores its `property_lookup` argument for matching purposes (it is accepted but not consulted) and instead matches every input name against a **hard-coded** `ssurgo_properties` list of ~13 canonical SSURGO property names, each mapped to a small vector of synonyms/variants (e.g. `"claytotal" = c("claytotal", "clay_total", "clay", "claytotal_r")`). For each requested property, it first checks direct membership in any synonym vector; failing that, it strips a trailing `_r`/`_l`/`_h` suffix and retries the same membership check against the stripped name. Unmatched names accumulate as `invalid_properties`. `invalid_percentage > max_invalid_pct` sets `valid <- FALSE` with an error; a nonzero-but-acceptable invalid count instead produces a warning listing the invalid names. A separate warning fires if `total_properties > performance_threshold`. Because the synonym table here is separate from (and structured oppositely to) `get_default_synonyms()`'s table, the two can drift independently.
+**Algorithm/behavior**: Unlike `validate_properties()`, this function ignores its `property_lookup` argument for matching purposes (it is accepted but not consulted) and instead matches every input name against a **hard-coded** `ssurgo_properties` list of ~13 canonical SSURGO property names, each mapped to a small vector of synonyms/variants (e.g. `"claytotal" = c("claytotal", "clay_total", "clay", "claytotal_r")`). For each requested property, it first checks direct membership in any synonym vector; failing that, it strips a trailing `_r`/`_l`/`_h` suffix and retries the same membership check against the stripped name. Unmatched names accumulate as `invalid_properties`. `invalid_percentage > max_invalid_pct` sets `valid <- FALSE` with an error; a nonzero-but-acceptable invalid count instead produces a warning listing the invalid names. A separate warning fires if `total_properties > performance_threshold`. Because the synonym table here is separate from (and structured oppositely to) `default_property_synonyms()`'s table, the two can drift independently.
 
-##### `get_default_synonyms(property_lookup)`
+##### `default_property_synonyms(property_lookup)`
 
 **Purpose**: Returns a named-list synonym table (canonical name -> vector of synonyms) for `"ssurgo"`, `"nrcs"`, or `"laboratory"`, or an empty list for anything else. Structurally similar in spirit to, but not the same data as, the table hard-coded inside `validate_properties_with_synonyms()`, and not called by it or by any other function in the file.
 
@@ -140,7 +140,7 @@ The package ships two independent WKT-validation code paths that do **not** call
 
 ### Configuration Management
 
-#### `get_default_configuration(config_type = "full")`
+#### `default_config(config_type = "full")`
 
 **Purpose**: Returns the package-wide baseline configuration.
 
@@ -152,7 +152,7 @@ The package ships two independent WKT-validation code paths that do **not** call
 
 **Purpose**: Loads a JSON or R-source configuration file from disk, merges it over the package defaults, and optionally validates it.
 
-**Algorithm/behavior**: If `config_path` doesn't exist, logs a WARN and returns `get_default_configuration()` untouched (no error). Otherwise auto-detects `config_type` from the file extension (`json`/`r`, defaulting to `json` for anything unrecognized) unless explicitly given. Loads via `jsonlite::fromJSON(config_path, simplifyVector = FALSE)` for JSON, or `source(config_path)$value` for R (i.e. an R script whose last top-level expression is treated as the config's `value`); any other `config_type` is a hard `stop()`. The loaded config is deep-merged onto `get_default_configuration()` via `merge_configurations()`. If `validate_config`, runs the internal (unexported) `validate_configuration()` and logs a WARN (not an error) listing any validation errors.
+**Algorithm/behavior**: If `config_path` doesn't exist, logs a WARN and returns `default_config()` untouched (no error). Otherwise auto-detects `config_type` from the file extension (`json`/`r`, defaulting to `json` for anything unrecognized) unless explicitly given. Loads via `jsonlite::fromJSON(config_path, simplifyVector = FALSE)` for JSON, or `source(config_path)$value` for R (i.e. an R script whose last top-level expression is treated as the config's `value`); any other `config_type` is a hard `stop()`. The loaded config is deep-merged onto `default_config()` via `merge_configurations()`. If `validate_config`, runs the internal (unexported) `validate_configuration()` and logs a WARN (not an error) listing any validation errors.
 
 #### `merge_configurations(default_config, user_config, deep_merge = TRUE)`
 
@@ -236,7 +236,7 @@ The package ships two independent WKT-validation code paths that do **not** call
 
 **Algorithm/behavior - pairwise mode**: `stop()`s if `x`/`y` differ in length. Restricts to `complete.cases(x, y)`; if fewer than 3 complete pairs remain, warns and returns `NA`. If either variable is constant (`var == 0`), returns `0` for `handle_constant %in% c("zero","warn")` (logging in the `"warn"` case) or `NA` otherwise. Otherwise computes `cor(x_clean, y_clean, method)` inside a `tryCatch`, returning `NA` on any computation error.
 
-#### `calculate_confidence_intervals(data, statistic = "mean", confidence_level = 0.95, method = "normal", n_bootstrap = 1000)`
+#### `compute_confidence_intervals(data, statistic = "mean", confidence_level = 0.95, method = "normal", n_bootstrap = 1000)`
 
 **Purpose**: Confidence interval computation for a mean, median, or proportion, by normal-approximation, t-distribution, or bootstrap.
 
@@ -295,10 +295,10 @@ utils.R
 │   └── cleanup_old_backups()               (internal helper)
 │
 ├── load_configuration()
-│   ├── get_default_configuration()
+│   ├── default_config()
 │   ├── merge_configurations()
 │   └── validate_configuration()            (internal, unexported)
-├── get_default_configuration()             [no internal calls]
+├── default_config()             [no internal calls]
 ├── merge_configurations()                  [no internal calls; self-contained recursive helper]
 ├── validate_parameters()                   [no internal calls]
 ├── export_workflow_metadata()
@@ -309,7 +309,7 @@ utils.R
 │   └── extract_data_summary()              (internal helper)
 │
 ├── safe_correlation()                      [no internal calls]
-├── calculate_confidence_intervals()        [no internal calls]
+├── compute_confidence_intervals()        [no internal calls]
 ├── normalize_values()                      [no internal calls]
 ├── detect_outliers()
 │   └── detect_outliers_iqr() / detect_outliers_zscore() / detect_outliers_modified_zscore()  (internal helpers)
@@ -321,13 +321,13 @@ utils.R
 ├── track_progress()                        [calls log_message() only]
 │
 ├── validate_properties()
-│   └── get_available_properties()
-│       ├── get_predefined_properties()
-│       │   └── create_ssurgo_property_lookup_working()   *** defined in R/adapter-ssurgo-acquire.R, NOT utils.R ***
+│   └── available_properties()
+│       ├── predefined_properties()
+│       │   └── build_ssurgo_property_lookup()   *** defined in R/adapter-ssurgo-acquire.R, NOT utils.R ***
 │       └── extract_properties_from_dataframe()
 ├── validate_properties_with_synonyms()     [own hard-coded synonym table; does NOT call validate_properties()
-│                                             or get_available_properties()]
-├── get_default_synonyms()                  [no internal calls; separate synonym table from the one above]
+│                                             or available_properties()]
+├── default_property_synonyms()                  [no internal calls; separate synonym table from the one above]
 ├── create_property_lookup()                [closure dispatches to validate_properties() or
 │                                             validate_properties_with_synonyms() at call time]
 │
@@ -338,9 +338,9 @@ utils.R
 ├── validate_geometry_validity()            [no internal calls; unused elsewhere]
 ├── validate_geometry_area()                [no internal calls; unused elsewhere]
 ├── validate_geometry_complexity()
-│   └── calculate_complexity_score()        (the only cross-call within this granular geometry family)
+│   └── compute_complexity_score()        (the only cross-call within this granular geometry family)
 ├── validate_coordinate_bounds()            [no internal calls; unused elsewhere]
-├── get_validation_defaults()               [no internal calls; unused elsewhere]
+├── default_diagnostics_config()               [no internal calls; unused elsewhere]
 ├── validate_geographic_context()           [no internal calls; unused elsewhere]
 └── validate_projected_context()            [no internal calls; unused elsewhere]
 ```
@@ -359,7 +359,7 @@ utils.R
 - Base R - `stats::sd/var/cor/quantile/qnorm/qt/median/mad/rank`, `installed.packages()`, file/dir functions (`file.exists`, `file.copy`, `file.remove`, `dir.create`, `file.info`, `file.size`, `file.rename`), `Sys.time()`, `options()`/`getOption()`.
 
 ### soilSIM-internal dependencies
-`utils.R` sources nothing else in the package and is intended as a pure leaf module - with one verified exception: `get_predefined_properties("ssurgo")` calls `create_ssurgo_property_lookup_working()`, which is defined in `R/adapter-ssurgo-acquire.R`. This call is defensively wrapped in `tryCatch()` (degrading to a `WARN` + empty vector if unavailable), so it does not create a hard circular *load-order* dependency, but it does mean `utils.R` is not a fully self-contained leaf at the call-graph level. See Known Limitations.
+`utils.R` sources nothing else in the package and is intended as a pure leaf module - with one verified exception: `predefined_properties("ssurgo")` calls `build_ssurgo_property_lookup()`, which is defined in `R/adapter-ssurgo-acquire.R`. This call is defensively wrapped in `tryCatch()` (degrading to a `WARN` + empty vector if unavailable), so it does not create a hard circular *load-order* dependency, but it does mean `utils.R` is not a fully self-contained leaf at the call-graph level. See Known Limitations.
 
 ### Consumers (functions from this file used elsewhere, per source grep)
 - **`is_unsuitable()`** - the single most widely reused function: `R/adapter-ssurgo-acquire.R`, `R/adapter-ssurgo-process.R`, `R/adapter-ssurgo-infill.R` (three call sites), `R/core-gp.R`, `R/core-montecarlo.R`.
@@ -373,15 +373,15 @@ utils.R
 - **`handle_missing_values()`** - `R/statistics.R`.
 - **`detect_outliers()`** - `R/core-montecarlo.R` (two call sites), `R/statistics.R` (two call sites), `R/adapter-ssurgo-process.R`, `R/diagnostics.R` (three call sites).
 - **`safe_correlation()`** - `R/statistics.R` (multiple call sites), `R/diagnostics.R` (three call sites).
-- **`calculate_confidence_intervals()`** - `R/statistics.R`.
-- **`get_default_configuration()`** - `R/core-gp.R`, `R/core-gp.R` (multiple call sites), `R/adapter-ssurgo-acquire.R` (two call sites), `R/statistics.R`, `R/diagnostics.R` (multiple call sites), `R/core-montecarlo.R`.
+- **`compute_confidence_intervals()`** - `R/statistics.R`.
+- **`default_config()`** - `R/core-gp.R`, `R/core-gp.R` (multiple call sites), `R/adapter-ssurgo-acquire.R` (two call sites), `R/statistics.R`, `R/diagnostics.R` (multiple call sites), `R/core-montecarlo.R`.
 - **`merge_configurations()`** - `R/core-montecarlo.R` (two call sites, one inside its own roxygen-documented helper), `R/statistics.R` (two call sites), `R/adapter-ssurgo-process.R`.
 - **`load_configuration()`** - `R/adapter-ssurgo-acquire.R`.
 - **`setup_logging()`** - `R/core-montecarlo.R`, `R/statistics.R`, `R/adapter-ssurgo-acquire.R`.
 - **`handle_workflow_error()`** - used pervasively as the `error =` handler inside `tryCatch()` throughout `R/core-gp.R`, `R/core-gp.R`, `R/core-montecarlo.R`, `R/adapter-ssurgo-acquire.R`, `R/diagnostics.R`.
 - **`track_progress()`** - `R/core-gp.R` (two call sites), `R/core-montecarlo.R`, `R/diagnostics.R` (multiple call sites).
 
-Functions defined in this file but **not currently called from any other file in the package** (confirmed by source grep): `check_required_columns()`, `convert_depth_units()`, `export_workflow_metadata()`, `validate_wkt_string()`, `parse_wkt_geometry()`, `validate_geometry_validity()`, `validate_geometry_area()`, `validate_geometry_complexity()`, `validate_coordinate_bounds()`, `get_validation_defaults()`, `validate_geographic_context()`, `validate_projected_context()`, `get_default_synonyms()`, `get_available_properties()`/`get_predefined_properties()`/`extract_properties_from_dataframe()`/`create_property_lookup()` (these four are called only from within `utils.R` itself, via `validate_properties()`).
+Functions defined in this file but **not currently called from any other file in the package** (confirmed by source grep): `check_required_columns()`, `convert_depth_units()`, `export_workflow_metadata()`, `validate_wkt_string()`, `parse_wkt_geometry()`, `validate_geometry_validity()`, `validate_geometry_area()`, `validate_geometry_complexity()`, `validate_coordinate_bounds()`, `default_diagnostics_config()`, `validate_geographic_context()`, `validate_projected_context()`, `default_property_synonyms()`, `available_properties()`/`predefined_properties()`/`extract_properties_from_dataframe()`/`create_property_lookup()` (these four are called only from within `utils.R` itself, via `validate_properties()`).
 
 ## Data Flow In/Out
 
@@ -390,17 +390,17 @@ Functions defined in this file but **not currently called from any other file in
 - **Logical vectors** (`is_unsuitable()`, `detect_outliers()` when `return_indices = FALSE`) or **integer index vectors** (`detect_outliers()` when `return_indices = TRUE`).
 - **Cleaned/transformed data frames** (`handle_missing_values()`, `standardize_property_names()`, `validate_numeric_ranges()$corrected_data`).
 - **Numeric vectors/matrices** (`normalize_values()`, `convert_depth_units()`, `safe_coalesce()`, `safe_correlation()`).
-- **Small structured lists** for statistics (`calculate_confidence_intervals()`) and configuration (`get_default_configuration()`, `load_configuration()`, `merge_configurations()`).
+- **Small structured lists** for statistics (`compute_confidence_intervals()`) and configuration (`default_config()`, `load_configuration()`, `merge_configurations()`).
 - **Side effects only** (`setup_logging()`, `log_message()`, `track_progress()` write to console/file/`options()` and return `invisible()` or the config list itself; `write_soil_data()`/`backup_data()`/`export_workflow_metadata()` write to disk and return a path or a success boolean).
 
 ## Known Limitations
 
-- **`get_predefined_properties("ssurgo")` breaks the leaf-module property**: it calls `create_ssurgo_property_lookup_working()`, which is defined in `R/adapter-ssurgo-acquire.R`, not `utils.R`. The call is `tryCatch`-guarded (degrades to `WARN` + `character(0)` if unavailable), so it is not a hard failure, but it means `utils.R` is not a fully self-contained leaf at the call-graph level despite otherwise sourcing nothing else in the package.
-- **Two independent, non-communicating WKT validation code paths**: `validate_wkt_geometry()` (the one actually wired into `R/adapter-ssurgo-acquire.R`) inlines all of its own parsing/bbox/area/bounds logic and does not call `parse_wkt_geometry()`, `validate_geometry_validity()`, `validate_geometry_area()`, `validate_geometry_complexity()`, `validate_coordinate_bounds()`, `get_validation_defaults()`, `validate_geographic_context()`, or `validate_projected_context()` - all nine of which are exported but otherwise dead code (unused anywhere in the package). `validate_wkt_string()` is a third, simpler string-only checker, also unused elsewhere.
-- **Two independent SSURGO synonym tables that can drift**: `validate_properties_with_synonyms()` hard-codes its own ~13-entry SSURGO synonym table inline, structurally unrelated to (and not sharing data with) `get_default_synonyms("ssurgo")`'s separate table or `get_default_property_mapping("ssurgo")`'s (used by `standardize_property_names()`). All three tables encode overlapping but independently-maintained SSURGO name/synonym knowledge.
+- **`predefined_properties("ssurgo")` breaks the leaf-module property**: it calls `build_ssurgo_property_lookup()`, which is defined in `R/adapter-ssurgo-acquire.R`, not `utils.R`. The call is `tryCatch`-guarded (degrades to `WARN` + `character(0)` if unavailable), so it is not a hard failure, but it means `utils.R` is not a fully self-contained leaf at the call-graph level despite otherwise sourcing nothing else in the package.
+- **Two independent, non-communicating WKT validation code paths**: `validate_wkt_geometry()` (the one actually wired into `R/adapter-ssurgo-acquire.R`) inlines all of its own parsing/bbox/area/bounds logic and does not call `parse_wkt_geometry()`, `validate_geometry_validity()`, `validate_geometry_area()`, `validate_geometry_complexity()`, `validate_coordinate_bounds()`, `default_diagnostics_config()`, `validate_geographic_context()`, or `validate_projected_context()` - all nine of which are exported but otherwise dead code (unused anywhere in the package). `validate_wkt_string()` is a third, simpler string-only checker, also unused elsewhere.
+- **Two independent SSURGO synonym tables that can drift**: `validate_properties_with_synonyms()` hard-codes its own ~13-entry SSURGO synonym table inline, structurally unrelated to (and not sharing data with) `default_property_synonyms("ssurgo")`'s separate table or `get_default_property_mapping("ssurgo")`'s (used by `standardize_property_names()`). All three tables encode overlapping but independently-maintained SSURGO name/synonym knowledge.
 - **Duplicated backup-filename logic**: `write_soil_data()` uses the internal helper `create_backup_filename()`, while `backup_data()` builds an equivalent timestamped filename inline with its own independent code rather than calling that helper.
 - **`validate_data_quality()`'s duplicate-source-of-truth for the pass/fail threshold**: the function reads `quality_thresholds$min_completeness` for the final `validation_passed` check, but falls back to a literal `0.7` if unset, whereas the auto-generated default `quality_thresholds$min_completeness` (when the caller passes no thresholds at all) is `0.8` - the two default values are inconsistent with each other.
-- **`calculate_confidence_intervals()`'s missing-value log message always reports zero removed**: the "removed N missing values" count is computed from `data` *after* it has already had its `NA`s stripped, so the logged count is always `0` regardless of how many values were actually dropped.
+- **`compute_confidence_intervals()`'s missing-value log message always reports zero removed**: the "removed N missing values" count is computed from `data` *after* it has already had its `NA`s stripped, so the logged count is always `0` regardless of how many values were actually dropped.
 - **`export_workflow_metadata()` and `check_required_columns()` are unused elsewhere** in the current package (confirmed by source grep) - both are fully implemented and exported but have no call sites outside their own definitions.
 - No `@section Known limitation:` roxygen blocks are present anywhere in `utils.R` itself; the items above were identified by reading the source rather than from author-flagged doc comments (one exception is the `create_property_lookup()` synonym-argument handling noted above).
 

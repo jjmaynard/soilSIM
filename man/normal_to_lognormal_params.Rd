@@ -16,5 +16,5 @@ normal_to_lognormal_params(mu, sigma)
 Needed because several properties (e.g. SOC, CEC) are strictly positive
 and right-skewed - fusing their raw mean/sd as if Normal lets the
 posterior put real probability mass below zero, which is physically
-impossible. \code{bayes_update_normal_normal()} is reused in log-space instead.
+impossible. \code{fuse_normal_normal()} is reused in log-space instead.
 }

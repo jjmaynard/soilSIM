@@ -40,7 +40,7 @@ prepare_nrcs_training_data <- function(nrcs_combined_data,
 
   # Initial data validation
   if (is.null(validation_config)) {
-    validation_config <- get_default_configuration("validation")
+    validation_config <- default_config("validation")
   }
 
   required_columns <- c("cokey", "hzdept_r")
@@ -2440,7 +2440,7 @@ apply_depth_gp_to_simulation <- function(simulation_results,
 
   # Load configuration
   if (is.null(config)) {
-    config <- get_default_configuration("full")
+    config <- default_config("full")
   }
 
   # Validate parameters
@@ -2571,13 +2571,13 @@ apply_depth_gp_to_simulation <- function(simulation_results,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
-#' @param config Optional Monte Carlo config (as from \code{get_monte_carlo_defaults()}) whose
+#' @param config Optional Monte Carlo config (as from \code{default_monte_carlo_config()}) whose
 #'   \code{monte_carlo$vertical_correlation_method} selects between \code{"joint_copula"}
 #'   (the default; dispatches to
 #'   \code{preserve_correlation_structure_joint()}, drawing depth correlation and property
 #'   correlation simultaneously) and \code{"gp_quantile_retrofit"} (an explicit opt-out that dispatches to
 #'   \code{preserve_correlation_structure()}). \code{NULL} (default) resolves to
-#'   \code{"joint_copula"}, matching \code{get_monte_carlo_defaults()}'s own default - set
+#'   \code{"joint_copula"}, matching \code{default_monte_carlo_config()}'s own default - set
 #'   \code{config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"} explicitly to
 #'   select the quantile-retrofit method. Under \code{"joint_copula"},
 #'   \code{config$monte_carlo$vertical_correlation_gating} (default \code{FALSE}) separately
@@ -2652,8 +2652,8 @@ apply_gp_depth_trends <- function(cokey_data,
   }
 
   # Vertical-correlation method. Default "joint_copula"; kept in sync with
-  # get_monte_carlo_defaults() so "no config passed" means the same thing whether or not a caller
-  # goes through get_monte_carlo_defaults() first. Set
+  # default_monte_carlo_config() so "no config passed" means the same thing whether or not a caller
+  # goes through default_monte_carlo_config() first. Set
   # config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit" for the
   # quantile-retrofit method instead.
   vertical_correlation_method <- config$monte_carlo$vertical_correlation_method %||% "joint_copula"
@@ -3149,7 +3149,7 @@ preserve_correlation_structure_joint <- function(property_matrices,
 #' @param config Optional Monte Carlo config, passed through to `apply_gp_depth_trends()` -
 #'   `config$monte_carlo$vertical_correlation_method` (`"joint_copula"` default, or
 #'   `"gp_quantile_retrofit"`) reaches the NRCS/regional GP path as well as the local-GP path.
-#'   `NULL` (default) resolves to `"joint_copula"`, matching `get_monte_carlo_defaults()`.
+#'   `NULL` (default) resolves to `"joint_copula"`, matching `default_monte_carlo_config()`.
 #' @return Adjusted simulation data
 #' @export
 apply_nrcs_trend_adjustments <- function(cokey_data,
@@ -3367,7 +3367,7 @@ apply_local_gp_adjustments <- function(cokey_data,
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
   if (is.null(config)) {
-    config <- get_default_configuration("validation")
+    config <- default_config("validation")
   }
 
   # depth validation
@@ -3430,7 +3430,7 @@ fit_local_gp_models <- function(cokey_data, properties, config = NULL, gp_contro
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
   if (is.null(config)) {
-    config <- get_default_configuration("validation")
+    config <- default_config("validation")
   }
 
   log_message("DEBUG", "Fitting local GP models", category = "MultivarAdjust")
@@ -3490,7 +3490,7 @@ fit_local_gp_models <- function(cokey_data, properties, config = NULL, gp_contro
 #' @param config Optional config, passed straight through to `apply_gp_depth_trends()` - lets
 #'   `config$monte_carlo$vertical_correlation_method` (`"joint_copula"` default, or
 #'   `"gp_quantile_retrofit"`) reach this call site. `NULL` (default) resolves to `"joint_copula"`,
-#'   matching `get_monte_carlo_defaults()`.
+#'   matching `default_monte_carlo_config()`.
 #' @param gp_models Optional named list of fitted local GP models (as `apply_local_gp_adjustments()`
 #'   already has in scope via `fit_local_gp_models()`), passed straight through to
 #'   `apply_gp_depth_trends()` so the joint-copula depth kernel can reuse their fitted
@@ -3752,7 +3752,7 @@ correct_distribution_shapes <- function(adjusted_data, original_data, properties
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
   if (is.null(config)) {
-    config <- get_default_configuration("validation")
+    config <- default_config("validation")
   }
 
   log_message("DEBUG", "Correcting distribution shapes", category = "MultivarAdjust")
@@ -3793,7 +3793,7 @@ correct_distribution_shapes <- function(adjusted_data, original_data, properties
 detect_simulation_properties <- function(simulation_data) {
 
   # Use property validation
-  all_properties <- get_predefined_properties("laboratory")
+  all_properties <- predefined_properties("laboratory")
 
   # Common simulation property patterns
   simulation_patterns <- c(

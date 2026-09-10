@@ -24,7 +24,7 @@ order) of \verb{list(id=, prior=<named list of ALIGNED percentile-value rasters>
 
 \item{mukey_raster, mukey_texture_draws}{Optional - opts into \code{prior_fusion_method = "raw_draws"} (see \code{fuse_texture_group_batch_core()}'s docs). \code{mukey_raster} must already be
 aligned to the same grid as \code{fetched}'s percentile rasters (nearest-neighbor resampled - it's
-categorical). \code{mukey_texture_draws} is a \code{mukey_texture_draws_lookup()} result. \code{NULL}
+categorical). \code{mukey_texture_draws} is a \code{lookup_mukey_texture_draws()} result. \code{NULL}
 (default) for either uses the percentile-reconstruction path.}
 
 \item{posterior_probs}{Numeric probabilities (0-1) at which to report each fraction's posterior

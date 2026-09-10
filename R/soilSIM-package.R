@@ -68,8 +68,8 @@
 #' available water storage from ROSETTA pedotransfer parameters.
 #'
 #' @section Bayesian updating (scalar, core):
-#' [bayes_update_normal_normal()] and family provide closed-form same-family
-#' fusion of a prior and observed data; [bayesian_update()] provides a fully
+#' [fuse_normal_normal()] and family provide closed-form same-family
+#' fusion of a prior and observed data; [update_prior()] provides a fully
 #' general grid-KDE fusion for arbitrary distributions;
 #' [fuse_texture_group_from_triplets()] fuses compositional texture data
 #' jointly in ILR space.
@@ -159,6 +159,6 @@ utils::globalVariables(c(
   "alpha", "n", "theta_r", "theta_s", "contributing_fraction", "variable",
   # R/core-simulation.R (component-composition / correlated-triangular simulation)
   "Depth", "comppct_l", "comppct_h",
-  # R/adapter-ssurgo-process.R::hz_quant_prob_mukey()
+  # R/adapter-ssurgo-process.R::compute_mukey_horizon_quantiles()
   "sand", "silt", "clay", "prob", "txt_class"
 ))

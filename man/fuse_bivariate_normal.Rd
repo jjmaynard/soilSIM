@@ -16,5 +16,5 @@ fuse_bivariate_normal(mu1, Sigma1, mu2, Sigma2)
 }
 \description{
 Precision MATRICES add - the direct multivariate generalization of
-\code{bayes_update_normal_normal()}'s scalar-precision addition.
+\code{fuse_normal_normal()}'s scalar-precision addition.
 }

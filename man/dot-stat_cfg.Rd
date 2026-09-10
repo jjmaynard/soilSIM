@@ -14,7 +14,7 @@
 \item{default}{Fallback when the key is absent in both locations.}
 }
 \description{
-\code{get_statistical_analysis_defaults()} nests every statistical parameter under
+\code{default_statistics_config()} nests every statistical parameter under
 \code{config$statistical_analysis$...}, but the enhanced-chain functions
 (\code{analyze_property_distributions()}, \code{detect_comprehensive_outliers()},
 \code{run_comprehensive_correlation_analysis()}) were written reading them flat off \code{config$...} with
@@ -23,6 +23,6 @@ no fallback - under the package's own documented default usage
 \code{config$minimum_observations} \code{NULL} and hard-errored the enhanced chain. This mirrors
 \code{analyze_soil_statistics()}'s own \verb{config$statistical_analysis$X \%||\% config$X \%||\% <default>}
 pattern (see its \code{min_quality_score} line). Defaults here match the \verb{_safe} chain's hardcoded
-values and \code{get_statistical_analysis_defaults()}.
+values and \code{default_statistics_config()}.
 }
 \keyword{internal}

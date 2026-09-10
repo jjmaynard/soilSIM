@@ -36,13 +36,13 @@ contract across routes.}
 \item{bounds}{Required for \code{family = "beta"} (\code{c(lower, upper)}).}
 
 \item{threshold_cells}{AOI cell count at or below which the general
-\code{bayesian_update()} route is used; above it, the closed-form route.}
+\code{update_prior()} route is used; above it, the closed-form route.}
 
 \item{n_samples}{Samples drawn per side for the general route's KDE fusion.}
 
-\item{grid_resolution}{Passed to \code{bayesian_update()} for the general route. \code{NULL} (default)
+\item{grid_resolution}{Passed to \code{update_prior()} for the general route. \code{NULL} (default)
 resolves to \link{FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION} (\code{0.1}) - see that constant's docs for
-the profiling/accuracy justification for why this differs from \code{bayesian_update()}'s own
+the profiling/accuracy justification for why this differs from \code{update_prior()}'s own
 standalone default of \code{0.01}.}
 
 \item{verbose}{If TRUE (default), print the chosen route and why.}
@@ -57,7 +57,7 @@ preserves original behavior exactly on both routes.}
 \item{posterior_probs}{Passed through to whichever route runs (\code{fuse_general_kde()} for the
 general route, \code{fuse_closed_form()} for the closed-form route - see \link{FUSE_POSTERIOR_DEFAULT_PROBS}).
 \code{NULL} (default) resolves to the same rich default on both routes. The general route computes
-percentiles from \code{bayesian_update()}'s discretized posterior (exact relative to
+percentiles from \code{update_prior()}'s discretized posterior (exact relative to
 \code{grid_resolution}, but tail percentiles are limited by how well the KDE approximates the tails
 from a finite sample); the closed-form route computes them analytically (\code{qnorm}/\code{qbeta}/
 \code{qgamma} at the fused family parameters - exact regardless of how extreme the probability).}

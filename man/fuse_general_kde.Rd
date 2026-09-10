@@ -3,7 +3,7 @@
 \name{fuse_general_kde}
 \alias{fuse_general_kde}
 \title{Fully general fusion path for \code{fuse_adaptive()}: per cell, draw samples
-from both sides' percentiles (via \code{simulate_from_percentiles(method= "linear_cdf")}), fuse via \code{bayesian_update()}, and moment-match the
+from both sides' percentiles (via \code{simulate_from_percentiles(method= "linear_cdf")}), fuse via \code{update_prior()}, and moment-match the
 posterior samples back into the requested family so the output contract
 matches the closed-form route.}
 \usage{
@@ -31,15 +31,15 @@ fuse_general_kde(
 
 \item{n_samples}{Samples drawn per side, per cell.}
 
-\item{grid_resolution}{Passed to \code{bayesian_update()}. \code{NULL} (the caller-facing default from
+\item{grid_resolution}{Passed to \code{update_prior()}. \code{NULL} (the caller-facing default from
 \code{fuse_adaptive()}) resolves to \link{FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION}, not
-\code{bayesian_update()}'s own standalone default of \code{0.01} - see that constant's docs for why.}
+\code{update_prior()}'s own standalone default of \code{0.01} - see that constant's docs for why.}
 
 \item{mukey_raster, mukey_draws}{Optional - opts into \code{prior_fusion_method = "raw_draws"} (see
 ). \code{mukey_raster} must already be
 aligned to the same grid as \code{prior_value_rasters}/\code{lik_value_rasters} (nearest-neighbor
 resampled, since it's categorical - bilinear would fabricate nonsensical mukey codes).
-\code{mukey_draws} is a \code{mukey_draws_lookup()} result. When both are supplied, the PRIOR side's
+\code{mukey_draws} is a \code{lookup_mukey_draws()} result. When both are supplied, the PRIOR side's
 samples for a cell are drawn from that cell's mukey's real Monte Carlo draws (computed
 once per unique mukey, not once per cell) instead of \code{sim_linear_cdf_batch()}'s
 percentile-reconstructed approximation - a genuine fidelity improvement, not just a speed one,
@@ -49,9 +49,9 @@ docs). \code{NULL} (default) for either parameter preserves the original percent
 behavior for the prior side exactly - bit-identical output to before this parameter existed.}
 
 \item{posterior_probs}{Numeric vector of probabilities (0-1) at which to report posterior
-percentiles, computed via \code{bayesian_update()}'s grid-based exact percentile machinery (see
+percentiles, computed via \code{update_prior()}'s grid-based exact percentile machinery (see
 that function's docs). \code{NULL} (default) resolves to \link{FUSE_POSTERIOR_DEFAULT_PROBS} - unlike
-\code{bayesian_update()}'s own \code{NULL} default (which means "no percentiles, preserve the original
+\code{update_prior()}'s own \code{NULL} default (which means "no percentiles, preserve the original
 plain-vector return"), this is an internal orchestration parameter with no external
 plain-vector consumers, so its \code{NULL} means "use the standard rich default" instead. Also used
 to compute \code{mu}/\code{sigma} (via the exact grid-based mean/var, not \code{mean()}/\code{var()} on a resampled
@@ -59,7 +59,7 @@ vector - a strictly more accurate replacement for the previous computation, at n
 }
 \description{
 Fully general fusion path for \code{fuse_adaptive()}: per cell, draw samples
-from both sides' percentiles (via \code{simulate_from_percentiles(method= "linear_cdf")}), fuse via \code{bayesian_update()}, and moment-match the
+from both sides' percentiles (via \code{simulate_from_percentiles(method= "linear_cdf")}), fuse via \code{update_prior()}, and moment-match the
 posterior samples back into the requested family so the output contract
 matches the closed-form route.
 }

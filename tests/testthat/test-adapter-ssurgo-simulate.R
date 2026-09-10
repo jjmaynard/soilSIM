@@ -104,7 +104,7 @@ test_that("infill_ssurgo_data() water-retention estimate equals the Saxton-Rawls
   res <- infill_ssurgo_data(df, water_retention_method = "saxton_rawls")
 
   for (i in 1:2) {
-    expected <- calculate_saxton_rawls_single(
+    expected <- compute_saxton_rawls(
       sand_pct = df$sandtotal_r[i], clay_pct = df$claytotal_r[i], silt_pct = df$silttotal_r[i],
       bulk_density = df$dbovendry_r[i], rfv_pct = 0, om_pct = df$om_r[i]
     )$field_capacity
@@ -196,9 +196,9 @@ test_that("maybe_adjust_soil_data_depth_trend()/adjust_one_cokey_depth_trend() t
   )
   properties <- c("db", "wr_3b")
 
-  retrofit_config <- get_default_configuration("validation")
+  retrofit_config <- default_config("validation")
   retrofit_config$monte_carlo$vertical_correlation_method <- "gp_quantile_retrofit"
-  joint_config <- get_default_configuration("validation")
+  joint_config <- default_config("validation")
   joint_config$monte_carlo$vertical_correlation_method <- "joint_copula"
 
   set.seed(102)
@@ -224,41 +224,41 @@ test_that("maybe_adjust_soil_data_depth_trend() warns and passes through when GP
   expect_equal(result, sim_long)
 })
 
-test_that("mukey_draws_lookup() groups a property's simulated values by mukey without collapsing to percentiles", {
+test_that("lookup_mukey_draws() groups a property's simulated values by mukey without collapsing to percentiles", {
   draws <- data.frame(
     mukey = c("1", "1", "1", "2", "2"),
     cokey = c("a", "a", "b", "c", "c"),
     simulation_number = c(1, 2, 1, 1, 2),
     db = c(1.1, 1.2, 1.3, 2.1, 2.2)
   )
-  lookup <- mukey_draws_lookup(draws, "bulk_density")
+  lookup <- lookup_mukey_draws(draws, "bulk_density")
   expect_setequal(names(lookup), c("1", "2"))
   expect_equal(sort(lookup[["1"]]), c(1.1, 1.2, 1.3))
   expect_equal(sort(lookup[["2"]]), c(2.1, 2.2))
 })
 
-test_that("mukey_draws_lookup() drops non-finite values and returns NULL for a column absent from draws", {
+test_that("lookup_mukey_draws() drops non-finite values and returns NULL for a column absent from draws", {
   draws <- data.frame(mukey = c("1", "1"), db = c(1.5, NA))
-  lookup <- mukey_draws_lookup(draws, "bulk_density")
+  lookup <- lookup_mukey_draws(draws, "bulk_density")
   expect_equal(lookup[["1"]], 1.5)
 
   draws_no_ph <- data.frame(mukey = "1", db = 1.4)
-  expect_null(mukey_draws_lookup(draws_no_ph, "ph"))
+  expect_null(lookup_mukey_draws(draws_no_ph, "ph"))
 })
 
-test_that("mukey_draws_lookup() errors on an unrecognized property id, matching percentiles_from_draws()'s convention", {
+test_that("lookup_mukey_draws() errors on an unrecognized property id, matching percentiles_from_draws()'s convention", {
   draws <- data.frame(mukey = "1", db = 1.4)
-  expect_error(mukey_draws_lookup(draws, "not_a_real_property"), "no simulated column mapping")
+  expect_error(lookup_mukey_draws(draws, "not_a_real_property"), "no simulated column mapping")
 })
 
-test_that("mukey_texture_draws_lookup() returns row-aligned clay/sand/silt triples per mukey, dropping incomplete rows", {
+test_that("lookup_mukey_texture_draws() returns row-aligned clay/sand/silt triples per mukey, dropping incomplete rows", {
   draws <- data.frame(
     mukey = c("1", "1", "1", "2"),
     clay_total = c(20, 22, NA, 15),
     sand_total = c(40, 38, 41, 45),
     silt_total = c(40, 40, 41, 40)
   )
-  lookup <- mukey_texture_draws_lookup(draws)
+  lookup <- lookup_mukey_texture_draws(draws)
   expect_setequal(names(lookup), c("1", "2"))
   # Mukey 1's third row (clay_total = NA) is dropped - only 2 complete rows survive.
   expect_equal(nrow(lookup[["1"]]), 2)
@@ -269,9 +269,9 @@ test_that("mukey_texture_draws_lookup() returns row-aligned clay/sand/silt tripl
   expect_equal(lookup[["1"]][, "sand_total"], c(40, 38))
 })
 
-test_that("mukey_texture_draws_lookup() returns NULL when texture columns are absent", {
+test_that("lookup_mukey_texture_draws() returns NULL when texture columns are absent", {
   draws <- data.frame(mukey = "1", db = 1.4)
-  expect_null(mukey_texture_draws_lookup(draws))
+  expect_null(lookup_mukey_texture_draws(draws))
 })
 
 # ---------------------------------------------------------------------------

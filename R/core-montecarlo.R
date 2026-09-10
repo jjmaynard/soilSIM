@@ -107,7 +107,7 @@ simulate_monte_carlo <- function(soil_data,
   # Merge with default configuration. normalize_monte_carlo_config() accepts
   # either a flat simulation_config (e.g. list(distribution_type="normal")) or one nested
   # under monte_carlo; see normalize_monte_carlo_config()'s docs.
-  default_config <- get_monte_carlo_defaults()
+  default_config <- default_monte_carlo_config()
   simulation_config <- normalize_monte_carlo_config(simulation_config, default_config)
   config <- merge_configurations(default_config, simulation_config)
 
@@ -515,7 +515,7 @@ simulate_correlated_properties <- function(simulation_params,
 #' @return List with simulated component compositions and quality metrics
 #'
 #' @export
-sim_component_compositions <- function(component_data,
+simulate_component_compositions_batch <- function(component_data,
                                                 n_realizations = 1000,
                                                 config = NULL,
                                                 verbose = getOption("ssurgo.verbose", FALSE)) {
@@ -525,7 +525,7 @@ sim_component_compositions <- function(component_data,
 
   # Use package default configuration if not provided
   if (is.null(config)) {
-    config <- get_monte_carlo_defaults()
+    config <- default_monte_carlo_config()
   }
 
   log_message("INFO", paste("Simulating component compositions for", nrow(component_data), "components"), category = "MonteCarlo")
@@ -819,7 +819,7 @@ prepare_simulation_parameters <- function(simulation_data, properties, config, c
 #'
 #' Orchestrates Bayesian updating against each property's per-horizon prior
 #' fit produced by `prepare_simulation_parameters()`, using
-#' `core-fusion.R`'s pure fusion primitives (`bayes_fuse()`,
+#' `core-fusion.R`'s pure fusion primitives (`fuse_distribution()`,
 #' `fuse_property()`, `fuse_texture_group_from_triplets()`). For every
 #' property present in `observed_data`, every horizon's existing prior is
 #' replaced by its fused posterior - each horizon keeps its OWN prior
@@ -829,7 +829,7 @@ prepare_simulation_parameters <- function(simulation_data, properties, config, c
 #'
 #' Two supported shapes per non-texture entry in `observed_data`:
 #'   - a numeric vector of raw samples -> the fully general route
-#'     (`fuse_property()`'s `bayesian_update()` grid-KDE path). The prior is
+#'     (`fuse_property()`'s `update_prior()` grid-KDE path). The prior is
 #'     first SAMPLED (via `quantile_from_fit()`, since that route needs both
 #'     sides to already be raw vectors - it fits no parametric family to
 #'     either side), and the resulting posterior sample is stored as an
@@ -838,7 +838,7 @@ prepare_simulation_parameters <- function(simulation_data, properties, config, c
 #'   - a family-native parameter list (`list(mean=, sd=)` for a normal or
 #'     lognormal prior/likelihood; `list(shape1=, shape2=)` or
 #'     `list(mean=, var=)` for a beta prior/likelihood) -> the closed-form
-#'     route (`bayes_fuse()`), only supported for prior families
+#'     route (`fuse_distribution()`), only supported for prior families
 #'     `"normal"`/`"lognormal"`/`"beta"` (the only families with a conjugate
 #'     route). Any other prior family (`"triangular"`/`"uniform"`/
 #'     `"metalog"`/`"linear_cdf"`) SKIPS fusion for that (horizon, property)
@@ -1107,7 +1107,7 @@ fuse_one_property_prior <- function(prior, likelihood, is_vector_likelihood, n_s
   }
 
   if (family == "normal") {
-    post <- bayes_update_normal_normal(fit$mean, fit$sd, likelihood$mean, likelihood$sd)
+    post <- fuse_normal_normal(fit$mean, fit$sd, likelihood$mean, likelihood$sd)
     return(list(family = "normal", fit = list(mean = post$mu, sd = post$sigma), source = "bayesian_fusion_normal"))
   }
 
@@ -1118,7 +1118,7 @@ fuse_one_property_prior <- function(prior, likelihood, is_vector_likelihood, n_s
     # The likelihood is expected in raw (natural, reported) space and is
     # converted to log-space to match.
     lik_log <- normal_to_lognormal_params(likelihood$mean, likelihood$sd)
-    post <- bayes_update_normal_normal(fit$mean, fit$sd, lik_log$mu, lik_log$sigma)
+    post <- fuse_normal_normal(fit$mean, fit$sd, lik_log$mu, lik_log$sigma)
     return(list(family = "lognormal", fit = list(mean = post$mu, sd = post$sigma), source = "bayesian_fusion_lognormal"))
   }
 
@@ -1146,7 +1146,7 @@ fuse_one_property_prior <- function(prior, likelihood, is_vector_likelihood, n_s
       # convert back - rather than accepting invalid (alpha, beta).
       prior_m <- beta_to_moments(fit$shape1, fit$shape2)
       lik_m <- beta_to_moments(lik_alpha, lik_beta)
-      fallback <- bayes_update_normal_normal(prior_m$mean, sqrt(prior_m$var), lik_m$mean, sqrt(lik_m$var))
+      fallback <- fuse_normal_normal(prior_m$mean, sqrt(prior_m$var), lik_m$mean, sqrt(lik_m$var))
       fallback_beta <- moments_to_beta(fallback$mu, fallback$sigma^2)
       post <- list(alpha = fallback_beta$alpha, beta = fallback_beta$beta)
     }
@@ -1616,13 +1616,13 @@ validate_simulation_output <- function(simulation_results, properties, config,
 #' @return Default Monte Carlo configuration
 #'
 #' @export
-get_monte_carlo_defaults <- function(verbose = getOption("ssurgo.verbose", FALSE)) {
+default_monte_carlo_config <- function(verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
 
   base_config <- tryCatch({
-    get_default_configuration("full")
+    default_config("full")
   }, error = function(e) {
     # Fallback if the helper is unavailable
     list()
@@ -1735,7 +1735,7 @@ get_monte_carlo_defaults <- function(verbose = getOption("ssurgo.verbose", FALSE
 #'
 #' `simulate_monte_carlo()`'s own `@examples` have always shown
 #' a FLAT `simulation_config` (e.g. `list(distribution_type = "normal", max_depth = 200)`),
-#' but `get_monte_carlo_defaults()` nests every Monte Carlo setting under
+#' but `default_monte_carlo_config()` nests every Monte Carlo setting under
 #' `$monte_carlo`, and `merge_configurations()` merges strictly by matching
 #' key path - so a flat user config silently landed as a new, unused
 #' top-level `config$distribution_type` and had NO effect at all (confirmed
@@ -1746,7 +1746,7 @@ get_monte_carlo_defaults <- function(verbose = getOption("ssurgo.verbose", FALSE
 #' config whose names match known `monte_carlo` settings gets wrapped.
 #'
 #' @param simulation_config User-supplied config (flat or nested).
-#' @param default_config Result of `get_monte_carlo_defaults()`, used only to
+#' @param default_config Result of `default_monte_carlo_config()`, used only to
 #'   recognize which flat key names belong under `monte_carlo`.
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's
 #'   log level so \code{INFO}-level progress messages print for the duration
@@ -1836,7 +1836,7 @@ validate_monte_carlo_config <- function(config, n_realizations, verbose = getOpt
     correlation_fallback = list(type = "character", required = TRUE,
                                 choices = c("identity", "kssl_global")),
     # Not required (unlike correlation_fallback above) - a config built without going through
-    # get_monte_carlo_defaults() first (e.g. an ad-hoc config in an older test/caller) should not
+    # default_monte_carlo_config() first (e.g. an ad-hoc config in an older test/caller) should not
     # start failing validation just because this newer key is absent; validated only when present.
     vertical_correlation_method = list(type = "character", required = FALSE,
                                        choices = c("gp_quantile_retrofit", "joint_copula")),

@@ -8,7 +8,7 @@
 #' @param config_type Configuration type ("full", "minimal", "validation")
 #' @return Default configuration
 #' @export
-get_default_configuration <- function(config_type = "full") {
+default_config <- function(config_type = "full") {
 
   base_config <- list(
     workflow = list(

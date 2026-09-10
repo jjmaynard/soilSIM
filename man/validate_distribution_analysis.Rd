@@ -16,7 +16,7 @@ validate_distribution_analysis(distribution_analysis, config)
 }
 \description{
 Structural + fit-quality checks on \code{analyze_property_distributions()}'s output, in the
-\code{validate_correlation_matrix()} / \code{validate_distribution_fidelity()} per-item-\code{tryCatch} style.
+\code{validate_correlation_matrix()} / \code{diagnose_distribution_fidelity()} per-item-\code{tryCatch} style.
 Flags: a property with no successful family fit; a nonzero \code{convergence} code; non-finite
 \code{aic}/\code{bic}/\code{loglik}/\code{param_sd}. Never errors - returns collected \code{warnings}. Also tolerates the
 \verb{_safe} chain's flatter \code{fitted_distributions[[prop]]} shape (\code{mean}/\code{sd}/...): with no

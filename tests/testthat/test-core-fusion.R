@@ -1,15 +1,15 @@
-test_that("bayes_update_normal_normal() satisfies its documented invariants", {
-  post <- bayes_update_normal_normal(prior_mu = 10, prior_sigma = 2, lik_mu = 12, lik_sigma = 1)
+test_that("fuse_normal_normal() satisfies its documented invariants", {
+  post <- fuse_normal_normal(prior_mu = 10, prior_sigma = 2, lik_mu = 12, lik_sigma = 1)
   expect_true(post$sigma <= min(2, 1))
   expect_true(post$mu >= min(10, 12) && post$mu <= max(10, 12))
 
-  swapped <- bayes_update_normal_normal(prior_mu = 12, prior_sigma = 1, lik_mu = 10, lik_sigma = 2)
+  swapped <- fuse_normal_normal(prior_mu = 12, prior_sigma = 1, lik_mu = 10, lik_sigma = 2)
   expect_equal(post$mu, swapped$mu, tolerance = 1e-9)
   expect_equal(post$sigma, swapped$sigma, tolerance = 1e-9)
 })
 
-test_that("bayes_update_normal_normal() posterior sigma is strictly tighter when informative on both sides", {
-  post <- bayes_update_normal_normal(10, 2, 12, 1)
+test_that("fuse_normal_normal() posterior sigma is strictly tighter when informative on both sides", {
+  post <- fuse_normal_normal(10, 2, 12, 1)
   expect_true(post$sigma < 1)
 })
 
@@ -40,7 +40,7 @@ test_that("fuse_beta() conjugate result matches grid-based numerical Bayesian up
   fused <- fuse_beta(5, 3, 4, 6)
   expect_true(fused$feasible)
 
-  numeric_post <- bayesian_update(prior_samples, lik_samples, grid_range = c(0, 1), grid_resolution = 0.001)
+  numeric_post <- update_prior(prior_samples, lik_samples, grid_range = c(0, 1), grid_resolution = 0.001)
   expect_equal(mean(numeric_post), fused$alpha / (fused$alpha + fused$beta), tolerance = 0.02)
 })
 
@@ -56,38 +56,38 @@ test_that("moments_to_beta()/beta_to_moments() and moments_to_gamma()/gamma_to_m
   expect_equal(back_gamma$var, 2, tolerance = 1e-6)
 })
 
-test_that("bayes_fuse() dispatches correctly by family", {
-  n <- bayes_fuse(list(mu = 10, sigma = 2), list(mu = 12, sigma = 1), family = "normal")
-  expect_equal(n, bayes_update_normal_normal(10, 2, 12, 1))
+test_that("fuse_distribution() dispatches correctly by family", {
+  n <- fuse_distribution(list(mu = 10, sigma = 2), list(mu = 12, sigma = 1), family = "normal")
+  expect_equal(n, fuse_normal_normal(10, 2, 12, 1))
 
-  b <- bayes_fuse(list(alpha = 3, beta = 5), list(alpha = 2, beta = 4), family = "beta")
+  b <- fuse_distribution(list(alpha = 3, beta = 5), list(alpha = 2, beta = 4), family = "beta")
   expect_equal(b, fuse_beta(3, 5, 2, 4))
 
-  g <- bayes_fuse(list(shape = 3, rate = 1), list(shape = 2, rate = 1), family = "gamma")
+  g <- fuse_distribution(list(shape = 3, rate = 1), list(shape = 2, rate = 1), family = "gamma")
   expect_equal(g, fuse_gamma(3, 1, 2, 1))
 })
 
-test_that("bayesian_update() general route posterior mean lands between prior and likelihood means", {
+test_that("update_prior() general route posterior mean lands between prior and likelihood means", {
   set.seed(23)
   prior_samples <- rnorm(2000, 5, 1)
   lik_samples <- rnorm(2000, 8, 1)
-  post <- bayesian_update(prior_samples, lik_samples, n = 2000)
+  post <- update_prior(prior_samples, lik_samples, n = 2000)
   expect_true(mean(post) > 5 && mean(post) < 8)
 })
 
-test_that("bayesian_update()'s general route roughly reproduces bayes_update_normal_normal() for two actual Normals", {
+test_that("update_prior()'s general route roughly reproduces fuse_normal_normal() for two actual Normals", {
   set.seed(29)
   prior_samples <- rnorm(20000, 10, 2)
   lik_samples <- rnorm(20000, 12, 1)
-  closed_form <- bayes_update_normal_normal(10, 2, 12, 1)
-  general <- bayesian_update(prior_samples, lik_samples, grid_resolution = 0.02, n = 5000)
+  closed_form <- fuse_normal_normal(10, 2, 12, 1)
+  general <- update_prior(prior_samples, lik_samples, grid_resolution = 0.02, n = 5000)
   expect_equal(mean(general), closed_form$mu, tolerance = 0.15)
   expect_equal(sd(general), closed_form$sigma, tolerance = 0.15)
 })
 
-test_that("bayesian_update() respects its n argument", {
+test_that("update_prior() respects its n argument", {
   set.seed(31)
-  post <- bayesian_update(rnorm(500), rnorm(500), n = 250)
+  post <- update_prior(rnorm(500), rnorm(500), n = 250)
   expect_length(post, 250)
 })
 
@@ -148,7 +148,7 @@ test_that("fuse_property() dispatches on input shape and errors on mismatched me
   expect_true(is.numeric(general_result))
 
   closed_form_result <- fuse_property(list(mu = 10, sigma = 2), list(mu = 12, sigma = 1), family = "normal")
-  expect_equal(closed_form_result, bayes_update_normal_normal(10, 2, 12, 1))
+  expect_equal(closed_form_result, fuse_normal_normal(10, 2, 12, 1))
 
   expect_error(fuse_property(rnorm(10), list(mu = 1, sigma = 1)), "SAME shape")
   expect_error(fuse_property(list(mu = 1, sigma = 1), list(mu = 2, sigma = 1), family = "normal", method = "general"), "implies")
@@ -165,17 +165,17 @@ test_that("structural boundary: core-fusion.R never calls back into core-monteca
   # BODIES via deparse(body()), which works identically under
   # devtools::load_all() or a real install.
   bayesian_updating_exports <- c(
-    "bayes_update_normal_normal", "normal_to_lognormal_params", "lognormal_to_normal_params",
+    "fuse_normal_normal", "normal_to_lognormal_params", "lognormal_to_normal_params",
     "fuse_beta", "fuse_gamma", "moments_to_beta", "moments_to_gamma", "beta_to_moments",
-    "gamma_to_moments", "bayes_fuse", "bayesian_update", "fuse_bivariate_normal",
+    "gamma_to_moments", "fuse_distribution", "update_prior", "fuse_bivariate_normal",
     "fuse_texture_group_from_triplets", "fuse_property"
   )
   monte_carlo_only_functions <- c(
-    "simulate_monte_carlo", "simulate_correlated_properties", "sim_component_compositions",
+    "simulate_monte_carlo", "simulate_correlated_properties", "simulate_component_compositions_batch",
     "setup_distributions", "prepare_simulation_parameters", "configure_correlation_structure",
     "apply_simulation_constraints", "extract_property_parameters", "estimate_property_correlations",
     "prepare_simulation_data", "run_sequential_simulation", "run_parallel_simulation",
-    "validate_monte_carlo_inputs", "validate_simulation_output", "get_monte_carlo_defaults",
+    "validate_monte_carlo_inputs", "validate_simulation_output", "default_monte_carlo_config",
     "normalize_monte_carlo_config", "get_constraint_rules", "get_sum_constraints",
     "as_lrh_triplet"
   )
@@ -198,17 +198,17 @@ test_that("structural boundary: fuse_observed_data_into_priors()/fuse_one_proper
   # the two files - every OTHER core-montecarlo.R function should remain exactly
   # as decoupled from core-fusion.R as before this feature was added.
   bayesian_updating_exports <- c(
-    "bayes_update_normal_normal", "normal_to_lognormal_params", "lognormal_to_normal_params",
+    "fuse_normal_normal", "normal_to_lognormal_params", "lognormal_to_normal_params",
     "fuse_beta", "fuse_gamma", "moments_to_beta", "moments_to_gamma", "beta_to_moments",
-    "gamma_to_moments", "bayes_fuse", "bayesian_update", "fuse_bivariate_normal",
+    "gamma_to_moments", "fuse_distribution", "update_prior", "fuse_bivariate_normal",
     "fuse_texture_group_from_triplets", "fuse_property"
   )
   other_monte_carlo_functions <- c(
-    "simulate_monte_carlo", "simulate_correlated_properties", "sim_component_compositions",
+    "simulate_monte_carlo", "simulate_correlated_properties", "simulate_component_compositions_batch",
     "setup_distributions", "prepare_simulation_parameters", "configure_correlation_structure",
     "apply_simulation_constraints", "extract_property_parameters", "estimate_property_correlations",
     "prepare_simulation_data", "run_sequential_simulation", "run_parallel_simulation",
-    "validate_monte_carlo_inputs", "validate_simulation_output", "get_monte_carlo_defaults",
+    "validate_monte_carlo_inputs", "validate_simulation_output", "default_monte_carlo_config",
     "normalize_monte_carlo_config", "get_constraint_rules", "get_sum_constraints",
     "as_lrh_triplet"
   )
@@ -233,10 +233,10 @@ test_that("structural boundary: fuse_observed_data_into_priors()/fuse_one_proper
     collapse = "\n"
   )
   expect_true(grepl("fuse_texture_group_from_triplets\\(", bridge_src))
-  expect_true(grepl("bayes_update_normal_normal\\(", bridge_src))
+  expect_true(grepl("fuse_normal_normal\\(", bridge_src))
 })
 
-test_that("bayesian_update()'s posterior_probs parameter doesn't change the underlying sample() draw, and NULL preserves the original plain-vector return exactly", {
+test_that("update_prior()'s posterior_probs parameter doesn't change the underlying sample() draw, and NULL preserves the original plain-vector return exactly", {
   # MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P3.8. bit-for-bit regression: the code path up to
   # and including the sample() call must be byte-identical whether or not posterior_probs is later
   # requested - `identical()`, not `expect_equal()` with a tolerance, is the right check here since
@@ -246,21 +246,21 @@ test_that("bayesian_update()'s posterior_probs parameter doesn't change the unde
   lik <- rnorm(500, 22, 4)
 
   set.seed(202)
-  without_probs <- bayesian_update(prior, lik, grid_resolution = 0.1)
+  without_probs <- update_prior(prior, lik, grid_resolution = 0.1)
   set.seed(202)
-  with_probs <- bayesian_update(prior, lik, grid_resolution = 0.1, posterior_probs = c(0.5))
+  with_probs <- update_prior(prior, lik, grid_resolution = 0.1, posterior_probs = c(0.5))
 
   expect_true(is.numeric(without_probs) && is.null(dim(without_probs)))
   expect_identical(without_probs, with_probs$samples)
 })
 
-test_that("bayesian_update()'s posterior_probs percentiles are monotonic and centered near the exact grid-based mean", {
+test_that("update_prior()'s posterior_probs percentiles are monotonic and centered near the exact grid-based mean", {
   set.seed(103)
   prior <- rnorm(1000, 20, 5)
   lik <- rnorm(1000, 22, 4)
   probs <- c(0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99)
 
-  post <- bayesian_update(prior, lik, grid_resolution = 0.05, posterior_probs = probs)
+  post <- update_prior(prior, lik, grid_resolution = 0.05, posterior_probs = probs)
   expect_named(post, c("samples", "mean", "var", "percentiles", "value_grid", "posterior_prob"))
   expect_named(post$percentiles, paste0("P", round(probs * 100)))
   expect_true(all(diff(post$percentiles) >= 0))
@@ -268,7 +268,7 @@ test_that("bayesian_update()'s posterior_probs percentiles are monotonic and cen
   expect_equal(unname(post$percentiles["P50"]), post$mean, tolerance = 1)
 })
 
-test_that("bayesian_update()'s grid-based percentiles don't visibly change as n (resample size) varies - confirms resampling noise is not in the percentile computation path", {
+test_that("update_prior()'s grid-based percentiles don't visibly change as n (resample size) varies - confirms resampling noise is not in the percentile computation path", {
   # MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md task P3.2's own verification note: for a fixed
   # grid_resolution, grid-based percentiles/mean/var should be identical regardless of n, since
   # they're read directly off the discretized posterior_prob/value_grid, not off the resampled
@@ -278,8 +278,8 @@ test_that("bayesian_update()'s grid-based percentiles don't visibly change as n 
   lik <- rnorm(800, 22, 4)
   probs <- c(0.05, 0.5, 0.95)
 
-  post_small_n <- bayesian_update(prior, lik, grid_resolution = 0.05, n = 10, posterior_probs = probs)
-  post_large_n <- bayesian_update(prior, lik, grid_resolution = 0.05, n = 5000, posterior_probs = probs)
+  post_small_n <- update_prior(prior, lik, grid_resolution = 0.05, n = 10, posterior_probs = probs)
+  post_large_n <- update_prior(prior, lik, grid_resolution = 0.05, n = 5000, posterior_probs = probs)
 
   expect_identical(post_small_n$percentiles, post_large_n$percentiles)
   expect_identical(post_small_n$mean, post_large_n$mean)
@@ -332,7 +332,7 @@ test_that("align_percentile_probs() reinterpolates the wider side onto the narro
   expect_length(aligned$lik_value_rasters, 3)
 })
 
-test_that("fuse_adaptive() routes to the closed-form path above threshold_cells and matches bayes_update_normal_normal()", {
+test_that("fuse_adaptive() routes to the closed-form path above threshold_cells and matches fuse_normal_normal()", {
   rasters_prior <- make_percentile_rasters(c(P5 = 4, P50 = 5, P95 = 6))
   rasters_lik <- make_percentile_rasters(c(P5 = 7, P50 = 8, P95 = 9))
 
@@ -346,7 +346,7 @@ test_that("fuse_adaptive() routes to the closed-form path above threshold_cells 
 
   fit_prior <- fit_normal_raster(rasters_prior$P5, rasters_prior$P50, rasters_prior$P95, 0.05, 0.95)
   fit_lik <- fit_normal_raster(rasters_lik$P5, rasters_lik$P50, rasters_lik$P95, 0.05, 0.95)
-  expected <- bayes_update_normal_normal(fit_prior$mu, fit_prior$sigma, fit_lik$mu, fit_lik$sigma)
+  expected <- fuse_normal_normal(fit_prior$mu, fit_prior$sigma, fit_lik$mu, fit_lik$sigma)
   expect_equal(unique(terra::values(result$posterior$mu))[1], unique(terra::values(expected$mu))[1])
 })
 
@@ -388,12 +388,12 @@ test_that("fuse_general_kde() degrades a cell with too many NA percentile values
 
 test_that("fuse_general_kde()'s default grid_resolution stays within tolerance of the finer 0.01 reference", {
   # PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4: FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION (0.1) trades
-  # a coarser bayesian_update() evaluation grid for ~2.4x wall-clock speed (measured on a real
+  # a coarser update_prior() evaluation grid for ~2.4x wall-clock speed (measured on a real
   # fuse_adaptive() call, 23.86s -> 9.91s at 2,024 cells). This asserts the posterior moments
   # stay close to the finer 0.01 grid across several representative percentile scenarios, mirroring
   # the accuracy sweep that justified the constant's value (mean error < 0.02%, variance error <
   # 0.12% analytically) - tolerance here is looser than that analytical bound to absorb the extra
-  # Monte Carlo noise from bayesian_update()'s own sample()-based posterior draw, which the
+  # Monte Carlo noise from update_prior()'s own sample()-based posterior draw, which the
   # analytical sweep bypassed.
   scenarios <- list(
     narrow_clay = c(P5 = 18, P50 = 22, P95 = 27),
@@ -403,7 +403,7 @@ test_that("fuse_general_kde()'s default grid_resolution stays within tolerance o
   probs <- c(0.05, 0.5, 0.95)
 
   # A single seeded draw carries real Monte Carlo noise from two compounded sampling stages
-  # (simulate_from_percentiles()'s n_samples=500 draw, then bayesian_update()'s own n=1000
+  # (simulate_from_percentiles()'s n_samples=500 draw, then update_prior()'s own n=1000
   # posterior draw) - averaging several independent seeds isolates the systematic effect of
   # grid_resolution itself from that per-run sampling noise, avoiding a flaky single-draw test.
   n_reps <- 8
@@ -488,7 +488,7 @@ test_that("fuse_general_kde(raw_draws)'s PRIOR-side resample tracks the real dat
   # sdlog=0.7 lognormal, n=5000), while sim_linear_cdf_batch()'s percentile reconstruction stays
   # confined to roughly the P5-P95 range (~7-64) with no comparable tail extrapolation. That wider
   # realized range measurably widens stats::density()'s default ("nrd0") bandwidth on the raw_draws
-  # side inside bayesian_update(), which can shift the FUSED posterior mean in a way that isn't
+  # side inside update_prior(), which can shift the FUSED posterior mean in a way that isn't
   # reliably closer to the true prior mean than the reconstruction route - a real, non-obvious
   # characteristic of the current KDE fusion mechanism worth flagging for P2.8/P2.9 (not something
   # to force past with a misleading test - see this task's write-up in
@@ -1351,7 +1351,7 @@ test_that("run_fusion() defaults to raw_draws for dist='normal' and to percentil
       },
       percentiles_from_draws = function(...) fake_prior,
       fetch_solus_percentiles = function(...) fake_solus,
-      mukey_draws_lookup = function(...) NULL,
+      lookup_mukey_draws = function(...) NULL,
       .package = "soilSIM"
     )
     property_config <- list(id = "claytotal", solus_variable = "claytotal", dist = dist)
@@ -1699,7 +1699,7 @@ test_that("remarginalize_ensemble_to_posterior() gives NA (not fabricated values
   list("0-5" = .const_posterior(tmpl, m, s), "5-15" = .const_posterior(tmpl, m, s))
 }
 
-test_that("saxton_rawls_raster() matches calculate_saxton_rawls_single() across a texture x BD x OM x RFV grid", {
+test_that("saxton_rawls_raster() matches compute_saxton_rawls() across a texture x BD x OM x RFV grid", {
   # Both call the shared coefficient core .saxton_rawls_gravimetric(); the only remaining
   # difference is the clamp/renorm container ops, which must be numerically identical.
   tmpl <- terra::rast(nrows = 2, ncols = 2, vals = 1)
@@ -1713,12 +1713,12 @@ test_that("saxton_rawls_raster() matches calculate_saxton_rawls_single() across 
 
   for (i in sample(nrow(grid), 40)) {
     g <- grid[i, ]
-    single <- calculate_saxton_rawls_single(g$sand, g$clay, g$silt, g$bd, g$rfv, g$om)
+    single <- compute_saxton_rawls(g$sand, g$clay, g$silt, g$bd, g$rfv, g$om)
     r <- saxton_rawls_raster(terra::setValues(tmpl, g$sand), terra::setValues(tmpl, g$clay),
                              terra::setValues(tmpl, g$silt), terra::setValues(tmpl, g$bd),
                              terra::setValues(tmpl, g$rfv), terra::setValues(tmpl, g$om))
     info <- paste(unlist(g), collapse = ",")
-    # calculate_saxton_rawls_single() rounds its return to 2dp; the raster path doesn't.
+    # compute_saxton_rawls() rounds its return to 2dp; the raster path doesn't.
     expect_equal(round(terra::values(r$fc)[1], 2), single$field_capacity, tolerance = 1e-8, info = info)
     expect_equal(round(terra::values(r$wp)[1], 2), single$wilting_point, tolerance = 1e-8, info = info)
     expect_lt(terra::values(r$wp)[1], terra::values(r$fc)[1])
@@ -1960,7 +1960,7 @@ probs5 <- c(0.05, 0.25, 0.5, 0.75, 0.95)
 .mp_prior <- function(v = 20) list(values = .mp_pct(v), probs = probs5)
 .mp_solus <- function(v = 22) list(values = .mp_pct(v), probs = probs5)
 
-# S1: run_fusion_multiproperty() fetches SOLUS via the batched fetch_solus_percentiles_multi()
+# S1: run_fusion_multiproperty() fetches SOLUS via the batched fetch_solus_percentiles_multiproperty()
 # (one call per window, every variable at once), not the scalar fetch_solus_percentiles() per
 # (variable, window) - default mock mirrors .mp_solus() for every requested variable.
 .mp_solus_multi <- function(solus_variables, v = 22) {
@@ -2006,11 +2006,11 @@ test_that("run_fusion_multiproperty() runs the SSURGO simulation exactly once fo
     },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) .mp_solus(),
-    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
+    fetch_solus_percentiles_multiproperty = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
-    mukey_draws_lookup = function(...) NULL,
+    lookup_mukey_draws = function(...) NULL,
     .package = "soilSIM"
   )
 
@@ -2036,11 +2036,11 @@ test_that("run_fusion_multiproperty() seeds the per-(id, window) 'ssurgo' and 's
     },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) .mp_solus(),
-    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
+    fetch_solus_percentiles_multiproperty = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = rec$fn,
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
-    mukey_draws_lookup = function(...) NULL,
+    lookup_mukey_draws = function(...) NULL,
     .package = "soilSIM"
   )
 
@@ -2096,7 +2096,7 @@ test_that("run_fusion_multiproperty() returns NULL leaves on a per-leaf SOLUS fa
     fetch_solus_percentiles = function(aoi_vect, solus_variable, ...) {
       if (identical(solus_variable, "dbovendry")) NULL else .mp_solus()
     },
-    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) {
+    fetch_solus_percentiles_multiproperty = function(aoi_vect, solus_variables, ...) {
       stats::setNames(
         lapply(solus_variables, function(v) if (identical(v, "dbovendry")) NULL else .mp_solus()),
         solus_variables
@@ -2105,7 +2105,7 @@ test_that("run_fusion_multiproperty() returns NULL leaves on a per-leaf SOLUS fa
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
-    mukey_draws_lookup = function(...) NULL,
+    lookup_mukey_draws = function(...) NULL,
     .package = "soilSIM"
   )
 
@@ -2126,11 +2126,11 @@ test_that("run_fusion_multiproperty() is quiet by default and honors simplify = 
     },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) .mp_solus(),
-    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
+    fetch_solus_percentiles_multiproperty = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
-    mukey_draws_lookup = function(...) NULL,
+    lookup_mukey_draws = function(...) NULL,
     .package = "soilSIM"
   )
 
@@ -2155,11 +2155,11 @@ test_that("run_fusion_multiproperty(seed=) seeds up front and forwards the seed 
     },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) .mp_solus(),
-    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
+    fetch_solus_percentiles_multiproperty = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
-    mukey_draws_lookup = function(...) NULL,
+    lookup_mukey_draws = function(...) NULL,
     .package = "soilSIM"
   )
 
@@ -2193,11 +2193,11 @@ test_that("run_fusion_multiproperty() skips the simulation when nothing needs it
     simulate_ssurgo_mapunit_draws = function(...) { sim_n <<- sim_n + 1L; list() },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) .mp_solus(),
-    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
+    fetch_solus_percentiles_multiproperty = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
     cache_get_valid_percentiles = function(...) .mp_prior(),  # everything warm
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
-    mukey_draws_lookup = function(...) NULL,
+    lookup_mukey_draws = function(...) NULL,
     .package = "soilSIM"
   )
 
@@ -2231,11 +2231,11 @@ test_that("run_fusion_multiproperty() distributes a compositional group's member
     },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) .mp_solus(),
-    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
+    fetch_solus_percentiles_multiproperty = function(aoi_vect, solus_variables, ...) .mp_solus_multi(solus_variables),
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
-    mukey_draws_lookup = function(...) NULL,
+    lookup_mukey_draws = function(...) NULL,
     stage1_fuse_texture_group_from_fetched = function(fetched, ...) {
       fuse_n <<- fuse_n + 1L
       stats::setNames(lapply(fetched, function(f) fake_member(f$id)), vapply(fetched, `[[`, "", "id"))
@@ -2252,7 +2252,7 @@ test_that("run_fusion_multiproperty() distributes a compositional group's member
 })
 
 # ---------------------------------------------------------------------------
-# S1 - batched SOLUS fetch: one fetch_solus_percentiles_multi() call per window (covering every
+# S1 - batched SOLUS fetch: one fetch_solus_percentiles_multiproperty() call per window (covering every
 # variable needed by any standalone config or group member), not one fetch_solus_percentiles()
 # call per (variable, window).
 # ---------------------------------------------------------------------------
@@ -2282,14 +2282,14 @@ test_that("run_fusion_multiproperty() fetches SOLUS once per window (batched), n
     },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) stop("fetch_solus_percentiles() (scalar) should not be called when the batch succeeds"),
-    fetch_solus_percentiles_multi = function(aoi_vect, solus_variables, top_depth, bottom_depth) {
+    fetch_solus_percentiles_multiproperty = function(aoi_vect, solus_variables, top_depth, bottom_depth) {
       batch_calls[[length(batch_calls) + 1]] <<- list(vars = sort(solus_variables), window = c(top_depth, bottom_depth))
       .mp_solus_multi(solus_variables)
     },
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
-    mukey_draws_lookup = function(...) NULL,
+    lookup_mukey_draws = function(...) NULL,
     stage1_fuse_texture_group_from_fetched = function(fetched, ...) {
       stats::setNames(lapply(fetched, function(f) fake_member(f$id)), vapply(fetched, `[[`, "", "id"))
     },
@@ -2320,11 +2320,11 @@ test_that("run_fusion_multiproperty() falls back to the scalar SOLUS fetch when 
     },
     percentiles_from_draws = function(...) .mp_prior(),
     fetch_solus_percentiles = function(...) { scalar_calls <<- scalar_calls + 1L; .mp_solus() },
-    fetch_solus_percentiles_multi = function(...) stop("simulated whole-batch fetchSOLUS() failure"),
+    fetch_solus_percentiles_multiproperty = function(...) stop("simulated whole-batch fetchSOLUS() failure"),
     cache_get_valid_percentiles = function(...) NULL,
     cache_set = function(...) invisible(TRUE),
     build_cache_key = function(aoi_vect, id, top, bottom, kind) paste(id, top, bottom, kind, sep = "_"),
-    mukey_draws_lookup = function(...) NULL,
+    lookup_mukey_draws = function(...) NULL,
     .package = "soilSIM"
   )
 

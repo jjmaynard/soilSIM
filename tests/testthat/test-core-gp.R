@@ -1106,7 +1106,7 @@ test_that("apply_gp_depth_trends() defaults to the joint_copula method (Phase 13
   # "gp_quantile_retrofit" to "joint_copula" after Phases 0-12 resolved every blocking decision
   # point. No config (or a config that simply doesn't set vertical_correlation_method) must now
   # dispatch to the exact same preserve_correlation_structure_joint() path as an explicit
-  # "joint_copula" - matching get_monte_carlo_defaults()'s own new default.
+  # "joint_copula" - matching default_monte_carlo_config()'s own new default.
   sim_data <- make_sim_data(cokeys = "1", depths = c(0, 20, 50, 100), n_sims = 10)
   cokey_data <- sim_data[sim_data$cokey == "1", ]
   gp_predictions <- list(clay_pct = c(15, 17, 20, 25), sand_pct = c(45, 44, 42, 40))
@@ -1302,7 +1302,7 @@ test_that("joint_copula is reachable through the NRCS/regional GP path (apply_nr
 
 test_that("process_single_cokey()/process_cokeys_sequential() integrate local GP adjustments across cokeys", {
   sim_data <- make_sim_data(cokeys = c("1", "2"), depths = c(0, 20, 50, 100), n_sims = 8)
-  config <- get_default_configuration("validation")
+  config <- default_config("validation")
 
   results <- process_cokeys_sequential(
     split(sim_data, sim_data$cokey), unique(sim_data$cokey), c("clay_pct", "sand_pct"),
@@ -1323,10 +1323,10 @@ test_that("joint_copula is reachable end-to-end from the real top-level API (pro
   sim_data <- make_sim_data(cokeys = "1", depths = c(0, 20, 50, 100), n_sims = 10)
   cokey_data <- sim_data[sim_data$cokey == "1", ]
 
-  retrofit_config <- get_default_configuration("validation")
+  retrofit_config <- default_config("validation")
   retrofit_config$monte_carlo$vertical_correlation_method <- "gp_quantile_retrofit"
 
-  joint_config <- get_default_configuration("validation")
+  joint_config <- default_config("validation")
   joint_config$monte_carlo$vertical_correlation_method <- "joint_copula"
 
   set.seed(71)
@@ -1347,7 +1347,7 @@ test_that("joint_copula is reachable end-to-end from the real top-level API (pro
   expect_false(isTRUE(all.equal(retrofit_result$clay_pct, joint_result$clay_pct)))
 
   # config = NULL (apply_local_gp_adjustments()'s own default, which internally falls back to
-  # get_default_configuration("validation") - a config that never sets vertical_correlation_method
+  # default_config("validation") - a config that never sets vertical_correlation_method
   # at all, so apply_gp_depth_trends()'s own `%||% "joint_copula"` fallback is what actually
   # decides this) now reproduces the joint_copula result, matching Phase 13's flipped default -
   # not the retrofit result, which remains reachable only via the explicit opt-out above.
@@ -1382,7 +1382,7 @@ test_that("future::multisession workers can see soilSIM package functions via au
 test_that("process_cokeys_parallel() produces the same results as process_cokeys_sequential() when parallel is usable, or degrades to it otherwise", {
   skip_on_cran()
   sim_data <- make_sim_data(cokeys = c("1", "2"), depths = c(0, 20, 50, 100), n_sims = 8)
-  config <- get_default_configuration("validation")
+  config <- default_config("validation")
 
   # n_cores = 2 (not 1) to actually exercise the future::multisession dispatch path -
   # run_parallel_lapply() short-circuits n_cores <= 1 straight to plain lapply() without ever

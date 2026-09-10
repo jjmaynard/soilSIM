@@ -65,7 +65,7 @@ analyze_soil_statistics <- function(processed_data,
   log_message("INFO", "=== Statistical Analysis Started ===", category = "Statistics")
 
   # Merge with default configuration
-  default_config <- get_statistical_analysis_defaults()
+  default_config <- default_statistics_config()
   config <- merge_configurations(default_config, analysis_config)
 
   # FIXED: Safer configuration access with defaults
@@ -633,7 +633,7 @@ generate_statistical_quality_report_safe <- function(original_data, processed_da
 
 #' Resolve a statistical-analysis config value: nested location, then flat, then default
 #'
-#' `get_statistical_analysis_defaults()` nests every statistical parameter under
+#' `default_statistics_config()` nests every statistical parameter under
 #' `config$statistical_analysis$...`, but the enhanced-chain functions
 #' (`analyze_property_distributions()`, `detect_comprehensive_outliers()`,
 #' `run_comprehensive_correlation_analysis()`) were written reading them flat off `config$...` with
@@ -642,7 +642,7 @@ generate_statistical_quality_report_safe <- function(original_data, processed_da
 #' `config$minimum_observations` `NULL` and hard-errored the enhanced chain. This mirrors
 #' `analyze_soil_statistics()`'s own `config$statistical_analysis$X %||% config$X %||% <default>`
 #' pattern (see its `min_quality_score` line). Defaults here match the `_safe` chain's hardcoded
-#' values and `get_statistical_analysis_defaults()`.
+#' values and `default_statistics_config()`.
 #'
 #' @param config The (merged) analysis configuration.
 #' @param key Parameter name.
@@ -867,7 +867,7 @@ analyze_property_distributions <- function(data, properties, config) {
 #' @export
 fit_property_distributions <- function(values, property_name, config) {
 
-  distributions_to_test <- get_appropriate_distributions(property_name, values, config)
+  distributions_to_test <- distributions_for_properties(property_name, values, config)
   fitted_distributions <- list()
 
   for (dist_name in distributions_to_test) {
@@ -1100,9 +1100,9 @@ generate_statistical_quality_report <- function(original_data, processed_data,
 #' @return Default statistical analysis configuration
 #'
 #' @export
-get_statistical_analysis_defaults <- function() {
+default_statistics_config <- function() {
 
-  base_config <- get_default_configuration("full")
+  base_config <- default_config("full")
 
   # Statistical analysis specific defaults
   statistical_config <- list(
@@ -1274,7 +1274,7 @@ compute_property_statistics <- function(data, properties, config) {
     )
 
     # Confidence intervals
-    confidence_intervals <- calculate_confidence_intervals(
+    confidence_intervals <- compute_confidence_intervals(
       valid_values,
       statistic = "mean",
       confidence_level = 0.95,
@@ -1340,7 +1340,7 @@ calculate_kurtosis <- function(x) {
 #' @param config Optional analysis configuration; reads `config$distribution_methods`.
 #' @return Character vector of candidate distribution names.
 #' @export
-get_appropriate_distributions <- function(property_name, values, config = NULL) {
+distributions_for_properties <- function(property_name, values, config = NULL) {
   heuristic <- if (property_name %in% c("sandtotal_r", "silttotal_r", "claytotal_r")) {
     c("beta", "normal")
   } else if (property_name == "ph1to1h2o_r") {
@@ -1375,7 +1375,7 @@ get_appropriate_distributions <- function(property_name, values, config = NULL) 
 #'
 #' @param values Numeric vector of observed property values.
 #' @param dist_name One of "normal", "lognormal", "gamma", "beta" (the
-#'   candidate names returned by get_appropriate_distributions()).
+#'   candidate names returned by distributions_for_properties()).
 #' @param property_name Property name, used only for logging.
 #' @param config Unused currently; kept for interface compatibility with callers.
 #' @return A list with distribution/property_name/params/param_sd/loglik/aic/
@@ -1464,7 +1464,7 @@ rank_distribution_fits <- function(fitted_distributions) {
 
 #' Goodness-of-fit tests across a property's candidate distributions
 #'
-#' Fits every candidate distribution (via get_appropriate_distributions() /
+#' Fits every candidate distribution (via distributions_for_properties() /
 #' fit_single_distribution()) and runs fitdistrplus::gofstat() across the
 #' successful fits, which returns KS/AD/CvM statistics (and, for the
 #' non-censored continuous case here, approximate goodness-of-fit decisions)
@@ -1484,7 +1484,7 @@ perform_distribution_tests <- function(values, property_name, config) {
   }
 
   values <- values[!is.na(values) & is.finite(values)]
-  candidates <- get_appropriate_distributions(property_name, values, config)
+  candidates <- distributions_for_properties(property_name, values, config)
 
   fits <- list()
   for (dist_name in candidates) {
@@ -1700,7 +1700,7 @@ validate_correlation_matrices <- function(matrices, config) {
 #' Validate an Enhanced Distribution Analysis Result
 #'
 #' Structural + fit-quality checks on `analyze_property_distributions()`'s output, in the
-#' `validate_correlation_matrix()` / `validate_distribution_fidelity()` per-item-`tryCatch` style.
+#' `validate_correlation_matrix()` / `diagnose_distribution_fidelity()` per-item-`tryCatch` style.
 #' Flags: a property with no successful family fit; a nonzero `convergence` code; non-finite
 #' `aic`/`bic`/`loglik`/`param_sd`. Never errors - returns collected `warnings`. Also tolerates the
 #' `_safe` chain's flatter `fitted_distributions[[prop]]` shape (`mean`/`sd`/...): with no

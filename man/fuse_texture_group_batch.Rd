@@ -55,7 +55,7 @@ cell-major) so results are unaffected.}
 . A named list, keyed by mukey (as
 character), each element an \verb{n_mc x 3} matrix (columns \code{clay_total}/\code{sand_total}/
 \code{silt_total}) of real joint texture draws for that mukey - see
-\code{mukey_texture_draws_lookup()}. When supplied, \code{row_mat}'s last column must be the per-cell
+\code{lookup_mukey_texture_draws()}. When supplied, \code{row_mat}'s last column must be the per-cell
 mukey code. \code{NULL} (default) preserves original behavior exactly.}
 }
 \value{

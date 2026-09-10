@@ -1228,7 +1228,7 @@ generate_inverse_cdf_distribution <- function(quantile_df,
 #' Run several percentile-reconstruction methods on the same data and compare them
 #'
 #' Draws `n` samples from each requested method and returns both the raw
-#' samples and a summary-statistics table (via `calculate_summary_statistics()`)
+#' samples and a summary-statistics table (via `compute_summary_statistics()`)
 #' side by side, so the shape/spread of each reconstruction can be compared
 #' by eye or by downstream tests (e.g. `stats::ks.test()` between pairs of methods).
 #'
@@ -1259,7 +1259,7 @@ compare_percentile_methods <- function(quantile_df,
   summary_df <- do.call(rbind, lapply(methods, function(m) {
     s <- samples[[m]]
     if (length(s) == 1 && is.na(s)) return(NULL)
-    cbind(method = m, calculate_summary_statistics(s))
+    cbind(method = m, compute_summary_statistics(s))
   }))
   rownames(summary_df) <- NULL
 
@@ -1273,7 +1273,7 @@ compare_percentile_methods <- function(quantile_df,
 #' @return A one-row data frame of summary statistics, including dynamically-named
 #'   percentile columns (e.g. P10, P20, ...).
 #' @export
-calculate_summary_statistics <- function(data, percentile_probs = seq(0.1, 0.9, by = 0.1)) {
+compute_summary_statistics <- function(data, percentile_probs = seq(0.1, 0.9, by = 0.1)) {
     # Ensure the input is a numeric vector
     if (!is.numeric(data)) {
         stop("Data must be a numeric vector.")

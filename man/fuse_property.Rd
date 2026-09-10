@@ -30,13 +30,13 @@ percentile-triplet-based callers.}
 Errors if it doesn't match what the input shape implies, rather than
 silently overriding it.}
 
-\item{n_samples, grid_resolution}{Passed to \code{bayesian_update()} for the
+\item{n_samples, grid_resolution}{Passed to \code{update_prior()} for the
 general route.}
 }
 \value{
 For the general route: a numeric vector of posterior samples
-(\code{bayesian_update()}'s native output). For the closed-form route: the
-family-native posterior parameter list (\code{bayes_fuse()}'s native output).
+(\code{update_prior()}'s native output). For the closed-form route: the
+family-native posterior parameter list (\code{fuse_distribution()}'s native output).
 These are NOT the same shape - documented deliberately rather than
 forced into a fake-uniform contract, since the caller already knows
 which shape it's passing in and therefore which shape it gets back.
@@ -46,8 +46,8 @@ Unlike the raster-native reference (\code{fuse_adaptive()}), which dispatches
 between the general and closed-form routes by AOI cell count - a concept
 with no tabular analogue - this dispatches on the SHAPE of \code{prior}/
 \code{likelihood}: atomic numeric vectors (raw samples) route to the fully
-general \code{bayesian_update()}; named lists of family-native parameters
-route to the closed-form \code{bayes_fuse()}. This removes the "which
+general \code{update_prior()}; named lists of family-native parameters
+route to the closed-form \code{fuse_distribution()}. This removes the "which
 heuristic" ambiguity entirely, since the caller's input shape already
 determines which route applies.
 }

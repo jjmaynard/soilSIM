@@ -59,7 +59,7 @@ of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 \description{
 Orchestrates Bayesian updating against each property's per-horizon prior
 fit produced by \code{prepare_simulation_parameters()}, using
-\code{core-fusion.R}'s pure fusion primitives (\code{bayes_fuse()},
+\code{core-fusion.R}'s pure fusion primitives (\code{fuse_distribution()},
 \code{fuse_property()}, \code{fuse_texture_group_from_triplets()}). For every
 property present in \code{observed_data}, every horizon's existing prior is
 replaced by its fused posterior - each horizon keeps its OWN prior
@@ -71,7 +71,7 @@ typically tied to individual simulated horizons at that granularity.
 Two supported shapes per non-texture entry in \code{observed_data}:
 \itemize{
 \item a numeric vector of raw samples -> the fully general route
-(\code{fuse_property()}'s \code{bayesian_update()} grid-KDE path). The prior is
+(\code{fuse_property()}'s \code{update_prior()} grid-KDE path). The prior is
 first SAMPLED (via \code{quantile_from_fit()}, since that route needs both
 sides to already be raw vectors - it fits no parametric family to
 either side), and the resulting posterior sample is stored as an
@@ -80,7 +80,7 @@ than forced back into a possibly ill-fitting parametric family.
 \item a family-native parameter list (\code{list(mean=, sd=)} for a normal or
 lognormal prior/likelihood; \code{list(shape1=, shape2=)} or
 \code{list(mean=, var=)} for a beta prior/likelihood) -> the closed-form
-route (\code{bayes_fuse()}), only supported for prior families
+route (\code{fuse_distribution()}), only supported for prior families
 \code{"normal"}/\code{"lognormal"}/\code{"beta"} (the only families with a conjugate
 route). Any other prior family (\code{"triangular"}/\code{"uniform"}/
 \code{"metalog"}/\code{"linear_cdf"}) SKIPS fusion for that (horizon, property)

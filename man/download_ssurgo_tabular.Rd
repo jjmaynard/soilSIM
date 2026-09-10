@@ -22,7 +22,7 @@ download_ssurgo_tabular(
 \item{properties}{Character vector. Soil properties to download.
 Default: c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o", "cec7", "om",
 "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar"). Each needs a matching
-row in \code{create_ssurgo_property_lookup_working()} to reach the SQL query.}
+row in \code{build_ssurgo_property_lookup()} to reach the SQL query.}
 
 \item{include_restrictions}{Logical. Whether to include horizon restriction data for
 unsuitable horizon detection (default: TRUE)}

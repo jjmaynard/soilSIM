@@ -207,7 +207,7 @@ infill_soil_property <- function(df,
 
   # Get property configuration
   if (is.null(property_config)) {
-    property_config <- get_default_property_config(property_name)
+    property_config <- default_property_config(property_name)
   }
 
   # Apply depth constraints
@@ -460,7 +460,7 @@ clean_property_data <- function(df,
 #' @return List with property configuration parameters
 #'
 #' @export
-get_default_property_config <- function(property_name) {
+default_property_config <- function(property_name) {
 
   # Texture properties
   if (property_name %in% c('sandtotal', 'claytotal', 'silttotal')) {
@@ -681,7 +681,7 @@ validate_property_config <- function(config, property_name) {
 #'   "high", "very_high", or "extreme"
 #'
 #' @export
-get_rfv_range_category <- function(rfv_value) {
+rfv_range_category <- function(rfv_value) {
 
   if (is.na(rfv_value) || rfv_value <= 0) {
     return("none")
@@ -891,7 +891,7 @@ infill_property_range_values <- function(df, property_name, property_config) {
   learned_ranges <- learn_property_ranges(df, property_name, property_config)
 
   # Get contextual ranges based on pedological knowledge
-  context_ranges <- get_property_contextual_ranges(df, property_name, property_config)
+  context_ranges <- property_contextual_ranges(df, property_name, property_config)
 
   r_col <- paste0(property_name, "_r")
   l_col <- paste0(property_name, "_l")
@@ -1089,7 +1089,7 @@ learn_property_ranges <- function(df, property_name, property_config) {
 #' @return List of contextual ranges
 #'
 #' @export
-get_property_contextual_ranges <- function(df, property_name, property_config) {
+property_contextual_ranges <- function(df, property_name, property_config) {
 
   contextual_ranges <- list()
 
@@ -1185,7 +1185,7 @@ infill_missing_property_data <- function(group, property_name, problematic_mask,
 
   # Strategy 1: Horizon name matching (highest priority)
   if ('hzname' %in% names(group)) {
-    group <- horizon_name_property_infill(group, property_col, problematic_mask)
+    group <- infill_property_by_horizon_name(group, property_col, problematic_mask)
   }
 
   # Check remaining missing data
@@ -1272,7 +1272,7 @@ apply_group_fallback_mean <- function(group, property_col, problematic_mask) {
 #' @return Data frame with infilled values
 #'
 #' @export
-horizon_name_property_infill <- function(group, property_col, problematic_mask) {
+infill_property_by_horizon_name <- function(group, property_col, problematic_mask) {
 
   if (!property_col %in% names(group) || !"hzname" %in% names(group)) {
     return(group)
@@ -1285,7 +1285,7 @@ horizon_name_property_infill <- function(group, property_col, problematic_mask) 
 
   # Validate mask length
   if (length(problematic_mask) != nrow(group)) {
-    warning("Mask length mismatch in horizon_name_property_infill")
+    warning("Mask length mismatch in infill_property_by_horizon_name")
     return(group)
   }
 
@@ -1446,7 +1446,7 @@ infill_rfv_property_integrated <- function(df, max_depth = DEFAULT_MAX_DEPTH_CM,
   }
 
   # Apply range infilling
-  rfv_config <- get_default_property_config("rfv")
+  rfv_config <- default_property_config("rfv")
   df <- infill_property_range_values(df, "rfv", rfv_config)
 
   return(df)
@@ -1563,7 +1563,7 @@ infill_water_retention_saxton_rawls_integrated <- function(df,
 
   for (i in indices_to_process) {
     tryCatch({
-      result <- calculate_saxton_rawls_single(
+      result <- compute_saxton_rawls(
         sand_pct = df$sandtotal_r[i],
         clay_pct = df$claytotal_r[i],
         silt_pct = df$silttotal_r[i],
@@ -2460,7 +2460,7 @@ impute_rfv_values <- function(row) {
 #' Saxton-Rawls gravimetric water-retention core (single source of truth)
 #'
 #' The coefficient-bearing heart of the Saxton-Rawls pedotransfer equations, factored out so the
-#' scalar [calculate_saxton_rawls_single()] and the `terra`-native `saxton_rawls_raster()`
+#' scalar [compute_saxton_rawls()] and the `terra`-native `saxton_rawls_raster()`
 #' (`R/core-fusion.R`) share exactly one copy of the regression coefficients. Pure
 #' `Arith`/`Math`-group arithmetic, so it evaluates identically on plain numerics and on
 #' `SpatRaster`s.
@@ -2503,7 +2503,7 @@ impute_rfv_values <- function(row) {
 #'   wilting point, and their `_l/_h` spread) - see the function body for
 #'   the exact returned fields.
 #' @export
-calculate_saxton_rawls_single <- function(sand_pct, clay_pct, silt_pct, bulk_density, rfv_pct = 0, om_pct = 2) {
+compute_saxton_rawls <- function(sand_pct, clay_pct, silt_pct, bulk_density, rfv_pct = 0, om_pct = 2) {
 
   # Input validation
   sand_pct <- max(0, min(sand_pct, 100))
@@ -2883,7 +2883,7 @@ related_property_estimation <- function(group, property_name, property_config) {
       sr_ok <- have_sr && all(is.finite(c(group$sandtotal_r[i], group$silttotal_r[i],
                                           group$claytotal_r[i], group$dbovendry_r[i])))
       if (sr_ok) {
-        sr <- tryCatch(calculate_saxton_rawls_single(
+        sr <- tryCatch(compute_saxton_rawls(
           sand_pct = group$sandtotal_r[i], clay_pct = group$claytotal_r[i],
           silt_pct = group$silttotal_r[i], bulk_density = group$dbovendry_r[i],
           rfv_pct = if (is.finite(rfv_vec[j])) rfv_vec[j] else 0,

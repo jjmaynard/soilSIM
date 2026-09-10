@@ -1,8 +1,8 @@
-test_that("get_monte_carlo_defaults() defaults vertical_correlation_method to joint_copula (Phase 13 flip), and validate_monte_carlo_config() accepts both valid choices", {
+test_that("default_monte_carlo_config() defaults vertical_correlation_method to joint_copula (Phase 13 flip), and validate_monte_carlo_config() accepts both valid choices", {
   # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 13 flipped the default from
   # "gp_quantile_retrofit" to "joint_copula" after Phases 0-12 resolved every blocking decision
   # point - "gp_quantile_retrofit" remains fully supported as an explicit opt-out, not removed.
-  default_config <- get_monte_carlo_defaults()
+  default_config <- default_monte_carlo_config()
   expect_equal(default_config$monte_carlo$vertical_correlation_method, "joint_copula")
 
   validation_default <- validate_monte_carlo_config(default_config, n_realizations = 100)
@@ -19,7 +19,7 @@ test_that("get_monte_carlo_defaults() defaults vertical_correlation_method to jo
   expect_false(validation_bad$valid)
 
   # Not required (unlike correlation_fallback) - a config missing this key entirely must still
-  # validate cleanly, since older/ad-hoc configs built without get_monte_carlo_defaults() should
+  # validate cleanly, since older/ad-hoc configs built without default_monte_carlo_config() should
   # not suddenly start failing validation.
   no_key_config <- default_config
   no_key_config$monte_carlo$vertical_correlation_method <- NULL
@@ -27,10 +27,10 @@ test_that("get_monte_carlo_defaults() defaults vertical_correlation_method to jo
   expect_true(validation_no_key$valid)
 })
 
-test_that("get_monte_carlo_defaults() defaults vertical_correlation_gating to FALSE, and validate_monte_carlo_config() validates it as a logical", {
+test_that("default_monte_carlo_config() defaults vertical_correlation_gating to FALSE, and validate_monte_carlo_config() validates it as a logical", {
   # VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md Phase 8 - discontinuity gating is a separate opt-in
   # from vertical_correlation_method itself, defaulting to off.
-  default_config <- get_monte_carlo_defaults()
+  default_config <- default_monte_carlo_config()
   expect_identical(default_config$monte_carlo$vertical_correlation_gating, FALSE)
 
   validation_default <- validate_monte_carlo_config(default_config, n_realizations = 100)
@@ -54,7 +54,7 @@ test_that("get_monte_carlo_defaults() defaults vertical_correlation_gating to FA
 })
 
 test_that("normalize_monte_carlo_config() accepts both flat and nested simulation_config", {
-  default_config <- get_monte_carlo_defaults()
+  default_config <- default_monte_carlo_config()
 
   flat <- list(distribution_type = "normal", max_depth = 100)
   normalized_flat <- normalize_monte_carlo_config(flat, default_config)
@@ -235,7 +235,7 @@ test_that("REGRESSION: composition_groups$texture$members role order is an inter
   # the optional KSSL reference-correlation fallback's convention - see
   # core-correlations.R). ilr_forward()/ilr_inverse() themselves
   # were NOT touched - only which real property occupies position 1/2/3.
-  # This locks in the claim (made in get_monte_carlo_defaults()'s doc
+  # This locks in the claim (made in default_monte_carlo_config()'s doc
   # comment) that simulated clay/sand/silt output is statistically
   # unaffected by which role order is used.
   texture_data <- make_texture_only_soil_data(15)
@@ -474,7 +474,7 @@ test_that("observed_data (general/vector route) produces a linear_cdf posterior 
 test_that("observed_data skips fusion (with WARN) for a prior family with no closed-form fusion route", {
   soil_data <- make_soil_data(5, properties = c("dbovendry"))
   # distribution_type defaults to "triangular", which has no closed-form
-  # bayes_fuse() route - a param-list observed_data entry should be skipped.
+  # fuse_distribution() route - a param-list observed_data entry should be skipped.
   expect_no_error(
     res <- simulate_monte_carlo(
       soil_data, properties = c("dbovendry"), n_realizations = 20, seed = 2,
@@ -670,13 +670,13 @@ test_that("assess_component_quality() scores how closely simulated means track o
   expect_true(result_bad$overall_quality < result_good$overall_quality)
 })
 
-test_that("sim_component_compositions() runs end-to-end and reports a real (non-hardcoded) quality score", {
+test_that("simulate_component_compositions_batch() runs end-to-end and reports a real (non-hardcoded) quality score", {
   component_data <- data.frame(
     compname = c("A", "B", "C"),
     comppct_l = c(NA, 25, 15), comppct_r = c(50, 30, 20), comppct_h = c(NA, 35, 25)
   )
-  result <- sim_component_compositions(component_data, n_realizations = 200,
-                                       config = get_monte_carlo_defaults())
+  result <- simulate_component_compositions_batch(component_data, n_realizations = 200,
+                                       config = default_monte_carlo_config())
   expect_equal(dim(result$realizations), c(200, 3))
   expect_true(is.finite(result$quality_metrics$overall_quality))
   # Normalization forces each realization's row to sum to 100.

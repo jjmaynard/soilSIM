@@ -189,7 +189,7 @@ load_configuration <- function(config_path, config_type = "auto", validate_confi
 
   if (!file.exists(config_path)) {
     log_message("WARN", paste("Configuration file not found:", config_path, ". Using defaults."), category = "Config")
-    return(get_default_configuration())
+    return(default_config())
   }
 
   log_message("INFO", paste("Loading configuration from:", config_path), category = "Config")
@@ -212,7 +212,7 @@ load_configuration <- function(config_path, config_type = "auto", validate_confi
   )
 
   # Merge with defaults
-  default_config <- get_default_configuration()
+  default_config <- default_config()
   config <- merge_configurations(default_config, config)
 
   # Validate if requested

@@ -34,7 +34,7 @@ method) and \code{summary} (data frame of summary statistics, one row per method
 }
 \description{
 Draws \code{n} samples from each requested method and returns both the raw
-samples and a summary-statistics table (via \code{calculate_summary_statistics()})
+samples and a summary-statistics table (via \code{compute_summary_statistics()})
 side by side, so the shape/spread of each reconstruction can be compared
 by eye or by downstream tests (e.g. \code{stats::ks.test()} between pairs of methods).
 }

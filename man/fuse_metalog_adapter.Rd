@@ -23,7 +23,7 @@ fuse_metalog_adapter(
 \code{NULL} (default) resolves to \link{FUSE_POSTERIOR_DEFAULT_PROBS}. Computed via
 \code{qnorm_percentiles_raster()} on the final fused \verb{(mu, sigma)} - this route already reduces
 both sides to Normal-equivalent moments (\code{metalog_moments_raster()}'s quadrature) before the
-final \code{bayes_update_normal_normal()} step, so there is no richer distributional shape to draw
+final \code{fuse_normal_normal()} step, so there is no richer distributional shape to draw
 percentiles from beyond that Normal approximation; carries forward this route's existing
 "less-validated glue code" caveat (see \code{metalog_moments_raster()}'s own docs) to its
 percentile output too.}

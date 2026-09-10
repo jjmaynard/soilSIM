@@ -3,8 +3,8 @@
 \docType{data}
 \name{FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION}
 \alias{FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION}
-\title{Default \code{bayesian_update()} grid resolution used by \code{fuse_general_kde()} (per-cell KDE fusion
-route), coarser than \code{bayesian_update()}'s own standalone default of \code{0.01}.}
+\title{Default \code{update_prior()} grid resolution used by \code{fuse_general_kde()} (per-cell KDE fusion
+route), coarser than \code{update_prior()}'s own standalone default of \code{0.01}.}
 \format{
 An object of class \code{numeric} of length 1.
 }
@@ -12,12 +12,12 @@ An object of class \code{numeric} of length 1.
 FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION
 }
 \description{
-Default \code{bayesian_update()} grid resolution used by \code{fuse_general_kde()} (per-cell KDE fusion
-route), coarser than \code{bayesian_update()}'s own standalone default of \code{0.01}.
+Default \code{update_prior()} grid resolution used by \code{fuse_general_kde()} (per-cell KDE fusion
+route), coarser than \code{update_prior()}'s own standalone default of \code{0.01}.
 }
 \section{Why 0.1, not 0.01}{
 
-\code{bayesian_update()}'s \code{stats::density()} calls (kernel density estimation over
+\code{update_prior()}'s \code{stats::density()} calls (kernel density estimation over
 \code{seq(grid_min, grid_max, by = grid_resolution)}) are the dominant cost of
 \code{fuse_general_kde()}'s per-cell loop - \code{Rprof()} profiling on a synthetic 10,000-cell raster
 attributed 65\% of total wall-clock time to \code{density()}
@@ -33,9 +33,9 @@ project's Python sibling report was validated against). Going coarser (\code{0.2
 starts compounding fast (variance error reaches double digits to 470\% by \code{2.0}) - \code{0.1} is the
 sweet spot, not an arbitrary round number.
 
-\code{bayesian_update()}'s own standalone default is deliberately left at \code{0.01} - this constant
+\code{update_prior()}'s own standalone default is deliberately left at \code{0.01} - this constant
 only overrides the grid resolution \code{fuse_general_kde()} requests, so any other direct caller of
-\code{bayesian_update()} is unaffected.
+\code{update_prior()} is unaffected.
 }
 
 \keyword{internal}

@@ -20,11 +20,11 @@ validate_monte_carlo_config(config, n_realizations)
 **Returns**: List from `validate_parameters()` (`valid`, `errors`, `warnings`, plus per-field detail), with an extra warning appended if `n_realizations > 50000` and `parallel` is not enabled.
 **Behavior**: Extracts `config$monte_carlo` if nested, then checks `distribution_type` (one of `triangular`/`normal`/`uniform`/`beta`/`lognormal`/`metalog`/`linear_cdf`/`auto`), `max_depth` (10-1000), `min_quality_score`/`min_success_rate`/`max_outlier_rate` (0-1), `outlier_threshold` (1-5), `error_recovery_action` (`stop`/`warn`/`continue`/`retry`), `normalization_method` (`proportional`/`additive`/`multiplicative`), and `correlation_fallback` (`identity`/`kssl_global`) via `validate_parameters()`.
 
-### 2. `get_monte_carlo_defaults()` - Default Configuration
+### 2. `default_monte_carlo_config()` - Default Configuration
 **Purpose**: Returns the full default Monte Carlo configuration, merged (safely) on top of the package's general default configuration.
 **Signature**:
 ```r
-get_monte_carlo_defaults()
+default_monte_carlo_config()
 ```
 **Returns**: A list with a `$monte_carlo` element containing every tunable default, including:
 - `distribution_type = "triangular"` - global fallback family when a property has no `property_distributions` entry.
@@ -46,7 +46,7 @@ normalize_monte_carlo_config(simulation_config, default_config)
 ```
 **Parameters**:
 - `simulation_config` - User-supplied config, flat or nested.
-- `default_config` - Result of `get_monte_carlo_defaults()`, used only to recognize which flat key names belong under `monte_carlo`.
+- `default_config` - Result of `default_monte_carlo_config()`, used only to recognize which flat key names belong under `monte_carlo`.
 
 **Returns**: `simulation_config`, wrapped under `$monte_carlo` if it was flat and its names matched known `monte_carlo` keys; passed through unchanged otherwise.
 **Behavior/rationale**: `merge_configurations()` merges strictly by key path, so a flat config key (e.g. `distribution_type = "normal"`) would not reach `config$monte_carlo$distribution_type`. This function runs immediately before `merge_configurations()` in `simulate_monte_carlo()` to lift flat keys into the `monte_carlo` sub-list.
@@ -137,11 +137,11 @@ fuse_observed_data_into_priors(simulation_params, simulation_data, sim_propertie
 - `config` - Simulation configuration.
 
 **Returns**: `simulation_params` with fused entries replaced in place (unfused entries pass through unchanged).
-**Behavior**: Two parts. (1) **Texture (composition group) fusion**: if all three texture members are present in `observed_data`, each is reduced to a `c(low, rep, high)` triplet (via the internal `as_lrh_triplet()` - accepting named `low/rep/high` or `l/r/h` triplets, an unnamed length-3 vector, or a raw sample vector reduced via its own empirical quantiles at `lh_percentile`), and `fuse_texture_group_from_triplets()` is called once per horizon (that horizon's own clay/sand/silt `_l/_r/_h` as the prior side, the shared observed triplet as the likelihood side), replacing `simulation_params[[i]][["ilr1"]]`/`[["ilr2"]]`. Partial texture entries (1-2 of 3) skip texture fusion with a logged WARN. (2) **Ordinary property fusion**: for every non-texture property present in both `observed_data` and `sim_properties`, each horizon's prior is fused via the internal `fuse_one_property_prior()` helper against the *same* shared observed likelihood (every horizon keeps its own prior but shares one likelihood, since field/lab measurements aren't usually tied to individual simulated horizons). Two supported likelihood shapes: a raw numeric sample vector routes through the fully general `fuse_property()` grid-KDE path (prior is first sampled via `quantile_from_fit()`, posterior stored as an exact empirical quantile function with `family = "linear_cdf"`); a family-native parameter list (`list(mean=, sd=)` or `list(shape1=, shape2=)`/`list(mean=, var=)`) routes through the closed-form `bayes_fuse()`-based path, supported only for prior families `normal`/`lognormal`/`beta` (the only families with a conjugate route) - any other prior family skips fusion for that (horizon, property) with a logged WARN. Note: this only narrows each property's *marginal* prior spread; it does not touch the cross-property correlation/dependency structure, which `estimate_property_correlations()` estimates separately from raw representative values.
+**Behavior**: Two parts. (1) **Texture (composition group) fusion**: if all three texture members are present in `observed_data`, each is reduced to a `c(low, rep, high)` triplet (via the internal `as_lrh_triplet()` - accepting named `low/rep/high` or `l/r/h` triplets, an unnamed length-3 vector, or a raw sample vector reduced via its own empirical quantiles at `lh_percentile`), and `fuse_texture_group_from_triplets()` is called once per horizon (that horizon's own clay/sand/silt `_l/_r/_h` as the prior side, the shared observed triplet as the likelihood side), replacing `simulation_params[[i]][["ilr1"]]`/`[["ilr2"]]`. Partial texture entries (1-2 of 3) skip texture fusion with a logged WARN. (2) **Ordinary property fusion**: for every non-texture property present in both `observed_data` and `sim_properties`, each horizon's prior is fused via the internal `fuse_one_property_prior()` helper against the *same* shared observed likelihood (every horizon keeps its own prior but shares one likelihood, since field/lab measurements aren't usually tied to individual simulated horizons). Two supported likelihood shapes: a raw numeric sample vector routes through the fully general `fuse_property()` grid-KDE path (prior is first sampled via `quantile_from_fit()`, posterior stored as an exact empirical quantile function with `family = "linear_cdf"`); a family-native parameter list (`list(mean=, sd=)` or `list(shape1=, shape2=)`/`list(mean=, var=)`) routes through the closed-form `fuse_distribution()`-based path, supported only for prior families `normal`/`lognormal`/`beta` (the only families with a conjugate route) - any other prior family skips fusion for that (horizon, property) with a logged WARN. Note: this only narrows each property's *marginal* prior spread; it does not touch the cross-property correlation/dependency structure, which `estimate_property_correlations()` estimates separately from raw representative values.
 
 Minor related internal helpers (not exported, `@keywords internal`):
 - `as_lrh_triplet(x, lh_probs)` - reduces an `observed_data` entry to an unnamed `c(low, rep, high)` triplet.
-- `fuse_one_property_prior(prior, likelihood, is_vector_likelihood, n_samples, supported_closed_form, prop, horizon_index)` - implements the per-property closed-form/general dispatch described above, handling `normal`, `lognormal` (converts the raw-space likelihood to log-space via `normal_to_lognormal_params()` before fusing, since the lognormal prior fit is already stored in log-space), and `beta` (rescales a raw-scale likelihood mean/var onto the prior's own `[lower, upper]` support before fitting moments, since `fuse_beta()`'s alpha/beta addition requires shared support; falls back to a Normal-moments round-trip via `bayes_update_normal_normal()` if the direct beta fusion is infeasible).
+- `fuse_one_property_prior(prior, likelihood, is_vector_likelihood, n_samples, supported_closed_form, prop, horizon_index)` - implements the per-property closed-form/general dispatch described above, handling `normal`, `lognormal` (converts the raw-space likelihood to log-space via `normal_to_lognormal_params()` before fusing, since the lognormal prior fit is already stored in log-space), and `beta` (rescales a raw-scale likelihood mean/var onto the prior's own `[lower, upper]` support before fitting moments, since `fuse_beta()`'s alpha/beta addition requires shared support; falls back to a Normal-moments round-trip via `fuse_normal_normal()` if the direct beta fusion is infeasible).
 
 ### 10. `configure_correlation_structure()` - Correlation Matrix Setup
 **Purpose**: Determines the correlation matrix to use for the Cholesky-copula simulation step, from a user-supplied matrix, auto-estimation, or independence.
@@ -255,7 +255,7 @@ simulate_monte_carlo(soil_data,
 **Behavior**: See the numbered pipeline steps in "Internal Connections" below - this function is a straight-line orchestration of essentially every other function in this file, in a fixed step order (numbered 1 through 11 in the source's own logging), with two special orderings worth noting: (a) an explicit user `correlation_matrix` colliding with an active composition group causes `composition_plan`/`sim_properties`/`simulation_params` to be recomputed with that group forced inactive; (b) `fuse_observed_data_into_priors()` runs deliberately *after* that recompute (not immediately after parameter extraction), since the recompute replaces `simulation_params` wholesale and would otherwise silently discard fused posteriors.
 
 ### Other exported/minor helpers
-- `sim_component_compositions(component_data, n_realizations = 1000, config = NULL)` - A separate, self-contained pipeline (not called by `simulate_monte_carlo()`) for simulating SSURGO *component* percent composition (`comppct_l/_r/_h`), independent of the horizon-property engine above. Validates via `validate_component_data()`, extracts per-component min/mode/max via `extract_component_parameters()` (filling missing `comppct_l`/`comppct_h` from `comppct_r -/+ 2`), draws values via `generate_component_values()` (currently a uniform-distribution placeholder, not family-aware), normalizes each realization to sum to 100 via `normalize_component_realizations()`, optionally clamps via `apply_composition_constraints()`, and scores fidelity via `assess_component_quality()` (mean relative error of simulated vs. original `comppct_r`). Returns `list(realizations=, component_data=, n_realizations=, n_components=, quality_metrics=, validation=, constraints_applied=, metadata=)`.
+- `simulate_component_compositions_batch(component_data, n_realizations = 1000, config = NULL)` - A separate, self-contained pipeline (not called by `simulate_monte_carlo()`) for simulating SSURGO *component* percent composition (`comppct_l/_r/_h`), independent of the horizon-property engine above. Validates via `validate_component_data()`, extracts per-component min/mode/max via `extract_component_parameters()` (filling missing `comppct_l`/`comppct_h` from `comppct_r -/+ 2`), draws values via `generate_component_values()` (currently a uniform-distribution placeholder, not family-aware), normalizes each realization to sum to 100 via `normalize_component_realizations()`, optionally clamps via `apply_composition_constraints()`, and scores fidelity via `assess_component_quality()` (mean relative error of simulated vs. original `comppct_r`). Returns `list(realizations=, component_data=, n_realizations=, n_components=, quality_metrics=, validation=, constraints_applied=, metadata=)`.
 - `run_sequential_simulation()` / `run_parallel_simulation()` - internal (not exported) dispatch helpers. The sequential path is a direct passthrough to `simulate_correlated_properties()`. The parallel path splits `n_realizations` into near-equal contiguous chunks across `parallel::detectCores() - 1` (or `config$monte_carlo$n_cores`) workers - `parallel::makeCluster()`/`clusterExport()`/`clusterEvalQ(library(soilSIM))`/`parLapply()` on Windows, `parallel::mclapply()` elsewhere - concatenates the resulting per-worker arrays along the realization dimension, and falls back to the sequential path on any error or if fewer than 2 usable cores are available.
 - `calculate_matrix_statistics()`, `get_constraint_rules()`/`get_range_constraints()`/`get_sum_constraints()`/`get_relationship_constraints()`/`get_physical_constraints()`, `apply_range_constraints_batch()`/`apply_sum_constraints()`/`apply_relationship_constraints()`/`apply_physical_constraints()` - internal building blocks for `configure_correlation_structure()` and `apply_simulation_constraints()` respectively, described inline above.
 - `check_data_sufficiency()` / `check_property_data_availability()` - internal per-property/per-row data-sufficiency checks feeding `validate_monte_carlo_inputs()` and `prepare_simulation_data()`.
@@ -269,7 +269,7 @@ simulate_monte_carlo(soil_data,
 simulate_monte_carlo()  [MASTER PIPELINE]
 ├── setup_logging()                                  [utils.R]        (if not already configured)
 ├── set.seed(seed)                                    (if seed supplied)
-├── get_monte_carlo_defaults()
+├── default_monte_carlo_config()
 ├── normalize_monte_carlo_config()
 ├── merge_configurations()                            [utils.R]
 ├── validate_monte_carlo_config()
@@ -299,7 +299,7 @@ simulate_monte_carlo()  [MASTER PIPELINE]
 │   └── fuse_one_property_prior()                      (ordinary properties)
 │       ├── quantile_from_fit()                        [distributions.R]
 │       ├── fuse_property()                            [bayesian-updating.R]
-│       ├── bayes_update_normal_normal()                [bayesian-updating.R]
+│       ├── fuse_normal_normal()                [bayesian-updating.R]
 │       ├── normal_to_lognormal_params()                [bayesian-updating.R]
 │       └── fuse_beta() / moments_to_beta() / beta_to_moments()  [bayesian-updating.R]
 ├── Step 5: configure_correlation_structure()
@@ -340,13 +340,13 @@ simulate_monte_carlo()  [MASTER PIPELINE]
 `fit_percentile_triplet()`, `quantile_from_fit()`, `validate_fit_parameters()`, `resolve_composition_groups()`, `restore_composition_properties()`, `estimate_ilr_moments_mc()`, `ensure_positive_definite_matrix()`, `validate_correlation_matrix()`, `estimate_correlation_matrix_robust()`.
 
 **From `core-fusion.R`** (only exercised when `observed_data` is supplied to `simulate_monte_carlo()`):
-`bayes_fuse()`, `fuse_property()`, `fuse_texture_group_from_triplets()`, `bayes_update_normal_normal()`, `normal_to_lognormal_params()`, `fuse_beta()`, `moments_to_beta()`, `beta_to_moments()`.
+`fuse_distribution()`, `fuse_property()`, `fuse_texture_group_from_triplets()`, `fuse_normal_normal()`, `normal_to_lognormal_params()`, `fuse_beta()`, `moments_to_beta()`, `beta_to_moments()`.
 
 **From `core-correlations.R`** (only exercised when `config$monte_carlo$correlation_fallback == "kssl_global"`):
 `build_kssl_fallback_matrix()`, `classify_genhz()`.
 
 **From `utils.R`** (cross-cutting workflow infrastructure):
-`log_message()`, `handle_workflow_error()`, `setup_logging()`, `track_progress()`, `validate_parameters()`, `validate_properties_with_synonyms()`, `validate_data_quality()`, `is_unsuitable()`, `detect_outliers()`, `get_default_configuration()`, `merge_configurations()`.
+`log_message()`, `handle_workflow_error()`, `setup_logging()`, `track_progress()`, `validate_parameters()`, `validate_properties_with_synonyms()`, `validate_data_quality()`, `is_unsuitable()`, `detect_outliers()`, `default_config()`, `merge_configurations()`.
 
 **External packages**: base `stats` (`qnorm`, `pnorm`, `runif`, `chol`, `sd`, `setNames`, etc.), `parallel` (`detectCores`, `makeCluster`/`stopCluster`/`clusterExport`/`clusterEvalQ`/`parLapply` on Windows, `mclapply` elsewhere). `core-distributions.R`'s `estimate_correlation_matrix_robust()` in turn depends on `Hmisc::rcorr()`.
 
@@ -369,7 +369,7 @@ simulate_monte_carlo()  [MASTER PIPELINE]
 
 ## Known Limitations
 
-- `generate_component_values()` (used by `sim_component_compositions()`) is a placeholder: it always draws from a `runif(min, max)` distribution regardless of the requested `distribution_type` - the component-composition pipeline is not yet family-aware in the way the main horizon-property pipeline is.
+- `generate_component_values()` (used by `simulate_component_compositions_batch()`) is a placeholder: it always draws from a `runif(min, max)` distribution regardless of the requested `distribution_type` - the component-composition pipeline is not yet family-aware in the way the main horizon-property pipeline is.
 
 ## Usage Example
 

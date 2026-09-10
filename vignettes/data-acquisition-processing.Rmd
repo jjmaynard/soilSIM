@@ -22,14 +22,14 @@ data and why each parameter exists:
 1. Acquisition: `download_ssurgo_tabular()` vs. the `fetch_ssurgo_data()` convenience
    wrapper built on top of it
 2. Processing: `process_ssurgo_data()`'s two sub-pipelines,
-   `process_horizon_data_working_compatible()` and `process_component_data_working_compatible()`
+   `process_ssurgo_horizons()` and `process_ssurgo_components()`
 3. Per-property cleaning: `clean_property_data()` (the single cleaner, used both during processing
    and during infilling) and its `outlier_policy` strategies
 4. The infilling family: `infill_soil_property()`'s six-strategy recovery hierarchy, the
-   individual strategy functions (`horizon_name_property_infill()`,
+   individual strategy functions (`infill_property_by_horizon_name()`,
    `infill_missing_property_data()`, group fallback), range infilling
    (`infill_property_range_values()`, `learn_property_ranges()`,
-   `get_property_contextual_ranges()`), the Saxton-Rawls water-retention pedotransfer function
+   `property_contextual_ranges()`), the Saxton-Rawls water-retention pedotransfer function
    (`infill_water_retention_saxton_rawls_integrated()`), and RFV-specific imputation
    (`impute_rfv_values()`)
 5. The pluggable validation-rule config builders: `create_validation_config()`, `add_range_rule()`,
@@ -115,8 +115,8 @@ sum(raw_data$unsuitable_horizon)
 seven independently-togglable steps (`detect_unsuitable`, `advanced_cleaning`, `standardize_names`,
 `remove_invalid`, `calculate_derived`, `validate_logic`, `preserve_compatibility`), all `TRUE` by
 default. Internally it runs three sub-pipelines and stitches their outputs together:
-`process_horizon_data_working_compatible()`, `process_component_data_working_compatible()`, and
-`create_infill_compatible_dataset()` (which rebuilds the combined dataset from `raw_data` directly,
+`process_ssurgo_horizons()`, `process_ssurgo_components()`, and
+`prepare_ssurgo_for_infill()` (which rebuilds the combined dataset from `raw_data` directly,
 rather than reusing the other two outputs, which exist mainly for their statistics).
 
 ```{r}
@@ -125,7 +125,7 @@ names(processed)
 dim(processed$processed_data)
 ```
 
-### `process_horizon_data_working_compatible()` on its own
+### `process_ssurgo_horizons()` on its own
 
 Calling the horizon sub-pipeline directly shows what each of its steps contributes. With
 `advanced_cleaning = TRUE` (the default), every identified soil-property column is run through
@@ -134,10 +134,10 @@ Calling the horizon sub-pipeline directly shows what each of its steps contribut
 *increase* apparent missingness even before any infilling happens:
 
 ```{r}
-horizon_cleaned <- process_horizon_data_working_compatible(
+horizon_cleaned <- process_ssurgo_horizons(
   raw_data, advanced_cleaning = TRUE, max_depth = 150, verbose = FALSE
 )
-horizon_uncleaned <- process_horizon_data_working_compatible(
+horizon_uncleaned <- process_ssurgo_horizons(
   raw_data, advanced_cleaning = FALSE, max_depth = 150, verbose = FALSE
 )
 
@@ -158,14 +158,14 @@ the fraction of non-missing `_r` values per property after processing:
 unlist(horizon_cleaned$processing_stats$property_completeness)
 ```
 
-### `process_component_data_working_compatible()` on its own
+### `process_ssurgo_components()` on its own
 
 This is a separate, much smaller sub-pipeline: it selects the distinct component-level (one row per
 `cokey`) columns out of `raw_data`, drops invalid rows (`remove_invalid_components_working()`), and
 adds a couple of derived flags (`calculate_component_stats_working()`):
 
 ```{r}
-component_result <- process_component_data_working_compatible(raw_data, verbose = FALSE)
+component_result <- process_ssurgo_components(raw_data, verbose = FALSE)
 dim(component_result$processed_data)
 names(component_result$processed_data)
 table(component_result$processed_data$is_major_component)
@@ -208,7 +208,7 @@ The `outlier_policy` argument controls the middle step:
   a very conservative IQR factor of 5.0. This is what the whole pipeline uses, because a genuine
   tail value in a distribution you are about to Monte-Carlo is signal, not noise.
 - `"aggressive_iqr"` - a single generic `IQR x 3` rule applied to every property alike
-  (the former `clean_property_data_ssurgo_compatible()` behavior, kept as an opt-in).
+  (the former `clean_ssurgo_property_data()` behavior, kept as an opt-in).
 - `"none"` - skip outlier flagging entirely; still parse, null non-finite, and clamp.
 
 ```{r}
@@ -259,7 +259,7 @@ c(soil_aware = sum(!is.na(soil_aware$data$claytotal_r)),
 `infill_soil_property()` fills missing `_r` (representative) values for a single property using six
 strategies, tried in order, only ever using *suitable* horizons as sources:
 
-1. **Horizon-name matching** (`horizon_name_property_infill()`) - within the same group (component),
+1. **Horizon-name matching** (`infill_property_by_horizon_name()`) - within the same group (component),
    average the property from horizons whose standardized name is similar (similarity > 0.5) to the
    target horizon's name.
 2. **Depth-weighted averaging** (`depth_weighted_property_infill()`) - within the same group, an
@@ -281,7 +281,7 @@ in the `infill_method` audit column with which strategy filled it and what it us
 - `df` - input data frame (must already have `unsuitable_horizon` computable / present)
 - `property_name` - a single property base name (`"rfv"` is special-cased to
   `infill_rfv_property_integrated()` instead of this hierarchy)
-- `property_config` - optional config from `get_default_property_config()`; auto-looked-up if `NULL`
+- `property_config` - optional config from `default_property_config()`; auto-looked-up if `NULL`
 - `max_depth` - horizons below this depth are excluded from being infilled (but can still act as
   interpolation/averaging sources for shallower horizons in the same profile)
 - `verbose` - progress logging
@@ -317,7 +317,7 @@ example_group[, c("hzname", "hzdept_r", "hzdepb_r", "cec7_r", "unsuitable_horizo
 problematic_mask <- is.na(example_group$cec7_r) & !example_group$unsuitable_horizon
 infilled_group <- infill_missing_property_data(
   example_group, "cec7", problematic_mask,
-  property_config = get_default_property_config("cec7")
+  property_config = default_property_config("cec7")
 )
 infilled_group[, c("hzname", "hzdept_r", "hzdepb_r", "cec7_r", "infill_method")]
 ```
@@ -367,7 +367,7 @@ Any bars remaining after infilling are horizons where even the group-mean fallba
 no suitable source data anywhere in that group - typically components made up of a single
 unsuitable horizon, or components with no other members reporting that property at all.
 
-### Range infilling: `infill_property_range_values()`, `learn_property_ranges()`, `get_property_contextual_ranges()`
+### Range infilling: `infill_property_range_values()`, `learn_property_ranges()`, `property_contextual_ranges()`
 
 Filling `_r` is only half the job - `infill_property_range_values()` fills `_l`/`_h` (low/high)
 around each `_r` value and enforces `_l <= _r <= _h`. It combines two sources of spread, tried in
@@ -376,17 +376,17 @@ priority order (horizon-learned -> depth-learned -> overall-learned -> contextua
 - `learn_property_ranges()` - learns the *median* `_r - _l` / `_h - _r` spread from this dataset's
   own complete, suitable-horizon rows, broken out by horizon name and by depth zone
   (surface/subsurface/deep).
-- `get_property_contextual_ranges()` - hardcoded pedological-knowledge spread tables used when
+- `property_contextual_ranges()` - hardcoded pedological-knowledge spread tables used when
   there isn't enough data to learn from (e.g. fewer than 3 rows for a given horizon name or zone).
 
 ```{r}
-clay_config <- get_default_property_config("claytotal")
+clay_config <- default_property_config("claytotal")
 learned <- learn_property_ranges(horizon_data, "claytotal", clay_config)
 learned$overall
 ```
 
 ```{r}
-context_ranges <- get_property_contextual_ranges(horizon_data, "claytotal", clay_config)
+context_ranges <- property_contextual_ranges(horizon_data, "claytotal", clay_config)
 context_ranges
 ```
 
@@ -398,7 +398,7 @@ AOI like this one, the two sources of information reinforce rather than override
 
 Field capacity (`wthirdbar`) and wilting point (`wfifteenbar`) are estimated from texture, bulk
 density, rock fragments, and organic matter via the Saxton-Rawls pedotransfer function
-(`calculate_saxton_rawls_single()`), rather than any of the six general strategies above - texture
+(`compute_saxton_rawls()`), rather than any of the six general strategies above - texture
 alone is a strong physical predictor of water retention, so this is a dedicated pedotransfer
 function instead. Its own parameters:
 

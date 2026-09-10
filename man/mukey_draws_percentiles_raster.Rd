@@ -9,7 +9,7 @@ mukey_draws_percentiles_raster(mukey_raster, mukey_draws, probs)
 \arguments{
 \item{mukey_raster}{Categorical mukey SpatRaster, aligned to the target grid.}
 
-\item{mukey_draws}{A \code{mukey_draws_lookup()} result - named list keyed by mukey (character), each
+\item{mukey_draws}{A \code{lookup_mukey_draws()} result - named list keyed by mukey (character), each
 element a numeric vector of real simulated draws for that mukey.}
 
 \item{probs}{Numeric probabilities (0-1) at which to compute each mukey's empirical quantile -

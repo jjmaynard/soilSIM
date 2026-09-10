@@ -7,13 +7,13 @@ This functional area is a standalone toolkit for fusing a prior belief distribut
 
 ### Tier 1: Exact closed-form Normal-Normal fusion
 
-#### 1. `bayes_update_normal_normal()` - Precision-Weighted Conjugate Normal-Normal Posterior
+#### 1. `fuse_normal_normal()` - Precision-Weighted Conjugate Normal-Normal Posterior
 
 **Purpose**: Exact, closed-form Bayesian fusion of two Normal distributions (a prior and a likelihood) into a posterior Normal, via precision-weighted averaging.
 
 **Parameters**:
 ```r
-bayes_update_normal_normal(prior_mu, prior_sigma, lik_mu, lik_sigma)
+fuse_normal_normal(prior_mu, prior_sigma, lik_mu, lik_sigma)
 ```
 - `prior_mu`, `prior_sigma` - Prior mean/sd (numeric scalar or vector).
 - `lik_mu`, `lik_sigma` - Likelihood mean/sd (numeric scalar or vector, same length as the prior args).
@@ -24,7 +24,7 @@ bayes_update_normal_normal(prior_mu, prior_sigma, lik_mu, lik_sigma)
 
 #### 2. `normal_to_lognormal_params()` - Raw-Space to Log-Space Moment Conversion
 
-**Purpose**: Moment-matches a raw-space Lognormal distribution's mean/sd onto the mu/sigma of its underlying (log-space) Normal, so that `bayes_update_normal_normal()` can be reused in log-space for strictly-positive, right-skewed properties (e.g. SOC, CEC) where fusing raw mean/sd as if Normal would let the posterior place probability mass below zero.
+**Purpose**: Moment-matches a raw-space Lognormal distribution's mean/sd onto the mu/sigma of its underlying (log-space) Normal, so that `fuse_normal_normal()` can be reused in log-space for strictly-positive, right-skewed properties (e.g. SOC, CEC) where fusing raw mean/sd as if Normal would let the posterior place probability mass below zero.
 
 **Parameters**:
 ```r
@@ -34,7 +34,7 @@ normal_to_lognormal_params(mu, sigma)
 
 **Returns**: `list(mu = log-space mu, sigma = log-space sigma)`.
 
-**Algorithm/behavior**: Computes `sigma_log <- sqrt(log(1 + (sigma / mu)^2))` and `mu_log <- log(mu) - sigma_log^2 / 2` - the standard closed-form moment-matching formulas relating a Lognormal's raw-space mean/sd to its underlying Normal's mu/sigma. The caller is expected to fuse in log-space via `bayes_update_normal_normal(mu_log_prior, sigma_log_prior, mu_log_lik, sigma_log_lik)` and then convert the result back with `lognormal_to_normal_params()`.
+**Algorithm/behavior**: Computes `sigma_log <- sqrt(log(1 + (sigma / mu)^2))` and `mu_log <- log(mu) - sigma_log^2 / 2` - the standard closed-form moment-matching formulas relating a Lognormal's raw-space mean/sd to its underlying Normal's mu/sigma. The caller is expected to fuse in log-space via `fuse_normal_normal(mu_log_prior, sigma_log_prior, mu_log_lik, sigma_log_lik)` and then convert the result back with `lognormal_to_normal_params()`.
 
 #### 3. `lognormal_to_normal_params()` - Log-Space to Raw-Space Moment Conversion
 
@@ -65,7 +65,7 @@ fuse_beta(prior_alpha, prior_beta, lik_alpha, lik_beta)
 
 **Returns**: `list(alpha = , beta = , feasible = )`.
 
-**Algorithm/behavior**: Computes `alpha <- prior_alpha + lik_alpha - 1` and `beta <- prior_beta + lik_beta - 1`, following directly from multiplying the two Beta kernels `x^(a-1)(1-x)^(b-1)` and recognizing the product as another (unnormalized) Beta kernel. This addition-of-shape-parameters-minus-one is the Beta-family analogue of Tier 1's addition of Normal precisions. Because the resulting `alpha`/`beta` must both stay positive to remain a valid distribution, the function also returns a `feasible` flag: `(prior_alpha + lik_alpha > 1) & (prior_beta + lik_beta > 1)`. Where `feasible` is `FALSE`, the documented fallback route is to re-express both input Betas as Normal moments via `beta_to_moments()`, fuse those moments with `bayes_update_normal_normal()`, and convert the result back with `moments_to_beta()`.
+**Algorithm/behavior**: Computes `alpha <- prior_alpha + lik_alpha - 1` and `beta <- prior_beta + lik_beta - 1`, following directly from multiplying the two Beta kernels `x^(a-1)(1-x)^(b-1)` and recognizing the product as another (unnormalized) Beta kernel. This addition-of-shape-parameters-minus-one is the Beta-family analogue of Tier 1's addition of Normal precisions. Because the resulting `alpha`/`beta` must both stay positive to remain a valid distribution, the function also returns a `feasible` flag: `(prior_alpha + lik_alpha > 1) & (prior_beta + lik_beta > 1)`. Where `feasible` is `FALSE`, the documented fallback route is to re-express both input Betas as Normal moments via `beta_to_moments()`, fuse those moments with `fuse_normal_normal()`, and convert the result back with `moments_to_beta()`.
 
 #### 5. `fuse_gamma()` - Gamma-Gamma Conjugate Fusion via Density Multiplication
 
@@ -80,7 +80,7 @@ fuse_gamma(prior_shape, prior_rate, lik_shape, lik_rate)
 
 **Returns**: `list(shape = , rate = , feasible = )`.
 
-**Algorithm/behavior**: Computes `shape <- prior_shape + lik_shape - 1` and `rate <- prior_rate + lik_rate`, derived from multiplying the two Gamma kernels `x^(k-1)exp(-r*x)` - rates add outright (like Normal precisions), while shapes add minus one (like Beta's `alpha`/`beta`). Validity requires the fused shape to stay positive, so `feasible <- (prior_shape + lik_shape > 1)` is returned alongside. As with `fuse_beta()`, the documented infeasible-cell fallback is to re-express both sides as Normal moments via `gamma_to_moments()`, fuse with `bayes_update_normal_normal()`, and convert back with `moments_to_gamma()`.
+**Algorithm/behavior**: Computes `shape <- prior_shape + lik_shape - 1` and `rate <- prior_rate + lik_rate`, derived from multiplying the two Gamma kernels `x^(k-1)exp(-r*x)` - rates add outright (like Normal precisions), while shapes add minus one (like Beta's `alpha`/`beta`). Validity requires the fused shape to stay positive, so `feasible <- (prior_shape + lik_shape > 1)` is returned alongside. As with `fuse_beta()`, the documented infeasible-cell fallback is to re-express both sides as Normal moments via `gamma_to_moments()`, fuse with `fuse_normal_normal()`, and convert back with `moments_to_gamma()`.
 
 #### 6. `moments_to_gamma()` - Method-of-Moments Gamma Fit
 
@@ -112,7 +112,7 @@ moments_to_beta(mean, var)
 
 #### 8. `beta_to_moments()` - Beta's Own Mean/Variance
 
-**Purpose**: The inverse direction of `moments_to_beta()` - computes a Beta distribution's mean/variance from its own `(alpha, beta)` parameters, used to re-express an infeasible same-family fusion's inputs as Normal moments before falling back to `bayes_update_normal_normal()`.
+**Purpose**: The inverse direction of `moments_to_beta()` - computes a Beta distribution's mean/variance from its own `(alpha, beta)` parameters, used to re-express an infeasible same-family fusion's inputs as Normal moments before falling back to `fuse_normal_normal()`.
 
 **Parameters**:
 ```r
@@ -138,30 +138,30 @@ gamma_to_moments(shape, rate)
 
 **Algorithm/behavior**: Direct application of the standard closed-form Gamma mean/variance formulas.
 
-#### 10. `bayes_fuse()` - Same-Family Dispatcher
+#### 10. `fuse_distribution()` - Same-Family Dispatcher
 
 **Purpose**: Dispatches to the correct closed-form fusion function (Tier 1 or Tier 2) based on a `family` argument, given both sides' parameters as named lists.
 
 **Parameters**:
 ```r
-bayes_fuse(prior_params, lik_params, family = c("normal", "beta", "gamma"))
+fuse_distribution(prior_params, lik_params, family = c("normal", "beta", "gamma"))
 ```
 - `prior_params`, `lik_params` - Named lists of that family's parameters: `list(mu=, sigma=)` for `"normal"`, `list(alpha=, beta=)` for `"beta"`, `list(shape=, rate=)` for `"gamma"`.
-- `family` - One of `"normal"`, `"beta"`, `"gamma"` (matched via `match.arg()`). Both sides must already be fit in this same family - there is no closed form for fusing mismatched families; `bayesian_update()` (Tier 3) is required for that.
+- `family` - One of `"normal"`, `"beta"`, `"gamma"` (matched via `match.arg()`). Both sides must already be fit in this same family - there is no closed form for fusing mismatched families; `update_prior()` (Tier 3) is required for that.
 
-**Returns**: The matching `fuse_*()` function's return value (i.e. `bayes_update_normal_normal()`'s, `fuse_beta()`'s, or `fuse_gamma()`'s return shape, depending on `family`).
+**Returns**: The matching `fuse_*()` function's return value (i.e. `fuse_normal_normal()`'s, `fuse_beta()`'s, or `fuse_gamma()`'s return shape, depending on `family`).
 
-**Algorithm/behavior**: A plain `switch()` on `family` (after `match.arg()` validates/defaults it) that unpacks `prior_params`/`lik_params`'s named elements and forwards them positionally to `bayes_update_normal_normal()`, `fuse_beta()`, or `fuse_gamma()`. No logic of its own beyond argument routing.
+**Algorithm/behavior**: A plain `switch()` on `family` (after `match.arg()` validates/defaults it) that unpacks `prior_params`/`lik_params`'s named elements and forwards them positionally to `fuse_normal_normal()`, `fuse_beta()`, or `fuse_gamma()`. No logic of its own beyond argument routing.
 
 ### Tier 3: Fully general grid-KDE fusion
 
-#### 11. `bayesian_update()` - Grid-Based KDE Bayesian Update
+#### 11. `update_prior()` - Grid-Based KDE Bayesian Update
 
 **Purpose**: Fully general Bayesian fusion of a prior and likelihood distribution, given only raw samples on both sides - no distributional family assumption, and the two sides need not even match families. Works by estimating both densities on a shared grid via kernel density estimation (KDE), multiplying them per Bayes' rule, normalizing, and resampling from the resulting posterior.
 
 **Parameters**:
 ```r
-bayesian_update(prior_distribution, likelihood_distribution, grid_range = NULL,
+update_prior(prior_distribution, likelihood_distribution, grid_range = NULL,
                  grid_resolution = 0.01, n = 1000)
 ```
 - `prior_distribution`, `likelihood_distribution` - Numeric vectors of raw samples (not distributional parameters).
@@ -177,7 +177,7 @@ bayesian_update(prior_distribution, likelihood_distribution, grid_range = NULL,
 
 #### 12. `fuse_bivariate_normal()` - Precision-Matrix Fusion for 2D Normal Beliefs
 
-**Purpose**: Fuses two independent bivariate Normal beliefs about the same 2D quantity (used here for ILR-transformed clay/sand/silt texture coordinates), the direct multivariate generalization of `bayes_update_normal_normal()`'s scalar-precision addition: precision MATRICES add instead of scalar precisions.
+**Purpose**: Fuses two independent bivariate Normal beliefs about the same 2D quantity (used here for ILR-transformed clay/sand/silt texture coordinates), the direct multivariate generalization of `fuse_normal_normal()`'s scalar-precision addition: precision MATRICES add instead of scalar precisions.
 
 **Parameters**:
 ```r
@@ -224,11 +224,11 @@ fuse_property(prior, likelihood, family = NULL, bounds = NULL, method = NULL,
 - `family` - Required when `prior`/`likelihood` are parameter lists; one of `"normal"`, `"beta"`, `"gamma"`. Ignored (and implicitly "general") when `prior`/`likelihood` are raw-sample vectors.
 - `bounds` - Unused currently; kept for interface symmetry with percentile-triplet-based callers.
 - `method` - Optional assertion/override: `"general"` or `"closed_form"`. The function errors if this doesn't match what the input shape implies, rather than silently overriding the shape-implied route.
-- `n_samples`, `grid_resolution` - Passed through to `bayesian_update()` for the general route.
+- `n_samples`, `grid_resolution` - Passed through to `update_prior()` for the general route.
 
-**Returns**: For the general route, a numeric vector of posterior samples (`bayesian_update()`'s native output). For the closed-form route, the family-native posterior parameter list (`bayes_fuse()`'s native output). These two return shapes are deliberately NOT unified into a fake-common contract - documented explicitly in the source, since the caller already knows which shape it passed in and therefore which shape it gets back.
+**Returns**: For the general route, a numeric vector of posterior samples (`update_prior()`'s native output). For the closed-form route, the family-native posterior parameter list (`fuse_distribution()`'s native output). These two return shapes are deliberately NOT unified into a fake-common contract - documented explicitly in the source, since the caller already knows which shape it passed in and therefore which shape it gets back.
 
-**Algorithm/behavior**: Determines `prior_is_vector`/`lik_is_vector` via `is.atomic(x) && is.numeric(x)` for each side, and errors immediately if they disagree (mixed shapes). `resolved_method` is set to `"general"` if both sides are vectors, else `"closed_form"`. If the caller supplied `method` and it doesn't `identical()`-match `resolved_method`, the function errors with a message naming both the requested and shape-implied methods, rather than silently picking one. For the general route, it forwards straight to `bayesian_update(prior, likelihood, grid_resolution = grid_resolution, n = n_samples)`. For the closed-form route, it requires `family` to be non-`NULL` (erroring otherwise) and forwards to `bayes_fuse(prior, likelihood, family = family)`.
+**Algorithm/behavior**: Determines `prior_is_vector`/`lik_is_vector` via `is.atomic(x) && is.numeric(x)` for each side, and errors immediately if they disagree (mixed shapes). `resolved_method` is set to `"general"` if both sides are vectors, else `"closed_form"`. If the caller supplied `method` and it doesn't `identical()`-match `resolved_method`, the function errors with a message naming both the requested and shape-implied methods, rather than silently picking one. For the general route, it forwards straight to `update_prior(prior, likelihood, grid_resolution = grid_resolution, n = n_samples)`. For the closed-form route, it requires `family` to be non-`NULL` (erroring otherwise) and forwards to `fuse_distribution(prior, likelihood, family = family)`.
 
 ## Internal Connections
 
@@ -238,23 +238,23 @@ fuse_property(prior, likelihood, family, bounds, method, n_samples, grid_resolut
 ├── shape check: is.atomic(prior) && is.numeric(prior)  (and same for likelihood)
 │
 ├── [prior/likelihood are raw-sample vectors] -> resolved_method = "general"
-│   └── bayesian_update(prior, likelihood, grid_range = NULL,
+│   └── update_prior(prior, likelihood, grid_range = NULL,
 │                        grid_resolution, n = n_samples)
 │       ├── stats::density() x2 (prior_distribution, likelihood_distribution)
 │       ├── stats::approxfun() x2 -> interpolate onto shared value_grid
 │       └── sample(value_grid, prob = posterior_prob, replace = TRUE)
 │
 └── [prior/likelihood are named parameter lists] -> resolved_method = "closed_form"
-    └── bayes_fuse(prior_params, lik_params, family)
-        ├── family == "normal" -> bayes_update_normal_normal(prior_mu, prior_sigma, lik_mu, lik_sigma)
+    └── fuse_distribution(prior_params, lik_params, family)
+        ├── family == "normal" -> fuse_normal_normal(prior_mu, prior_sigma, lik_mu, lik_sigma)
         ├── family == "beta"   -> fuse_beta(prior_alpha, prior_beta, lik_alpha, lik_beta)
         │                          [infeasible fallback, not automatic: beta_to_moments() ->
-        │                           bayes_update_normal_normal() -> moments_to_beta()]
+        │                           fuse_normal_normal() -> moments_to_beta()]
         └── family == "gamma"  -> fuse_gamma(prior_shape, prior_rate, lik_shape, lik_rate)
                                     [infeasible fallback, not automatic: gamma_to_moments() ->
-                                     bayes_update_normal_normal() -> moments_to_gamma()]
+                                     fuse_normal_normal() -> moments_to_gamma()]
 
-Separately (not reachable through fuse_property()/bayes_fuse()):
+Separately (not reachable through fuse_property()/fuse_distribution()):
 
 fuse_texture_group_from_triplets(prior_triplets, lik_triplets, z_prior, z_lik, n_mc, n_samples, total)
 ├── core-distributions.R::estimate_ilr_moments_mc()   [once for prior_triplets]
@@ -265,22 +265,22 @@ fuse_texture_group_from_triplets(prior_triplets, lik_triplets, z_prior, z_lik, n
 
 normal_to_lognormal_params() / lognormal_to_normal_params()
   - not called by any other function in this file; documented helpers a caller
-    uses around its own bayes_update_normal_normal() call to fuse strictly-
+    uses around its own fuse_normal_normal() call to fuse strictly-
     positive, right-skewed (Lognormal) properties in log-space.
 ```
 
-Note that `fuse_bivariate_normal()` and the infeasible-cell fallback routes for `fuse_beta()`/`fuse_gamma()` are documented conventions, not automatic behavior wired into `bayes_fuse()`/`fuse_property()` - a caller hitting an infeasible cell (`feasible == FALSE`) must invoke the `*_to_moments()`/`moments_to_*()` fallback chain itself.
+Note that `fuse_bivariate_normal()` and the infeasible-cell fallback routes for `fuse_beta()`/`fuse_gamma()` are documented conventions, not automatic behavior wired into `fuse_distribution()`/`fuse_property()` - a caller hitting an infeasible cell (`feasible == FALSE`) must invoke the `*_to_moments()`/`moments_to_*()` fallback chain itself.
 
 ## Dependencies
 
 ### External packages
 ```
 soilSIM (core-fusion.R)
-├── stats::density()    - kernel density estimation (bw = "nrd0"), used by bayesian_update()
+├── stats::density()    - kernel density estimation (bw = "nrd0"), used by update_prior()
 ├── stats::approxfun()  - linear interpolation of KDE output onto the shared value grid
-├── base::sample()      - posterior resampling in bayesian_update()
+├── base::sample()      - posterior resampling in update_prior()
 ├── base::solve()       - covariance <-> precision matrix inversion in fuse_bivariate_normal()
-└── base::switch()/match.arg() - family dispatch in bayes_fuse()
+└── base::switch()/match.arg() - family dispatch in fuse_distribution()
 ```
 
 ### soilSIM dependencies
@@ -294,7 +294,7 @@ core-fusion.R
 ### Integration status
 The functions in this file are standalone building blocks; the tabular Monte Carlo pipeline in `core-montecarlo.R` does not call them directly.
 
-`R/core-fusion.R` uses these same functions (`bayes_update_normal_normal()`, `fuse_beta()`, `fuse_gamma()`, the `*_to_moments()`/`moments_to_*()` helpers, `normal_to_lognormal_params()`/`lognormal_to_normal_params()`, `bayesian_update()`, and `fuse_bivariate_normal()`) as the computational core of an adaptive, per-cell fusion pipeline (`fuse_adaptive()`/`fuse_property_adaptive()`) that routes between the closed-form and general tiers by AOI cell count and includes Lognormal/metalog adapters and infeasible-cell fallback handling. In other words: `core-fusion.R` supplies the scalar primitives, and `core-fusion.R` assembles the raster-native equivalents into a complete pipeline.
+`R/core-fusion.R` uses these same functions (`fuse_normal_normal()`, `fuse_beta()`, `fuse_gamma()`, the `*_to_moments()`/`moments_to_*()` helpers, `normal_to_lognormal_params()`/`lognormal_to_normal_params()`, `update_prior()`, and `fuse_bivariate_normal()`) as the computational core of an adaptive, per-cell fusion pipeline (`fuse_adaptive()`/`fuse_property_adaptive()`) that routes between the closed-form and general tiers by AOI cell count and includes Lognormal/metalog adapters and infeasible-cell fallback handling. In other words: `core-fusion.R` supplies the scalar primitives, and `core-fusion.R` assembles the raster-native equivalents into a complete pipeline.
 
 ## Data Flow In/Out
 
@@ -305,8 +305,8 @@ The functions in this file are standalone building blocks; the tabular Monte Car
 ## Known Limitations
 
 - **Not wired into the Monte Carlo pipeline**: This is current integration status, not a defect - the file is intentionally a standalone toolkit (per its own header comment) for a not-yet-built "fuse observed/field data into an SSURGO-derived prior" feature. Nothing in `core-montecarlo.R` calls into this file today.
-- **`fuse_beta()`/`fuse_gamma()` feasibility constraints**: the closed-form Beta-Beta and Gamma-Gamma fusion is only valid when the fused shape parameters stay positive (`prior_alpha + lik_alpha > 1` and `prior_beta + lik_beta > 1` for Beta; `prior_shape + lik_shape > 1` for Gamma). Both functions return a `feasible` flag rather than erroring, but applying the documented moment-based fallback (`*_to_moments()` -> `bayes_update_normal_normal()` -> `moments_to_*()`) on infeasible cells is left to the caller - it is not automatic.
-- **`bayesian_update()` requires raw samples, not parameters**, and is considerably more expensive than the closed-form tiers (density estimation plus grid evaluation on both sides, for every call) - it is the fully general fallback, not the default route.
+- **`fuse_beta()`/`fuse_gamma()` feasibility constraints**: the closed-form Beta-Beta and Gamma-Gamma fusion is only valid when the fused shape parameters stay positive (`prior_alpha + lik_alpha > 1` and `prior_beta + lik_beta > 1` for Beta; `prior_shape + lik_shape > 1` for Gamma). Both functions return a `feasible` flag rather than erroring, but applying the documented moment-based fallback (`*_to_moments()` -> `fuse_normal_normal()` -> `moments_to_*()`) on infeasible cells is left to the caller - it is not automatic.
+- **`update_prior()` requires raw samples, not parameters**, and is considerably more expensive than the closed-form tiers (density estimation plus grid evaluation on both sides, for every call) - it is the fully general fallback, not the default route.
 - **`fuse_property()`'s two return shapes are not unified**: the general route returns a sample vector while the closed-form route returns a parameter list - callers must already know (from the shape of what they passed in) which shape they'll get back.
 - **`fuse_texture_group_from_triplets()`'s `clay`/`sand`/`silt` keys are positional-role placeholders**, matching `estimate_ilr_moments_mc()`'s `low_clay`/`low_sand`/`low_silt` parameter-position convention (the ILR sequential binary partition), not an identity requirement - callers must build the triplets in whatever order their own composition-group configuration specifies.
 - **Independent per-fraction texture fusion is documented as measurably wrong**: fusing clay/sand/silt as three separate, independent `fuse_beta()` calls breaks sum-to-100 by up to 10.5 percentage points on realistic synthetic data (documented upstream) - this is the motivating reason `fuse_texture_group_from_triplets()` fuses jointly in ILR space instead, and is noted here as a limitation of the naive per-fraction approach that this file's joint route exists to avoid.
@@ -322,7 +322,7 @@ prior_ph <- list(mu = 6.2, sigma = 0.4)
 # Likelihood: field-measured pH at a set of sample points:
 field_ph <- list(mu = 6.5, sigma = 0.2)
 
-posterior_ph <- bayes_update_normal_normal(
+posterior_ph <- fuse_normal_normal(
   prior_mu = prior_ph$mu, prior_sigma = prior_ph$sigma,
   lik_mu = field_ph$mu, lik_sigma = field_ph$sigma
 )
@@ -334,7 +334,7 @@ set.seed(42)
 prior_samples <- rnorm(500, mean = 6.2, sd = 0.4)      # SSURGO-derived prior draws
 field_samples <- rnorm(30, mean = 6.5, sd = 0.2)       # observed field measurements
 
-posterior_samples <- bayesian_update(
+posterior_samples <- update_prior(
   prior_distribution = prior_samples,
   likelihood_distribution = field_samples,
   grid_resolution = 0.01,

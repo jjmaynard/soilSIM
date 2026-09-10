@@ -1,16 +1,16 @@
-test_that("get_appropriate_distributions() honors config$distribution_methods (previously inert)", {
+test_that("distributions_for_properties() honors config$distribution_methods (previously inert)", {
   values <- c(5, 6, 7, 8, 9)
 
-  default_candidates <- get_appropriate_distributions("om_r", values)
+  default_candidates <- distributions_for_properties("om_r", values)
   expect_true("weibull" %in% default_candidates)  # weibull now reachable for a generic positive property
 
-  narrowed <- get_appropriate_distributions("om_r", values, config = list(distribution_methods = c("gamma", "beta")))
+  narrowed <- distributions_for_properties("om_r", values, config = list(distribution_methods = c("gamma", "beta")))
   expect_equal(narrowed, "gamma")  # beta isn't in the heuristic for a generic property, gamma is -> intersection
 
   # A request with no overlap at all falls back to the user's list unfiltered
   # (with a WARN), rather than silently discarding it.
   expect_warning(
-    unfiltered <- get_appropriate_distributions("sandtotal_r", values, config = list(distribution_methods = c("gamma"))),
+    unfiltered <- distributions_for_properties("sandtotal_r", values, config = list(distribution_methods = c("gamma"))),
     NA  # log_message() doesn't raise an R warning condition; assert no error instead
   )
   expect_equal(unfiltered, "gamma")

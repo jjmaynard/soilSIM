@@ -38,7 +38,7 @@ Draws \code{n_mc} bivariate-Normal ILR-space samples per cell from the fused \ve
 from in the scalar case, here vectorized raster-wide via \code{terra::app()} - applies each cell's
 own 2x2 Cholesky factor (closed-form: \code{u11 = sqrt(S11)}, \code{u12 = S12/u11}, \code{u22 = sqrt(S22 - u12^2)}, matching base R's \code{chol()} upper-triangular convention exactly), \code{ilr_inverse()}s the
 result to \verb{(clay, sand, silt)} triples, then computes \code{quantile()} across draws per cell per
-fraction. Unlike \code{bayesian_update()}'s grid-based routes, this posterior has no discretized-grid
+fraction. Unlike \code{update_prior()}'s grid-based routes, this posterior has no discretized-grid
 shortcut - it's a genuine bivariate Monte Carlo sampler, so \code{n_mc} is the only lever on
 percentile reliability here.
 }

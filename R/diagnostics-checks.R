@@ -93,7 +93,7 @@ execute_validation_pipeline <- function(validation_results, components, original
   validation_steps <- list(
     "monte_carlo" = function() {
       if (!is.null(components$monte_carlo_results)) {
-        validate_monte_carlo_quality(components$monte_carlo_results, original_data, validation_config$monte_carlo)
+        diagnose_simulation(components$monte_carlo_results, original_data, validation_config$monte_carlo)
       } else {
         log_message("DEBUG", "No Monte Carlo results found", category = "Validation")
         return(list(validation_skipped = TRUE))
@@ -102,7 +102,7 @@ execute_validation_pipeline <- function(validation_results, components, original
 
     "correlation" = function() {
       if (!is.null(components$correlation_matrices)) {
-        validate_correlation_structures(components$correlation_matrices, components$simulation_data, validation_config$correlation)
+        diagnose_correlation_structures(components$correlation_matrices, components$simulation_data, validation_config$correlation)
       } else {
         log_message("DEBUG", "No correlation data found", category = "Validation")
         return(list(validation_skipped = TRUE))
@@ -111,7 +111,7 @@ execute_validation_pipeline <- function(validation_results, components, original
 
     "gp_models" = function() {
       if (!is.null(components$gp_models)) {
-        validate_gp_model_workflow(components$gp_models, components$training_data, validation_config$gp_models)
+        diagnose_gp_models(components$gp_models, components$training_data, validation_config$gp_models)
       } else {
         log_message("DEBUG", "No GP models found", category = "Validation")
         return(list(validation_skipped = TRUE))
@@ -120,7 +120,7 @@ execute_validation_pipeline <- function(validation_results, components, original
 
     "soil_science" = function() {
       if (!is.null(components$final_data)) {
-        validate_soil_science_realism(components$final_data, original_data, validation_config$soil_science)
+        diagnose_soil_science_realism(components$final_data, original_data, validation_config$soil_science)
       } else {
         log_message("DEBUG", "No final simulation data found", category = "Validation")
         return(list(validation_skipped = TRUE))
@@ -1000,7 +1000,7 @@ validate_single_gp_predictions <- function(group_model, criteria) {
 get_default_property_constraints <- function() {
   # Builds constraints$property_ranges from get_realistic_property_ranges(), which returns the
   # list(propname = list(min=, max=), ...) shape this function's caller expects. Used by
-  # assess_property_constraints() when called with criteria = NULL.
+  # diagnose_property_constraints() when called with criteria = NULL.
   constraints <- list(property_ranges = get_realistic_property_ranges())
 
   # Add constraints
@@ -1674,7 +1674,7 @@ generate_comprehensive_diagnostics <- function(components, validation_results, o
   })
 
   # 3. GP depth-trend plots (recomputed from components$gp_models the same
-  # way assess_depth_trend_realism() does, since that function's own
+  # way diagnose_depth_trend_realism() does, since that function's own
   # trend_predictions doesn't retain the raw predicted values - see
   # assess_trend_realism(), which discards `predictions` entirely).
   gp_model_plots <- tryCatch({
@@ -1721,7 +1721,7 @@ generate_comprehensive_diagnostics <- function(components, validation_results, o
   })
 
   # 4. Soil-science range-violation plot. range_violations is the one part
-  # of assess_property_constraints()'s output that's genuinely data-derived
+  # of diagnose_property_constraints()'s output that's genuinely data-derived
   # (cross_property_violations/distribution_anomalies are themselves still
   # hardcoded stubs elsewhere in this file - not plotted here since they
   # aren't real data).

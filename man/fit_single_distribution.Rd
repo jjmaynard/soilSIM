@@ -10,7 +10,7 @@ fit_single_distribution(values, dist_name, property_name, config)
 \item{values}{Numeric vector of observed property values.}
 
 \item{dist_name}{One of "normal", "lognormal", "gamma", "beta" (the
-candidate names returned by get_appropriate_distributions()).}
+candidate names returned by distributions_for_properties()).}
 
 \item{property_name}{Property name, used only for logging.}
 

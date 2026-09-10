@@ -31,7 +31,7 @@ median/IQR.
 For the closed-form analytic routes (\code{qnorm}/\code{qbeta}/\code{qgamma}), extra percentiles are free
 and exact regardless of how extreme they are. For
 \code{fuse_general_kde()}'s sample/grid-based route, percentiles are read directly off
-\code{bayesian_update()}'s discretized \code{posterior_prob} (see that function's own "Grid-based
+\code{update_prior()}'s discretized \code{posterior_prob} (see that function's own "Grid-based
 percentiles" section) - exact relative to \code{grid_resolution} and NOT resampling-noise-limited,
 but still subject to how well the underlying KDE itself approximates the tails from a finite
 \code{n_samples}-sized input resample; the extreme percentiles here (P01/P99) are inherently noisier

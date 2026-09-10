@@ -3,7 +3,7 @@
 \docType{data}
 \name{FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS}
 \alias{FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS}
-\title{Default \code{winsorize_probs} \code{fuse_general_kde()} passes to \code{bayesian_update()} on its \code{raw_draws}
+\title{Default \code{winsorize_probs} \code{fuse_general_kde()} passes to \code{update_prior()} on its \code{raw_draws}
 branch only.}
 \format{
 An object of class \code{numeric} of length 2.
@@ -12,12 +12,12 @@ An object of class \code{numeric} of length 2.
 FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS
 }
 \description{
-Default \code{winsorize_probs} \code{fuse_general_kde()} passes to \code{bayesian_update()} on its \code{raw_draws}
+Default \code{winsorize_probs} \code{fuse_general_kde()} passes to \code{update_prior()} on its \code{raw_draws}
 branch only.
 }
 \section{Why this exists}{
 
-\code{bayesian_update()}'s \code{stats::density(bw = "nrd0")} bandwidth choice is sensitive to outliers a
+\code{update_prior()}'s \code{stats::density(bw = "nrd0")} bandwidth choice is sensitive to outliers a
 raw-draws resample can genuinely contain - confirmed via a dedicated adversarial test: a
 right-skewed synthetic prior's raw resample (realized range ~4-195) produced a measurably wider
 KDE bandwidth, and a \emph{less} accurate fused posterior mean on average across 8 seeds, than the
@@ -27,7 +27,7 @@ outlier-driven inflation while retaining the bulk of the real distribution's sha
 most extreme 1\% on each tail is affected, which is exactly the region a KDE-based fused mean is
 most vulnerable to.
 
-\code{bayesian_update()}'s own standalone default is deliberately left \code{NULL} (unclipped) - this
+\code{update_prior()}'s own standalone default is deliberately left \code{NULL} (unclipped) - this
 constant only affects \code{fuse_general_kde()}'s \code{raw_draws} branch, which is the one path
 confirmed to need it; the default percentile-reconstruction branch is already structurally
 bounded near its own P5-P95 input range and is left untouched.

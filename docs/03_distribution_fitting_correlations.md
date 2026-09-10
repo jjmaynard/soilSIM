@@ -193,11 +193,11 @@ simulate_from_percentiles(quantile_df,
 
 #### 19. **`compare_percentile_methods()`** - Side-by-side method comparison
 **Signature**: `compare_percentile_methods(quantile_df, methods = c("linear_cdf", "spline", "kde"), percentile_cols = c("P0", "P5", "P50", "P95", "P100"), n = 1000, bounds = NULL, ...)`
-**Returns**: `list(samples=, summary=)` - `samples` a named list of numeric vectors (one per method, `NA_real_` with a warning if a method errors), `summary` a data frame of summary statistics (via `calculate_summary_statistics()`) with one row per method.
+**Returns**: `list(samples=, summary=)` - `samples` a named list of numeric vectors (one per method, `NA_real_` with a warning if a method errors), `summary` a data frame of summary statistics (via `compute_summary_statistics()`) with one row per method.
 **Algorithm**: Runs `simulate_from_percentiles()` once per requested method on the same `quantile_df`, catching per-method errors so one failing method doesn't abort the comparison, then tabulates statistics for eyeballing or KS-testing method pairs against each other.
 
-#### 20. **`calculate_summary_statistics()`** - Generic summary-statistics table
-**Signature**: `calculate_summary_statistics(data, percentile_probs = seq(0.1, 0.9, by = 0.1))`
+#### 20. **`compute_summary_statistics()`** - Generic summary-statistics table
+**Signature**: `compute_summary_statistics(data, percentile_probs = seq(0.1, 0.9, by = 0.1))`
 **Parameters**: `data` - a numeric vector; `percentile_probs` - probabilities (0-1) to compute as dynamically-named percentile columns.
 **Returns**: A one-row data frame: `Num`, `Mean`, `STD`, `CV`, `Median`, `MAD`, `Min`, `Max`, `Var`, `Quart1`, `Quart3`, `SE`, plus one column per requested percentile (e.g. `P10`, `P20`, ...).
 
@@ -296,8 +296,8 @@ core-distributions.R
 ├── generate_inverse_cdf_distribution() --> simulate_from_percentiles(method="linear_cdf")
 ├── compare_percentile_methods()
 │   ├── simulate_from_percentiles()   (once per method)
-│   └── calculate_summary_statistics()
-├── calculate_summary_statistics()  [standalone]
+│   └── compute_summary_statistics()
+├── compute_summary_statistics()  [standalone]
 └── validate_percentile_methods_synthetic() --> simulate_from_percentiles() (per method, per replicate)
 
 core-correlations.R

@@ -15,5 +15,5 @@ gamma_to_moments(shape, rate)
 \description{
 The inverse direction of \code{moments_to_gamma()} - used to re-express an
 infeasible same-family fusion's inputs as Normal moments before falling
-back to \code{bayes_update_normal_normal()}.
+back to \code{fuse_normal_normal()}.
 }

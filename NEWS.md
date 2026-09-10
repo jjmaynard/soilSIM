@@ -23,6 +23,21 @@
   * `sim_component_comp()` -> `simulate_component_composition()`
   * `calculate_aws_df()` -> `compute_aws()`
   * `validate_complete_workflow()` -> `diagnose_workflow()`
+* **Systematic renames** (also soft-deprecated with shims):
+  * Migration-scar suffixes dropped: `*_working` / `*_working_compatible` / `*_ssurgo_compatible`
+    (e.g. `create_ssurgo_property_lookup_working()` -> `build_ssurgo_property_lookup()`,
+    `process_horizon_data_working_compatible()` -> `process_ssurgo_horizons()`).
+  * Config accessors: `get_default_configuration()` -> `default_config()`,
+    `get_monte_carlo_defaults()` -> `default_monte_carlo_config()`,
+    `get_predefined_properties()` -> `predefined_properties()`, and siblings.
+  * `calculate_*()` -> `compute_*()` (`calculate_mode()`, `calculate_confidence_intervals()`, ...).
+  * Bayesian verbs unified under `fuse_`/`update_`: `bayes_fuse()` -> `fuse_distribution()`,
+    `bayes_update_normal_normal()` -> `fuse_normal_normal()`, `bayesian_update()` -> `update_prior()`.
+  * `_multi` -> `_multiproperty`; noun-first names flipped verb-first
+    (`mukey_draws_lookup()` -> `lookup_mukey_draws()`).
+  * QA reporters moved from `validate_*`/`assess_*` to `diagnose_*`
+    (`validate_monte_carlo_quality()` -> `diagnose_simulation()`, etc.); `validate_*` now means an
+    assertion that returns invisibly or throws.
 
 ## Data infilling consolidation
 

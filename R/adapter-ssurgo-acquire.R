@@ -17,7 +17,7 @@ NULL
 #' @param properties Character vector. Soil properties to download.
 #'   Default: c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o", "cec7", "om",
 #'   "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar"). Each needs a matching
-#'   row in `create_ssurgo_property_lookup_working()` to reach the SQL query.
+#'   row in `build_ssurgo_property_lookup()` to reach the SQL query.
 #' @param include_restrictions Logical. Whether to include horizon restriction data for
 #'   unsuitable horizon detection (default: TRUE)
 #' @param cache_dir Character. Directory for caching downloaded data (default: NULL for no caching)
@@ -74,7 +74,7 @@ download_ssurgo_tabular <- function(aoi_wkt,
                                                    "cec7", "om", "wthirdbar", "wfifteenbar",
                                                    # 5 chemistry properties (
                                                    # task P2) - widened here (not just added to
-                                                   # create_ssurgo_property_lookup_working()'s lookup
+                                                   # build_ssurgo_property_lookup()'s lookup
                                                    # table) since simulate_ssurgo_mapunit_draws()'s call
                                                    # site never overrides this default.
                                                    "caco3", "ec", "ecec", "gypsum", "sar"),
@@ -168,7 +168,7 @@ download_ssurgo_tabular <- function(aoi_wkt,
   # Step 3: Setup property configuration
   if (verbose) log_message("INFO", "Setting up property configuration", category = "Download")
 
-  ssurgo_lookup <- create_ssurgo_property_lookup_working()
+  ssurgo_lookup <- build_ssurgo_property_lookup()
 
   # Validate requested properties
   valid_properties <- input_validation$validation_metadata$property_stats$valid_property_names
@@ -314,7 +314,7 @@ download_ssurgo_tabular <- function(aoi_wkt,
 #' @return Data frame with property mappings for low, representative, and high values
 #'
 #' @export
-create_ssurgo_property_lookup_working <- function() {
+build_ssurgo_property_lookup <- function() {
   # Replace with:
   data.frame(
     Property = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
@@ -1166,11 +1166,11 @@ validate_download_inputs_ssurgo_with_config <- function(aoi_wkt,
     }, error = function(e) {
       log_message("WARN", paste("Config load failed, using defaults:", e$message),
                   category = "Validation")
-      get_default_configuration("validation")
+      default_config("validation")
     })
     validation_config <- config$validation
   } else {
-    validation_config <- get_default_configuration("validation")
+    validation_config <- default_config("validation")
   }
 
   # Setup logging if requested
@@ -1314,7 +1314,7 @@ validate_download_inputs_ssurgo_with_config <- function(aoi_wkt,
 
   # Generate validation report
   if (!is.null(validation_config$generate_plots) && validation_config$generate_plots) {
-    validation_results$validation_report <- generate_validation_report_ssurgo(validation_results)
+    validation_results$validation_report <- diagnose_ssurgo_download(validation_results)
   }
 
   return(validation_results)
@@ -1329,7 +1329,7 @@ validate_download_inputs_ssurgo_with_config <- function(aoi_wkt,
 #' @return Validation report
 #'
 #' @export
-generate_validation_report_ssurgo <- function(validation_results) {
+diagnose_ssurgo_download <- function(validation_results) {
 
   tryCatch({
     report <- list(

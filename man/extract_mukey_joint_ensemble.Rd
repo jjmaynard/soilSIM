@@ -47,8 +47,8 @@ simulation itself (as opposed to \code{properties}, which only filters columns a
 mukey has a replicate spanning every window.
 }
 \description{
-The multi-property, multi-depth-window analogue of \code{\link{mukey_draws_lookup}} /
-\code{\link{mukey_texture_draws_lookup}}: runs the (expensive) SSURGO Monte Carlo once via
+The multi-property, multi-depth-window analogue of \code{\link{lookup_mukey_draws}} /
+\code{\link{lookup_mukey_texture_draws}}: runs the (expensive) SSURGO Monte Carlo once via
 \code{\link{simulate_ssurgo_mapunit_draws}} and returns, per mukey, the \strong{retained bag of joint
 realizations} - every simulated property together, row-aligned across depth windows, so the
 KSSL cross-property and cross-depth rank structure is preserved. This is the input to
@@ -61,5 +61,5 @@ thickness overlap with some window (so no aggregate there) is dropped from that 
 keeping every window's matrix the same number of rows.
 }
 \seealso{
-\code{remarginalize_ensemble_to_posterior()}, \code{\link{mukey_draws_lookup}}
+\code{remarginalize_ensemble_to_posterior()}, \code{\link{lookup_mukey_draws}}
 }

@@ -63,7 +63,7 @@ process_ssurgo_data <- function(raw_data,
   # Step 1: Process horizon data using working-compatible logic
   if (verbose) log_message("INFO", "Processing horizon data", category = "Processing")
 
-  horizon_result <- process_horizon_data_working_compatible(
+  horizon_result <- process_ssurgo_horizons(
     raw_data = raw_data,
     detect_unsuitable = options$detect_unsuitable,
     advanced_cleaning = options$advanced_cleaning,
@@ -77,7 +77,7 @@ process_ssurgo_data <- function(raw_data,
   # Step 2: Process component data
   if (verbose) log_message("INFO", "Processing component data", category = "Processing")
 
-  component_result <- process_component_data_working_compatible(
+  component_result <- process_ssurgo_components(
     raw_data = raw_data,
     standardize_names = options$standardize_names,
     remove_invalid = options$remove_invalid,
@@ -87,7 +87,7 @@ process_ssurgo_data <- function(raw_data,
   # Step 3: Create main processed dataset (compatible with infill functions)
   if (verbose) log_message("INFO", "Creating compatible processed dataset", category = "Processing")
 
-  processed_data <- create_infill_compatible_dataset(
+  processed_data <- prepare_ssurgo_for_infill(
     raw_data = raw_data,
     horizon_processing = horizon_result,
     component_processing = component_result,
@@ -173,7 +173,7 @@ process_ssurgo_data <- function(raw_data,
 #' @return List with processed horizon data and processing statistics
 #'
 #' @export
-process_horizon_data_working_compatible <- function(raw_data,
+process_ssurgo_horizons <- function(raw_data,
                                                     detect_unsuitable = TRUE,
                                                     advanced_cleaning = TRUE,
                                                     standardize_names = TRUE,
@@ -296,7 +296,7 @@ process_horizon_data_working_compatible <- function(raw_data,
 #' @return List with processed component data and processing statistics
 #'
 #' @export
-process_component_data_working_compatible <- function(raw_data,
+process_ssurgo_components <- function(raw_data,
                                                       standardize_names = TRUE,
                                                       remove_invalid = TRUE,
                                                       verbose = FALSE) {
@@ -396,7 +396,7 @@ process_component_data_working_compatible <- function(raw_data,
 #' @return Data frame compatible with existing infill workflow
 #'
 #' @export
-create_infill_compatible_dataset <- function(raw_data,
+prepare_ssurgo_for_infill <- function(raw_data,
                                              horizon_processing,
                                              component_processing,
                                              options,
@@ -472,12 +472,12 @@ create_infill_compatible_dataset <- function(raw_data,
 #' @seealso [clean_property_data()]
 #' @keywords internal
 #' @export
-clean_property_data_ssurgo_compatible <- function(df, property_name,
+clean_ssurgo_property_data <- function(df, property_name,
                                                   validation_config = NULL,
                                                   generate_report = TRUE,
                                                   verbose = FALSE) {
   .Deprecated("clean_property_data", package = "soilSIM",
-              msg = paste("clean_property_data_ssurgo_compatible() is deprecated;",
+              msg = paste("clean_ssurgo_property_data() is deprecated;",
                           "use clean_property_data(..., outlier_policy = \"soil_aware\")."))
   clean_property_data(df, property_name,
                       outlier_policy = "aggressive_iqr",
@@ -812,7 +812,7 @@ generate_processing_quality_report <- function(original_data, processed_data,
 #'   `_PIW90` suffixed columns), and - when texture data and `soiltexture` are available - the
 #'   most probable texture class and its simulation-frequency probability.
 #' @export
-hz_quant_prob_mukey <- function(hz_data) {
+compute_mukey_horizon_quantiles <- function(hz_data) {
   q <- c(0.05, 0.5, 0.95)
 
   # Start with base columns that we need

@@ -42,7 +42,7 @@ Default \code{parallel = FALSE} matches prior behavior exactly.}
 \code{apply_gp_depth_trends()}. \code{config$monte_carlo$vertical_correlation_method} (default
 \code{"joint_copula"} default, or \code{"gp_quantile_retrofit"}) selects this top-level entry
 point's vertical-correlation method; \code{NULL} (default) resolves to \code{"joint_copula"},
-matching \code{get_monte_carlo_defaults()}'s own default.}
+matching \code{default_monte_carlo_config()}'s own default.}
 
 \item{mukey_raster}{Optional, already-fetched \code{terra::SpatRaster} of mukey codes for this same
 \code{aoi_vect} (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}), passed through to
@@ -102,7 +102,7 @@ Clear the cache entry (or the whole cache directory) to force a fresh fetch.
 
 This function's SIMULATED output is not disk-cached: every call re-simulates fresh random
 draws. Raw-draws fusion reuses draws in memory within one \code{run_fusion()} call
-(computed once, used for both the percentile cache and \code{mukey_draws_lookup()}); see also
+(computed once, used for both the percentile cache and \code{lookup_mukey_draws()}); see also
 \code{run_fusion_group()}'s \code{shared_draws} pattern.
 }
 

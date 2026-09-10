@@ -39,7 +39,7 @@ validate_properties <- function(properties,
   }
 
   # 2. Get available properties
-  available_props <- get_available_properties(property_lookup)
+  available_props <- available_properties(property_lookup)
 
   if (length(available_props) == 0) {
     results$warnings <- c(results$warnings, "Could not load property lookup - skipping validation")
@@ -102,13 +102,13 @@ validate_properties <- function(properties,
 #' @return Vector of available property names
 #'
 #' @export
-get_available_properties <- function(property_lookup) {
+available_properties <- function(property_lookup) {
 
   tryCatch({
 
     if (is.character(property_lookup) && length(property_lookup) == 1) {
       # Named source
-      return(get_predefined_properties(property_lookup))
+      return(predefined_properties(property_lookup))
 
     } else if (is.function(property_lookup)) {
       # Function that returns properties
@@ -142,16 +142,16 @@ get_available_properties <- function(property_lookup) {
 #' @return Vector of property names
 #'
 #' @export
-get_predefined_properties <- function(source_name) {
+predefined_properties <- function(source_name) {
 
   switch(tolower(source_name),
 
          "ssurgo" = {
-           # create_ssurgo_property_lookup_working() lives in adapter-ssurgo-acquire.R. The
+           # build_ssurgo_property_lookup() lives in adapter-ssurgo-acquire.R. The
            # tryCatch() below degrades to a WARN plus an empty vector, since this switch
            # has no other way to signal an unknown or unavailable source.
            tryCatch({
-             ssurgo_data <- create_ssurgo_property_lookup_working()
+             ssurgo_data <- build_ssurgo_property_lookup()
              if ("Property" %in% names(ssurgo_data)) {
                return(ssurgo_data$Property)
              } else {
@@ -240,7 +240,7 @@ validate_properties_with_synonyms <- function(properties,
 
   # Known SSURGO properties and their synonyms, derived from the shared
   # canonical table (see .ssurgo_property_synonyms()) so this list can't
-  # drift out of sync with get_default_property_mapping()/get_default_synonyms().
+  # drift out of sync with get_default_property_mapping()/default_property_synonyms().
   ssurgo_canonical <- .ssurgo_property_synonyms()
   ssurgo_properties <- stats::setNames(
     lapply(names(ssurgo_canonical), function(canonical_name) {
@@ -353,7 +353,7 @@ validate_properties_with_synonyms <- function(properties,
 #' `.ssurgo_property_synonyms()`).
 #'
 #' @export
-get_default_synonyms <- function(property_lookup) {
+default_property_synonyms <- function(property_lookup) {
 
   if (is.character(property_lookup) && length(property_lookup) == 1) {
     source_name <- tolower(property_lookup)

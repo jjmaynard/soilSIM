@@ -111,8 +111,8 @@ test_that("simulate_component_composition() output joins onto horizon data by co
   expect_equal(nrow(joined), nrow(horizon_data))
 })
 
-test_that("calculate_mode() returns the most frequent value", {
-  expect_equal(calculate_mode(c(1, 2, 2, 3, 3, 3, 4)), 3)
+test_that("compute_mode() returns the most frequent value", {
+  expect_equal(compute_mode(c(1, 2, 2, 3, 3, 3, 4)), 3)
 })
 
 test_that("simulate_correlated_triangular() respects each distribution's (lower, mode, upper) bounds", {
@@ -308,8 +308,8 @@ test_that("simulate_cokey_generalized()'s per-genhz PD-matrix caching matches th
         texture_result <- tryCatch({
           sim_txt <- simulate_correlated_triangular(as.integer(row$sim_comppct), params_txt, txt_corr)
           sim_txt_ilr <- ilr_forward(clay = sim_txt[, 3], sand = sim_txt[, 1], silt = sim_txt[, 2])
-          list(ilr1_lrh = c(min(sim_txt_ilr[, "z1"]), calculate_mode(sim_txt_ilr[, "z1"]), max(sim_txt_ilr[, "z1"])),
-               ilr2_lrh = c(min(sim_txt_ilr[, "z2"]), calculate_mode(sim_txt_ilr[, "z2"]), max(sim_txt_ilr[, "z2"])))
+          list(ilr1_lrh = c(min(sim_txt_ilr[, "z1"]), compute_mode(sim_txt_ilr[, "z1"]), max(sim_txt_ilr[, "z1"])),
+               ilr2_lrh = c(min(sim_txt_ilr[, "z2"]), compute_mode(sim_txt_ilr[, "z2"]), max(sim_txt_ilr[, "z2"])))
         }, error = function(e) NULL)
         if (!is.null(texture_result)) { ilr1_lrh <- texture_result$ilr1_lrh; ilr2_lrh <- texture_result$ilr2_lrh }
       }
@@ -617,7 +617,7 @@ test_that("simulate_and_perturb_soil_profiles() replicates a single-horizon prof
 })
 
 test_that("simulate_profile_depths_by_mukey()'s id-column fix: aqp::depths(id ~ ...) doesn't error on a compname-derived id", {
-  # Regression test for the id-column bug fix: get_aws_data_by_mukey() output
+  # Regression test for the id-column bug fix: fetch_ssurgo_aws_data() output
   # only has `compname`, not `id`; simulate_profile_depths_by_mukey() must
   # derive `id` before calling aqp::depths<-() since adjust_out_of_range_profiles()/
   # evaluate_simulated_depths() downstream both hardcode a literal `id` column.
@@ -641,7 +641,7 @@ test_that("simulate_profile_depths_by_mukey() derives and joins sim_comppct inte
   # early-return path in simulate_and_perturb_soil_profiles() is taken and no live OSD
   # lookup occurs).
   testthat::local_mocked_bindings(
-    get_aws_data_by_mukey = function(mukeys) {
+    fetch_ssurgo_aws_data = function(mukeys) {
       data.frame(
         mukey = "999", cokey = "1", compname = "onehorizon",
         comppct_l = 100, comppct_r = 100, comppct_h = 100,
@@ -696,7 +696,7 @@ test_that("simulate_and_perturb_soil_profiles() runs the full multi-horizon pert
   expect_equal(length(result), 4)
 })
 
-test_that("get_aws_data_by_mukey()/query_osd_distinctness() require the live SDA/OSD services", {
+test_that("fetch_ssurgo_aws_data()/query_osd_distinctness() require the live SDA/OSD services", {
   testthat::skip_if_offline()
   testthat::skip("Live NRCS Soil Data Access / OSD queries are not exercised in automated tests - see test-ssurgo-acquisition.R for the established precedent.")
 })

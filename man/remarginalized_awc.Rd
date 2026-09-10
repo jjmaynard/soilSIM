@@ -93,7 +93,7 @@ spread per pixel, propagated through Saxton-Rawls. Captured.
 (KSSL + joint-copula vertical correlation), \emph{held fixed}. SOLUS carries no joint information,
 so nothing is re-estimated. The preserved correlation is \strong{rank (Spearman)}, not Pearson.
 \item \strong{Pedotransfer-function error}: NOT propagated. Saxton-Rawls is applied deterministically
-per realization; the +/-15\\% band \code{calculate_saxton_rawls_single()} returns is unused.
+per realization; the +/-15\\% band \code{compute_saxton_rawls()} returns is unused.
 \item \strong{Sub-mukey variation in dependence}: none. Every pixel in a mukey shares the source
 ensemble; only the fused marginals vary pixel-to-pixel.
 }

@@ -30,13 +30,13 @@ apply_gp_depth_trends(
 \code{INFO}-level progress messages print for the duration of this call (default
 \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 
-\item{config}{Optional Monte Carlo config (as from \code{get_monte_carlo_defaults()}) whose
+\item{config}{Optional Monte Carlo config (as from \code{default_monte_carlo_config()}) whose
 \code{monte_carlo$vertical_correlation_method} selects between \code{"joint_copula"}
 (the default; dispatches to
 \code{preserve_correlation_structure_joint()}, drawing depth correlation and property
 correlation simultaneously) and \code{"gp_quantile_retrofit"} (an explicit opt-out that dispatches to
 \code{preserve_correlation_structure()}). \code{NULL} (default) resolves to
-\code{"joint_copula"}, matching \code{get_monte_carlo_defaults()}'s own default - set
+\code{"joint_copula"}, matching \code{default_monte_carlo_config()}'s own default - set
 \code{config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"} explicitly to
 select the quantile-retrofit method. Under \code{"joint_copula"},
 \code{config$monte_carlo$vertical_correlation_gating} (default \code{FALSE}) separately

@@ -14,7 +14,7 @@ mukey_draws_closed_form_fit_raster(
 \arguments{
 \item{mukey_raster}{Categorical mukey SpatRaster, aligned to the target grid.}
 
-\item{mukey_draws}{A \code{mukey_draws_lookup()} result - named list keyed by mukey (character), each
+\item{mukey_draws}{A \code{lookup_mukey_draws()} result - named list keyed by mukey (character), each
 element a numeric vector of real simulated draws for that mukey.}
 
 \item{family}{One of "normal", "beta", "gamma", "lognormal". \code{"lognormal"} (added

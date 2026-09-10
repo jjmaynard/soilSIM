@@ -30,7 +30,7 @@ analyze_soil_statistics(
 
 **Parameters**:
 - `processed_data` — processed SSURGO data frame (from the data-processing group), expected to carry `cokey`, `hzdept_r`, and numeric `_r` property columns.
-- `analysis_config` — list of overrides merged (via `merge_configurations()`) on top of `get_statistical_analysis_defaults()`.
+- `analysis_config` — list of overrides merged (via `merge_configurations()`) on top of `default_statistics_config()`.
 - `correlation_methods` — character vector of correlation methods to compute (`"pearson"`, `"spearman"`, and/or `"kendall"`).
 - `distribution_fitting` — whether to run Step 5 (distribution analysis).
 - `outlier_detection` — whether to run Step 6 (outlier analysis).
@@ -42,7 +42,7 @@ analyze_soil_statistics(
 
 **Behavior**: Runs a fixed 10-step pipeline: (1) validates input data quality via `validate_data_quality()`, warning rather than stopping if quality is below `min_quality_score`; (2) identifies and validates numeric soil properties via `identify_numeric_soil_properties()` + `filter_valid_numeric_properties()` (drops all-NA/non-finite columns) + `validate_properties_with_synonyms()`; (3) handles missing values via `handle_missing_values()`, optionally grouped by `genhz`; (4) runs correlation analysis; (5) optionally fits distributions; (6) optionally detects outliers; (7) computes full property statistics via `compute_property_statistics()`; (8) optionally validates the accumulated results; (9) builds a quality report; (10) assembles timing/count metadata. Steps 4/5/6/8/9 dispatch on `use_enhanced_chain`: `FALSE` (default) uses the `_safe` variants (`run_comprehensive_correlation_analysis_safe()` — global matrices only; `analyze_property_distributions_safe()` — descriptive summary statistics per property, not actual fits; `detect_comprehensive_outliers_safe()` — IQR method only; `validate_statistical_results_safe()`; `generate_statistical_quality_report_safe()`); `TRUE` uses the enhanced variants (documented below). Every analytical step is individually `tryCatch`-wrapped with `handle_workflow_error(..., "warn")`, so a failure in any one step degrades gracefully rather than aborting the whole analysis.
 
-The enhanced-chain functions read statistical parameters through the internal helper `.stat_cfg(config, key, default)` = `config$statistical_analysis[[key]] %||% config[[key]] %||% default`, so they accept parameters both flat off `config$X` and nested under `config$statistical_analysis$X` (the shape `get_statistical_analysis_defaults()` produces).
+The enhanced-chain functions read statistical parameters through the internal helper `.stat_cfg(config, key, default)` = `config$statistical_analysis[[key]] %||% config[[key]] %||% default`, so they accept parameters both flat off `config$X` and nested under `config$statistical_analysis$X` (the shape `default_statistics_config()` produces).
 
 #### 2. `run_comprehensive_correlation_analysis()` — Enhanced Correlation Analysis
 
@@ -70,11 +70,11 @@ The enhanced-chain functions read statistical parameters through the internal he
 
 **Signature**: `fit_property_distributions(values, property_name, config)`
 
-**Purpose/Behavior**: Determines candidate distribution families via `get_appropriate_distributions()`, fits each with `fit_single_distribution()` (skipping failures), and ranks the successful fits best-first by AIC via `rank_distribution_fits()`. **Returns** a named list of fit results (one per successfully-fit distribution family).
+**Purpose/Behavior**: Determines candidate distribution families via `distributions_for_properties()`, fits each with `fit_single_distribution()` (skipping failures), and ranks the successful fits best-first by AIC via `rank_distribution_fits()`. **Returns** a named list of fit results (one per successfully-fit distribution family).
 
-#### 6. `get_appropriate_distributions()`
+#### 6. `distributions_for_properties()`
 
-**Signature**: `get_appropriate_distributions(property_name, values, config = NULL)`
+**Signature**: `distributions_for_properties(property_name, values, config = NULL)`
 
 **Purpose**: Chooses candidate distribution families for a property using a type-based heuristic — `c("beta", "normal")` for texture fractions (`sandtotal_r`/`silttotal_r`/`claytotal_r`), `c("normal", "gamma")` for `ph1to1h2o_r`, and `c("normal", "lognormal", "gamma", "weibull")` otherwise. If `config$distribution_methods` is supplied, the result is narrowed to the intersection of the heuristic and the requested list; if that intersection is empty, the requested list is used unfiltered (with a logged warning) rather than silently discarded. `values` is accepted for interface symmetry with callers but is not currently used by the heuristic itself. **Returns** a character vector of candidate distribution names.
 
@@ -96,11 +96,11 @@ The enhanced-chain functions read statistical parameters through the internal he
 
 **Purpose/Behavior**: Assembles a composite report: `overall_quality_score` via `calculate_overall_statistics_quality_score()` (mean of whichever of the data-quality score, validation score, and per-component quality assessments are available), `data_quality` (including `calculate_missing_data_improvement()`), `analysis_quality` (via `assess_correlation_quality()` / `assess_distribution_quality()` / `assess_outlier_quality()`), `validation_summary`, and `recommendations` (via `generate_analysis_recommendations()`, currently two hardcoded checks: data-quality-below-0.8 and presence of correlation warnings).
 
-#### 10. `get_statistical_analysis_defaults()`
+#### 10. `default_statistics_config()`
 
-**Signature**: `get_statistical_analysis_defaults()` (no arguments)
+**Signature**: `default_statistics_config()` (no arguments)
 
-**Purpose/Behavior**: Builds the default statistical-analysis configuration by taking `get_default_configuration("full")` and merging in a `statistical_analysis` block covering stratification flags, missing-value strategy, correlation method/threshold defaults, distribution-fitting families, outlier method/threshold defaults, and quality-control thresholds. **Returns** the merged configuration list (via `merge_configurations()`).
+**Purpose/Behavior**: Builds the default statistical-analysis configuration by taking `default_config("full")` and merging in a `statistical_analysis` block covering stratification flags, missing-value strategy, correlation method/threshold defaults, distribution-fitting families, outlier method/threshold defaults, and quality-control thresholds. **Returns** the merged configuration list (via `merge_configurations()`).
 
 #### 11. `validate_statistical_config()`
 
@@ -118,7 +118,7 @@ The enhanced-chain functions read statistical parameters through the internal he
 
 **Signature**: `compute_property_statistics(data, properties, config)`
 
-**Purpose/Behavior**: For each property, computes n/missing-rate/mean/sd/min/max/range/CV/median/quartiles/IQR on finite values, adds a 95% t-based confidence interval via `calculate_confidence_intervals()`, and adds skewness/kurtosis (`calculate_skewness()`/`calculate_kurtosis()`, both hand-rolled moment-based implementations) plus a Shapiro-Wilk normality p-value (only computed when n ≤ 5000, since `shapiro.test()` is not defined for larger samples). Properties with zero finite values are silently skipped. **Returns** a named list keyed by property.
+**Purpose/Behavior**: For each property, computes n/missing-rate/mean/sd/min/max/range/CV/median/quartiles/IQR on finite values, adds a 95% t-based confidence interval via `compute_confidence_intervals()`, and adds skewness/kurtosis (`calculate_skewness()`/`calculate_kurtosis()`, both hand-rolled moment-based implementations) plus a Shapiro-Wilk normality p-value (only computed when n ≤ 5000, since `shapiro.test()` is not defined for larger samples). Properties with zero finite values are silently skipped. **Returns** a named list keyed by property.
 
 #### 14. `analyze_texture_correlations()`
 
@@ -148,13 +148,13 @@ diagnose_workflow(
 **Parameters**:
 - `workflow_results` — complete workflow output, expected to optionally contain `simulation_data`, `integrated_data`, `gp_models`, `correlation_matrices`, `training_data` keys.
 - `original_data` — original SSURGO/NRCS data, used as a comparison baseline for coverage and depth-trend checks.
-- `validation_config` — validation configuration; defaults to `get_default_configuration("validation")`.
+- `validation_config` — validation configuration; defaults to `default_config("validation")`.
 - `generate_plots` — whether to generate diagnostic plots (Step 7 of the pipeline).
 - `output_dir` — directory to save diagnostic plot files into (plots are still returned as objects/paths even if `NULL`, just not written to disk).
 
 **Returns**: A list with `workflow_summary`, `monte_carlo_validation`, `correlation_validation`, `gp_model_validation`, `soil_science_validation`, `performance_metrics`, `overall_assessment` (score/grade/status), `diagnostic_plots`, `recommendations`, and `validation_metadata` (timestamp, config, R/package versions, duration).
 
-**Behavior**: (1) initializes the result structure via `initialize_validation_structure()`; (2) extracts and shallow-validates whichever of `simulation_data`/`gp_models`/`correlation_matrices`/`training_data` are present via `extract_and_validate_components()`; (3) runs `execute_validation_pipeline()`, which in turn conditionally calls `validate_monte_carlo_quality()`, `validate_correlation_structures()`, `validate_gp_model_workflow()`, and `validate_soil_science_realism()` — each skipped (not failed) if its required component wasn't found — then computes `calculate_workflow_performance()`, `assess_workflow_quality()`, optionally `generate_comprehensive_diagnostics()`, and `generate_workflow_recommendations()`; (4) finalizes timing via `finalize_validation_results()`. Every pipeline step is individually `tryCatch`-wrapped, so a missing or malformed component degrades that step to a `validation_skipped`/`validation_failed` entry rather than aborting the whole call.
+**Behavior**: (1) initializes the result structure via `initialize_validation_structure()`; (2) extracts and shallow-validates whichever of `simulation_data`/`gp_models`/`correlation_matrices`/`training_data` are present via `extract_and_validate_components()`; (3) runs `execute_validation_pipeline()`, which in turn conditionally calls `diagnose_simulation()`, `diagnose_correlation_structures()`, `diagnose_gp_models()`, and `diagnose_soil_science_realism()` — each skipped (not failed) if its required component wasn't found — then computes `calculate_workflow_performance()`, `assess_workflow_quality()`, optionally `generate_comprehensive_diagnostics()`, and `generate_workflow_recommendations()`; (4) finalizes timing via `finalize_validation_results()`. Every pipeline step is individually `tryCatch`-wrapped, so a missing or malformed component degrades that step to a `validation_skipped`/`validation_failed` entry rather than aborting the whole call.
 
 #### 2. `generate_validation_report()`
 
@@ -180,81 +180,81 @@ generate_validation_report(
 
 **Purpose/Behavior**: Computes a per-component quality score (Monte Carlo, correlation, GP models, soil science) via `calculate_component_quality_scores()`, combines them into a single weighted score via `calculate_weighted_quality_score()` (weights from `validation_config$quality_weights` or `get_default_quality_weights()`, an equal 0.25/0.25/0.25/0.25 split by default), assigns a letter-style grade via `determine_quality_grade()` (`"Excellent"` ≥0.9 down to `"Poor"` <0.6), and flags `identify_critical_issues()` (validation failures, sub-0.6 overall score, data-quality failures). **Returns** a `create_quality_assessment()` list: `quality_score`, `quality_grade`, `component_scores`, `critical_issues`, `workflow_status` (`"PASSED"` if `quality_score >= validation_config$minimum_acceptable_score` — default 0.7 — else `"FAILED"`), `confidence_level` (via `calculate_confidence_level()`, which rewards a high mean score with low cross-component variance), and `assessment_metadata`.
 
-#### 4. `validate_monte_carlo_quality()`
+#### 4. `diagnose_simulation()`
 
-**Signature**: `validate_monte_carlo_quality(monte_carlo_results, original_data = NULL, config = NULL)`
+**Signature**: `diagnose_simulation(monte_carlo_results, original_data = NULL, config = NULL)`
 
-**Purpose/Behavior**: Validates `monte_carlo_results$simulation_data` via `validate_data_quality()` (requires `cokey`, `simulation_number`), then runs four assessments in sequence with progress tracking (`track_progress()`): `assess_simulation_convergence()` (splits `simulation_number` into `config$convergence_criteria$n_batches` sequential batches — default 5 — and checks whether each numeric property's batch mean has stabilized within `tolerance`, default 0.05 relative change), `assess_simulation_coverage()`, `validate_distribution_fidelity()`, and a `"diagnostics"` step that calls `generate_simulation_diagnostics()` (defined in `core-montecarlo.R`) with all 5 arguments (`original_data, simulation_results, properties, correlation_config, config`) by name, sourced from this function's own `original_data` parameter, the `simulation_data` local (the constrained `[horizon, property, realization]` array), and `monte_carlo_results$metadata$properties`/`monte_carlo_results$correlation_structure`. **Returns** `list(convergence_assessment=, coverage_assessment=, distribution_fidelity=, simulation_diagnostics=, data_quality=)`.
+**Purpose/Behavior**: Validates `monte_carlo_results$simulation_data` via `validate_data_quality()` (requires `cokey`, `simulation_number`), then runs four assessments in sequence with progress tracking (`track_progress()`): `assess_simulation_convergence()` (splits `simulation_number` into `config$convergence_criteria$n_batches` sequential batches — default 5 — and checks whether each numeric property's batch mean has stabilized within `tolerance`, default 0.05 relative change), `diagnose_simulation_coverage()`, `diagnose_distribution_fidelity()`, and a `"diagnostics"` step that calls `generate_simulation_diagnostics()` (defined in `core-montecarlo.R`) with all 5 arguments (`original_data, simulation_results, properties, correlation_config, config`) by name, sourced from this function's own `original_data` parameter, the `simulation_data` local (the constrained `[horizon, property, realization]` array), and `monte_carlo_results$metadata$properties`/`monte_carlo_results$correlation_structure`. **Returns** `list(convergence_assessment=, coverage_assessment=, distribution_fidelity=, simulation_diagnostics=, data_quality=)`.
 
-#### 5. `assess_simulation_coverage()`
+#### 5. `diagnose_simulation_coverage()`
 
-**Signature**: `assess_simulation_coverage(simulation_data, original_data, criteria = NULL)`
+**Signature**: `diagnose_simulation_coverage(simulation_data, original_data, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria `list(min_coverage_percentile = 0.95, max_extrapolation_factor = 1.2, min_samples_per_group = 10)`. Identifies numeric properties (excluding `simulation_number`/`hzdept_r`/`hzdepb_r`) via `validate_properties()`, then for each: if `original_data` is supplied, computes `assess_property_coverage()` (overlap between simulated and original ranges, plus extrapolation-beyond-range detection); always computes `assess_distributional_coverage()` (IQR-based outlier percentage and 5th–95th percentile spread relative to full range). If `cokey` is present, also computes `assess_group_representation()` (fraction of `cokey` groups meeting `min_samples_per_group`). **Returns** `list(parameter_space_coverage=, distributional_coverage=, group_representation=)`.
 
-#### 6. `validate_distribution_fidelity()`
+#### 6. `diagnose_distribution_fidelity()`
 
-**Signature**: `validate_distribution_fidelity(simulation_data, simulation_metadata, criteria = NULL)`
+**Signature**: `diagnose_distribution_fidelity(simulation_data, simulation_metadata, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria `list(ks_test_alpha = 0.05, moment_tolerance = 0.1, quantile_tolerance = 0.05)`. For each property named in `simulation_metadata$distribution_parameters`, draws a reference sample from the fitted distribution via `core-distributions.R`'s `quantile_from_fit()` and compares it against the simulated values three ways: `test_distribution_fidelity()` (two-sample Kolmogorov-Smirnov test), `compare_distribution_moments()` (relative mean/variance difference), `compare_distribution_quantiles()` (relative difference at the 10th/50th/90th percentiles). Also runs IQR-based `detect_outliers()` per property. **Returns** `list(distribution_tests=, moment_comparisons=, quantile_comparisons=, outlier_assessment=)`.
 
-#### 7. `validate_correlation_structures()`
+#### 7. `diagnose_correlation_structures()`
 
-**Signature**: `validate_correlation_structures(correlation_matrices, simulation_data, config = NULL)`
+**Signature**: `diagnose_correlation_structures(correlation_matrices, simulation_data, config = NULL)`
 
-**Purpose/Behavior**: Validates `simulation_data` via `validate_data_quality()`, then runs four steps with progress tracking: `validate_correlation_matrix_quality()` (positive-definiteness + condition number per matrix, via `assess_correlation_matrix_properties()`), `validate_correlation_preservation_diagnostics()`, `validate_within_depth_correlations()`, `assess_cholesky_decomposition()`. **Returns** `list(matrix_quality=, preservation_assessment=, depth_specific_validation=, cholesky_validation=, data_quality=)`.
+**Purpose/Behavior**: Validates `simulation_data` via `validate_data_quality()`, then runs four steps with progress tracking: `validate_correlation_matrix_quality()` (positive-definiteness + condition number per matrix, via `assess_correlation_matrix_properties()`), `diagnose_correlation_preservation()`, `diagnose_within_depth_correlations()`, `diagnose_cholesky()`. **Returns** `list(matrix_quality=, preservation_assessment=, depth_specific_validation=, cholesky_validation=, data_quality=)`.
 
-#### 8. `validate_correlation_preservation_diagnostics()`
+#### 8. `diagnose_correlation_preservation()`
 
-**Signature**: `validate_correlation_preservation_diagnostics(original_correlations, simulation_data, criteria = NULL)`
+**Signature**: `diagnose_correlation_preservation(original_correlations, simulation_data, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria `list(max_correlation_difference = 0.1, correlation_rmse_threshold = 0.05, min_samples_for_validation = 30)`. Computes the overall simulated correlation matrix via `safe_correlation()` and compares it against `original_correlations$global_correlation_matrix` on shared properties via `assess_correlation_differences()` (real element-wise max/mean/RMSE difference). Also recomputes correlations within up to 5 distinct `hzdept_r` depth values (each requiring ≥ `min_samples_for_validation` rows) and compares each via `assess_depth_correlation_preservation()`. **Returns** `list(overall_preservation=, depth_specific_preservation=, property_specific_preservation=)` (the last is currently never populated).
 
-#### 9. `validate_within_depth_correlations()`
+#### 9. `diagnose_within_depth_correlations()`
 
-**Signature**: `validate_within_depth_correlations(simulation_data, criteria = NULL)`
+**Signature**: `diagnose_within_depth_correlations(simulation_data, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria includes `depth_bins = c(0, 15, 30, 60, 100, 200)` and `min_samples_per_bin = 20`. Bins `hzdept_r` via `cut()`, computes a correlation matrix per bin (via `safe_correlation()`) that meets the minimum sample size, and records mean absolute correlation plus `assess_correlation_matrix_properties()` per bin. Also computes `assess_correlation_stability_across_depths()` (how much each pairwise correlation's value varies across bins). **Returns** `list(depth_bin_correlations=, correlation_stability=, depth_trend_correlations=)` (the last is currently never populated).
 
-#### 10. `assess_cholesky_decomposition()`
+#### 10. `diagnose_cholesky()`
 
-**Signature**: `assess_cholesky_decomposition(correlation_matrices, criteria = NULL)`
+**Signature**: `diagnose_cholesky(correlation_matrices, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria `list(reconstruction_tolerance = 1e-10, condition_number_threshold = 1e12, eigenvalue_threshold = 1e-8)`. For every matrix entry in `correlation_matrices`, runs `assess_single_cholesky_decomposition()` — an actual `chol()` attempt with Frobenius-norm reconstruction-error measurement (`||L'L - matrix||`), graded `"excellent"`/`"good"`/`"poor"` by tolerance. **Returns** `list(decomposition_quality=, numerical_stability=, reconstruction_accuracy=)` (the latter two sub-lists are not populated beyond `decomposition_quality`).
 
-#### 11. `validate_gp_model_workflow()`
+#### 11. `diagnose_gp_models()`
 
-**Signature**: `validate_gp_model_workflow(gp_models, training_data, config = NULL)`
+**Signature**: `diagnose_gp_models(gp_models, training_data, config = NULL)`
 
-**Purpose/Behavior**: Validates `training_data` (if supplied) via `validate_data_quality()`, then runs four GP-focused steps with progress tracking: `validate_gp_model_performance()`, `validate_gp_predictions()`, `assess_depth_trend_realism()`, `perform_gp_cross_validation()`. **Returns** `list(model_performance=, prediction_quality=, depth_trend_realism=, cross_validation=, training_data_quality=)`.
+**Purpose/Behavior**: Validates `training_data` (if supplied) via `validate_data_quality()`, then runs four GP-focused steps with progress tracking: `diagnose_gp_performance()`, `diagnose_gp_predictions()`, `diagnose_depth_trend_realism()`, `perform_gp_cross_validation()`. **Returns** `list(model_performance=, prediction_quality=, depth_trend_realism=, cross_validation=, training_data_quality=)`.
 
-#### 12. `validate_gp_model_performance()`
+#### 12. `diagnose_gp_performance()`
 
-**Signature**: `validate_gp_model_performance(gp_models, training_data, criteria = NULL)`
+**Signature**: `diagnose_gp_performance(gp_models, training_data, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria `list(max_training_rmse = 0.5, min_r_squared = 0.6, max_condition_number = 1e12)`. For every property/group combination in `gp_models` whose type is `"stratified_grouped"`, calls `assess_single_gp_performance()`, which delegates training RMSE to `core-gp.R`'s `calculate_model_diagnostics()` and derives R² from that RMSE against the training data's own variance. Aggregates via `calculate_overall_gp_performance()` (mean R²/RMSE across all models). **Returns** `list(individual_model_performance=, overall_performance=)`.
 
-#### 13. `assess_depth_trend_realism()`
+#### 13. `diagnose_depth_trend_realism()`
 
-**Signature**: `assess_depth_trend_realism(gp_models, criteria = NULL)`
+**Signature**: `diagnose_depth_trend_realism(gp_models, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria includes `test_depths = seq(0, 200, by = 5)`, `realistic_ranges = get_realistic_property_ranges()`, `monotonicity_tolerance = 0.3`, `gradient_limits = get_realistic_gradients()`. For each stratified-grouped GP model, predicts a depth trend via `core-gp.R`'s `predict_gp_depth_trends()`, then judges realism via `assess_trend_realism()` — which reuses `core-gp.R`'s `assess_trend_monotonicity()` and `assess_realistic_values()`, and additionally counts values outside `criteria$realistic_ranges[[prop]]` (or non-finite predictions if no range is configured for that property). Violations are aggregated via `summarize_constraint_violations()`. **Returns** `list(trend_predictions=, realism_assessment=, constraint_violations=)` (`realism_assessment` is currently never separately populated beyond what's nested in `trend_predictions`/`constraint_violations`).
 
-#### 14. `validate_gp_predictions()`
+#### 14. `diagnose_gp_predictions()`
 
-**Signature**: `validate_gp_predictions(gp_models, criteria = NULL)`
+**Signature**: `diagnose_gp_predictions(gp_models, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria `list(test_depths = seq(0, 150, by = 10), uncertainty_threshold = 0.5, smoothness_criteria = 0.1)`. For each stratified-grouped GP model, calls `validate_single_gp_predictions()`, which predicts a depth trend and measures smoothness as one minus the normalized mean absolute second difference of the predicted curve (a discrete-roughness measure). **Returns** `list(prediction_smoothness=, uncertainty_assessment=, extrapolation_behavior=)` (only `prediction_smoothness` is currently populated).
 
-#### 15. `validate_soil_science_realism()`
+#### 15. `diagnose_soil_science_realism()`
 
-**Signature**: `validate_soil_science_realism(simulation_data, original_data = NULL, config = NULL)`
+**Signature**: `diagnose_soil_science_realism(simulation_data, original_data = NULL, config = NULL)`
 
-**Purpose/Behavior**: Validates `simulation_data` via `validate_data_quality()`, then runs four steps with progress tracking: `assess_property_constraints()`, `validate_horizon_characteristics()` (surface vs. subsurface range compliance plus depth-transition smoothness), `assess_pedological_relationships()` (checks clay–CEC and organic-matter–depth correlation direction/strength when those columns are present), `validate_simulation_depth_trends()` (correlation between simulated and original per-depth-bin means, when `original_data` is supplied). **Returns** `list(property_constraints=, horizon_characteristics=, pedological_relationships=, depth_trend_realism=, data_quality=)`.
+**Purpose/Behavior**: Validates `simulation_data` via `validate_data_quality()`, then runs four steps with progress tracking: `diagnose_property_constraints()`, `validate_horizon_characteristics()` (surface vs. subsurface range compliance plus depth-transition smoothness), `assess_pedological_relationships()` (checks clay–CEC and organic-matter–depth correlation direction/strength when those columns are present), `validate_simulation_depth_trends()` (correlation between simulated and original per-depth-bin means, when `original_data` is supplied). **Returns** `list(property_constraints=, horizon_characteristics=, pedological_relationships=, depth_trend_realism=, data_quality=)`.
 
-#### 16. `assess_property_constraints()`
+#### 16. `diagnose_property_constraints()`
 
-**Signature**: `assess_property_constraints(simulation_data, criteria = NULL)`
+**Signature**: `diagnose_property_constraints(simulation_data, criteria = NULL)`
 
 **Purpose/Behavior**: Defaults to `get_default_property_constraints()`, which builds `property_ranges` from `get_realistic_property_ranges()` (hardcoded min/max for clay/sand/silt/pH/bulk density/water retention/OM/CEC/RFV). For each configured property present in the data, checks range violations (both directly and via `utils.R`'s `validate_numeric_ranges()`), then calls `assess_cross_property_constraints()` (texture sum-to-100 check plus any explicit `cross_property_rules`) and `detect_distribution_anomalies()` (IQR-outlier counts per numeric column, via `detect_outliers()`). **Returns** `list(range_violations=, cross_property_violations=, distribution_anomalies=)`.
 
@@ -284,7 +284,7 @@ analyze_soil_statistics(use_enhanced_chain=)         [MASTER — statistics.R]
 ├── detect_comprehensive_outliers[_safe]()
 │   └── detect_outliers()                            [utils.R]
 ├── compute_property_statistics()
-│   ├── calculate_confidence_intervals()             [utils.R]
+│   ├── compute_confidence_intervals()             [utils.R]
 │   ├── calculate_skewness() / calculate_kurtosis()
 │   └── shapiro.test()                               [stats]
 ├── validate_statistical_results[_safe]()
@@ -305,7 +305,7 @@ run_comprehensive_correlation_analysis()             [exported, standalone]
 
 analyze_property_distributions()                     [exported, standalone]
 ├── fit_property_distributions()
-│   ├── get_appropriate_distributions()
+│   ├── distributions_for_properties()
 │   ├── fit_single_distribution()
 │   │   └── fitdistrplus::fitdist()                  [fitdistrplus]
 │   └── rank_distribution_fits()
@@ -343,49 +343,49 @@ diagnose_workflow()                          [MASTER — diagnostics.R]
 ├── extract_and_validate_components()
 │   └── validate_data_quality()                       [utils.R]
 ├── execute_validation_pipeline()
-│   ├── validate_monte_carlo_quality()          (if simulation_data found)
+│   ├── diagnose_simulation()          (if simulation_data found)
 │   │   ├── assess_simulation_convergence()
-│   │   ├── assess_simulation_coverage()
+│   │   ├── diagnose_simulation_coverage()
 │   │   │   ├── assess_property_coverage()
 │   │   │   ├── assess_distributional_coverage()
 │   │   │   │   └── detect_outliers()                 [utils.R]
 │   │   │   └── assess_group_representation()
-│   │   ├── validate_distribution_fidelity()
+│   │   ├── diagnose_distribution_fidelity()
 │   │   │   ├── test_distribution_fidelity()
 │   │   │   ├── compare_distribution_moments()
 │   │   │   ├── compare_distribution_quantiles()
 │   │   │   │    (all three via quantile_from_fit() [distributions.R])
 │   │   │   └── detect_outliers()                     [utils.R]
 │   │   └── generate_simulation_diagnostics()          [monte-carlo.R — arg-count mismatch, always caught & warned]
-│   ├── validate_correlation_structures()       (if correlation_matrices found)
+│   ├── diagnose_correlation_structures()       (if correlation_matrices found)
 │   │   ├── validate_correlation_matrix_quality()
 │   │   │   └── assess_correlation_matrix_properties()
-│   │   ├── validate_correlation_preservation_diagnostics()
+│   │   ├── diagnose_correlation_preservation()
 │   │   │   ├── safe_correlation()                     [utils.R]
 │   │   │   ├── assess_correlation_differences()
 │   │   │   └── assess_depth_correlation_preservation()
-│   │   ├── validate_within_depth_correlations()
+│   │   ├── diagnose_within_depth_correlations()
 │   │   │   ├── safe_correlation()                     [utils.R]
 │   │   │   ├── assess_correlation_matrix_properties()
 │   │   │   └── assess_correlation_stability_across_depths()
-│   │   └── assess_cholesky_decomposition()
+│   │   └── diagnose_cholesky()
 │   │       └── assess_single_cholesky_decomposition()
-│   ├── validate_gp_model_workflow()            (if gp_models found)
-│   │   ├── validate_gp_model_performance()
+│   ├── diagnose_gp_models()            (if gp_models found)
+│   │   ├── diagnose_gp_performance()
 │   │   │   ├── assess_single_gp_performance()
 │   │   │   │   └── calculate_model_diagnostics()      [gp-modeling.R]
 │   │   │   └── calculate_overall_gp_performance()
-│   │   ├── validate_gp_predictions()
+│   │   ├── diagnose_gp_predictions()
 │   │   │   └── validate_single_gp_predictions()
 │   │   │       └── predict_gp_depth_trends()          [gp-modeling.R]
-│   │   ├── assess_depth_trend_realism()
+│   │   ├── diagnose_depth_trend_realism()
 │   │   │   └── assess_trend_realism()
 │   │   │       ├── assess_trend_monotonicity()        [gp-modeling.R]
 │   │   │       └── assess_realistic_values()          [gp-modeling.R]
 │   │   └── perform_gp_cross_validation()
 │   │       └── k_fold_gp_cv()                         [gp-modeling.R]
-│   ├── validate_soil_science_realism()         (if final_data found)
-│   │   ├── assess_property_constraints()
+│   ├── diagnose_soil_science_realism()         (if final_data found)
+│   │   ├── diagnose_property_constraints()
 │   │   │   ├── get_default_property_constraints()
 │   │   │   ├── assess_cross_property_constraints()
 │   │   │   └── detect_distribution_anomalies()
@@ -423,16 +423,16 @@ generate_validation_report()                          [standalone]
 ## Dependencies
 
 **From within soilSIM**:
-- `R/utils.R` (the [Utilities](architecture-utilities.html) module) — the single heaviest dependency for both files: `log_message()`, `handle_workflow_error()`, `setup_logging()`, `get_default_configuration()`, `merge_configurations()`, `validate_parameters()`, `validate_properties()`, `validate_properties_with_synonyms()`, `validate_data_quality()`, `validate_numeric_ranges()`, `handle_missing_values()`, `safe_correlation()`, `detect_outliers()`, `calculate_confidence_intervals()`, `track_progress()`, `get_default_quality_thresholds()`, `get_package_versions()`.
+- `R/utils.R` (the [Utilities](architecture-utilities.html) module) — the single heaviest dependency for both files: `log_message()`, `handle_workflow_error()`, `setup_logging()`, `default_config()`, `merge_configurations()`, `validate_parameters()`, `validate_properties()`, `validate_properties_with_synonyms()`, `validate_data_quality()`, `validate_numeric_ranges()`, `handle_missing_values()`, `safe_correlation()`, `detect_outliers()`, `compute_confidence_intervals()`, `track_progress()`, `get_default_quality_thresholds()`, `get_package_versions()`.
 - `R/core-distributions.R` — `ilr_forward()` (isometric log-ratio transform for compositional texture correlation), `validate_correlation_matrix()` (singular; the real per-matrix check backing `validate_correlation_matrices()`, plural, in `statistics.R`), `quantile_from_fit()` (theoretical quantiles from a fitted distribution, used throughout the Monte Carlo fidelity checks).
 - `R/core-gp.R` — `calculate_model_diagnostics()`, `predict_gp_depth_trends()`, `assess_trend_monotonicity()`, `assess_realistic_values()`, `k_fold_gp_cv()` — all consumed only by `diagnostics.R`'s GP-validation functions.
-- `R/core-montecarlo.R` — `generate_simulation_diagnostics()`, called from `validate_monte_carlo_quality()` (argument-count mismatch fixed — see `validate_monte_carlo_quality()` above).
+- `R/core-montecarlo.R` — `generate_simulation_diagnostics()`, called from `diagnose_simulation()` (argument-count mismatch fixed — see `diagnose_simulation()` above).
 
 **External packages**:
 - `fitdistrplus` — `fitdist()` and `gofstat()`, the entire basis of `fit_single_distribution()` / `perform_distribution_tests()`. Required (`stop()`s with an install hint if missing) rather than optional, despite being invoked lazily via `requireNamespace()`.
 - `stats` — correlation, `cor()`, `cov()`, `mahalanobis()`, `chol()`, `eigen()`, `quantile()`, `sd()`, `var()`, `shapiro.test()`, `ks.test()`, `qchisq()`, `weighted.mean()`, `complete.cases()`.
 - `Matrix` — `nearPD()`, used to repair a non-positive-definite covariance matrix before Mahalanobis distance computation in `detect_multivariate_outliers()`.
-- `Hmisc` (declared package Import, used indirectly via `utils.R`'s statistical helpers such as `calculate_confidence_intervals()`).
+- `Hmisc` (declared package Import, used indirectly via `utils.R`'s statistical helpers such as `compute_confidence_intervals()`).
 - `dplyr` / `tidyr` — `dplyr::filter()` (depth/bin subsetting in `diagnostics.R`), `tidyr::pivot_longer()` / `dplyr::everything()` (Monte Carlo diagnostic plot reshaping).
 - `ggplot2`, `corrplot` (Suggests-only) — diagnostic plot rendering in `generate_comprehensive_diagnostics()`; every plot block checks `requireNamespace()` first and degrades to an empty list rather than erroring if unavailable.
 - `rmarkdown`, `tinytex` (Suggests-only) — richer HTML/PDF report rendering in `generate_html_report()`/`generate_pdf_report()`, with a dependency-free fallback in both cases.

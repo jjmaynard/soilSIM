@@ -134,7 +134,7 @@ adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths, con
 #'   `apply_gp_depth_trends()`. `config$monte_carlo$vertical_correlation_method` (default
 #'   `"joint_copula"`, or `"gp_quantile_retrofit"`) selects the
 #'   vertical-correlation method; `NULL` (default) resolves to `"joint_copula"`, matching
-#'   `get_monte_carlo_defaults()`'s own default.
+#'   `default_monte_carlo_config()`'s own default.
 #' @param seed Optional integer. When set, seeds the parallel depth-trend path via
 #'   `future.seed`. `NULL` (default) leaves the RNG stream unseeded.
 #' @return `sim_long`, depth-trend-adjusted where possible.
@@ -325,7 +325,7 @@ normalize_requested_properties <- function(requested_properties) {
 #'   `apply_gp_depth_trends()`. `config$monte_carlo$vertical_correlation_method` (default
 #'   `"joint_copula"` default, or `"gp_quantile_retrofit"`) selects this top-level entry
 #'   point's vertical-correlation method; `NULL` (default) resolves to `"joint_copula"`,
-#'   matching `get_monte_carlo_defaults()`'s own default.
+#'   matching `default_monte_carlo_config()`'s own default.
 #' @param mukey_raster Optional, already-fetched `terra::SpatRaster` of mukey codes for this same
 #'   `aoi_vect` (e.g. from \code{\link{fetch_ssurgo_mukey_raster}}), passed through to
 #'   `download_ssurgo_tabular()` so its tabular fetch reuses it instead of issuing a second,
@@ -369,7 +369,7 @@ normalize_requested_properties <- function(requested_properties) {
 #'
 #' This function's SIMULATED output is not disk-cached: every call re-simulates fresh random
 #' draws. Raw-draws fusion reuses draws in memory within one `run_fusion()` call
-#' (computed once, used for both the percentile cache and `mukey_draws_lookup()`); see also
+#' (computed once, used for both the percentile cache and `lookup_mukey_draws()`); see also
 #' `run_fusion_group()`'s `shared_draws` pattern.
 #' @export
 simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
@@ -598,7 +598,7 @@ percentiles_from_draws <- function(mukey_raster, draws, property_id,
 #'   mukey's simulated values (across every cokey/replicate) - or `NULL` if `property_id`'s
 #'   simulated column isn't present in `draws`.
 #' @export
-mukey_draws_lookup <- function(draws, property_id) {
+lookup_mukey_draws <- function(draws, property_id) {
   sim_col <- property_to_sim_column(property_id)
   if (!sim_col %in% names(draws)) return(NULL)
 
@@ -611,7 +611,7 @@ mukey_draws_lookup <- function(draws, property_id) {
 
 #' Raw Per-Mukey JOINT Texture Draws, Keyed by Mukey (clay/sand/silt Row-Aligned)
 #'
-#' The texture-group counterpart of \code{\link{mukey_draws_lookup}}: instead of one property's
+#' The texture-group counterpart of \code{\link{lookup_mukey_draws}}: instead of one property's
 #' values, returns the row-aligned `(clay_total, sand_total, silt_total)` TRIPLES simulated
 #' together for the same cokey/replicate. This preserves the real cross-property correlation
 #' between the three fractions (from `simulate_cokey_generalized()`'s KSSL texture correlation
@@ -628,7 +628,7 @@ mukey_draws_lookup <- function(draws, property_id) {
 #'   failed for that replicate, are dropped rather than kept partially). `NULL` if `draws` doesn't
 #'   carry all three texture columns at all (e.g. no member of the AOI's data had texture data).
 #' @export
-mukey_texture_draws_lookup <- function(draws) {
+lookup_mukey_texture_draws <- function(draws) {
   texture_cols <- c("clay_total", "sand_total", "silt_total")
   if (!all(texture_cols %in% names(draws))) return(NULL)
 
@@ -646,8 +646,8 @@ mukey_texture_draws_lookup <- function(draws) {
 
 #' Per-Mukey Joint Multivariate Profile Ensemble at Several Depth Windows
 #'
-#' The multi-property, multi-depth-window analogue of \code{\link{mukey_draws_lookup}} /
-#' \code{\link{mukey_texture_draws_lookup}}: runs the (expensive) SSURGO Monte Carlo once via
+#' The multi-property, multi-depth-window analogue of \code{\link{lookup_mukey_draws}} /
+#' \code{\link{lookup_mukey_texture_draws}}: runs the (expensive) SSURGO Monte Carlo once via
 #' \code{\link{simulate_ssurgo_mapunit_draws}} and returns, per mukey, the **retained bag of joint
 #' realizations** - every simulated property together, row-aligned across depth windows, so the
 #' KSSL cross-property and cross-depth rank structure is preserved. This is the input to
@@ -677,7 +677,7 @@ mukey_texture_draws_lookup <- function(draws) {
 #'   `list(windows = <named list of [n_replicate x n_property] matrices, one per window>,
 #'   replicate_key = data.frame(cokey, simulation_number))`. `NULL` if the simulation fails or no
 #'   mukey has a replicate spanning every window.
-#' @seealso `remarginalize_ensemble_to_posterior()`, \code{\link{mukey_draws_lookup}}
+#' @seealso `remarginalize_ensemble_to_posterior()`, \code{\link{lookup_mukey_draws}}
 #' @export
 extract_mukey_joint_ensemble <- function(aoi_vect, depth_windows, n_mc = 1000,
                                           parallel = FALSE, n_cores = NULL, config = NULL,

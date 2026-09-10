@@ -34,7 +34,7 @@ to sequential processing if the parallel setup itself errors. See \code{run_para
 \code{apply_gp_depth_trends()}. \code{config$monte_carlo$vertical_correlation_method} (default
 \code{"joint_copula"}, or \code{"gp_quantile_retrofit"}) selects the
 vertical-correlation method; \code{NULL} (default) resolves to \code{"joint_copula"}, matching
-\code{get_monte_carlo_defaults()}'s own default.}
+\code{default_monte_carlo_config()}'s own default.}
 
 \item{seed}{Optional integer. When set, seeds the parallel depth-trend path via
 \code{future.seed}. \code{NULL} (default) leaves the RNG stream unseeded.}

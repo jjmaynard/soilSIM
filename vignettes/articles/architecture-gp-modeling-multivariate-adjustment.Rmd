@@ -65,7 +65,7 @@ ready for `fit_depth_gp_models()`.
 - `target_min_groups` - minimum number of adequate groups the auto-selector wants to find before
   accepting a strategy.
 - `max_depth` - horizons with `hzdepb_r` beyond this (cm) are dropped.
-- `validation_config` - quality-threshold config; defaults to `get_default_configuration("validation")`.
+- `validation_config` - quality-threshold config; defaults to `default_config("validation")`.
   **Returns**: A data frame with standardized property columns (`clay_pct`, `sand_pct`, `silt_pct`,
   `pH`, `organic_matter`, `bulk_density`, `cec`, `awc`), a `soil_group` column, `depth_midpoint`, and
   only rows belonging to groups meeting `min_observations_per_group`.
@@ -434,7 +434,7 @@ metadata.
   adjustment followed by local GP adjustment); `preserve_correlations` - whether to run the
   correlation-preserving quantile transform; `properties` - properties to adjust, or `NULL` to
   auto-detect via `detect_simulation_properties()`; `parallel`/`n_cores` - parallel dispatch across
-  cokeys; `config` - [Utilities](architecture-utilities.html)-style config, defaults to `get_default_configuration("full")`.
+  cokeys; `config` - [Utilities](architecture-utilities.html)-style config, defaults to `default_config("full")`.
   **Returns**: A list: `integrated_data` (final adjusted long-format data frame), `original_simulation_data`,
   `integration_metadata` (method, properties processed, success rate, processing time, package
   versions, etc.), `validation_results` (from `validate_integration_results()`), `original_metadata`;
@@ -744,7 +744,7 @@ constraint calls for it, then applies `apply_cross_property_constraints()` (resc
 sand/silt/clay-family columns so each row's sum is exactly 100 whenever their sum is > 0).
 
 **Minor exported/internal helpers** (not separately detailed above): `detect_simulation_properties()`
-(intersects `get_predefined_properties("laboratory")` and a hardcoded simulation-column-name list
+(intersects `predefined_properties("laboratory")` and a hardcoded simulation-column-name list
 with the data's actual columns), `process_cokeys_parallel()` / `process_cokeys_sequential()` /
 `process_single_cokey()` (cokey-level dispatch used by `apply_depth_gp_to_simulation()` - the
 parallel path uses `parallel::makeCluster()` + `clusterEvalQ(cl, library(soilSIM))` on Windows so
@@ -941,7 +941,7 @@ predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled
 - Shared/general utility functions used throughout (validation, logging, configuration, error
   handling) - `log_message()`, `handle_workflow_error()`, `validate_parameters()`,
   `validate_data_quality()`, `validate_properties()`, `is_unsuitable()`, `standardize_property_names()`,
-  `safe_coalesce()`, `get_default_configuration()`, `get_predefined_properties()`, `track_progress()`,
+  `safe_coalesce()`, `default_config()`, `predefined_properties()`, `track_progress()`,
   `get_package_versions()` - these are not defined in either file and are assumed to come from a
   shared validation/utility module elsewhere in the package.
 - No direct call into a `core-distributions.R`-style correlation-matrix-generation utility was found in

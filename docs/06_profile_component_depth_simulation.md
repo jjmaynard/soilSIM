@@ -101,7 +101,7 @@ compositional-simulation machinery.
   triangular distribution. When `c == a` for a given parameter, that column
   is filled with the constant `a` (degenerate triangular).
 
-#### `calculate_mode(x)`
+#### `compute_mode(x)`
 
 - **Parameters**: `x` - a numeric vector.
 - **Returns**: The most frequently-occurring value in `x` (via
@@ -141,7 +141,7 @@ compositional-simulation machinery.
   `sim_comppct` correlated sand/silt/clay values using the texture
   correlation matrix, these are converted to ILR coordinates via
   `ilr_forward()`, and the resulting `ilr1`/`ilr2` vectors are collapsed to
-  `(min, calculate_mode(), max)` triples to serve as ordinary
+  `(min, compute_mode(), max)` triples to serve as ordinary
   triangular-distribution parameters for the *main* simulation. All
   recognized parameters (property triplets plus, if present, `ilr1`/`ilr2`)
   are then simulated jointly in a single `simulate_correlated_triangular()`
@@ -156,7 +156,7 @@ compositional-simulation machinery.
 
 ### core-simulation.R
 
-#### `get_aws_data_by_mukey(mukeys)`
+#### `fetch_ssurgo_aws_data(mukeys)`
 
 - **Parameters**: `mukeys` - a vector of string or numeric map unit keys.
 - **Returns**: A data frame of SSURGO horizon data for the given mukeys,
@@ -370,7 +370,7 @@ compositional-simulation machinery.
   - `seed` - integer random seed (default `123`).
 - **Returns**: A combined `SoilProfileCollection` of simulated/perturbed
   profiles for every component in the mukey.
-- **Behavior**: Queries `get_aws_data_by_mukey()` for the mukey, errors if
+- **Behavior**: Queries `fetch_ssurgo_aws_data()` for the mukey, errors if
   no data is returned, sets the seed, derives an `id` column from
   `compname` (required because `query_osd_distinctness()` and the internal
   `adjust_out_of_range_profiles()`/`evaluate_simulated_depths()` helpers all
@@ -418,7 +418,7 @@ tri_dist() [R/core-distributions.R]
 
 remove_organic_layer() ─────────────────► standalone horizon-cleanup helper
 slice_and_aggregate_soil_data() ────────► standalone depth-binning helper
-calculate_mode() ────────────────────────► used inside simulate_cokey_generalized()
+compute_mode() ────────────────────────► used inside simulate_cokey_generalized()
                                             (collapses simulated ILR draws to a
                                             triangular-mode parameter)
 
@@ -434,7 +434,7 @@ calculate_mode() ─────────────────────
 
 core-simulation.R
 ======================
-get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
+fetch_ssurgo_aws_data() ──► raw SSURGO horizon data (SDA_query)
                   │
                   ▼
    simulate_component_composition() + dplyr::left_join(by = "cokey")   (performed internally
@@ -480,7 +480,7 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
   `aqp::generalizeHz()`, `aqp::hzDistinctnessCodeToOffset()`,
   `aqp::perturb()`, `aqp::combine()`, `aqp::profile_id<-`) - used throughout
   `core-simulation.R` only; `core-simulation.R` has no `aqp` dependency.
-- **`soilDB`** - `soilDB::SDA_query()` (`get_aws_data_by_mukey()`) and
+- **`soilDB`** - `soilDB::SDA_query()` (`fetch_ssurgo_aws_data()`) and
   `soilDB::fetchOSD()` (`query_osd_distinctness()`) for live SSURGO/OSD
   database access.
 - **`future` / `future.apply`** - parallel dispatch backend for
@@ -494,7 +494,7 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
   `core-simulation.R`) and `ilr_forward()`/`ilr_inverse()` (used only by
   `simulate_cokey_generalized()` for compositional texture handling).
 - **`R/adapter-ssurgo-acquire.R` / `R/adapter-ssurgo-process.R`** (soilSIM internal) -
-  upstream SSURGO data-source adapters; `get_aws_data_by_mukey()` in this
+  upstream SSURGO data-source adapters; `fetch_ssurgo_aws_data()` in this
   group duplicates rather than reuses
   `execute_ssurgo_query_working()`'s query (see that function's docs for
   why), but both ultimately query the same underlying SSURGO tables.
@@ -525,7 +525,7 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
   input to `simulate_component_composition()`.
 - SSURGO horizon data (`hzname`, texture/bulk-density/water-retention/RFV/
   pH/CEC/OM `_l/_r/_h` triplets, `genhz`) - input to
-  `simulate_cokey_generalized()`, `get_aws_data_by_mukey()`, and the depth-
+  `simulate_cokey_generalized()`, `fetch_ssurgo_aws_data()`, and the depth-
   simulation functions.
 - OSD (Official Series Description) horizon distinctness data, fetched
   live via `soilDB::fetchOSD()` inside `query_osd_distinctness()`.

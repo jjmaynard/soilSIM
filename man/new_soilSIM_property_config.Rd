@@ -13,6 +13,6 @@ new_soilSIM_property_config(x)
 An object of class \code{soilSIM_property_config}.
 }
 \description{
-Wraps a property-configuration list (\code{\link[=get_default_property_config]{get_default_property_config()}},
+Wraps a property-configuration list (\code{\link[=default_property_config]{default_property_config()}},
 \code{\link[=create_custom_property_config]{create_custom_property_config()}}).
 }

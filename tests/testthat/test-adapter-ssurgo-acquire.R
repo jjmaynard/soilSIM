@@ -5,10 +5,10 @@
 ## fixture-maintain for the value it'd add.
 sample_wkt <- "POLYGON((-120.5 38.5, -120.4 38.5, -120.4 38.6, -120.5 38.6, -120.5 38.5))"
 
-test_that("create_ssurgo_property_lookup_working() returns the 14-property low/rep/high lookup table", {
+test_that("build_ssurgo_property_lookup() returns the 14-property low/rep/high lookup table", {
   # 9 original properties + 5 chemistry properties added in MULTI_PROPERTY_FUSION_PLAN.md task P2
   # (column names live-confirmed against a real gSSURGO chorizon query, 2026-09-04).
-  lookup <- create_ssurgo_property_lookup_working()
+  lookup <- build_ssurgo_property_lookup()
   expect_setequal(lookup$Property, c("sandtotal", "claytotal", "silttotal", "dbovendry",
                                       "ph1to1h2o", "cec7", "om", "wthirdbar", "wfifteenbar",
                                       "caco3", "ec", "ecec", "gypsum", "sar"))
@@ -17,10 +17,10 @@ test_that("create_ssurgo_property_lookup_working() returns the 14-property low/r
   expect_equal(lookup$SSURGO_Label_Rep[lookup$Property == "caco3"], "caco3_r")
 })
 
-test_that("REGRESSION: get_predefined_properties('ssurgo') now resolves the real lookup instead of character(0)", {
-  # Before mod01's migration into this package, create_ssurgo_property_lookup_working()
+test_that("REGRESSION: predefined_properties('ssurgo') now resolves the real lookup instead of character(0)", {
+  # Before mod01's migration into this package, build_ssurgo_property_lookup()
   # did not exist, so utils.R's tryCatch() silently degraded to character(0).
-  props <- get_predefined_properties("ssurgo")
+  props <- predefined_properties("ssurgo")
   expect_length(props, 14)
   expect_true("dbovendry" %in% props)
   expect_true("caco3" %in% props)

@@ -243,10 +243,10 @@ fuse_adaptive(prior_value_rasters, lik_value_rasters, percentile_probs,
 # family            - "normal" | "beta" | "gamma" - fit family for the closed-form route, and
 #                      the family the general route's output is moment-matched back into
 # bounds            - required for family = "beta" (c(lower, upper))
-# threshold_cells   - AOI cell count at or below which the general bayesian_update() route
+# threshold_cells   - AOI cell count at or below which the general update_prior() route
 #                      is used; above it, the closed-form route
 # n_samples         - samples drawn per side for the general route's KDE fusion
-# grid_resolution   - passed to bayesian_update() for the general route
+# grid_resolution   - passed to update_prior() for the general route
 # verbose           - if TRUE (default), print the chosen route and why
 ```
 **Returns**: `list(posterior =, route =, route_detail =, n_fallback_cells =, diagnostics =)`.
@@ -260,16 +260,16 @@ fuse_adaptive(prior_value_rasters, lik_value_rasters, percentile_probs,
 **Behavior**: `use_general <- ncell <= threshold_cells`. Below/at threshold, delegates to the
 internal `fuse_general_kde()`: per cell (via `terra::app()` over a combined prior+likelihood
 percentile stack), draws `n_samples` samples from each side via
-`simulate_from_percentiles(method = "linear_cdf")`, fuses via `bayesian_update()`, and
+`simulate_from_percentiles(method = "linear_cdf")`, fuses via `update_prior()`, and
 moment-matches the posterior samples back into the requested family — wrapped in a per-cell
 `tryCatch()` so a cell with too many `NA` percentile values (e.g. at raster edges after
 `terra::resample()`/`align_percentile_probs()` alignment) degrades to `NA` output instead of
 aborting the whole raster operation. Above threshold, delegates to the internal
 `fuse_closed_form()`: fits both sides in the requested family (`fit_normal_raster()` for normal,
 `fit_beta_mle_newton_raster()` for beta, `fit_gamma_mom_raster()` for gamma) and fuses via
-`core-fusion.R`'s `bayes_update_normal_normal()`/`fuse_beta()`/`fuse_gamma()`; for beta/gamma,
+`core-fusion.R`'s `fuse_normal_normal()`/`fuse_beta()`/`fuse_gamma()`; for beta/gamma,
 cells where the native same-family fusion is infeasible fall back per-cell to Normal-moment fusion
-(`bayes_update_normal_normal()` on each side's moment-derived mean/sd), re-expressed back into the
+(`fuse_normal_normal()` on each side's moment-derived mean/sd), re-expressed back into the
 requested family via `moments_to_beta()`/`moments_to_gamma()`, with `n_fallback_cells` counting how
 many cells needed it. `verbose` prints the chosen route (and, if any cells fell back, how many).
 
@@ -331,15 +331,15 @@ skew_proxy =)`.
 `"beta"`/`"gamma"` go straight to `fuse_adaptive(family = dist)` (Function 10 above, itself
 size-adaptive); `"lognormal"` goes to the internal `fuse_lognormal_adaptive()`, which — below
 `threshold_cells` — forces `fuse_adaptive()` into its general route directly on raw (non-log)
-values (since `bayesian_update()`'s general route makes no distributional assumption and needs no
+values (since `update_prior()`'s general route makes no distributional assumption and needs no
 log-space detour), or — above threshold — fits both sides Normal, transforms to lognormal parameter
-space via `normal_to_lognormal_params()`, fuses via `bayes_update_normal_normal()`, and transforms
+space via `normal_to_lognormal_params()`, fuses via `fuse_normal_normal()`, and transforms
 back via `lognormal_to_normal_params()`; `"metalog"` goes to the internal `fuse_metalog_adapter()`,
 which fits both sides via `fit_metalog_linear_raster()` on interior percentiles (always, regardless
 of AOI size), checks feasibility via `check_metalog_feasibility_raster()`, computes each side's
 mean/sd via `metalog_moments_raster()` (quadrature over the raw metalog quantile function, with a
 Normal-moment fallback for infeasible cells), and fuses those moments via
-`bayes_update_normal_normal()`. Any other `dist` value `stop()`s. The returned list always carries
+`fuse_normal_normal()`. Any other `dist` value `stop()`s. The returned list always carries
 `dist`/`dist_source`/`skew_proxy` from `resolve_property_dist()` alongside whichever route's
 posterior/route/route_detail/n_fallback_cells.
 
@@ -496,7 +496,7 @@ leaf's own failure; the whole call returns `NULL` only if the shared simulation 
 runs `simulate_ssurgo_mapunit_draws(span, depth_windows =, requested_properties = <union of every
 config's property>)` **once** (skipping it entirely when every needed `"ssurgo"` cache is already
 warm and no config uses raw-draws fusion). SOLUS is fetched via one batched
-`fetch_solus_percentiles_multi()` call **per window** (covering every variable any standalone
+`fetch_solus_percentiles_multiproperty()` call **per window** (covering every variable any standalone
 config or group member needs at once, S1), falling back to the per-variable scalar
 `fetch_solus_percentiles()` only if that batched request itself errors; results are memoized. Per
 window then per property it calls the same fusion tail `run_fusion()` uses
@@ -863,7 +863,7 @@ is missing; otherwise packages the three rasters directly as the `P025`/`P50`/`P
 triplet (SOLUS100's published 95% prediction interval bounds plus its point prediction), matching
 the `list(values=, probs=)` shape every fusion route expects.
 
-#### 29b/30b. `fetch_solus_low_pred_high_multi()` / `fetch_solus_percentiles_multi()` — batched multi-variable SOLUS fetch (S1)
+#### 29b/30b. `fetch_solus_low_pred_high_multiproperty()` / `fetch_solus_percentiles_multiproperty()` — batched multi-variable SOLUS fetch (S1)
 
 **Purpose**: Batched siblings of #29/#30 used by `run_fusion_multiproperty()`. `soilDB::fetchSOLUS()`
 accepts `variables`, `depth_slices`, and `output_type` all as vectors simultaneously
@@ -873,8 +873,8 @@ ones.
 
 **Parameters**:
 ```r
-fetch_solus_low_pred_high_multi(aoi_vect, solus_variables, top_depth, bottom_depth)
-fetch_solus_percentiles_multi(aoi_vect, solus_variables, top_depth, bottom_depth)
+fetch_solus_low_pred_high_multiproperty(aoi_vect, solus_variables, top_depth, bottom_depth)
+fetch_solus_percentiles_multiproperty(aoi_vect, solus_variables, top_depth, bottom_depth)
 # solus_variables          - character vector of soilDB::fetchSOLUS()-recognized variable names
 # (aoi_vect, top_depth, bottom_depth same as #29/#30)
 ```
@@ -903,7 +903,7 @@ touching either existing pipeline.
 Runs `simulate_ssurgo_mapunit_draws(depth_windows=)` once and returns, per mukey, the retained bag
 of **joint** multivariate realizations as `[n_replicate x n_property]` matrices, one per depth
 window, row-aligned on `(cokey, simulation_number)` so cross-property and cross-window rank
-structure is preserved. The multi-property / multi-window analogue of `mukey_draws_lookup()`. Takes
+structure is preserved. The multi-property / multi-window analogue of `lookup_mukey_draws()`. Takes
 `properties` (which columns to keep) and, separately, `requested_properties` (which properties the
 simulation itself draws — defaulting to `properties`, so a call restricted to the Saxton-Rawls
 inputs does not pay for the properties it will discard).
@@ -934,7 +934,7 @@ can't run per pixel).
 - `method = "saxton_rawls"` (**default**): `fetchSOLUS()` publishes no water-retention variable, so
   `wr_3b`/`wr_15b` are not fusable. Instead the fusable `sand_total`/`silt_total`/`clay_total`/`db`
   (+ optional `soc`, `rfv`) are re-marginalized, then `saxton_rawls_raster()` (a `terra`-native
-  vectorized port of `calculate_saxton_rawls_single()`) derives field capacity / wilting point per
+  vectorized port of `compute_saxton_rawls()`) derives field capacity / wilting point per
   (pixel, realization). `AWC = sum_windows (fc - wp)/100 * thickness`.
 - `method = "direct"`: the original `(wr_3b - wr_15b)/100 * thickness * (1 - rfv/100)` path, for a
   caller with a non-SOLUS water-retention likelihood.
@@ -987,7 +987,7 @@ petrocalcic, etc. included) - offered as a broader, more conservative (more trun
 non-default alternative.
 
 #### 35. `saxton_rawls_raster()` *(internal)*
-The vectorized `terra`-native counterpart of `calculate_saxton_rawls_single()` (`R/adapter-ssurgo-infill.R`)
+The vectorized `terra`-native counterpart of `compute_saxton_rawls()` (`R/adapter-ssurgo-infill.R`)
 - identical equations and clamps (including the `|sand+silt+clay-100| > 5` texture renormalization),
 but every operation is a `terra` `Arith`/`Math`/`clamp`/`ifel`, so it runs on a whole multi-layer
 realization stack in one pass. Returns `list(fc =, wp =)` volumetric % rasters.
@@ -1031,7 +1031,7 @@ is an `n_kept`-layer AWC raster; `terra::quantile()` per pixel gives the AWC pro
 | Cross-property & cross-depth **dependence** | The SSURGO tabular copula (KSSL + joint-copula vertical correlation), **held fixed**. SOLUS carries no joint information - only independent per-property, per-depth point predictions - so there is no fused joint structure to use. |
 | Correlation type preserved | **Rank (Spearman)**, not linear (Pearson). "Wet stays wet", "high-clay stays high-clay" is exact; Pearson structure is approximate if a marginal shifts substantially under fusion. |
 | **Marginal** uncertainty of each input property | The full SSURGO x SOLUS fused posterior spread, per pixel, propagated through Saxton-Rawls. |
-| Pedotransfer-function error | **Not propagated.** Saxton-Rawls is applied deterministically per realization; the +/-15% `_l`/`_h` band `calculate_saxton_rawls_single()` returns is not used. |
+| Pedotransfer-function error | **Not propagated.** Saxton-Rawls is applied deterministically per realization; the +/-15% `_l`/`_h` band `compute_saxton_rawls()` returns is not used. |
 | Sub-mukey variation in the **dependence** structure | None - every pixel in a mukey shares the source ensemble (same copula, same rank ordering); only the fused marginals vary pixel-to-pixel. |
 | Texture compositional closure | Independent re-marginalization can leave `sand + silt + clay != 100`; `saxton_rawls_raster()` renormalizes to 100 when off by more than 5 (the equations use only the sand and clay fractions). |
 
@@ -1079,9 +1079,9 @@ pedotransfer-model error.
                                    │      │     uses core-distributions-raster.R's
                                    │      │     fit_normal_raster()/fit_beta_mle_newton_raster()/
                                    │      │     fit_gamma_mom_raster(), and core-fusion.R's
-                                   │      │     bayes_update_normal_normal()/fuse_beta()/fuse_gamma()
+                                   │      │     fuse_normal_normal()/fuse_beta()/fuse_gamma()
                                    │      └── fuse_general_kde()   (small AOI)
-                                   │            uses simulate_from_percentiles()/bayesian_update()
+                                   │            uses simulate_from_percentiles()/update_prior()
                                    ├── lognormal -> fuse_lognormal_adaptive()
                                    └── metalog   -> fuse_metalog_adapter()
                                           uses fit_metalog_linear_raster()/
@@ -1160,9 +1160,9 @@ pedotransfer-model error.
   similarly reuses `estimate_ilr_moments_mc()`/`ilr_inverse()` directly, and
   `resolve_composition_groups()`'s composition-group config convention is reused rather than
   duplicated.
-- `R/core-fusion.R` — `core-fusion.R` reuses `bayes_update_normal_normal()`, `fuse_beta()`,
+- `R/core-fusion.R` — `core-fusion.R` reuses `fuse_normal_normal()`, `fuse_beta()`,
   `fuse_gamma()`, `moments_to_gamma()`/`moments_to_beta()`/`beta_to_moments()`/`gamma_to_moments()`,
-  `normal_to_lognormal_params()`/`lognormal_to_normal_params()`, `bayesian_update()`, and
+  `normal_to_lognormal_params()`/`lognormal_to_normal_params()`, `update_prior()`, and
   `fuse_bivariate_normal()` directly, unmodified — all are pure elementwise arithmetic, so they
   already work unchanged on `SpatRaster` inputs exactly as they do on plain numerics.
 - `R/core-simulation.R` — feeds the SSURGO adapter's Monte Carlo step: `simulate_component_composition()`
@@ -1182,7 +1182,7 @@ pedotransfer-model error.
   `fuse_general_kde()`. The per-pixel bridge additionally reuses `fuse_observed_data_into_priors()`'s
   `observed_data_by_mukey=` parameter (the A.1 opt-in) as the sink for `zonal_distribution_from_posterior()`.
 - `R/adapter-ssurgo-infill.R` — the per-pixel bridge's `saxton_rawls_raster()` is a `terra`-native port of
-  this file's `calculate_saxton_rawls_single()` (the equations are duplicated, not called, because
+  this file's `compute_saxton_rawls()` (the equations are duplicated, not called, because
   the scalar function's `max()`/`min()`/`if` do not vectorize over a raster stack).
 
 `run_fusion()`/`run_fusion_group()` (`R/core-fusion.R`) are the top-level AOI
@@ -1238,7 +1238,7 @@ per compositional group) per AOI/depth window.
 
 4. **Per-pixel bridge — Saxton-Rawls pedotransfer error is not propagated.** In
    `remarginalized_awc(method = "saxton_rawls")` the pedotransfer is applied deterministically per
-   realization; the +/-15% band `calculate_saxton_rawls_single()` returns is unused. The per-pixel
+   realization; the +/-15% band `compute_saxton_rawls()` returns is unused. The per-pixel
    AWC distribution reflects fused-posterior *input* uncertainty only.
 
 5. **`remarginalized_awc()` cannot fuse water retention directly.** `fetchSOLUS()` publishes no

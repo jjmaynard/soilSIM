@@ -28,9 +28,9 @@ download_ssurgo_tabular(
 
 **Returns**: A list with `ssurgo_data` (combined horizon/component data with restriction flags), `mu` (spatial map-unit data from `soilDB::mukey.wcs()`), `metadata` (download/processing metadata), `validation_results` (from `validate_data_quality()`, if `validate_data = TRUE`), and `cache_info` (cache hit/write status).
 
-**Algorithm**: Validates inputs via `validate_download_inputs_ssurgo()`; if `cache_dir` is set and not bypassed, checks `check_ssurgo_cache()` and returns cached data immediately on a hit (re-validating if requested). On a cache miss, it builds the property lookup table (`create_ssurgo_property_lookup_working()`), resolves the AOI to map unit keys (`process_aoi_and_get_mukeys_working()`), executes the SDA SQL query (`execute_ssurgo_query_working()`), aggregates rock-fragment volume if `"rfv"` was requested (`aggregate_rock_fragment_volume_working()`), adds restriction/unsuitable-horizon indicators (`add_restriction_indicators_working()`, or a bare `is_unsuitable()` call when restrictions are excluded), validates the result (`validate_data_quality()`), writes it to cache if enabled (`cache_ssurgo_data()`), and finally assembles timing/quality metadata (`create_download_metadata()`).
+**Algorithm**: Validates inputs via `validate_download_inputs_ssurgo()`; if `cache_dir` is set and not bypassed, checks `check_ssurgo_cache()` and returns cached data immediately on a hit (re-validating if requested). On a cache miss, it builds the property lookup table (`build_ssurgo_property_lookup()`), resolves the AOI to map unit keys (`process_aoi_and_get_mukeys_working()`), executes the SDA SQL query (`execute_ssurgo_query_working()`), aggregates rock-fragment volume if `"rfv"` was requested (`aggregate_rock_fragment_volume_working()`), adds restriction/unsuitable-horizon indicators (`add_restriction_indicators_working()`, or a bare `is_unsuitable()` call when restrictions are excluded), validates the result (`validate_data_quality()`), writes it to cache if enabled (`cache_ssurgo_data()`), and finally assembles timing/quality metadata (`create_download_metadata()`).
 
-### 2. **`create_ssurgo_property_lookup_working()`**
+### 2. **`build_ssurgo_property_lookup()`**
 
 **Purpose**: Builds the property-name lookup table mapping the 14 default SSURGO property base names to their `_l`/`_r`/`_h` SSURGO column names.
 
@@ -54,7 +54,7 @@ download_ssurgo_tabular(
 
 **Purpose**: Constructs and executes the SQL query against Soil Data Access for the requested mukeys and properties.
 
-**Parameters**: `mukey_list` - integer mukeys to filter on; `properties` - requested property base names; `ssurgo_lookup` - lookup table from `create_ssurgo_property_lookup_working()`; `include_restrictions` - whether to join `corestrictions`/`chtexture` and select restriction fields; `verbose` - log query submission/result details.
+**Parameters**: `mukey_list` - integer mukeys to filter on; `properties` - requested property base names; `ssurgo_lookup` - lookup table from `build_ssurgo_property_lookup()`; `include_restrictions` - whether to join `corestrictions`/`chtexture` and select restriction fields; `verbose` - log query submission/result details.
 
 **Returns**: A data frame of raw query results (component, horizon, requested property `_l/_r/_h` columns, rock-fragment `fragsize_r`, and, if requested, restriction fields), or an empty `data.frame()` if the query returns no rows.
 
@@ -83,8 +83,8 @@ download_ssurgo_tabular(
 ## Utility Functions (adapter-ssurgo-acquire.R)
 
 - **`validate_download_inputs_ssurgo(aoi_wkt, properties, include_restrictions = TRUE, strict_geometry = TRUE, max_area_deg2 = 100)`** - SSURGO-specific input validator; runs `validate_parameters()` for basic type/range checks, then `validate_wkt_geometry()` (bounds `[-180,180] x [-90,90]`, area limits, vertex/part complexity limits) and `validate_properties_with_synonyms(property_lookup = "ssurgo")`, merging errors/warnings into one result with `valid`, `errors`, `warnings`, `corrected_parameters`, and `validation_metadata`.
-- **`validate_download_inputs_ssurgo_with_config(aoi_wkt, properties, include_restrictions = TRUE, config_file = NULL, log_validation = TRUE)`** - config-file-aware wrapper around the same geometry/property validation logic, loading defaults via `load_configuration()`/`get_default_configuration("validation")` and optionally generating a report via `generate_validation_report_ssurgo()`.
-- **`generate_validation_report_ssurgo(validation_results)`** - turns a validation-results list into a summary report (`PASSED`/`FAILED` status, error/warning counts, geometry and property summaries), defensively handling missing/malformed metadata.
+- **`validate_download_inputs_ssurgo_with_config(aoi_wkt, properties, include_restrictions = TRUE, config_file = NULL, log_validation = TRUE)`** - config-file-aware wrapper around the same geometry/property validation logic, loading defaults via `load_configuration()`/`default_config("validation")` and optionally generating a report via `diagnose_ssurgo_download()`.
+- **`diagnose_ssurgo_download(validation_results)`** - turns a validation-results list into a summary report (`PASSED`/`FAILED` status, error/warning counts, geometry and property summaries), defensively handling missing/malformed metadata.
 - **`check_ssurgo_cache(aoi_wkt, properties, include_restrictions, cache_dir, max_age_days = 30, verbose = FALSE)`** - looks up a cache file keyed by `generate_ssurgo_cache_key()`, rejecting it if missing, older than `max_age_days`, or structurally invalid (must contain `data`/`mu`/`metadata`).
 - **`cache_ssurgo_data(data, mu, aoi_wkt, properties, include_restrictions, cache_dir, compress = TRUE, verbose = FALSE)`** - writes an `.rds` cache file (creating `cache_dir` if needed) containing the data, spatial `mu`, and metadata (timestamp, request parameters, row/cokey counts, R version).
 - **`generate_ssurgo_cache_key(aoi_wkt, properties, include_restrictions)`** - builds a filename-safe cache key from truncated `digest::digest()` hashes of the AOI WKT and sorted property list, plus a restrictions-flag suffix.
@@ -111,16 +111,16 @@ Default `processing_options` (each independently overridable): `detect_unsuitabl
 
 **Returns**: A list with `processed_data` (the main combined output), `horizon_data`, `component_data`, `processing_metadata` (timing, options used, row counts, per-stage stats), `validation_results`, and `quality_report`.
 
-**Algorithm**: Merges user `processing_options` over the defaults via `merge_configurations()`, then runs three sub-pipelines in sequence: `process_horizon_data_working_compatible()` for horizon-level cleaning, `process_component_data_working_compatible()` for component-level extraction, and `create_infill_compatible_dataset()` to build the single combined data frame consumed by the infilling functions. If `validate_results` (or `options$validate_logic`) is true, runs `validate_data_quality()` and `generate_processing_quality_report()` on the result.
+**Algorithm**: Merges user `processing_options` over the defaults via `merge_configurations()`, then runs three sub-pipelines in sequence: `process_ssurgo_horizons()` for horizon-level cleaning, `process_ssurgo_components()` for component-level extraction, and `prepare_ssurgo_for_infill()` to build the single combined data frame consumed by the infilling functions. If `validate_results` (or `options$validate_logic`) is true, runs `validate_data_quality()` and `generate_processing_quality_report()` on the result.
 
-### 8. **`process_horizon_data_working_compatible()`**
+### 8. **`process_ssurgo_horizons()`**
 
 **Purpose**: Horizon-level cleaning pipeline: standardizes names, flags unsuitable horizons, cleans each known soil-property column, drops invalid records, computes derived properties, and tracks statistics at each stage.
 
 **Parameters**:
 
 ```r
-process_horizon_data_working_compatible(
+process_ssurgo_horizons(
   raw_data,
   detect_unsuitable = TRUE,   # Flag unsuitable horizons via is_unsuitable().
   advanced_cleaning = TRUE,   # Run clean_property_data(outlier_policy = "soil_aware") per property.
@@ -136,7 +136,7 @@ process_horizon_data_working_compatible(
 
 **Algorithm**: Sequentially applies each enabled step in a fixed order (standardize &rarr; detect-unsuitable &rarr; per-property cleaning via `identify_soil_property_columns_working()` + `clean_property_data(outlier_policy = "soil_aware")` &rarr; `remove_invalid_horizons_working_compatible()` &rarr; `calculate_derived_horizon_properties_working()`), recording counts/statistics into `processing_stats` after each stage, finishing with `calculate_property_completeness_working()`.
 
-### 9. **`process_component_data_working_compatible(raw_data, standardize_names = TRUE, remove_invalid = TRUE, verbose = FALSE)`**
+### 9. **`process_ssurgo_components(raw_data, standardize_names = TRUE, remove_invalid = TRUE, verbose = FALSE)`**
 
 **Purpose**: Extracts and cleans the component-level (one-row-per-`cokey`) subset of the raw data.
 
@@ -144,7 +144,7 @@ process_horizon_data_working_compatible(
 
 **Algorithm**: Intersects a fixed list of known component columns (`cokey`, `compname`, `comppct_r`, taxonomic fields, `mukey`, `compkind`, `hydgrp`, `hydric`, etc.) with what's present in `raw_data`, selects distinct rows on those columns, optionally standardizes names (`standardize_property_names()`), removes invalid rows (`remove_invalid_components_working()`), and computes derived flags (`calculate_component_stats_working()`). Returns an empty result immediately if none of the known component columns are present.
 
-### 10. **`create_infill_compatible_dataset(raw_data, horizon_processing, component_processing, options, verbose = FALSE)`**
+### 10. **`prepare_ssurgo_for_infill(raw_data, horizon_processing, component_processing, options, verbose = FALSE)`**
 
 **Purpose**: Builds the single main data frame - starting from `raw_data` rather than the separately-processed horizon/component outputs - that downstream infilling functions consume.
 
@@ -158,9 +158,9 @@ process_horizon_data_working_compatible(
 
 **Returns**: A list with `data` (cleaned data frame) and, if `generate_report = TRUE`, `report` (cleaning actions, type-conversion success rates, outliers detected, string-parsing metadata).
 
-**Algorithm**: For each available `_l/_r/_h` column: parses character/factor values via `advanced_string_parser_vectorized()` or numerically converts via `vectorized_type_conversion()`; coerces non-finite values to `NA`; for the `_r` column only, optionally applies caller-supplied range-rule validation (`validate_numeric_ranges()`), then outlier flagging per `outlier_policy` - `"soil_aware"` (default; `detect_statistical_outliers_soil_aware()` - physically-impossible values for pH/texture/BD, conservative `IQR x 5` otherwise), `"aggressive_iqr"` (generic `detect_outliers(method = "iqr", threshold = 3.0)`), or `"none"` - then `apply_basic_range_limits()` for hardcoded plausibility bounds (always). `clean_property_data_ssurgo_compatible()` is a deprecated shim forwarding here with `outlier_policy = "aggressive_iqr"`.
+**Algorithm**: For each available `_l/_r/_h` column: parses character/factor values via `advanced_string_parser_vectorized()` or numerically converts via `vectorized_type_conversion()`; coerces non-finite values to `NA`; for the `_r` column only, optionally applies caller-supplied range-rule validation (`validate_numeric_ranges()`), then outlier flagging per `outlier_policy` - `"soil_aware"` (default; `detect_statistical_outliers_soil_aware()` - physically-impossible values for pH/texture/BD, conservative `IQR x 5` otherwise), `"aggressive_iqr"` (generic `detect_outliers(method = "iqr", threshold = 3.0)`), or `"none"` - then `apply_basic_range_limits()` for hardcoded plausibility bounds (always). `clean_ssurgo_property_data()` is a deprecated shim forwarding here with `outlier_policy = "aggressive_iqr"`.
 
-### 12. **`hz_quant_prob_mukey(hz_data)`**
+### 12. **`compute_mukey_horizon_quantiles(hz_data)`**
 
 **Purpose**: Computes per-mukey, per-depth 5th/50th/95th percentile statistics and 90% prediction-interval widths (`_PIW90`) across simulated horizon data for a wide basket of soil properties, plus (when texture data and the optional `soiltexture` package are available) the most probable USDA texture class and its simulation-frequency probability. This is a downstream/reporting function operating on already-simulated (`sim_*`-style) data rather than raw acquisition output; it is co-located here as a reporting utility.
 
@@ -198,7 +198,7 @@ process_horizon_data_working_compatible(
 infill_soil_property(
   df,                          # Input soil data frame.
   property_name,               # Single property base name (e.g. "claytotal"); "rfv" is special-cased.
-  property_config = NULL,      # Optional config from get_default_property_config()/create_custom_property_config(); auto-looked-up if NULL.
+  property_config = NULL,      # Optional config from default_property_config()/create_custom_property_config(); auto-looked-up if NULL.
   max_depth = 250,              # Depth (cm) constraint on which rows are eligible for infilling.
   verbose = getOption("ssurgo.verbose", FALSE)
 )
@@ -206,7 +206,7 @@ infill_soil_property(
 
 **Returns**: `df` with the property's `_r` column infilled where possible, `_l`/`_h` range values infilled, `unsuitable_horizon` and `infill_method` (audit trail string per row) columns added/updated.
 
-**Algorithm**: Delegates to `infill_rfv_property_integrated()` for `property_name == "rfv"`. Otherwise: ensures bookkeeping columns exist (`ensure_infilling_columns()`), cleans the property (`clean_property_data()`), computes `unsuitable_horizon` via `is_unsuitable()`, resolves `property_config` via `get_default_property_config()` if not supplied, and identifies "problematic" cells (missing, suitable, within `max_depth`). If nothing is problematic, only applies range infilling and returns early. Otherwise groups by `cokey` (or `compname`, via `determine_grouping_column()`) and applies, in order: **Strategy 1-3** inside `process_property_group()` &rarr; `infill_missing_property_data()` (horizon-name matching, then depth-weighted averaging, then within-component interpolation - each only proceeding if the prior strategy left cells unfilled); **Strategy 4** `cross_component_property_interpolation()` (whole-dataset level, uses other components' data at similar depths); **Strategy 5** `related_property_estimation()` (whole-dataset level, pedological relationships e.g. texture-sum, clay/OM-based CEC); **Strategy 6** `process_property_group_fallback()` &rarr; `apply_group_fallback_mean()` (per-group depth-weighted or plain mean, last resort). Finishes with `infill_property_range_values()` to fill `_l`/`_h` and enforce `_l <= _r <= _h` ordering.
+**Algorithm**: Delegates to `infill_rfv_property_integrated()` for `property_name == "rfv"`. Otherwise: ensures bookkeeping columns exist (`ensure_infilling_columns()`), cleans the property (`clean_property_data()`), computes `unsuitable_horizon` via `is_unsuitable()`, resolves `property_config` via `default_property_config()` if not supplied, and identifies "problematic" cells (missing, suitable, within `max_depth`). If nothing is problematic, only applies range infilling and returns early. Otherwise groups by `cokey` (or `compname`, via `determine_grouping_column()`) and applies, in order: **Strategy 1-3** inside `process_property_group()` &rarr; `infill_missing_property_data()` (horizon-name matching, then depth-weighted averaging, then within-component interpolation - each only proceeding if the prior strategy left cells unfilled); **Strategy 4** `cross_component_property_interpolation()` (whole-dataset level, uses other components' data at similar depths); **Strategy 5** `related_property_estimation()` (whole-dataset level, pedological relationships e.g. texture-sum, clay/OM-based CEC); **Strategy 6** `process_property_group_fallback()` &rarr; `apply_group_fallback_mean()` (per-group depth-weighted or plain mean, last resort). Finishes with `infill_property_range_values()` to fill `_l`/`_h` and enforce `_l <= _r <= _h` ordering.
 
 ### 15. **`process_soil_properties_comprehensive()`** - the single infilling orchestrator
 
@@ -257,21 +257,21 @@ infill_water_retention_saxton_rawls_integrated(
 
 **Returns**: `df` with `wthirdbar_r`/`wfifteenbar_r` (and `_l`/`_h` if `add_ranges`) filled where texture + bulk density inputs are complete; unchanged if `claytotal_r`/`sandtotal_r`/`silttotal_r`/`dbovendry_r` aren't all present.
 
-**Algorithm**: Requires all four texture/bulk-density columns to be present (returns `df` unchanged with a warning log otherwise). Computes/reuses `unsuitable_horizon`, builds a suitable+in-depth processing mask, and (unless `overwrite`) restricts to rows where the target `_r` value is still missing. Row by row, calls `calculate_saxton_rawls_single()` with the row's texture/bulk-density/RFV(default 0)/OM(default 2%) values and writes back `field_capacity`/`wilting_point` (and their `_l`/`_h` spreads if `add_ranges`), annotating `infill_method`.
+**Algorithm**: Requires all four texture/bulk-density columns to be present (returns `df` unchanged with a warning log otherwise). Computes/reuses `unsuitable_horizon`, builds a suitable+in-depth processing mask, and (unless `overwrite`) restricts to rows where the target `_r` value is still missing. Row by row, calls `compute_saxton_rawls()` with the row's texture/bulk-density/RFV(default 0)/OM(default 2%) values and writes back `field_capacity`/`wilting_point` (and their `_l`/`_h` spreads if `add_ranges`), annotating `infill_method`.
 
 ## Utility Functions (adapter-ssurgo-infill.R)
 
 - **`clean_property_data()`** - see entry 11. `infill_soil_property()` calls it with the default `outlier_policy = "soil_aware"`; the same call `process_ssurgo_data()` now makes.
-- **`get_default_property_config(property_name)`** - returns a built-in config (`type`, `units`, `typical_range`, `fallback_range`, and property-specific flags like `clay_dependent`/`horizon_effects`/`related_properties`) for texture, bulk density, water retention, RFV, CEC, pH, and organic-matter/carbon properties, or a generic fallback.
+- **`default_property_config(property_name)`** - returns a built-in config (`type`, `units`, `typical_range`, `fallback_range`, and property-specific flags like `clay_dependent`/`horizon_effects`/`related_properties`) for texture, bulk density, water retention, RFV, CEC, pH, and organic-matter/carbon properties, or a generic fallback.
 - **`create_custom_property_config(property_name, property_type = "generic", units = "unknown", typical_range = NULL, fallback_range = 5, related_properties = NULL, special_options = NULL)`** - builds a custom property config with input validation.
 - **`validate_property_config(config, property_name)`** - checks a config has `type`/`units`/`fallback_range` and well-formed `typical_range`; stops with an error otherwise.
-- **`get_rfv_range_category(rfv_value)`** - categorizes an RFV percentage into `"none"`/`"low"`/`"moderate"`/`"high"`/`"very_high"`/`"extreme"`.
+- **`rfv_range_category(rfv_value)`** - categorizes an RFV percentage into `"none"`/`"low"`/`"moderate"`/`"high"`/`"very_high"`/`"extreme"`.
 - **`apply_property_constraints(values, property_config)`** - clamps values to `typical_range` and type-specific bounds (e.g. `[0,100]` texture, `[0,14]` pH, `[0.01,95]` rock fragments).
 - **`create_validation_config()` / `add_range_rule()` / `add_relationship_rule()` / `apply_validation_rules()`** - a small pluggable rule-configuration system for range/relationship checks; note relationship rules are recorded but **not** enforced by `apply_validation_rules()`, which enforces only range rules.
 - **`summarize_unsuitable_horizons(df, hzname_col = "hzname")`** - reporting companion to `is_unsuitable()`; returns count and unique horizon names of excluded horizons, logging via `log_message()`.
-- **`infill_property_range_values(df, property_name, property_config)`** - fills missing `_l`/`_h` from learned (`learn_property_ranges()`) and contextual (`get_property_contextual_ranges()`) spreads via `calculate_property_lower_bound()`/`calculate_property_upper_bound()`, then enforces `_l <= _r <= _h`.
+- **`infill_property_range_values(df, property_name, property_config)`** - fills missing `_l`/`_h` from learned (`learn_property_ranges()`) and contextual (`property_contextual_ranges()`) spreads via `calculate_property_lower_bound()`/`calculate_property_upper_bound()`, then enforces `_l <= _r <= _h`.
 - **`learn_property_ranges(df, property_name, property_config)`** - learns median `_r - _l` / `_h - _r` spreads from complete, suitable-horizon rows, broken out by horizon name, by depth zone (surface/subsurface/deep), and overall.
-- **`get_property_contextual_ranges(df, property_name, property_config)`** - hardcoded pedological-knowledge spread tables per property type (texture, bulk density by horizon letter, water retention, RFV category).
+- **`property_contextual_ranges(df, property_name, property_config)`** - hardcoded pedological-knowledge spread tables per property type (texture, bulk density by horizon letter, water retention, RFV category).
 - **`calculate_property_lower_bound()` / `calculate_property_upper_bound()`** - per-row bound calculation using a priority order: horizon-learned &rarr; depth-learned &rarr; overall-learned &rarr; contextual &rarr; fallback spread.
 - **`get_contextual_spread(row, property_name, context_ranges, property_config, bound_type)`** - looks up the appropriate contextual spread for `calculate_property_lower_bound()`/`_upper_bound()`.
 - **`auto_detect_soil_properties(df)`** - returns which of a fixed physical/chemical/water-retention property list have a corresponding `_r` column present.
@@ -284,12 +284,12 @@ infill_water_retention_saxton_rawls_integrated(
 - **`apply_basic_range_limits(values, property_name)`** - hardcoded per-property plausibility bounds (texture `[0,100]`, bulk density `[0.3,3.0]`, water retention, CEC `[0,200]`, pH `[2.5,11.0]`/`[2.0,10.5]`, OM/OC, RFV `[0,95]`); values outside are set `NA`; unknown properties get a non-negative floor only.
 - **`standardize_horizon_name(hzname)` / `calculate_horizon_similarity(hz1, hz2)`** - name normalization (uppercase, strip trailing digits/punctuation) and a 0-1 similarity score (exact match = 1.0, same leading letter = 0.8 + character-overlap bonus, related horizon-letter groups e.g. `A`/`AP`/`AE` = 0.6, else 0).
 - **`impute_rfv_values(row)`** - the row-level RFV imputation logic used by `infill_rfv_property_integrated()`.
-- **`calculate_saxton_rawls_single(sand_pct, clay_pct, silt_pct, bulk_density, rfv_pct = 0, om_pct = 2)`** - the Saxton-Rawls pedotransfer math itself (clamps inputs, renormalizes texture to 100 if off by >5 points, computes saturated water content/field-capacity/wilting-point via the published regression equations, applies bulk-density and RFV volumetric correction, and returns `field_capacity`/`wilting_point` plus `_l`/`_h` (+/-15%) and `available_water_capacity`).
+- **`compute_saxton_rawls(sand_pct, clay_pct, silt_pct, bulk_density, rfv_pct = 0, om_pct = 2)`** - the Saxton-Rawls pedotransfer math itself (clamps inputs, renormalizes texture to 100 if off by >5 points, computes saturated water content/field-capacity/wilting-point via the published regression equations, applies bulk-density and RFV volumetric correction, and returns `field_capacity`/`wilting_point` plus `_l`/`_h` (+/-15%) and `available_water_capacity`).
 - **`depth_weighted_property_infill()` / `within_component_property_interpolation()`** - Strategies 2 and 3 inside `infill_missing_property_data()`: nearest-depth (<=20cm tolerance) inverse-distance-weighted mean, then `approx()`-based linear interpolation within a component.
 - **`cross_component_property_interpolation(group, property_col)`** - Strategy 4: fills missing suitable-horizon values using other components' suitable horizons within 15cm depth tolerance, inverse-distance weighted.
 - **`related_property_estimation(group, property_name, property_config)`** - Strategy 5: property-type-specific pedological relationships (texture sum-to-100; clay-based water retention; clay+OM-based CEC; horizon/OM-adjusted pH; depth/horizon/clay-adjusted OM; texture-adjusted bulk density).
 - **`calculate_depth_weighted_mean(group, property_col)`** / **`apply_group_fallback_mean()`** - Strategy 6 (last resort): thickness-weighted (or plain) mean of suitable horizons in a group.
-- **`horizon_name_property_infill()` / `infill_missing_property_data()`** - Strategy 1 (horizon-name similarity matching, weighted mean of matches with similarity > 0.5) and its orchestration across Strategies 1-3.
+- **`infill_property_by_horizon_name()` / `infill_missing_property_data()`** - Strategy 1 (horizon-name similarity matching, weighted mean of matches with similarity > 0.5) and its orchestration across Strategies 1-3.
 - **`process_property_group()` / `process_property_group_fallback()`** - per-group (`dplyr::group_modify()`-invoked) wrappers that recompute the problematic-cell mask locally before delegating to `infill_missing_property_data()` / `apply_group_fallback_mean()` respectively.
 
 ## Internal Connections
@@ -298,7 +298,7 @@ infill_water_retention_saxton_rawls_integrated(
 download_ssurgo_tabular() [ssurgo-acquisition.R, MASTER]
 ├── validate_download_inputs_ssurgo()
 ├── check_ssurgo_cache()                       [cache hit -> early return]
-├── create_ssurgo_property_lookup_working()
+├── build_ssurgo_property_lookup()
 ├── process_aoi_and_get_mukeys_working()
 ├── execute_ssurgo_query_working()
 ├── aggregate_rock_fragment_volume_working()    [if "rfv" requested]
@@ -313,7 +313,7 @@ fetch_ssurgo_data() [ssurgo-acquisition.R, convenience wrapper]
 └── download_ssurgo_tabular()
 
 process_ssurgo_data() [ssurgo-processing.R, MAIN ENTRY]
-├── process_horizon_data_working_compatible()
+├── process_ssurgo_horizons()
 │   ├── standardize_property_names()            [utils.R]
 │   ├── is_unsuitable()                         [utils.R]
 │   ├── identify_soil_property_columns_working()
@@ -325,18 +325,18 @@ process_ssurgo_data() [ssurgo-processing.R, MAIN ENTRY]
 │   ├── remove_invalid_horizons_working_compatible()
 │   ├── calculate_derived_horizon_properties_working()
 │   └── calculate_property_completeness_working()
-├── process_component_data_working_compatible()
+├── process_ssurgo_components()
 │   ├── standardize_property_names()             [utils.R]
 │   ├── remove_invalid_components_working()
 │   └── calculate_component_stats_working()
-├── create_infill_compatible_dataset()
+├── prepare_ssurgo_for_infill()
 │   ├── is_unsuitable()                          [utils.R]
 │   ├── clean_property_data(outlier_policy = "soil_aware")  [per property]
 │   └── ensure_essential_columns_working()
 ├── validate_data_quality()                      [utils.R]
 └── generate_processing_quality_report()
 
-hz_quant_prob_mukey() [ssurgo-processing.R, standalone - downstream/reporting use]
+compute_mukey_horizon_quantiles() [ssurgo-processing.R, standalone - downstream/reporting use]
 
 infill_soil_property() [data-infilling.R, PER-PROPERTY CORE]
 ├── infill_rfv_property_integrated()             [if property_name == "rfv"]
@@ -347,11 +347,11 @@ infill_soil_property() [data-infilling.R, PER-PROPERTY CORE]
 │   ├── detect_statistical_outliers_soil_aware()
 │   └── apply_basic_range_limits()
 ├── is_unsuitable()                              [utils.R]
-├── get_default_property_config()                [if property_config = NULL]
+├── default_property_config()                [if property_config = NULL]
 ├── determine_grouping_column()
 ├── process_property_group()                     [Strategies 1-3, per group]
 │   └── infill_missing_property_data()
-│       ├── horizon_name_property_infill()       [Strategy 1]
+│       ├── infill_property_by_horizon_name()       [Strategy 1]
 │       ├── depth_weighted_property_infill()      [Strategy 2]
 │       └── within_component_property_interpolation() [Strategy 3]
 ├── cross_component_property_interpolation()      [Strategy 4, whole dataset]
@@ -361,7 +361,7 @@ infill_soil_property() [data-infilling.R, PER-PROPERTY CORE]
 │       └── calculate_depth_weighted_mean()
 └── infill_property_range_values()
     ├── learn_property_ranges()
-    ├── get_property_contextual_ranges()
+    ├── property_contextual_ranges()
     ├── calculate_property_lower_bound()
     │   └── get_contextual_spread()
     └── calculate_property_upper_bound()
@@ -375,18 +375,18 @@ process_soil_properties_comprehensive() [data-infilling.R, MULTI-PROPERTY WORKFL
 │   ├── infill_rfv_property_integrated()         [property == "rfv"]
 │   └── infill_soil_property()                   [all other properties]
 ├── infill_water_retention_saxton_rawls_integrated() [Phase 2]
-│   └── calculate_saxton_rawls_single()          [per row]
+│   └── compute_saxton_rawls()          [per row]
 ├── apply_data_filtering()                       [if remove_unsuitable/remove_incomplete]
 └── generate_processing_summary()                [if verbose]
 ```
 
 ## Dependencies
 
-**From elsewhere in soilSIM** (the [Utilities](10_utilities.md) module, all in `R/utils.R`): `log_message()`, `handle_workflow_error()` *(not called directly in the current source)*, `validate_parameters()`, `validate_wkt_geometry()`, `validate_properties_with_synonyms()`, `validate_data_quality()`, `validate_numeric_ranges()`, `is_unsuitable()`, `standardize_property_names()`, `detect_outliers()`, `load_configuration()`, `get_default_configuration()`, `setup_logging()`, `merge_configurations()`, and the `%||%` null-coalescing helper.
+**From elsewhere in soilSIM** (the [Utilities](10_utilities.md) module, all in `R/utils.R`): `log_message()`, `handle_workflow_error()` *(not called directly in the current source)*, `validate_parameters()`, `validate_wkt_geometry()`, `validate_properties_with_synonyms()`, `validate_data_quality()`, `validate_numeric_ranges()`, `is_unsuitable()`, `standardize_property_names()`, `detect_outliers()`, `load_configuration()`, `default_config()`, `setup_logging()`, `merge_configurations()`, and the `%||%` null-coalescing helper.
 
-**External packages**: `soilDB` (`mukey.wcs()` for spatial mukey lookup, `SDA_query()` for the SDA SQL query itself); `terra` (`vect()`, `project()`, `as.polygons()`, `ext()`, `values()`, `expanse()` for AOI geometry handling); `dplyr` (`mutate`, `filter`, `group_by`/`summarise`, `case_when`, joins, `across` - used throughout for data-frame transformations); `stringr` (`str_replace`/`str_replace_all` in `standardize_horizon_name()`); `rlang` (`sym()` for programmatic grouping); `digest` (cache key hashing); `stats` (`quantile`, `approx`, `weighted.mean`); `soiltexture` (optional, `Suggests`; USDA texture classification in `hz_quant_prob_mukey()`, guarded by `requireNamespace()`).
+**External packages**: `soilDB` (`mukey.wcs()` for spatial mukey lookup, `SDA_query()` for the SDA SQL query itself); `terra` (`vect()`, `project()`, `as.polygons()`, `ext()`, `values()`, `expanse()` for AOI geometry handling); `dplyr` (`mutate`, `filter`, `group_by`/`summarise`, `case_when`, joins, `across` - used throughout for data-frame transformations); `stringr` (`str_replace`/`str_replace_all` in `standardize_horizon_name()`); `rlang` (`sym()` for programmatic grouping); `digest` (cache key hashing); `stats` (`quantile`, `approx`, `weighted.mean`); `soiltexture` (optional, `Suggests`; USDA texture classification in `compute_mukey_horizon_quantiles()`, guarded by `requireNamespace()`).
 
-**Downstream consumers**: The cleaned/infilled horizon+component data frames (with complete `_l/_r/_h` triplet columns) produced by this group feed the **[Statistics & Diagnostics](02_statistics_diagnostics.md)** module (descriptive statistics, correlation analysis over the property triplets) and the **[Monte Carlo simulation](04_monte_carlo_simulation.md)** core (percentile-triplet distribution fitting and correlated sampling consume the `sim_*`/triplet columns this group guarantees are gap-free). `hz_quant_prob_mukey()` runs in the opposite direction - it consumes *already-simulated* horizon data (post Monte Carlo) to produce per-mukey/depth summary statistics, so it is better understood as a reporting utility co-located here rather than a pure acquisition/processing step.
+**Downstream consumers**: The cleaned/infilled horizon+component data frames (with complete `_l/_r/_h` triplet columns) produced by this group feed the **[Statistics & Diagnostics](02_statistics_diagnostics.md)** module (descriptive statistics, correlation analysis over the property triplets) and the **[Monte Carlo simulation](04_monte_carlo_simulation.md)** core (percentile-triplet distribution fitting and correlated sampling consume the `sim_*`/triplet columns this group guarantees are gap-free). `compute_mukey_horizon_quantiles()` runs in the opposite direction - it consumes *already-simulated* horizon data (post Monte Carlo) to produce per-mukey/depth summary statistics, so it is better understood as a reporting utility co-located here rather than a pure acquisition/processing step.
 
 ## Data Flow In/Out
 

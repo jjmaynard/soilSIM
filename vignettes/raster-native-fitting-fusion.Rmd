@@ -285,9 +285,9 @@ resolve_property_dist(list(dist = "normal"), prior_values, prior_probs)$dist_sou
 `run_fusion()`) delegates to for `"normal"`/`"beta"`/`"gamma"` families. It picks the fusion
 *route* from the AOI's own cell count rather than requiring the caller to choose: at or below
 `threshold_cells` (default 80,000), it uses a fully general per-cell KDE route
-(`bayesian_update()` on samples drawn from each side's percentiles); above it, a much faster
+(`update_prior()` on samples drawn from each side's percentiles); above it, a much faster
 closed-form route built directly on the fitting functions from Sections 1-4 above (e.g.
-`fit_normal_raster()` + `bayes_update_normal_normal()` for `family = "normal"`).
+`fit_normal_raster()` + `fuse_normal_normal()` for `family = "normal"`).
 
 This AOI is small (`r terra::ncell(aligned$prior_value_rasters[[1]])` cells), so it naturally takes
 the general route. Forcing `threshold_cells = 0` shows the alternate closed-form route on the exact
@@ -314,7 +314,7 @@ terra::plot(route_compare, col = grDevices::hcl.colors(50, "viridis"), nc = 2)
 Both routes fuse the same prior/likelihood into a `mu`/`sigma` posterior with the same output
 contract, but they reach it differently: the general route makes no distributional assumption about
 the *fusion* step itself (only about the requested output family), while the closed-form route fits
-both sides Normal first (Section 1) and fuses via the closed-form `bayes_update_normal_normal()`
+both sides Normal first (Section 1) and fuses via the closed-form `fuse_normal_normal()`
 update - much cheaper per cell, at the cost of that Normal assumption.
 
 ```{r, fig.width = 7, fig.height = 4.5}
@@ -412,7 +412,7 @@ means roughly a `r round((sigma_compare$mean_sigma[2] / sigma_compare$mean_sigma
 precision - so the posterior mean above (`r round(means$value[3], 2)`) landing close to the prior's
 mean (`r round(means$value[1], 2)`) rather than the likelihood's (`r round(means$value[2], 2)`) is
 the fusion math doing exactly what it should with these particular inputs, confirmed by manually
-recomputing `bayes_update_normal_normal()` on these two independently-fit sides and getting
+recomputing `fuse_normal_normal()` on these two independently-fit sides and getting
 (within floating-point/per-cell alignment differences) the same answer the pipeline's own route
 produced. A different AOI/property where the two sources agree more closely on their own uncertainty
 would show the posterior pulled further toward whichever side is sharper, without one side this

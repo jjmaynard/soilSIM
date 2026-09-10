@@ -37,7 +37,7 @@ diagnose_workflow <- function(workflow_results,
 
   # Use the shared configuration helpers
   if (is.null(validation_config)) {
-    validation_config <- get_default_configuration("validation")
+    validation_config <- default_config("validation")
   }
 
   # Initialize validation results structure
@@ -199,7 +199,7 @@ assess_workflow_quality <- function(validation_results, validation_config, verbo
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Monte Carlo validation results
 #' @export
-validate_monte_carlo_quality <- function(monte_carlo_results,
+diagnose_simulation <- function(monte_carlo_results,
                                          original_data = NULL,
                                          config = NULL,
                                          verbose = getOption("ssurgo.verbose", FALSE)) {
@@ -211,7 +211,7 @@ validate_monte_carlo_quality <- function(monte_carlo_results,
 
   # Use the shared configuration helpers
   if (is.null(config)) {
-    config <- get_default_configuration("monte_carlo")
+    config <- default_config("monte_carlo")
   }
 
   # data validation
@@ -239,8 +239,8 @@ validate_monte_carlo_quality <- function(monte_carlo_results,
   # validation pipeline with progress tracking
   validation_steps <- list(
     "convergence" = function() assess_simulation_convergence(simulation_data, config$convergence_criteria),
-    "coverage" = function() assess_simulation_coverage(simulation_data, original_data, config$coverage_criteria),
-    "distribution" = function() validate_distribution_fidelity(simulation_data, monte_carlo_results$metadata, config$distribution_criteria),
+    "coverage" = function() diagnose_simulation_coverage(simulation_data, original_data, config$coverage_criteria),
+    "distribution" = function() diagnose_distribution_fidelity(simulation_data, monte_carlo_results$metadata, config$distribution_criteria),
     # generate_simulation_diagnostics() takes 5 args (original_data, simulation_results,
     # properties, correlation_config, config) - a prior 2-arg call here always errored and was
     # silently swallowed by the tryCatch below into a validation_failed placeholder. Sourced from
@@ -281,7 +281,7 @@ validate_monte_carlo_quality <- function(monte_carlo_results,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Coverage assessment results
 #' @export
-assess_simulation_coverage <- function(simulation_data,
+diagnose_simulation_coverage <- function(simulation_data,
                                                 original_data,
                                                 criteria = NULL,
                                                 verbose = getOption("ssurgo.verbose", FALSE)) {
@@ -367,7 +367,7 @@ assess_simulation_coverage <- function(simulation_data,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Distribution fidelity assessment
 #' @export
-validate_distribution_fidelity <- function(simulation_data,
+diagnose_distribution_fidelity <- function(simulation_data,
                                                     simulation_metadata,
                                                     criteria = NULL,
                                                     verbose = getOption("ssurgo.verbose", FALSE)) {
@@ -460,7 +460,7 @@ validate_distribution_fidelity <- function(simulation_data,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Correlation validation results
 #' @export
-validate_correlation_structures <- function(correlation_matrices,
+diagnose_correlation_structures <- function(correlation_matrices,
                                             simulation_data,
                                             config = NULL,
                                             verbose = getOption("ssurgo.verbose", FALSE)) {
@@ -472,7 +472,7 @@ validate_correlation_structures <- function(correlation_matrices,
 
   # Use the shared configuration helpers
   if (is.null(config)) {
-    config <- get_default_configuration("correlation")
+    config <- default_config("correlation")
   }
 
   # data validation
@@ -493,9 +493,9 @@ validate_correlation_structures <- function(correlation_matrices,
   # validation pipeline
   validation_steps <- list(
     "matrix_quality" = function() validate_correlation_matrix_quality(correlation_matrices, config$matrix_criteria),
-    "preservation" = function() validate_correlation_preservation_diagnostics(correlation_matrices, simulation_data, config$preservation_criteria),
-    "depth_specific" = function() validate_within_depth_correlations(simulation_data, config$depth_criteria),
-    "cholesky" = function() assess_cholesky_decomposition(correlation_matrices, config$cholesky_criteria)
+    "preservation" = function() diagnose_correlation_preservation(correlation_matrices, simulation_data, config$preservation_criteria),
+    "depth_specific" = function() diagnose_within_depth_correlations(simulation_data, config$depth_criteria),
+    "cholesky" = function() diagnose_cholesky(correlation_matrices, config$cholesky_criteria)
   )
 
   for (i in seq_along(validation_steps)) {
@@ -525,7 +525,7 @@ validate_correlation_structures <- function(correlation_matrices,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Correlation preservation assessment
 #' @export
-validate_correlation_preservation_diagnostics <- function(original_correlations,
+diagnose_correlation_preservation <- function(original_correlations,
                                                simulation_data,
                                                criteria = NULL,
                                                verbose = getOption("ssurgo.verbose", FALSE)) {
@@ -620,7 +620,7 @@ validate_correlation_preservation_diagnostics <- function(original_correlations,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Within-depth correlation validation
 #' @export
-validate_within_depth_correlations <- function(simulation_data, criteria = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
+diagnose_within_depth_correlations <- function(simulation_data, criteria = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -698,7 +698,7 @@ validate_within_depth_correlations <- function(simulation_data, criteria = NULL,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Cholesky decomposition assessment
 #' @export
-assess_cholesky_decomposition <- function(correlation_matrices, criteria = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
+diagnose_cholesky <- function(correlation_matrices, criteria = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -751,7 +751,7 @@ assess_cholesky_decomposition <- function(correlation_matrices, criteria = NULL,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return GP model validation results
 #' @export
-validate_gp_model_workflow <- function(gp_models, training_data, config = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
+diagnose_gp_models <- function(gp_models, training_data, config = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -760,7 +760,7 @@ validate_gp_model_workflow <- function(gp_models, training_data, config = NULL, 
 
   # Use the shared configuration helpers
   if (is.null(config)) {
-    config <- get_default_configuration("gp_models")
+    config <- default_config("gp_models")
   }
 
   # data validation
@@ -784,9 +784,9 @@ validate_gp_model_workflow <- function(gp_models, training_data, config = NULL, 
 
   # validation pipeline using the GP depth-modeling functions
   validation_steps <- list(
-    "model_performance" = function() validate_gp_model_performance(gp_models, training_data, config$performance_criteria),
-    "prediction_quality" = function() validate_gp_predictions(gp_models, config$prediction_criteria),
-    "depth_trend_realism" = function() assess_depth_trend_realism(gp_models, config$realism_criteria),
+    "model_performance" = function() diagnose_gp_performance(gp_models, training_data, config$performance_criteria),
+    "prediction_quality" = function() diagnose_gp_predictions(gp_models, config$prediction_criteria),
+    "depth_trend_realism" = function() diagnose_depth_trend_realism(gp_models, config$realism_criteria),
     "cross_validation" = function() perform_gp_cross_validation(gp_models, training_data, config$cv_criteria)
   )
 
@@ -817,7 +817,7 @@ validate_gp_model_workflow <- function(gp_models, training_data, config = NULL, 
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return GP model performance assessment
 #' @export
-validate_gp_model_performance <- function(gp_models, training_data, criteria = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
+diagnose_gp_performance <- function(gp_models, training_data, criteria = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -878,7 +878,7 @@ validate_gp_model_performance <- function(gp_models, training_data, criteria = N
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Depth trend realism assessment
 #' @export
-assess_depth_trend_realism <- function(gp_models, criteria = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
+diagnose_depth_trend_realism <- function(gp_models, criteria = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -949,7 +949,7 @@ assess_depth_trend_realism <- function(gp_models, criteria = NULL, verbose = get
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return GP prediction validation
 #' @export
-validate_gp_predictions <- function(gp_models, criteria = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
+diagnose_gp_predictions <- function(gp_models, criteria = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -1011,7 +1011,7 @@ validate_gp_predictions <- function(gp_models, criteria = NULL, verbose = getOpt
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Soil science validation results
 #' @export
-validate_soil_science_realism <- function(simulation_data, original_data = NULL, config = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
+diagnose_soil_science_realism <- function(simulation_data, original_data = NULL, config = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)
@@ -1020,7 +1020,7 @@ validate_soil_science_realism <- function(simulation_data, original_data = NULL,
 
   # Use the shared configuration helpers
   if (is.null(config)) {
-    config <- get_default_configuration("soil_science")
+    config <- default_config("soil_science")
   }
 
   # data validation
@@ -1040,7 +1040,7 @@ validate_soil_science_realism <- function(simulation_data, original_data = NULL,
 
   # validation pipeline
   validation_steps <- list(
-    "property_constraints" = function() assess_property_constraints(simulation_data, config$constraint_criteria),
+    "property_constraints" = function() diagnose_property_constraints(simulation_data, config$constraint_criteria),
     "horizon_characteristics" = function() validate_horizon_characteristics(simulation_data, config$horizon_criteria),
     "pedological_relationships" = function() assess_pedological_relationships(simulation_data, config$relationship_criteria),
     "depth_trend_realism" = function() validate_simulation_depth_trends(simulation_data, original_data, config$depth_trend_criteria)
@@ -1072,7 +1072,7 @@ validate_soil_science_realism <- function(simulation_data, original_data = NULL,
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Property constraint assessment
 #' @export
-assess_property_constraints <- function(simulation_data, criteria = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
+diagnose_property_constraints <- function(simulation_data, criteria = NULL, verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
   on.exit(options(soil_workflow_log_config = .old_log_cfg), add = TRUE)

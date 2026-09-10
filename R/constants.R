@@ -22,7 +22,7 @@ RANGE_FALLBACK_HALFWIDTH <- 2
 
 #' Relative half-width of the Saxton-Rawls water-retention uncertainty band.
 #'
-#' `calculate_saxton_rawls_single()` returns `_l`/`_h` as the point estimate -/+ this fraction.
+#' `compute_saxton_rawls()` returns `_l`/`_h` as the point estimate -/+ this fraction.
 #' A pedotransfer-function output has no native interval; this is a nominal +/-15% band.
 #' @noRd
 SAXTON_RAWLS_RANGE_FRAC <- 0.15

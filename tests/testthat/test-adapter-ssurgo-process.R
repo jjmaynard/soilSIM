@@ -121,7 +121,7 @@ test_that("clean_property_data() outlier_policy switches between soil-aware and 
   drop <- clean_property_data(df, "claytotal", outlier_policy = "aggressive_iqr")$data$claytotal_r
   expect_true(is.na(drop[12]))                        # generic IQR x 3 nulls it
 
-  expect_warning(clean_property_data_ssurgo_compatible(df, "claytotal"), "deprecated")
+  expect_warning(clean_ssurgo_property_data(df, "claytotal"), "deprecated")
 })
 
 test_that("process_ssurgo_data() runs end-to-end on the synthetic raw fixture and returns the documented shape", {
@@ -156,14 +156,14 @@ test_that("generate_processing_quality_report() renormalizes weights over availa
   expect_equal(partial$overall_quality_score, 1)
 })
 
-test_that("hz_quant_prob_mukey() computes 05/50/95/PIW90 quantile columns per mukey/depth", {
+test_that("compute_mukey_horizon_quantiles() computes 05/50/95/PIW90 quantile columns per mukey/depth", {
   set.seed(1)
   hz_data <- data.frame(
     mukey = rep(c("1", "2"), each = 10),
     hzdept_r = 0, hzdepb_r = 20,
     db = c(stats::rnorm(10, 1.3, 0.1), stats::rnorm(10, 1.5, 0.1))
   )
-  result <- hz_quant_prob_mukey(hz_data)
+  result <- compute_mukey_horizon_quantiles(hz_data)
 
   expect_true(all(c("mukey", "top", "bottom", "Db_05", "Db_50", "Db_95", "Db_PIW90") %in% names(result)))
   expect_equal(nrow(result), 2)
@@ -172,23 +172,23 @@ test_that("hz_quant_prob_mukey() computes 05/50/95/PIW90 quantile columns per mu
   expect_true(all(result$Db_PIW90 >= 0))
 })
 
-test_that("hz_quant_prob_mukey() errors when no recognized property columns are present", {
+test_that("compute_mukey_horizon_quantiles() errors when no recognized property columns are present", {
   hz_data <- data.frame(mukey = "1", hzdept_r = 0, hzdepb_r = 20, not_a_property = 1)
-  expect_error(hz_quant_prob_mukey(hz_data), "No valid soil properties")
+  expect_error(compute_mukey_horizon_quantiles(hz_data), "No valid soil properties")
 })
 
-test_that("hz_quant_prob_mukey() warns (not errors) on texture data without soiltexture installed", {
+test_that("compute_mukey_horizon_quantiles() warns (not errors) on texture data without soiltexture installed", {
   testthat::skip_if(nzchar(system.file(package = "soiltexture")), "soiltexture is installed - texture-class path exercised separately")
   hz_data <- data.frame(
     mukey = "1", hzdept_r = 0, hzdepb_r = 20,
     sand_total = c(40, 42), silt_total = c(40, 38), clay_total = c(20, 20)
   )
-  expect_warning(result <- hz_quant_prob_mukey(hz_data), "soiltexture package not available")
+  expect_warning(result <- compute_mukey_horizon_quantiles(hz_data), "soiltexture package not available")
   expect_true("mukey" %in% names(result))
 })
 
-test_that("hz_quant_prob_mukey()'s single-pass quantile computation matches the original three-pass version", {
-  # Regression test for the PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3 hz_quant_prob_mukey() fix:
+test_that("compute_mukey_horizon_quantiles()'s single-pass quantile computation matches the original three-pass version", {
+  # Regression test for the PERFORMANCE_IMPROVEMENT_PLAN.md Tier 3 compute_mukey_horizon_quantiles() fix:
   # reimplements the ORIGINAL three-pass group_by()/summarize() + left_join() version's core
   # quantile/PIW90 computation here and checks the new single-pass version produces identical
   # numeric results, across multiple mukeys/depths/properties.
@@ -234,7 +234,7 @@ test_that("hz_quant_prob_mukey()'s single-pass quantile computation matches the 
   }
 
   expected <- old_three_pass(hz_data)
-  actual <- hz_quant_prob_mukey(hz_data)
+  actual <- compute_mukey_horizon_quantiles(hz_data)
   common_cols <- c("mukey", "top", "Db_05", "Db_50", "Db_95", "Db_PIW90", "ph_05", "ph_50", "ph_95", "ph_PIW90")
   expect_equal(
     actual[order(actual$mukey, actual$top), common_cols],

@@ -22,8 +22,8 @@ test_that("parse_single_string_advanced() parses ranges, comparisons, and qualit
   expect_equal(parse_single_string_advanced("TRACE")$value, 0.1)
 })
 
-test_that("calculate_saxton_rawls_single() produces physically plausible, checkable output", {
-  result <- calculate_saxton_rawls_single(sand_pct = 40, clay_pct = 20, silt_pct = 40, bulk_density = 1.3)
+test_that("compute_saxton_rawls() produces physically plausible, checkable output", {
+  result <- compute_saxton_rawls(sand_pct = 40, clay_pct = 20, silt_pct = 40, bulk_density = 1.3)
   expect_true(result$field_capacity > result$wilting_point)
   expect_true(result$available_water_capacity > 0)
   expect_equal(result$available_water_capacity, result$field_capacity - result$wilting_point, tolerance = 0.5)
@@ -32,7 +32,7 @@ test_that("calculate_saxton_rawls_single() produces physically plausible, checka
 
   # Texture renormalization: percentages summing far from 100 still produce
   # finite, plausible output (rescaled internally).
-  result_bad_texture <- calculate_saxton_rawls_single(sand_pct = 50, clay_pct = 50, silt_pct = 50, bulk_density = 1.3)
+  result_bad_texture <- compute_saxton_rawls(sand_pct = 50, clay_pct = 50, silt_pct = 50, bulk_density = 1.3)
   expect_true(all(is.finite(unlist(result_bad_texture))))
 })
 
@@ -84,7 +84,7 @@ test_that("related_property_estimation() applies the texture sum-to-100 constrai
   group <- make_horizon_row(sandtotal_r = 40, silttotal_r = 35)
   group$claytotal_r <- NA_real_
   group$unsuitable_horizon <- FALSE
-  config <- get_default_property_config("claytotal")
+  config <- default_property_config("claytotal")
   res <- related_property_estimation(group, "claytotal", config)
   expect_equal(res$claytotal_r, 25)  # 100 - 40 - 35
 })
@@ -96,10 +96,10 @@ test_that("related_property_estimation() estimates water retention via Saxton-Ra
   group <- make_horizon_row(claytotal_r = 30)
   group$wthirdbar_r <- NA_real_
   group$unsuitable_horizon <- FALSE
-  config <- get_default_property_config("wthirdbar")
+  config <- default_property_config("wthirdbar")
   res <- related_property_estimation(group, "wthirdbar", config)
 
-  expected <- calculate_saxton_rawls_single(
+  expected <- compute_saxton_rawls(
     sand_pct = group$sandtotal_r, clay_pct = 30, silt_pct = group$silttotal_r,
     bulk_density = group$dbovendry_r, rfv_pct = 0, om_pct = 2
   )$field_capacity
@@ -111,7 +111,7 @@ test_that("related_property_estimation() falls back to the crude clay-linear mod
   # No sand / silt / bulk density -> Saxton-Rawls has no inputs -> last-resort clay-linear.
   group <- data.frame(hzname = "A", claytotal_r = 30, wthirdbar_r = NA_real_,
                       unsuitable_horizon = FALSE, stringsAsFactors = FALSE)
-  config <- get_default_property_config("wthirdbar")
+  config <- default_property_config("wthirdbar")
   res <- related_property_estimation(group, "wthirdbar", config)
   expect_equal(res$wthirdbar_r, 0.3 * 30 + 10)
   expect_match(res$infill_method, "clay_linear_lastresort")
@@ -124,7 +124,7 @@ test_that("related_property_estimation() applies clay/OM-based CEC estimation", 
   group$om_r <- 3
   group$cec7_r <- NA_real_
   group$unsuitable_horizon <- FALSE
-  config <- get_default_property_config("cec7")
+  config <- default_property_config("cec7")
   res <- related_property_estimation(group, "cec7", config)
   expect_equal(res$cec7_r, max(2, 20 * 0.5 + 3 * 20))
 })
@@ -134,10 +134,10 @@ test_that("related_property_estimation() applies horizon/OM-adjusted pH estimati
   group$om_r <- 6  # "om" isn't a default property - add its _r column explicitly
   group$ph1to1h2o_r <- NA_real_
   group$unsuitable_horizon <- FALSE
-  # Like dbovendry (see below), get_default_property_config("ph1to1h2o") does
+  # Like dbovendry (see below), default_property_config("ph1to1h2o") does
   # not set related_properties (pre-existing legacy config characteristic),
   # so supply it explicitly to exercise the branch directly.
-  config <- get_default_property_config("ph1to1h2o")
+  config <- default_property_config("ph1to1h2o")
   config$related_properties <- c("om")
   res <- related_property_estimation(group, "ph1to1h2o", config)
   expect_equal(res$ph1to1h2o_r, 6.2 - 0.3 - 0.4)
@@ -148,7 +148,7 @@ test_that("related_property_estimation() is a no-op for ph1to1h2o's actual defau
   group$om_r <- 6
   group$ph1to1h2o_r <- NA_real_
   group$unsuitable_horizon <- FALSE
-  config <- get_default_property_config("ph1to1h2o")
+  config <- default_property_config("ph1to1h2o")
   res <- related_property_estimation(group, "ph1to1h2o", config)
   expect_true(is.na(res$ph1to1h2o_r))
 })
@@ -157,7 +157,7 @@ test_that("related_property_estimation() applies depth/horizon/clay-adjusted org
   group <- make_horizon_row(hzname = "A", hzdept_r = 5, claytotal_r = 40)
   group$om_r <- NA_real_
   group$unsuitable_horizon <- FALSE
-  config <- get_default_property_config("om")
+  config <- default_property_config("om")
   res <- related_property_estimation(group, "om", config)
   expect_equal(res$om_r, 3.5 * 1.5 * 1.3)
 })
@@ -166,13 +166,13 @@ test_that("related_property_estimation() applies texture-adjusted bulk density e
   group <- make_horizon_row(claytotal_r = 30, sandtotal_r = 40)
   group$dbovendry_r <- NA_real_
   group$unsuitable_horizon <- FALSE
-  # get_default_property_config("dbovendry") does not set related_properties
+  # default_property_config("dbovendry") does not set related_properties
   # (a pre-existing characteristic of the legacy reference config, carried
   # over unchanged - not something introduced by this port), so
   # related_property_estimation() bails out before reaching the
   # bulk_density branch when called with the *default* config. Supplying
   # related_properties explicitly here exercises that branch directly.
-  config <- get_default_property_config("dbovendry")
+  config <- default_property_config("dbovendry")
   config$related_properties <- c("claytotal", "sandtotal")
   res <- related_property_estimation(group, "dbovendry", config)
   expect_equal(res$dbovendry_r, 1.4 - (30 - 20) * 0.01 + (40 - 50) * 0.005)
@@ -182,7 +182,7 @@ test_that("related_property_estimation() is a no-op for dbovendry's actual defau
   group <- make_horizon_row(claytotal_r = 30, sandtotal_r = 40)
   group$dbovendry_r <- NA_real_
   group$unsuitable_horizon <- FALSE
-  config <- get_default_property_config("dbovendry")
+  config <- default_property_config("dbovendry")
   res <- related_property_estimation(group, "dbovendry", config)
   expect_true(is.na(res$dbovendry_r))
 })
@@ -304,14 +304,14 @@ test_that("related_property_estimation()'s vectorized branches match the origina
   # old per-row loop (it now runs Saxton-Rawls first, clay-linear only as a last resort) - covered
   # by its own dedicated tests above.
   configs <- list(
-    claytotal = get_default_property_config("claytotal"),
-    cec7 = { c <- get_default_property_config("cec7"); c },
-    om = get_default_property_config("om")
+    claytotal = default_property_config("claytotal"),
+    cec7 = { c <- default_property_config("cec7"); c },
+    om = default_property_config("om")
   )
   # ph1to1h2o/dbovendry need related_properties supplied explicitly (their real default configs
   # leave it unset - see the dedicated no-op tests above).
-  ph_config <- get_default_property_config("ph1to1h2o"); ph_config$related_properties <- c("om")
-  bd_config <- get_default_property_config("dbovendry"); bd_config$related_properties <- c("claytotal", "sandtotal")
+  ph_config <- default_property_config("ph1to1h2o"); ph_config$related_properties <- c("om")
+  bd_config <- default_property_config("dbovendry"); bd_config$related_properties <- c("claytotal", "sandtotal")
 
   cases <- list(
     list(property = "claytotal", config = configs$claytotal),
@@ -350,8 +350,8 @@ test_that("infill_soil_property() fills missing _l/_h from a complete horizon, a
   expect_equal(res$om_r[3], 2)
 })
 
-test_that("get_default_property_config()/create_custom_property_config() return usable configs", {
-  db_config <- get_default_property_config("dbovendry")
+test_that("default_property_config()/create_custom_property_config() return usable configs", {
+  db_config <- default_property_config("dbovendry")
   expect_equal(db_config$units, "g/cm^3")  # non-ASCII unit symbol replaced with ASCII-safe text
   expect_true(is.numeric(db_config$typical_range))
 
@@ -372,17 +372,17 @@ test_that("validate_property_config() accepts a well-formed config and rejects m
   expect_error(validate_property_config("not a list", "test_prop"), "must be a list")
 })
 
-test_that("get_rfv_range_category() categorizes RFV values at documented boundaries", {
-  expect_equal(get_rfv_range_category(NA), "none")
-  expect_equal(get_rfv_range_category(0), "none")
-  expect_equal(get_rfv_range_category(5), "low")
-  expect_equal(get_rfv_range_category(5.001), "moderate")
-  expect_equal(get_rfv_range_category(15), "moderate")
-  expect_equal(get_rfv_range_category(15.001), "high")
-  expect_equal(get_rfv_range_category(35), "high")
-  expect_equal(get_rfv_range_category(35.001), "very_high")
-  expect_equal(get_rfv_range_category(60), "very_high")
-  expect_equal(get_rfv_range_category(61), "extreme")
+test_that("rfv_range_category() categorizes RFV values at documented boundaries", {
+  expect_equal(rfv_range_category(NA), "none")
+  expect_equal(rfv_range_category(0), "none")
+  expect_equal(rfv_range_category(5), "low")
+  expect_equal(rfv_range_category(5.001), "moderate")
+  expect_equal(rfv_range_category(15), "moderate")
+  expect_equal(rfv_range_category(15.001), "high")
+  expect_equal(rfv_range_category(35), "high")
+  expect_equal(rfv_range_category(35.001), "very_high")
+  expect_equal(rfv_range_category(60), "very_high")
+  expect_equal(rfv_range_category(61), "extreme")
 })
 
 test_that("apply_property_constraints() clamps per property type and typical_range", {
@@ -476,7 +476,7 @@ test_that("infill_property_range_values() classifies depth zones correctly (regr
 test_that("learn_property_ranges() returns the fallback spread (not an error) when _l/_h columns are absent", {
   # Regression: a point-estimate source has only _r. Without the guard, `df[[l_col]]` is NULL,
   # `complete_mask` collapses to logical(0), and `df[complete_mask, ]` errors on a tibble.
-  cfg <- get_default_property_config("claytotal")
+  cfg <- default_property_config("claytotal")
   for (ctor in list(data.frame, tibble::tibble)) {
     df <- ctor(claytotal_r = c(15, 22, 30))
     r <- learn_property_ranges(df, "claytotal", cfg)

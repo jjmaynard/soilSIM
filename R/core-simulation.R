@@ -286,7 +286,7 @@ simulate_correlated_triangular <- function(n, params, correlation_matrix, random
 #' factor-coercion overhead of `table(x)`/`factor(x)`. On ties it returns the smallest value
 #' among them (unique values are sorted ascending and `which.max()` returns the first maximum).
 #' @export
-calculate_mode <- function(x) {
+compute_mode <- function(x) {
   ux <- sort(unique(x))
   counts <- tabulate(match(x, ux))
   ux[which.max(counts)]
@@ -491,8 +491,8 @@ simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_corr
         ilr1_vals <- sim_txt_ilr[, "z1"]
         ilr2_vals <- sim_txt_ilr[, "z2"]
         list(
-          ilr1_lrh = c(min(ilr1_vals), calculate_mode(ilr1_vals), max(ilr1_vals)),
-          ilr2_lrh = c(min(ilr2_vals), calculate_mode(ilr2_vals), max(ilr2_vals))
+          ilr1_lrh = c(min(ilr1_vals), compute_mode(ilr1_vals), max(ilr1_vals)),
+          ilr2_lrh = c(min(ilr2_vals), compute_mode(ilr2_vals), max(ilr2_vals))
         )
       }, error = function(e) {
         message("simulate_cokey_generalized(): texture simulation failed for row ", i, ": ", e$message)
@@ -690,7 +690,7 @@ NULL
 #' @return A data frame with soil horizon data for the given mukeys, including aggregated rock fragment data.
 #'
 #' @export
-get_aws_data_by_mukey <- function(mukeys) {
+fetch_ssurgo_aws_data <- function(mukeys) {
   # Step 1: Format mukey(s) for SQL
   formatted_mukey <- paste0("(", paste0("'", mukeys, "'", collapse = ","), ")")
 
@@ -1624,7 +1624,7 @@ simulate_profile_depths_by_collection_parallel <- function(soil_collection, seed
 #' @export
 simulate_profile_depths_by_mukey <- function(mukey, n_simulations = 100, seed = 123) {
   # Step 1: Query the data based on the mukey
-  mu_data <- get_aws_data_by_mukey(mukeys = mukey)
+  mu_data <- fetch_ssurgo_aws_data(mukeys = mukey)
 
   if (is.null(mu_data)) {
     stop("No data found for the provided mukey.")

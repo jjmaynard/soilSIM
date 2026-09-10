@@ -280,8 +280,8 @@ per-fraction uncertainty, not as a second composition that should also sum to 10
 ## Under the hood: scalar Bayesian updating
 
 Both fusion routes above ultimately reduce to elementwise arithmetic on `core-fusion.R`'s
-scalar fusion functions (`bayes_update_normal_normal()`, `fuse_beta()`/`fuse_gamma()`,
-`bayesian_update()`'s general grid-KDE fusion) - they already work unchanged on `SpatRaster` inputs
+scalar fusion functions (`fuse_normal_normal()`, `fuse_beta()`/`fuse_gamma()`,
+`update_prior()`'s general grid-KDE fusion) - they already work unchanged on `SpatRaster` inputs
 via `terra`'s operator overloading, so the raster-native code in `core-fusion.R` reuses them
 directly rather than reimplementing the same math per-cell. See
 the "Bayesian Updating" architecture article for these building blocks used directly on scalar

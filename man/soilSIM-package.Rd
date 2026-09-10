@@ -91,8 +91,8 @@ available water storage from ROSETTA pedotransfer parameters.
 
 \section{Bayesian updating (scalar, core)}{
 
-\code{\link[=bayes_update_normal_normal]{bayes_update_normal_normal()}} and family provide closed-form same-family
-fusion of a prior and observed data; \code{\link[=bayesian_update]{bayesian_update()}} provides a fully
+\code{\link[=fuse_normal_normal]{fuse_normal_normal()}} and family provide closed-form same-family
+fusion of a prior and observed data; \code{\link[=update_prior]{update_prior()}} provides a fully
 general grid-KDE fusion for arbitrary distributions;
 \code{\link[=fuse_texture_group_from_triplets]{fuse_texture_group_from_triplets()}} fuses compositional texture data
 jointly in ILR space.

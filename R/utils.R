@@ -890,7 +890,7 @@ safe_correlation <- function(x, y = NULL, method = "pearson", handle_constant = 
 #' @param n_bootstrap Number of bootstrap samples
 #' @return Confidence interval
 #' @export
-calculate_confidence_intervals <- function(data,
+compute_confidence_intervals <- function(data,
                                            statistic = "mean",
                                            confidence_level = 0.95,
                                            method = "normal",
@@ -1141,7 +1141,7 @@ write_excel_with_metadata <- function(data, file_path, include_metadata) {
 # Keyed by the canonical `_r`-suffixed SSURGO column name; each entry lists
 # every known alias/synonym for that property (including common short forms
 # and the non-suffixed base name). `get_default_property_mapping("ssurgo")`,
-# `get_default_synonyms("ssurgo")`, and `validate_properties_with_synonyms()`
+# `default_property_synonyms("ssurgo")`, and `validate_properties_with_synonyms()`
 # all derive from this one table, so they cannot drift out of sync.
 .ssurgo_property_synonyms <- function() {
   list(

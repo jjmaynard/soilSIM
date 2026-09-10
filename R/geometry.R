@@ -515,7 +515,7 @@ validate_geometry_complexity <- function(geom, complexity_limits) {
     n_vertices = n_vertices,
     n_parts = n_parts,
     geometry_type = geometry_type,
-    complexity_score = calculate_complexity_score(n_vertices, n_parts, geometry_type)
+    complexity_score = compute_complexity_score(n_vertices, n_parts, geometry_type)
   )
 
   # Check against limits
@@ -604,7 +604,7 @@ validate_coordinate_bounds <- function(geom, bounds_check, context = "general") 
 #' changes.
 #'
 #' @export
-get_validation_defaults <- function(context, crs) {
+default_diagnostics_config <- function(context, crs) {
 
   defaults <- switch(context,
                      "geographic" = list(
@@ -647,7 +647,7 @@ get_validation_defaults <- function(context, crs) {
 #' @return Complexity score
 #'
 #' @export
-calculate_complexity_score <- function(n_vertices, n_parts, geometry_type) {
+compute_complexity_score <- function(n_vertices, n_parts, geometry_type) {
 
   # Base score from vertices and parts
   vertex_score <- log10(max(n_vertices, 1))

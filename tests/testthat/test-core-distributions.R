@@ -479,16 +479,16 @@ test_that("simulate_from_percentiles() rejects method = 'metalog' (deliberately 
   )
 })
 
-test_that("calculate_summary_statistics() computes basic stats and dynamically-named percentiles", {
+test_that("compute_summary_statistics() computes basic stats and dynamically-named percentiles", {
   data <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-  result <- calculate_summary_statistics(data, percentile_probs = c(0.1, 0.5, 0.9))
+  result <- compute_summary_statistics(data, percentile_probs = c(0.1, 0.5, 0.9))
   expect_equal(result$Num, 10)
   expect_equal(result$Mean, 5.5)
   expect_true(all(c("P10", "P50", "P90") %in% names(result)))
 })
 
-test_that("calculate_summary_statistics() errors on non-numeric input", {
-  expect_error(calculate_summary_statistics("not numeric"), "must be a numeric vector")
+test_that("compute_summary_statistics() errors on non-numeric input", {
+  expect_error(compute_summary_statistics("not numeric"), "must be a numeric vector")
 })
 
 test_that("compare_percentile_methods() returns samples and a summary row per method, tolerating a failing method", {

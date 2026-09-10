@@ -10,13 +10,13 @@
 #'   in `core-montecarlo.R` does not call these functions directly.
 #'
 #'   Three tiers, in increasing order of generality/cost:
-#'   1. `bayes_update_normal_normal()` - exact, closed-form, Normal-only.
+#'   1. `fuse_normal_normal()` - exact, closed-form, Normal-only.
 #'   2. `fuse_beta()`/`fuse_gamma()` - exact, closed-form, same-family-only
 #'      (each family's kernel parameters simply ADD - the same principle
-#'      `bayes_update_normal_normal()` uses for Normal's natural parameters,
+#'      `fuse_normal_normal()` uses for Normal's natural parameters,
 #'      applied to Beta/Gamma), with a `feasible` flag and a documented
 #'      moment-based fallback route when infeasible.
-#'   3. `bayesian_update()` - fully general grid-KDE Bayes' rule (any shape,
+#'   3. `update_prior()` - fully general grid-KDE Bayes' rule (any shape,
 #'      any family, even mismatched sides), at the cost of needing raw
 #'      samples (not distributional parameters) on both sides.
 #'
@@ -46,7 +46,7 @@ NULL
 #'   bounded between `prior_mu` and `lik_mu`; symmetric under swapping
 #'   `(prior_mu, prior_sigma)` <-> `(lik_mu, lik_sigma)`.
 #' @export
-bayes_update_normal_normal <- function(prior_mu, prior_sigma, lik_mu, lik_sigma) {
+fuse_normal_normal <- function(prior_mu, prior_sigma, lik_mu, lik_sigma) {
   prior_prec <- 1 / (prior_sigma^2)
   lik_prec   <- 1 / (lik_sigma^2)
   post_prec  <- prior_prec + lik_prec
@@ -60,7 +60,7 @@ bayes_update_normal_normal <- function(prior_mu, prior_sigma, lik_mu, lik_sigma)
 #' Needed because several properties (e.g. SOC, CEC) are strictly positive
 #' and right-skewed - fusing their raw mean/sd as if Normal lets the
 #' posterior put real probability mass below zero, which is physically
-#' impossible. `bayes_update_normal_normal()` is reused in log-space instead.
+#' impossible. `fuse_normal_normal()` is reused in log-space instead.
 #'
 #' @param mu,sigma Raw-space mean/sd.
 #' @return `list(mu = log-space mu, sigma = log-space sigma)`.
@@ -146,7 +146,7 @@ moments_to_beta <- function(mean, var) {
 #'
 #' The inverse direction of `moments_to_beta()` - used to re-express an
 #' infeasible same-family fusion's inputs as Normal moments before falling
-#' back to `bayes_update_normal_normal()`.
+#' back to `fuse_normal_normal()`.
 #' @param alpha,beta Beta shape parameters.
 #' @return `list(mean=, var=)`.
 #' @export
@@ -158,7 +158,7 @@ beta_to_moments <- function(alpha, beta) {
 #'
 #' The inverse direction of `moments_to_gamma()` - used to re-express an
 #' infeasible same-family fusion's inputs as Normal moments before falling
-#' back to `bayes_update_normal_normal()`.
+#' back to `fuse_normal_normal()`.
 #' @param shape,rate Gamma shape/rate parameters.
 #' @return `list(mean=, var=)`.
 #' @export
@@ -173,13 +173,13 @@ gamma_to_moments <- function(shape, rate) {
 #'   `list(shape=,rate=)` for `"gamma"`.
 #' @param family One of `"normal"`, `"beta"`, `"gamma"`. Both sides must
 #'   already be fit in this same family - there is no closed form for fusing
-#'   mismatched families; use `bayesian_update()` for that.
+#'   mismatched families; use `update_prior()` for that.
 #' @return The matching `fuse_*()` function's return value.
 #' @export
-bayes_fuse <- function(prior_params, lik_params, family = c("normal", "beta", "gamma")) {
+fuse_distribution <- function(prior_params, lik_params, family = c("normal", "beta", "gamma")) {
   family <- match.arg(family)
   switch(family,
-    normal = bayes_update_normal_normal(prior_params$mu, prior_params$sigma, lik_params$mu, lik_params$sigma),
+    normal = fuse_normal_normal(prior_params$mu, prior_params$sigma, lik_params$mu, lik_params$sigma),
     beta = fuse_beta(prior_params$alpha, prior_params$beta, lik_params$alpha, lik_params$beta),
     gamma = fuse_gamma(prior_params$shape, prior_params$rate, lik_params$shape, lik_params$rate)
   )
@@ -256,7 +256,7 @@ bayes_fuse <- function(prior_params, lik_params, family = c("normal", "beta", "g
 #' harmless, independently-useful safety net for genuine extreme-outlier inputs, not as a fix for
 #' this finding (there was nothing here to fix).
 #' @export
-bayesian_update <- function(prior_distribution, likelihood_distribution, grid_range = NULL,
+update_prior <- function(prior_distribution, likelihood_distribution, grid_range = NULL,
                              grid_resolution = 0.01, n = 1000, winsorize_probs = NULL,
                              posterior_probs = NULL) {
   if (!is.null(winsorize_probs)) {
@@ -322,7 +322,7 @@ bayesian_update <- function(prior_distribution, likelihood_distribution, grid_ra
 #' Fuse two independent bivariate Normal beliefs about the same 2D quantity
 #'
 #' Precision MATRICES add - the direct multivariate generalization of
-#' `bayes_update_normal_normal()`'s scalar-precision addition.
+#' `fuse_normal_normal()`'s scalar-precision addition.
 #'
 #' @param mu1,mu2 Length-2 mean vectors.
 #' @param Sigma1,Sigma2 2x2 covariance matrices.
@@ -392,8 +392,8 @@ fuse_texture_group_from_triplets <- function(prior_triplets, lik_triplets, z_pri
 #' between the general and closed-form routes by AOI cell count - a concept
 #' with no tabular analogue - this dispatches on the SHAPE of `prior`/
 #' `likelihood`: atomic numeric vectors (raw samples) route to the fully
-#' general `bayesian_update()`; named lists of family-native parameters
-#' route to the closed-form `bayes_fuse()`. This removes the "which
+#' general `update_prior()`; named lists of family-native parameters
+#' route to the closed-form `fuse_distribution()`. This removes the "which
 #' heuristic" ambiguity entirely, since the caller's input shape already
 #' determines which route applies.
 #'
@@ -408,11 +408,11 @@ fuse_texture_group_from_triplets <- function(prior_triplets, lik_triplets, z_pri
 #' @param method Optional assertion/override: `"general"` or `"closed_form"`.
 #'   Errors if it doesn't match what the input shape implies, rather than
 #'   silently overriding it.
-#' @param n_samples,grid_resolution Passed to `bayesian_update()` for the
+#' @param n_samples,grid_resolution Passed to `update_prior()` for the
 #'   general route.
 #' @return For the general route: a numeric vector of posterior samples
-#'   (`bayesian_update()`'s native output). For the closed-form route: the
-#'   family-native posterior parameter list (`bayes_fuse()`'s native output).
+#'   (`update_prior()`'s native output). For the closed-form route: the
+#'   family-native posterior parameter list (`fuse_distribution()`'s native output).
 #'   These are NOT the same shape - documented deliberately rather than
 #'   forced into a fake-uniform contract, since the caller already knows
 #'   which shape it's passing in and therefore which shape it gets back.
@@ -435,13 +435,13 @@ fuse_property <- function(prior, likelihood, family = NULL, bounds = NULL, metho
   }
 
   if (resolved_method == "general") {
-    return(bayesian_update(prior, likelihood, grid_resolution = grid_resolution, n = n_samples))
+    return(update_prior(prior, likelihood, grid_resolution = grid_resolution, n = n_samples))
   }
 
   if (is.null(family)) {
     stop("fuse_property(): family is required when prior/likelihood are parameter lists (closed_form route).")
   }
-  bayes_fuse(prior, likelihood, family = family)
+  fuse_distribution(prior, likelihood, family = family)
 }
 
 
@@ -458,10 +458,10 @@ fuse_property <- function(prior, likelihood, family = NULL, bounds = NULL, metho
 #'   counterpart of `R/core-fusion.R`.
 #'
 #'   Uses `core-fusion.R`'s scalar/vector fusion functions
-#'   directly - `bayes_update_normal_normal()`,
+#'   directly - `fuse_normal_normal()`,
 #'   `fuse_beta()`, `fuse_gamma()`, `moments_to_gamma()`/`moments_to_beta()`/
 #'   `beta_to_moments()`/`gamma_to_moments()`, `normal_to_lognormal_params()`/
-#'   `lognormal_to_normal_params()`, `bayesian_update()`, and
+#'   `lognormal_to_normal_params()`, `update_prior()`, and
 #'   `R/core-distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`, plus
 #'   `fuse_bivariate_normal()` - are all pure elementwise arithmetic, so they
 #'   work unchanged on `SpatRaster` inputs.
@@ -623,7 +623,7 @@ closed_form_percentiles_raster <- function(param1, param2, qfun, posterior_probs
 #' cell count.
 #'
 #' @param mukey_raster Categorical mukey SpatRaster, aligned to the target grid.
-#' @param mukey_draws A `mukey_draws_lookup()` result - named list keyed by mukey (character), each
+#' @param mukey_draws A `lookup_mukey_draws()` result - named list keyed by mukey (character), each
 #'   element a numeric vector of real simulated draws for that mukey.
 #' @param family One of "normal", "beta", "gamma", "lognormal". `"lognormal"` (added
 #') fits `mu`/`sigma` directly from
@@ -701,7 +701,7 @@ mukey_draws_closed_form_fit_raster <- function(mukey_raster, mukey_draws, family
 #' with mukey cardinality, not cell count.
 #'
 #' @param mukey_raster Categorical mukey SpatRaster, aligned to the target grid.
-#' @param mukey_draws A `mukey_draws_lookup()` result - named list keyed by mukey (character), each
+#' @param mukey_draws A `lookup_mukey_draws()` result - named list keyed by mukey (character), each
 #'   element a numeric vector of real simulated draws for that mukey.
 #' @param probs Numeric probabilities (0-1) at which to compute each mukey's empirical quantile -
 #'   pass the same knot probabilities the caller's `fit_metalog_linear_raster()` call will use.
@@ -783,7 +783,7 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
       fit_prior <- merge_raw_fit(fit_prior, mukey_draws_closed_form_fit_raster(mukey_raster, mukey_draws, "normal"))
     }
     fit_lik <- fit_normal_raster(lik_value_rasters[[idx$lo_idx]], lik_value_rasters[[idx$p50_idx]], lik_value_rasters[[idx$hi_idx]], idx$p_lo, idx$p_hi)
-    posterior <- bayes_update_normal_normal(fit_prior$mu, fit_prior$sigma, fit_lik$mu, fit_lik$sigma)
+    posterior <- fuse_normal_normal(fit_prior$mu, fit_prior$sigma, fit_lik$mu, fit_lik$sigma)
     posterior$percentiles <- qnorm_percentiles_raster(posterior$mu, posterior$sigma, effective_posterior_probs)
     return(list(posterior = posterior, route_detail = NULL, n_fallback_cells = 0))
   }
@@ -799,7 +799,7 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
     prior_m <- beta_to_moments(fit_prior$alpha, fit_prior$beta)
     lik_m <- beta_to_moments(fit_lik$alpha, fit_lik$beta)
     span <- bounds[2] - bounds[1]
-    fallback_normal <- bayes_update_normal_normal(
+    fallback_normal <- fuse_normal_normal(
       bounds[1] + prior_m$mean * span, sqrt(prior_m$var) * span,
       bounds[1] + lik_m$mean * span, sqrt(lik_m$var) * span
     )
@@ -831,7 +831,7 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
 
     prior_m <- gamma_to_moments(fit_prior$shape, fit_prior$rate)
     lik_m <- gamma_to_moments(fit_lik$shape, fit_lik$rate)
-    fallback_normal <- bayes_update_normal_normal(prior_m$mean, sqrt(prior_m$var), lik_m$mean, sqrt(lik_m$var))
+    fallback_normal <- fuse_normal_normal(prior_m$mean, sqrt(prior_m$var), lik_m$mean, sqrt(lik_m$var))
     fallback_gamma <- moments_to_gamma(fallback_normal$mu, fallback_normal$sigma^2)
 
     shape_final <- terra::ifel(fused$feasible, fused$shape, fallback_gamma$shape)
@@ -845,11 +845,11 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
   }
 }
 
-#' Default `bayesian_update()` grid resolution used by `fuse_general_kde()` (per-cell KDE fusion
-#' route), coarser than `bayesian_update()`'s own standalone default of `0.01`.
+#' Default `update_prior()` grid resolution used by `fuse_general_kde()` (per-cell KDE fusion
+#' route), coarser than `update_prior()`'s own standalone default of `0.01`.
 #'
 #' @section Why 0.1, not 0.01:
-#' `bayesian_update()`'s `stats::density()` calls (kernel density estimation over
+#' `update_prior()`'s `stats::density()` calls (kernel density estimation over
 #' `seq(grid_min, grid_max, by = grid_resolution)`) are the dominant cost of
 #' `fuse_general_kde()`'s per-cell loop - `Rprof()` profiling on a synthetic 10,000-cell raster
 #' attributed 65% of total wall-clock time to `density()`
@@ -865,17 +865,17 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
 #' starts compounding fast (variance error reaches double digits to 470% by `2.0`) - `0.1` is the
 #' sweet spot, not an arbitrary round number.
 #'
-#' `bayesian_update()`'s own standalone default is deliberately left at `0.01` - this constant
+#' `update_prior()`'s own standalone default is deliberately left at `0.01` - this constant
 #' only overrides the grid resolution `fuse_general_kde()` requests, so any other direct caller of
-#' `bayesian_update()` is unaffected.
+#' `update_prior()` is unaffected.
 #' @keywords internal
 FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION <- 0.1
 
-#' Default `winsorize_probs` `fuse_general_kde()` passes to `bayesian_update()` on its `raw_draws`
+#' Default `winsorize_probs` `fuse_general_kde()` passes to `update_prior()` on its `raw_draws`
 #' branch only.
 #'
 #' @section Why this exists:
-#' `bayesian_update()`'s `stats::density(bw = "nrd0")` bandwidth choice is sensitive to outliers a
+#' `update_prior()`'s `stats::density(bw = "nrd0")` bandwidth choice is sensitive to outliers a
 #' raw-draws resample can genuinely contain - confirmed via a dedicated adversarial test: a
 #' right-skewed synthetic prior's raw resample (realized range ~4-195) produced a measurably wider
 #' KDE bandwidth, and a *less* accurate fused posterior mean on average across 8 seeds, than the
@@ -885,7 +885,7 @@ FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION <- 0.1
 #' most extreme 1% on each tail is affected, which is exactly the region a KDE-based fused mean is
 #' most vulnerable to.
 #'
-#' `bayesian_update()`'s own standalone default is deliberately left `NULL` (unclipped) - this
+#' `update_prior()`'s own standalone default is deliberately left `NULL` (unclipped) - this
 #' constant only affects `fuse_general_kde()`'s `raw_draws` branch, which is the one path
 #' confirmed to need it; the default percentile-reconstruction branch is already structurally
 #' bounded near its own P5-P95 input range and is left untouched.
@@ -908,7 +908,7 @@ FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS <- c(0.01, 0.99)
 #' For the closed-form analytic routes (`qnorm`/`qbeta`/`qgamma`), extra percentiles are free
 #' and exact regardless of how extreme they are. For
 #' `fuse_general_kde()`'s sample/grid-based route, percentiles are read directly off
-#' `bayesian_update()`'s discretized `posterior_prob` (see that function's own "Grid-based
+#' `update_prior()`'s discretized `posterior_prob` (see that function's own "Grid-based
 #' percentiles" section) - exact relative to `grid_resolution` and NOT resampling-noise-limited,
 #' but still subject to how well the underlying KDE itself approximates the tails from a finite
 #' `n_samples`-sized input resample; the extreme percentiles here (P01/P99) are inherently noisier
@@ -921,19 +921,19 @@ FUSE_POSTERIOR_DEFAULT_PROBS <- c(0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95
 
 #' Fully general fusion path for `fuse_adaptive()`: per cell, draw samples
 #' from both sides' percentiles (via `simulate_from_percentiles(method=
-#' "linear_cdf")`), fuse via `bayesian_update()`, and moment-match the
+#' "linear_cdf")`), fuse via `update_prior()`, and moment-match the
 #' posterior samples back into the requested family so the output contract
 #' matches the closed-form route.
 #' @inheritParams fuse_closed_form
 #' @param n_samples Samples drawn per side, per cell.
-#' @param grid_resolution Passed to `bayesian_update()`. `NULL` (the caller-facing default from
+#' @param grid_resolution Passed to `update_prior()`. `NULL` (the caller-facing default from
 #'   `fuse_adaptive()`) resolves to [FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION], not
-#'   `bayesian_update()`'s own standalone default of `0.01` - see that constant's docs for why.
+#'   `update_prior()`'s own standalone default of `0.01` - see that constant's docs for why.
 #' @param mukey_raster,mukey_draws Optional - opts into `prior_fusion_method = "raw_draws"` (see
 #'). `mukey_raster` must already be
 #'   aligned to the same grid as `prior_value_rasters`/`lik_value_rasters` (nearest-neighbor
 #'   resampled, since it's categorical - bilinear would fabricate nonsensical mukey codes).
-#'   `mukey_draws` is a `mukey_draws_lookup()` result. When both are supplied, the PRIOR side's
+#'   `mukey_draws` is a `lookup_mukey_draws()` result. When both are supplied, the PRIOR side's
 #'   samples for a cell are drawn from that cell's mukey's real Monte Carlo draws (computed
 #'   once per unique mukey, not once per cell) instead of `sim_linear_cdf_batch()`'s
 #'   percentile-reconstructed approximation - a genuine fidelity improvement, not just a speed one,
@@ -942,9 +942,9 @@ FUSE_POSTERIOR_DEFAULT_PROBS <- c(0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95
 #'   docs). `NULL` (default) for either parameter preserves the original percentile-reconstruction
 #'   behavior for the prior side exactly - bit-identical output to before this parameter existed.
 #' @param posterior_probs Numeric vector of probabilities (0-1) at which to report posterior
-#'   percentiles, computed via `bayesian_update()`'s grid-based exact percentile machinery (see
+#'   percentiles, computed via `update_prior()`'s grid-based exact percentile machinery (see
 #'   that function's docs). `NULL` (default) resolves to [FUSE_POSTERIOR_DEFAULT_PROBS] - unlike
-#'   `bayesian_update()`'s own `NULL` default (which means "no percentiles, preserve the original
+#'   `update_prior()`'s own `NULL` default (which means "no percentiles, preserve the original
 #'   plain-vector return"), this is an internal orchestration parameter with no external
 #'   plain-vector consumers, so its `NULL` means "use the standard rich default" instead. Also used
 #'   to compute `mu`/`sigma` (via the exact grid-based mean/var, not `mean()`/`var()` on a resampled
@@ -998,14 +998,14 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
   # cell in the chunk at once for cells with no missing/-1-sentinel percentile values (the common
   # case) - Rprof() profiling attributed ~9% of fuse_general_kde()'s total wall-clock to
   # extract_percentile_pairs()'s per-cell dispatch overhead alone (
-  # Tier 4). bayesian_update()'s density() call still runs per cell (no vectorized form exists in
+  # Tier 4). update_prior()'s density() call still runs per cell (no vectorized form exists in
   # base R), and any cell with a missing value falls back to the original per-cell
   # simulate_from_percentiles() path unchanged, preserving the exact NA-degradation contract above.
   #
   # The raw_draws path (mukey_prior_samples lookup) is deliberately NOT merged into the
   # fast/slow-path vectorized split above - it's a separate, simpler row-by-row branch so the
   # already-tuned default path (still the only path any existing caller reaches, since
-  # mukey_raster/mukey_draws default to NULL) is untouched. `bayesian_update()`'s density() call
+  # mukey_raster/mukey_draws default to NULL) is untouched. `update_prior()`'s density() call
   # still runs per cell either way (no vectorized form exists in base R) - but, the
   # LIKELIHOOD-side sampling (sim_linear_cdf_batch()) is now batched once across every
   # lik_no_na cell in the chunk up front, the same technique the fast path above already proves
@@ -1056,7 +1056,7 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
         if (!lik_no_na[i] || is.null(lik_samples_mat)) next
         lik_samples <- lik_samples_mat[lik_row_pos[i], ]
         post <- tryCatch(
-          bayesian_update(prior_samples, lik_samples, grid_resolution = effective_grid_resolution,
+          update_prior(prior_samples, lik_samples, grid_resolution = effective_grid_resolution,
                            winsorize_probs = FUSE_GENERAL_KDE_RAW_DRAWS_WINSORIZE_PROBS,
                            posterior_probs = effective_posterior_probs),
           error = function(e) NULL
@@ -1076,7 +1076,7 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
       lik_samples_mat <- sim_linear_cdf_batch(percentile_probs, lik_mat[fast_idx, , drop = FALSE], n_samples)
       for (j in seq_along(fast_idx)) {
         post <- tryCatch(
-          bayesian_update(prior_samples_mat[j, ], lik_samples_mat[j, ], grid_resolution = effective_grid_resolution,
+          update_prior(prior_samples_mat[j, ], lik_samples_mat[j, ], grid_resolution = effective_grid_resolution,
                            posterior_probs = effective_posterior_probs),
           error = function(e) NULL
         )
@@ -1092,7 +1092,7 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
           lik_row <- as.data.frame(stats::setNames(as.list(row[(k + 1):(2 * k)]), percentile_cols))
           prior_samples <- simulate_from_percentiles(prior_row, method = "linear_cdf", percentile_cols = percentile_cols, n = n_samples)
           lik_samples <- simulate_from_percentiles(lik_row, method = "linear_cdf", percentile_cols = percentile_cols, n = n_samples)
-          post <- bayesian_update(prior_samples, lik_samples, grid_resolution = effective_grid_resolution,
+          post <- update_prior(prior_samples, lik_samples, grid_resolution = effective_grid_resolution,
                                    posterior_probs = effective_posterior_probs)
           c(post$mean, post$var, post$percentiles)
         }, error = function(e) rep(NA_real_, 2 + np))
@@ -1131,11 +1131,11 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
 #'   contract across routes.
 #' @param bounds Required for `family = "beta"` (`c(lower, upper)`).
 #' @param threshold_cells AOI cell count at or below which the general
-#'   `bayesian_update()` route is used; above it, the closed-form route.
+#'   `update_prior()` route is used; above it, the closed-form route.
 #' @param n_samples Samples drawn per side for the general route's KDE fusion.
-#' @param grid_resolution Passed to `bayesian_update()` for the general route. `NULL` (default)
+#' @param grid_resolution Passed to `update_prior()` for the general route. `NULL` (default)
 #'   resolves to [FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION] (`0.1`) - see that constant's docs for
-#'   the profiling/accuracy justification for why this differs from `bayesian_update()`'s own
+#'   the profiling/accuracy justification for why this differs from `update_prior()`'s own
 #'   standalone default of `0.01`.
 #' @param verbose If TRUE (default), print the chosen route and why.
 #' @param mukey_raster,mukey_draws Optional - opts into `prior_fusion_method = "raw_draws"` on
@@ -1147,7 +1147,7 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
 #' @param posterior_probs Passed through to whichever route runs (`fuse_general_kde()` for the
 #'   general route, `fuse_closed_form()` for the closed-form route - see [FUSE_POSTERIOR_DEFAULT_PROBS]).
 #'   `NULL` (default) resolves to the same rich default on both routes. The general route computes
-#'   percentiles from `bayesian_update()`'s discretized posterior (exact relative to
+#'   percentiles from `update_prior()`'s discretized posterior (exact relative to
 #'   `grid_resolution`, but tail percentiles are limited by how well the KDE approximates the tails
 #'   from a finite sample); the closed-form route computes them analytically (`qnorm`/`qbeta`/
 #'   `qgamma` at the fused family parameters - exact regardless of how extreme the probability).
@@ -1241,7 +1241,7 @@ fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_
                                      ncell, threshold_cells, n_samples = 500, grid_resolution = NULL, verbose = TRUE,
                                      posterior_probs = NULL, mukey_raster = NULL, mukey_draws = NULL) {
   if (ncell <= threshold_cells) {
-    # bayesian_update()'s general route makes no distributional assumption
+    # update_prior()'s general route makes no distributional assumption
     # at all, so it needs no log-space detour - force fuse_adaptive() into
     # its general route (threshold_cells=Inf) directly on raw values;
     # family="normal" only selects the (mu,sigma) OUTPUT shape.
@@ -1274,7 +1274,7 @@ fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_
       sigma = terra::ifel(is.na(raw_prior_log$sigma), prior_log$sigma, raw_prior_log$sigma)
     )
   }
-  posterior_log <- bayes_update_normal_normal(prior_log$mu, prior_log$sigma, lik_log$mu, lik_log$sigma)
+  posterior_log <- fuse_normal_normal(prior_log$mu, prior_log$sigma, lik_log$mu, lik_log$sigma)
   posterior <- lognormal_to_normal_params(posterior_log$mu, posterior_log$sigma)
   posterior$percentiles <- closed_form_percentiles_raster(posterior_log$mu, posterior_log$sigma, stats::qlnorm, effective_posterior_probs)
   list(posterior = posterior, route = "closed_form_lognormal", route_detail = NULL, n_fallback_cells = 0)
@@ -1333,7 +1333,7 @@ metalog_moments_raster <- function(fit, infeasible_r, full_value_rasters, full_p
 #'   `NULL` (default) resolves to [FUSE_POSTERIOR_DEFAULT_PROBS]. Computed via
 #'   `qnorm_percentiles_raster()` on the final fused `(mu, sigma)` - this route already reduces
 #'   both sides to Normal-equivalent moments (`metalog_moments_raster()`'s quadrature) before the
-#'   final `bayes_update_normal_normal()` step, so there is no richer distributional shape to draw
+#'   final `fuse_normal_normal()` step, so there is no richer distributional shape to draw
 #'   percentiles from beyond that Normal approximation; carries forward this route's existing
 #'   "less-validated glue code" caveat (see `metalog_moments_raster()`'s own docs) to its
 #'   percentile output too.
@@ -1375,7 +1375,7 @@ fuse_metalog_adapter <- function(prior_value_rasters, prior_probs, lik_value_ras
   prior_m <- metalog_moments_raster(fit_prior, infeasible_prior, prior_value_rasters, prior_probs, bounds, boundedness)
   lik_m <- metalog_moments_raster(fit_lik, infeasible_lik, lik_value_rasters, lik_probs, bounds, boundedness)
 
-  posterior <- bayes_update_normal_normal(prior_m$mu, prior_m$sigma, lik_m$mu, lik_m$sigma)
+  posterior <- fuse_normal_normal(prior_m$mu, prior_m$sigma, lik_m$mu, lik_m$sigma)
   posterior$percentiles <- qnorm_percentiles_raster(posterior$mu, posterior$sigma, effective_posterior_probs)
   n_fallback <- sum(terra::values(infeasible_prior) | terra::values(infeasible_lik), na.rm = TRUE)
 
@@ -1564,7 +1564,7 @@ group_members <- function(group, composition_groups) {
 #'. A named list, keyed by mukey (as
 #'   character), each element an `n_mc x 3` matrix (columns `clay_total`/`sand_total`/
 #'   `silt_total`) of real joint texture draws for that mukey - see
-#'   `mukey_texture_draws_lookup()`. When supplied, `row_mat`'s last column must be the per-cell
+#'   `lookup_mukey_texture_draws()`. When supplied, `row_mat`'s last column must be the per-cell
 #'   mukey code. `NULL` (default) preserves original behavior exactly.
 #' @return A `nrow(row_mat) x 5` matrix, columns `mu1, mu2, S11, S12, S22`.
 #' @keywords internal
@@ -1717,7 +1717,7 @@ fuse_texture_group_batch_core <- function(row_mat, clay_id, sand_id, silt_id, pr
 #' own 2x2 Cholesky factor (closed-form: `u11 = sqrt(S11)`, `u12 = S12/u11`, `u22 = sqrt(S22 -
 #' u12^2)`, matching base R's `chol()` upper-triangular convention exactly), `ilr_inverse()`s the
 #' result to `(clay, sand, silt)` triples, then computes `quantile()` across draws per cell per
-#' fraction. Unlike `bayesian_update()`'s grid-based routes, this posterior has no discretized-grid
+#' fraction. Unlike `update_prior()`'s grid-based routes, this posterior has no discretized-grid
 #' shortcut - it's a genuine bivariate Monte Carlo sampler, so `n_mc` is the only lever on
 #' percentile reliability here.
 #'
@@ -1816,7 +1816,7 @@ texture_group_percentiles_raster <- function(ilr_mu_r, ilr_Sigma_r, posterior_pr
 #' @param mukey_raster,mukey_texture_draws Optional - opts into `prior_fusion_method =
 #'   "raw_draws"` (see `fuse_texture_group_batch_core()`'s docs). `mukey_raster` must already be
 #'   aligned to the same grid as `fetched`'s percentile rasters (nearest-neighbor resampled - it's
-#'   categorical). `mukey_texture_draws` is a `mukey_texture_draws_lookup()` result. `NULL`
+#'   categorical). `mukey_texture_draws` is a `lookup_mukey_texture_draws()` result. `NULL`
 #'   (default) for either uses the percentile-reconstruction path.
 #' @param posterior_probs Numeric probabilities (0-1) at which to report each fraction's posterior
 #'   percentiles. `NULL` (default) resolves to [FUSE_POSTERIOR_DEFAULT_PROBS]. Computed via
@@ -2005,7 +2005,7 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
   # fabricate nonsensical interpolated mukey codes between categories).
   extra_fusion_args <- list()
   if (want_raw_draws && !is.null(draws) && !is.null(mukey_raster_native)) {
-    mukey_draws <- mukey_draws_lookup(draws, ssurgo_property_id)
+    mukey_draws <- lookup_mukey_draws(draws, ssurgo_property_id)
     if (!is.null(mukey_draws)) {
       extra_fusion_args$mukey_raster <- terra::resample(mukey_raster_native, reference_grid, method = "near")
       extra_fusion_args$mukey_draws <- mukey_draws
@@ -2192,7 +2192,7 @@ stage1_fuse_texture_group_from_fetched <- function(fetched, want_raw_draws = FAL
   mukey_texture_draws <- NULL
   mukey_raster_aligned <- NULL
   if (isTRUE(want_raw_draws) && !is.null(shared_draws) && !is.null(shared_mukey_raster)) {
-    mukey_texture_draws <- mukey_texture_draws_lookup(shared_draws)
+    mukey_texture_draws <- lookup_mukey_texture_draws(shared_draws)
     if (!is.null(mukey_texture_draws)) {
       mukey_raster_aligned <- terra::resample(shared_mukey_raster, fetched[[1]]$lik[[1]], method = "near")
     }
@@ -2467,7 +2467,7 @@ run_fusion_multiproperty <- function(aoi_vect, property_configs, depth_windows,
   }
 
   ## --- SOLUS fetch memo (per solus_variable x window) -----------------------
-  # S1: one batched fetch_solus_percentiles_multi() call per window covers every variable needed
+  # S1: one batched fetch_solus_percentiles_multiproperty() call per window covers every variable needed
   # by any standalone config or group member, instead of one fetch_solus_percentiles() call per
   # (variable, window). Falls back to the scalar per-variable path only if the batched request
   # itself errors outright (get_solus()'s memo-miss path below already does that transparently).
@@ -2490,7 +2490,7 @@ run_fusion_multiproperty <- function(aoi_vect, property_configs, depth_windows,
   }
   prefetch_solus_batch <- function(w) {
     batch <- tryCatch(
-      fetch_solus_percentiles_multi(aoi_vect, vars_needed, w[[1]], w[[2]]),
+      fetch_solus_percentiles_multiproperty(aoi_vect, vars_needed, w[[1]], w[[2]]),
       error = function(e) NULL
     )
     if (is.null(batch)) return(invisible(NULL))  # defensive: get_solus() falls back per-variable
@@ -2720,7 +2720,7 @@ invert_posterior_cdf_raster <- function(pct, post_probs, u_ras) {
 
 #' Saxton-Rawls water retention (field capacity, wilting point), raster / stack-native
 #'
-#' The vectorized, `terra`-native counterpart of `calculate_saxton_rawls_single()` - identical
+#' The vectorized, `terra`-native counterpart of `compute_saxton_rawls()` - identical
 #' equations and clamps, but every operation is `terra` `Arith`/`Math`/`clamp`/`ifel` so it runs
 #' on multi-layer realization stacks in one pass. Used by `remarginalized_awc()`'s default
 #' (`method = "saxton_rawls"`) path, because SOLUS100 publishes **no** water-retention variable -
@@ -2729,7 +2729,7 @@ invert_posterior_cdf_raster <- function(pct, post_probs, u_ras) {
 #'
 #' Because `remarginalized_awc()` re-marginalizes `sand`/`silt`/`clay` to their own fused
 #' posteriors independently, a realization's texture triple may not sum to 100. This
-#' reproduces `calculate_saxton_rawls_single()`'s renormalization: where the texture sum is off
+#' reproduces `compute_saxton_rawls()`'s renormalization: where the texture sum is off
 #' by more than 5 points, the three fractions are rescaled to sum to 100 before the equations run
 #' (the equations themselves use only the sand and clay fractions).
 #'
@@ -2742,14 +2742,14 @@ saxton_rawls_raster <- function(sand, clay, silt, db, rfv, om) {
   cc <- terra::clamp(clay, 0, 100)
   sic <- terra::clamp(silt, 0, 100)
   tot <- sc + cc + sic
-  renorm <- abs(tot - 100) > 5                       # matches calculate_saxton_rawls_single()
+  renorm <- abs(tot - 100) > 5                       # matches compute_saxton_rawls()
   s  <- terra::ifel(renorm, sc / tot, sc / 100)
   cl <- terra::ifel(renorm, cc / tot, cc / 100)
   dbc <- terra::clamp(db, 0.6, 2.5)
   rfvf <- terra::clamp(rfv, 0, 95) / 100
   omf <- terra::clamp(om, 0.1, 50) / 100
 
-  # Shared coefficient core - identical arithmetic to calculate_saxton_rawls_single(), one copy.
+  # Shared coefficient core - identical arithmetic to compute_saxton_rawls(), one copy.
   core <- .saxton_rawls_gravimetric(s, cl, omf)
 
   fc_v <- terra::clamp(core$fc_g * dbc * (1 - rfvf) * 100, 3, 65)
@@ -2897,7 +2897,7 @@ remarginalize_ensemble_to_posterior <- function(mukey_ensemble, posterior_by_pro
 #'     (KSSL + joint-copula vertical correlation), *held fixed*. SOLUS carries no joint information,
 #'     so nothing is re-estimated. The preserved correlation is **rank (Spearman)**, not Pearson.
 #'   \item **Pedotransfer-function error**: NOT propagated. Saxton-Rawls is applied deterministically
-#'     per realization; the +/-15\% band `calculate_saxton_rawls_single()` returns is unused.
+#'     per realization; the +/-15\% band `compute_saxton_rawls()` returns is unused.
 #'   \item **Sub-mukey variation in dependence**: none. Every pixel in a mukey shares the source
 #'     ensemble; only the fused marginals vary pixel-to-pixel.
 #' }

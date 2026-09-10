@@ -62,7 +62,7 @@ test_that("solus_depth_window_weights() rejects a degenerate window", {
 })
 
 # ---------------------------------------------------------------------------
-# S1 - fetch_solus_low_pred_high_multi() / fetch_solus_percentiles_multi(): batched multi-
+# S1 - fetch_solus_low_pred_high_multiproperty() / fetch_solus_percentiles_multiproperty(): batched multi-
 # variable fetchSOLUS() (offline, mocked soilDB::fetchSOLUS()).
 # ---------------------------------------------------------------------------
 
@@ -83,7 +83,7 @@ test_that("solus_depth_window_weights() rejects a degenerate window", {
   r
 }
 
-test_that("fetch_solus_low_pred_high_multi() fetches every variable in one fetchSOLUS() call", {
+test_that("fetch_solus_low_pred_high_multiproperty() fetches every variable in one fetchSOLUS() call", {
   fetch_n <- 0L
   vars <- c("claytotal", "dbovendry")
   depths <- c(0, 5, 15)
@@ -97,7 +97,7 @@ test_that("fetch_solus_low_pred_high_multi() fetches every variable in one fetch
     .package = "soilDB"
   )
 
-  res <- fetch_solus_low_pred_high_multi(terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"),
+  res <- fetch_solus_low_pred_high_multiproperty(terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"),
                                          vars, top_depth = 0, bottom_depth = 15)
 
   expect_equal(fetch_n, 1L)
@@ -108,7 +108,7 @@ test_that("fetch_solus_low_pred_high_multi() fetches every variable in one fetch
   expect_true(all(terra::values(res$claytotal$pred) <= terra::values(res$claytotal$high)))
 })
 
-test_that("fetch_solus_low_pred_high_multi() flags only the affected (variable, output_type) on partial failure", {
+test_that("fetch_solus_low_pred_high_multiproperty() flags only the affected (variable, output_type) on partial failure", {
   vars <- c("claytotal", "dbovendry")
   depths <- c(0, 5, 15)
   # Drop every "high" layer for dbovendry only - a partial failure confined to one variable/output_type.
@@ -119,7 +119,7 @@ test_that("fetch_solus_low_pred_high_multi() flags only the affected (variable, 
     .package = "soilDB"
   )
 
-  res <- suppressWarnings(fetch_solus_low_pred_high_multi(
+  res <- suppressWarnings(fetch_solus_low_pred_high_multiproperty(
     terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"), vars, top_depth = 0, bottom_depth = 15
   ))
 
@@ -128,13 +128,13 @@ test_that("fetch_solus_low_pred_high_multi() flags only the affected (variable, 
   expect_s4_class(res$dbovendry$pred, "SpatRaster")
   expect_null(res$dbovendry$high)  # only the affected combo is NULL
   expect_warning(
-    fetch_solus_low_pred_high_multi(terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"),
+    fetch_solus_low_pred_high_multiproperty(terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"),
                                     vars, top_depth = 0, bottom_depth = 15),
     "dbovendry.*95% high"
   )
 })
 
-test_that("fetch_solus_low_pred_high_multi() returns all-NULL per variable (not a crash) when fetchSOLUS() itself errors", {
+test_that("fetch_solus_low_pred_high_multiproperty() returns all-NULL per variable (not a crash) when fetchSOLUS() itself errors", {
   vars <- c("claytotal", "dbovendry")
 
   testthat::local_mocked_bindings(
@@ -142,7 +142,7 @@ test_that("fetch_solus_low_pred_high_multi() returns all-NULL per variable (not 
     .package = "soilDB"
   )
 
-  res <- suppressWarnings(fetch_solus_low_pred_high_multi(
+  res <- suppressWarnings(fetch_solus_low_pred_high_multiproperty(
     terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"), vars, top_depth = 0, bottom_depth = 15
   ))
 
@@ -150,13 +150,13 @@ test_that("fetch_solus_low_pred_high_multi() returns all-NULL per variable (not 
   expect_null(res$claytotal$pred)
   expect_null(res$dbovendry$pred)
   expect_warning(
-    fetch_solus_low_pred_high_multi(terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"),
+    fetch_solus_low_pred_high_multiproperty(terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"),
                                     vars, top_depth = 0, bottom_depth = 15),
     "fetchSOLUS\\(\\) failed"
   )
 })
 
-test_that("fetch_solus_percentiles_multi() packages every variable's low/pred/high into values/probs, NULL per variable if incomplete", {
+test_that("fetch_solus_percentiles_multiproperty() packages every variable's low/pred/high into values/probs, NULL per variable if incomplete", {
   vars <- c("claytotal", "dbovendry")
   depths <- c(0, 5, 15)
   missing <- paste0("dbovendry_", depths, "_cm_h")
@@ -166,7 +166,7 @@ test_that("fetch_solus_percentiles_multi() packages every variable's low/pred/hi
     .package = "soilDB"
   )
 
-  res <- suppressWarnings(fetch_solus_percentiles_multi(
+  res <- suppressWarnings(fetch_solus_percentiles_multiproperty(
     terra::vect(terra::ext(0, 1, 0, 1), crs = "EPSG:5070"), vars, top_depth = 0, bottom_depth = 15
   ))
 

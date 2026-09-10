@@ -14,7 +14,7 @@ or multi-layer; single-layer inputs are recycled.}
 \code{list(fc =, wp =)} - volumetric \% \code{SpatRaster}s, \code{wp < fc} enforced.
 }
 \description{
-The vectorized, \code{terra}-native counterpart of \code{calculate_saxton_rawls_single()} - identical
+The vectorized, \code{terra}-native counterpart of \code{compute_saxton_rawls()} - identical
 equations and clamps, but every operation is \code{terra} \code{Arith}/\code{Math}/\code{clamp}/\code{ifel} so it runs
 on multi-layer realization stacks in one pass. Used by \code{remarginalized_awc()}'s default
 (\code{method = "saxton_rawls"}) path, because SOLUS100 publishes \strong{no} water-retention variable -
@@ -24,7 +24,7 @@ sand/silt/clay/\code{dbovendry}/\code{soc}/\code{fragvol}.
 \details{
 Because \code{remarginalized_awc()} re-marginalizes \code{sand}/\code{silt}/\code{clay} to their own fused
 posteriors independently, a realization's texture triple may not sum to 100. This
-reproduces \code{calculate_saxton_rawls_single()}'s renormalization: where the texture sum is off
+reproduces \code{compute_saxton_rawls()}'s renormalization: where the texture sum is off
 by more than 5 points, the three fractions are rescaled to sum to 100 before the equations run
 (the equations themselves use only the sand and clay fractions).
 }

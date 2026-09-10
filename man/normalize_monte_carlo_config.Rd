@@ -13,7 +13,7 @@ normalize_monte_carlo_config(
 \arguments{
 \item{simulation_config}{User-supplied config (flat or nested).}
 
-\item{default_config}{Result of \code{get_monte_carlo_defaults()}, used only to
+\item{default_config}{Result of \code{default_monte_carlo_config()}, used only to
 recognize which flat key names belong under \code{monte_carlo}.}
 
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's
@@ -26,7 +26,7 @@ of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 \description{
 \code{simulate_monte_carlo()}'s own \verb{@examples} have always shown
 a FLAT \code{simulation_config} (e.g. \code{list(distribution_type = "normal", max_depth = 200)}),
-but \code{get_monte_carlo_defaults()} nests every Monte Carlo setting under
+but \code{default_monte_carlo_config()} nests every Monte Carlo setting under
 \verb{$monte_carlo}, and \code{merge_configurations()} merges strictly by matching
 key path - so a flat user config silently landed as a new, unused
 top-level \code{config$distribution_type} and had NO effect at all (confirmed

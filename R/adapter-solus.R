@@ -210,9 +210,9 @@ fetch_solus_percentiles <- function(aoi_vect, solus_variable, top_depth, bottom_
 #'   that case. A per-`(variable, output_type)` combo missing from an otherwise-successful response
 #'   is `NULL` for just that piece, with a `warning()` naming it - a partial failure, not a whole-
 #'   request one.
-#' @seealso `fetch_solus_low_pred_high()`, `fetch_solus_percentiles_multi()`
+#' @seealso `fetch_solus_low_pred_high()`, `fetch_solus_percentiles_multiproperty()`
 #' @export
-fetch_solus_low_pred_high_multi <- function(aoi_vect, solus_variables, top_depth, bottom_depth) {
+fetch_solus_low_pred_high_multiproperty <- function(aoi_vect, solus_variables, top_depth, bottom_depth) {
   weights <- solus_depth_window_weights(top_depth, bottom_depth)
   weights <- weights[weights != 0]
   slice_depths <- names(weights)
@@ -228,7 +228,7 @@ fetch_solus_low_pred_high_multi <- function(aoi_vect, solus_variables, top_depth
                         output_type = c("prediction", "95% low prediction interval",
                                         "95% high prediction interval"), grid = TRUE),
     error = function(e) {
-      warning(sprintf("fetch_solus_low_pred_high_multi(): fetchSOLUS() failed: %s",
+      warning(sprintf("fetch_solus_low_pred_high_multiproperty(): fetchSOLUS() failed: %s",
                        conditionMessage(e)))
       NULL
     }
@@ -238,7 +238,7 @@ fetch_solus_low_pred_high_multi <- function(aoi_vect, solus_variables, top_depth
   fetch_one <- function(var, suffix, output_type) {
     wanted <- vapply(slice_depths, layer_name, character(1), var = var, suffix = suffix)
     if (!all(wanted %in% names(result))) {
-      warning(sprintf("fetch_solus_low_pred_high_multi(): fetchSOLUS() did not return every required depth slice for variable '%s', output_type '%s' (missing %s).",
+      warning(sprintf("fetch_solus_low_pred_high_multiproperty(): fetchSOLUS() did not return every required depth slice for variable '%s', output_type '%s' (missing %s).",
                        var, output_type, paste(setdiff(wanted, names(result)), collapse = ", ")))
       return(NULL)
     }
@@ -258,7 +258,7 @@ fetch_solus_low_pred_high_multi <- function(aoi_vect, solus_variables, top_depth
 #' Fetch SOLUS100 Percentile-Value Rasters for Multiple Variables, One Depth Window (S1)
 #'
 #' Batched sibling of `fetch_solus_percentiles()`: thin per-variable `list(values=, probs=)`
-#' packaging over `fetch_solus_low_pred_high_multi()`'s one-call fetch.
+#' packaging over `fetch_solus_low_pred_high_multiproperty()`'s one-call fetch.
 #'
 #' @param aoi_vect A `terra::SpatVector` AOI.
 #' @param solus_variables Character vector of `soilDB::fetchSOLUS()`-recognized variable names.
@@ -267,10 +267,10 @@ fetch_solus_low_pred_high_multi <- function(aoi_vect, solus_variables, top_depth
 #'   `list(values = list(P025=, P50=, P975=), probs = c(0.025, 0.5, 0.975))` (matching
 #'   `fetch_solus_percentiles()`'s shape) or `NULL` if any of that variable's low/pred/high rasters
 #'   is unavailable.
-#' @seealso `fetch_solus_percentiles()`, `fetch_solus_low_pred_high_multi()`
+#' @seealso `fetch_solus_percentiles()`, `fetch_solus_low_pred_high_multiproperty()`
 #' @export
-fetch_solus_percentiles_multi <- function(aoi_vect, solus_variables, top_depth, bottom_depth) {
-  lph_by_var <- fetch_solus_low_pred_high_multi(aoi_vect, solus_variables, top_depth, bottom_depth)
+fetch_solus_percentiles_multiproperty <- function(aoi_vect, solus_variables, top_depth, bottom_depth) {
+  lph_by_var <- fetch_solus_low_pred_high_multiproperty(aoi_vect, solus_variables, top_depth, bottom_depth)
 
   stats::setNames(lapply(solus_variables, function(v) {
     lph <- lph_by_var[[v]]

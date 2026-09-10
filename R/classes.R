@@ -161,7 +161,7 @@ print.soilSIM_diagnostics <- function(x, ...) {
 
 #' Property configuration object
 #'
-#' Wraps a property-configuration list ([get_default_property_config()],
+#' Wraps a property-configuration list ([default_property_config()],
 #' [create_custom_property_config()]).
 #'
 #' @param x A property-configuration list.

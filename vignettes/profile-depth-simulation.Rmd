@@ -27,7 +27,7 @@ library(ggplot2)
 
 ## The real component
 
-`get_aws_data_by_mukey()` queries NRCS Soil Data Access live for a given map unit key. This
+`fetch_ssurgo_aws_data()` queries NRCS Soil Data Access live for a given map unit key. This
 vignette's cached data was produced by that real call (see "Where this data came from" below) for
 map unit **462255** within the Amador-area AOI, which resolves to a single real component:
 
@@ -142,7 +142,7 @@ horizon's original low/high bounds when those bounds are actually present in the
 
 The cached data this vignette loads (`inst/extdata/depth_sim_mukey_data.rds`,
 `inst/extdata/depth_sim_profiles_amador.rds`) was produced once by `data-raw/build_vignette_data.R`,
-which calls `process_aoi_and_get_mukeys_working()`, `get_aws_data_by_mukey()`, and
+which calls `process_aoi_and_get_mukeys_working()`, `fetch_ssurgo_aws_data()`, and
 `simulate_profile_depths_by_mukey()` live against NRCS Soil Data Access and the Official Series
 Description database. Re-run that script to refresh it (the real mukey it resolves to may change
 if SSURGO data for this AOI is updated).

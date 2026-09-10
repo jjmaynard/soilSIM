@@ -32,7 +32,7 @@ apply_nrcs_trend_adjustments(
 \item{config}{Optional Monte Carlo config, passed through to \code{apply_gp_depth_trends()} -
 \code{config$monte_carlo$vertical_correlation_method} (\code{"joint_copula"} default, or
 \code{"gp_quantile_retrofit"}) reaches the NRCS/regional GP path as well as the local-GP path.
-\code{NULL} (default) resolves to \code{"joint_copula"}, matching \code{get_monte_carlo_defaults()}.}
+\code{NULL} (default) resolves to \code{"joint_copula"}, matching \code{default_monte_carlo_config()}.}
 }
 \value{
 Adjusted simulation data
