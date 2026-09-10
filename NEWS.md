@@ -1,6 +1,11 @@
-# soilSIM 0.1.0.9000 (development version)
+# soilSIM 0.2.0
 
-## Naming and package-structure re-architecture (in progress)
+## Naming and package-structure re-architecture
+
+This release renames a large fraction of the public API for consistency and splits `R/` into a
+generic-core + data-source-adapter layout. **Every renamed function keeps working** through a
+`lifecycle`-deprecated forwarding shim; the shims warn from 0.3.0 and are removed in 0.4.0. Set
+`options(lifecycle_verbosity = "warning")` to surface them now.
 
 * **`R/` reorganized** into a generic core + data-source adapters layout
   (`core-*.R`, `adapter-ssurgo-*.R`, `adapter-solus.R`, `model-aws.R`, plus
