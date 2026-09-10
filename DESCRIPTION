@@ -58,6 +58,7 @@ Suggests:
     httr,
     truncnorm,
     soiltexture,
+    tibble,
     knitr,
     pkgdown,
     testthat (>= 3.0.0)
