@@ -14,3 +14,4 @@
 ^README\.Rmd$
 ^\.github$
 ^planning-docs$
+^CONTRIBUTING\.md$
