@@ -1,7 +1,6 @@
-# Apply Basic Range Limits (Enhanced)
+# Apply Basic Range Limits
 
-Applies property-specific range constraints with enhanced property
-coverage.
+Applies property-specific range constraints.
 
 ## Usage
 

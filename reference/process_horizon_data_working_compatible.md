@@ -1,7 +1,6 @@
 # Process Horizon Data (Working Compatible)
 
-Enhanced horizon processing that uses Module 8 utilities and proven
-working functions
+Process Horizon Data (Working Compatible)
 
 ## Usage
 
@@ -26,7 +25,7 @@ process_horizon_data_working_compatible(
 
 - detect_unsuitable:
 
-  Logical; detect unsuitable horizons using Module 8 function
+  Logical; detect unsuitable horizons
 
 - advanced_cleaning:
 
@@ -34,7 +33,7 @@ process_horizon_data_working_compatible(
 
 - standardize_names:
 
-  Logical; standardize column names using Module 8
+  Logical; standardize column names
 
 - remove_invalid:
 

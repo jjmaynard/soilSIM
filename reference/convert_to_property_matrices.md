@@ -1,6 +1,7 @@
 # Convert to Property Matrices
 
-Enhanced version with Module 8 safe operations and validation.
+Reshapes long-format simulation data into a named list of
+depth-by-simulation matrices, one per property.
 
 ## Usage
 

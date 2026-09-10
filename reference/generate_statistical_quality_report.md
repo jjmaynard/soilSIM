@@ -1,6 +1,6 @@
-# Generate Statistical Quality Report (Enhanced)
+# Generate Statistical Quality Report
 
-Enhanced quality reporting with comprehensive metrics
+Generate Statistical Quality Report
 
 ## Usage
 
@@ -58,4 +58,4 @@ generate_statistical_quality_report(
 
 ## Value
 
-Enhanced quality report
+quality report

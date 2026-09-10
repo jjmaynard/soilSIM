@@ -9,7 +9,7 @@ per horizon-realization combination, matching the shape
 and
 [`convert_to_property_matrices()`](https://jjmaynard.github.io/soilSIM/reference/convert_to_property_matrices.md)
 expect (a `simulation_number` column plus one column per property,
-alongside the original horizon metadata).
+alongside the horizon metadata).
 
 ## Usage
 

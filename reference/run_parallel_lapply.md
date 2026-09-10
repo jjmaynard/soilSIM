@@ -92,7 +92,6 @@ run_parallel_lapply(
 A list of `FUN(x, ...)` results, one per element of `X`, in `X`'s
 order - the same shape
 [`parallel::parLapply()`](https://rdrr.io/r/parallel/clusterApply.html)/`mclapply()`
-already produced, so callers that previously consumed those results
-(e.g. via
+already produced, so callers can consume the result with
 [`dplyr::bind_rows()`](https://dplyr.tidyverse.org/reference/bind_rows.html)
-or manual concatenation) need no change.
+or manual concatenation.

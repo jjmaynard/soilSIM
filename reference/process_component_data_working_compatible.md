@@ -1,6 +1,6 @@
 # Process Component Data (Working Compatible)
 
-Enhanced component processing using Module 8 utilities
+Process Component Data (Working Compatible)
 
 ## Usage
 
@@ -21,7 +21,7 @@ process_component_data_working_compatible(
 
 - standardize_names:
 
-  Logical; standardize column names using Module 8
+  Logical; standardize column names
 
 - remove_invalid:
 

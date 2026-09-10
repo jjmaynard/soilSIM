@@ -137,8 +137,8 @@ standalone default of <code>0.01</code>.</p></dd>
 
 <dt id="arg-mukey-raster-mukey-draws">mukey_raster, mukey_draws<a class="anchor" aria-label="anchor" href="#arg-mukey-raster-mukey-draws"></a></dt>
 <dd><p>Optional - opts into <code>prior_fusion_method = "raw_draws"</code> on
-whichever route runs (<code><a href="fuse_general_kde.html">fuse_general_kde()</a></code> for the general route - task P2.2/P2.3;
-<code><a href="fuse_closed_form.html">fuse_closed_form()</a></code> for the closed-form route - task P2.6, added at negligible cost since
+whichever route runs (<code><a href="fuse_general_kde.html">fuse_general_kde()</a></code> for the general route -;
+<code><a href="fuse_closed_form.html">fuse_closed_form()</a></code> for the closed-form route -, added at negligible cost since
 that route's raw_draws fit is a per-mukey precompute + <code><a href="https://rspatial.github.io/terra/reference/subst.html" class="external-link">terra::subst()</a></code> broadcast, not a
 per-cell computation - see <code><a href="mukey_draws_closed_form_fit_raster.html">mukey_draws_closed_form_fit_raster()</a></code>'s docs). <code>NULL</code> (default)
 preserves original behavior exactly on both routes.</p></dd>
@@ -160,7 +160,7 @@ from a finite sample); the closed-form route computes them analytically (<code>q
 <code>alpha</code>/<code>beta</code> for "beta", <code>shape</code>/<code>rate</code> for "gamma") - always this
 shape regardless of which route ran. Also carries <code>percentiles</code>: a named list of
 <code>SpatRaster</code>s (<code>"P01"</code>..<code>"P99"</code> by default), one per <code>posterior_probs</code> entry, on both
-routes (as of P3.3).</p></li>
+routes.</p></li>
 <li><p><code>route</code>: one of <code>"bayesian_update_general"</code>, <code>"closed_form_normal"</code>,
 <code>"closed_form_beta"</code>, <code>"closed_form_gamma"</code>.</p></li>
 <li><p><code>route_detail</code>: for <code>family %in% c("beta","gamma")</code> on the

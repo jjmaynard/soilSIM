@@ -1,6 +1,6 @@
 # Predict GP Depth Trends
 
-Enhanced version with better error handling
+Predict GP Depth Trends
 
 ## Usage
 

@@ -133,7 +133,7 @@ numerically identical to <code>tile_rows = NULL</code>. <code>NULL</code> (defau
 
 <dt id="arg-restriction-depth">restriction_depth<a class="anchor" aria-label="anchor" href="#arg-restriction-depth"></a></dt>
 <dd><p>Optional single-layer <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code> of restriction depth in cm -
-typically <code>fetch_solus_restriction_depth(aoi_vect)</code> (MULTI_PROPERTY_FUSION_PLAN.md task S2),
+typically <code>fetch_solus_restriction_depth(aoi_vect)</code>,
 already right-censoring-guarded (cells with no detected restriction are <code>Inf</code>, never
 <code>SOLUS_RESTRICTION_CENSOR_CM</code> itself). <code>NULL</code> (default) preserves today's behavior exactly -
 every window contributes its full nominal thickness, regardless of bedrock. When supplied,

@@ -7,12 +7,8 @@ evaluating the closed-form van Genuchten (1980) water-retention curve,
 Monte Carlo-simulating available water holding capacity (AWHC) from
 ROSETTA-derived pedotransfer parameters, and depth-slicing/summarizing
 AWHC per soil component. It is implemented entirely in
-`R/aws-simulation.R` and is self-contained - unlike
-`R/depth-simulation.R`’s functions, none of the three functions here
-depend on any other not-yet-ported helper
-(e.g. [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)).
-It can be read, tested, and used in isolation from the rest of the
-`soilSIM` migration.
+`R/aws-simulation.R`. The three functions here are self-contained and
+depend on no other part of the package.
 
 ## Core Functions
 
@@ -90,43 +86,37 @@ samples are used as-is. Fixed matric potentials for field capacity and
 permanent wilting point are converted from kPa to cmH2O (1 kPa =
 10.19716 cmH2O): `h_fc = -33 * 10.19716` and `h_pwp = -1500 * 10.19716`.
 A per-draw data frame is built with the sampled/back-transformed
-parameters plus `sim_num`, then
-[`dplyr::rowwise()`](https://dplyr.tidyverse.org/reference/rowwise.html) +
+parameters plus `sim_num`, then a vectorized
 [`dplyr::mutate()`](https://dplyr.tidyverse.org/reference/mutate.html)
 calls
 [`van_genuchten()`](https://jjmaynard.github.io/soilSIM/reference/van_genuchten.md)
 once at `h_fc` and once at `h_pwp` to get `theta_fc` and `theta_pwp` for
-each draw; `AWHC <- theta_fc - theta_pwp` is computed as a plain
-vectorized column after ungrouping. The resulting per-row data frame is
-stored in the output list under key
+each draw; `AWHC <- theta_fc - theta_pwp` is a plain vectorized column.
+The resulting per-row data frame is stored in the output list under key
 `paste(data$layerID[i], i, sep = "_")`.
 
-**Ported-as-is behavioral quirks** (documented in the source as
-intentional, not bugs): - `set.seed(123)` is called **inside** the
-per-row loop, so every row re-seeds and draws from an identically-seeded
-random stream rather than an evolving stream across rows. This means the
-`n_simulations` draws for row 1 and row 2 (before back-transformation)
-are numerically identical in their underlying
-[`rnorm()`](https://rdrr.io/r/stats/Normal.html) output, differing only
-through each row’s own mean/SD. - Sampled `alpha`/`n` values are
-back-transformed via `10^(...)`, i.e. the input `data$alpha`/`data$npar`
-(and their SDs) are treated as already being in log10 space. This is a
-standard technique for keeping van Genuchten shape parameters positive
-after adding Gaussian noise, but whether
-[`soilDB::ROSETTA()`](http://ncss-tech.github.io/soilDB/reference/ROSETTA.md)’s
-actual reported values are meant to be interpreted this way is not
-independently verified by this port - it is preserved exactly as it
-existed in the legacy source.
+**Behavioral notes**: - `set.seed(123)` is called **inside** the per-row
+loop, so every row re-seeds and draws from an identically-seeded random
+stream rather than an evolving stream across rows. The `n_simulations`
+draws for row 1 and row 2 (before back-transformation) share the same
+underlying [`rnorm()`](https://rdrr.io/r/stats/Normal.html) output,
+differing only through each row’s own mean/SD. - Sampled `alpha`/`n`
+values are back-transformed via `10^(...)`: the input
+`data$alpha`/`data$npar` (and their SDs) are treated as already being in
+log10 space, which keeps the van Genuchten shape parameters positive
+after Gaussian noise is added.
 
 ### 3. `.aws_slab_mean()` - Internal `slab.fun` Helper (not exported)
 
-**Purpose**: A minimal replacement for the no-longer-available
-`aqp::mean_na()` (removed/renamed in current `aqp` versions), preserving
-its old single-value-per-slab contract that
+**Purpose**: A minimal `slab.fun` returning a single na.rm mean per slab
+in a `value` column.
 [`aqp::slab()`](https://ncss-tech.github.io/aqp/reference/slab.html)’s
-current default `slab.fun` (`slab_function(method = "numeric")`) does
-not provide (the current default returns quantile columns instead of a
-single `value` column).
+current default `slab.fun` (`slab_function(method = "numeric")`) returns
+quantile columns instead, which
+[`tidyr::pivot_wider()`](https://tidyr.tidyverse.org/reference/pivot_wider.html)
+in
+[`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
+cannot consume.
 
 **Parameters**:
 
@@ -143,14 +133,15 @@ single `value` column).
 **Returns**: A single numeric value, `mean(values, na.rm = TRUE)`.
 
 **Algorithm/behavior**: One-line pass-through to
-`mean(values, na.rm = TRUE)`. It exists purely so
+`mean(values, na.rm = TRUE)`. It exists so
 [`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)’s
 call to
 [`aqp::slab()`](https://ncss-tech.github.io/aqp/reference/slab.html)
-yields a `value` column that
+yields a single `value` column that
 [`tidyr::pivot_wider()`](https://tidyr.tidyverse.org/reference/pivot_wider.html)
-can consume, matching the shape the legacy code relied on from the
-now-removed `aqp::mean_na()`.
+can consume;
+[`aqp::slab()`](https://ncss-tech.github.io/aqp/reference/slab.html)’s
+current default `slab.fun` returns quantile columns instead.
 
 ### 4. `calculate_aws_df()` - Master AWS-by-Depth-Interval Function
 
@@ -221,12 +212,10 @@ this object).
 `aqp::slab(sim_aws_df, fm = cokey ~ AWHC, slab.structure = c(0, 5, 15, 30, 60, 100), slab.fun = .aws_slab_mean)`
 then computes the mean AWHC within each of the fixed depth slabs (0-5,
 5-15, 15-30, 30-60, 60-100 cm) per `cokey`, using the local
-`.aws_slab_mean()` in place of the removed `aqp::mean_na()`. Finally,
-the slab output has its `contributing_fraction` column dropped and is
-pivoted wider via
-`tidyr::pivot_wider(names_from = variable, values_from = value)`, and
-any remaining `NA` values are reassigned to `NA` (a no-op cleanup line
-preserved from the original source) before the data frame is returned.
+`.aws_slab_mean()`. Finally, the slab output has its
+`contributing_fraction` column dropped and is pivoted wider via
+`tidyr::pivot_wider(names_from = variable, values_from = value)` before
+the data frame is returned.
 
 ## Internal Connections
 
@@ -265,18 +254,15 @@ preserved from the original source) before the data frame is returned.
 
 ### soilSIM dependencies / consumers
 
-This module is a leaf/standalone module within `soilSIM`. It does not
-call into any other not-yet-ported `soilSIM` helper (unlike
-`R/depth-simulation.R`, which depends on
-[`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)).
-Upstream, component-level texture, bulk-density, and water-retention
-data produced by SSURGO acquisition/property-simulation steps elsewhere
-in `soilSIM` can be reshaped into the
+This is a leaf group within `soilSIM`: it does not call into any other
+`soilSIM` helper. Upstream, component-level texture, bulk-density, and
+water-retention data produced by SSURGO acquisition/property-simulation
+steps elsewhere in `soilSIM` can be reshaped into the
 `sand_total`/`silt_total`/`clay_total`/`bulk_density_third_bar`/`water_retention_third_bar`/`water_retention_15_bar`/`compname`/`hzdept_r`/`hzdepb_r`/`cokey`
 shape
 [`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
-expects, but no such wiring exists inside this file itself - the caller
-is responsible for producing `sim_data_df` in the expected shape.
+expects, but no such wiring exists inside this file - the caller is
+responsible for producing `sim_data_df` in the expected shape.
 
 ## Data Flow In/Out
 
@@ -307,27 +293,20 @@ property tables downstream.
   file.
 - **Per-row `set.seed(123)` re-seeding**
   ([`simulate_vg_aws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_vg_aws.md)):
-  the random seed is reset inside the per-row loop rather than being set
-  once before the loop, so each row’s Monte Carlo draws come from an
-  identically-seeded random stream. This is preserved intentionally from
-  the legacy source rather than “fixed,” since it may be a deliberate
-  reproducibility choice and changing it would alter the simulated AWHC
-  values every caller receives.
+  the random seed is reset inside the per-row loop rather than once
+  before it, so each row’s Monte Carlo draws come from an
+  identically-seeded random stream.
 - **`10^(...)` back-transformation of `alpha`/`npar`**
   ([`simulate_vg_aws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_vg_aws.md)):
-  sampled `alpha` and `n` values are exponentiated as if the input
-  means/SDs were supplied in log10 space. This is a standard technique
-  for keeping van Genuchten shape parameters positive, but whether
-  [`soilDB::ROSETTA()`](http://ncss-tech.github.io/soilDB/reference/ROSETTA.md)’s
-  actual output values are intended to be interpreted this way has not
-  been independently verified by this port - it is preserved as-is.
-- **`.aws_slab_mean()` as a replacement for `aqp::mean_na()`**: current
-  versions of `aqp` no longer export `mean_na()` (removed/renamed), and
+  sampled `alpha` and `n` values are exponentiated, treating the input
+  means/SDs as supplied in log10 space. This keeps the van Genuchten
+  shape parameters positive.
+- **`.aws_slab_mean()` as `slab.fun`**:
   [`aqp::slab()`](https://ncss-tech.github.io/aqp/reference/slab.html)’s
   current default `slab.fun` returns quantile columns rather than a
-  single `value` column. `.aws_slab_mean()` is a minimal local stand-in
-  restoring the old single-value-per-slab contract; if `aqp`’s API
-  changes further, this shim may need revisiting.
+  single `value` column, so `.aws_slab_mean()` supplies a single na.rm
+  mean per slab; if `aqp`’s API changes, this helper may need
+  revisiting.
 - **Silent row-skipping in
   [`simulate_vg_aws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_vg_aws.md)**:
   rows with any missing van Genuchten parameter mean are silently

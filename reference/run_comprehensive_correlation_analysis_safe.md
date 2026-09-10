@@ -1,6 +1,6 @@
 # Run Comprehensive Correlation Analysis (Safe Version)
 
-Safe version with enhanced error handling
+Safe version with error handling
 
 ## Usage
 

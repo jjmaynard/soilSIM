@@ -119,10 +119,9 @@ summarization and validation.</p>
 <code>config$monte_carlo$vertical_correlation_method</code>:</p>
 <ul>
 <li>
-<strong><code>"joint_copula"</code></strong> (the default as of
-<code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code>) - draws depth
-correlation and property correlation <em>simultaneously</em> from a
-single Kronecker-separable joint distribution
+<strong><code>"joint_copula"</code></strong> (the default) - draws
+depth correlation and property correlation <em>simultaneously</em> from
+a single Kronecker-separable joint distribution
 (<code><a href="../reference/sample_joint_depth_property_copula.html">sample_joint_depth_property_copula()</a></code>,
 <code><a href="../reference/apply_copula_to_marginals.html">apply_copula_to_marginals()</a></code>,
 <code><a href="../reference/preserve_correlation_structure_joint.html">preserve_correlation_structure_joint()</a></code>), so both are
@@ -137,15 +136,14 @@ by default pending calibration - see
 <code><a href="../reference/attach_osd_boundary_distinctness.html">attach_osd_boundary_distinctness()</a></code> in the Data Acquisition
 &amp; Processing module).</li>
 <li>
-<strong><code>"gp_quantile_retrofit"</code></strong> (the original
-algorithm, still fully supported as an explicit opt-out) - nudges each
-realization at each depth toward the GP-predicted trend using a single
-reference-quantile (“rank-preserving”) transform fixed at the surface
-depth. Real-AOI validation found this induces spurious near-perfect
-(<code>&gt;0.99</code>) correlation across the entire depth profile
-regardless of physical distance, independent of the GP model’s own
-fitted smoothness - the motivation for the <code>"joint_copula"</code>
-replacement.</li>
+<strong><code>"gp_quantile_retrofit"</code></strong> (an explicit
+opt-out) - nudges each realization at each depth toward the GP-predicted
+trend using a single reference-quantile (“rank-preserving”) transform
+fixed at the surface depth. Real-AOI validation found this induces
+spurious near-perfect (<code>&gt;0.99</code>) correlation across the
+entire depth profile regardless of physical distance, independent of the
+GP model’s own fitted smoothness - the motivation for the
+<code>"joint_copula"</code> replacement.</li>
 </ul>
 </div>
 <div class="section level2">
@@ -209,16 +207,14 @@ Runs <code><a href="../reference/validate_data_quality.html">validate_data_quali
 via <code><a href="../reference/standardize_property_names.html">standardize_property_names()</a></code>, computes
 <code>unsuitable_horizon</code> with
 <code>is_unsuitable(processed_data, strict_mode = TRUE)</code> and
-filters those horizons out (a <code>|&gt;</code>-pipe-safe rewrite of
-the original <code>%&gt;% mutate(is_unsuitable(.))</code> pattern - see
-the inline code comment about why the flag must be precomputed rather
-than referenced via a bare <code>.</code> inside <code>mutate()</code>),
-auto-selects a grouping strategy if requested, reconciles
-<code>hzdept_r</code>/<code>hzdepb_r</code> from whichever depth columns
-are populated, coalesces synonym columns into the eight standard
-property names via <code><a href="../reference/safe_coalesce.html">safe_coalesce()</a></code>, assigns
-<code>soil_group</code> via <code>create_soil_groups()</code>, drops
-inadequate groups, and logs a processing summary.</li>
+filters those horizons out (the <code>unsuitable_horizon</code> flag is
+precomputed rather than computed inside a <code>mutate()</code> call -
+see the inline code comment), auto-selects a grouping strategy if
+requested, reconciles <code>hzdept_r</code>/<code>hzdepb_r</code> from
+whichever depth columns are populated, coalesces synonym columns into
+the eight standard property names via <code><a href="../reference/safe_coalesce.html">safe_coalesce()</a></code>,
+assigns <code>soil_group</code> via <code>create_soil_groups()</code>,
+drops inadequate groups, and logs a processing summary.</li>
 </ul>
 </div>
 <div class="section level4">
@@ -341,10 +337,10 @@ via the CV wrapper), and computes diagnostics with
 </h4>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP</a></span><span class="op">(</span><span class="va">simulated_list</span>, <span class="va">gp_models</span>, <span class="va">depths</span>, primary_property <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
-<p><strong>Purpose</strong>: The original (pre-refactor) multivariate
-correlation-preserving adjustment routine, operating directly on
-matrices rather than long-format simulation data frames.
-<strong>Parameters</strong>: <code>simulated_list</code> - named list of
+<p><strong>Purpose</strong>: A multivariate correlation-preserving
+adjustment routine operating directly on matrices rather than
+long-format simulation data frames. <strong>Parameters</strong>:
+<code>simulated_list</code> - named list of
 <code>[depths x simulations]</code> matrices, one per property;
 <code>gp_models</code> - named list of fitted GP models (or nested
 <code>list(gp_model = ...)</code> structures) per property;
@@ -404,10 +400,8 @@ so one bad depth does not abort the whole validation.</p>
 <span>  target_property_corr <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  target_depth_corr <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p><strong>Purpose</strong>: The acceptance-test helper the joint-copula
-vertical-correlation redesign
-(<code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code>) was built and
-validated against. Unlike
+<p><strong>Purpose</strong>: A diagnostic helper for the joint depth x
+property correlation structure. Unlike
 <code><a href="../reference/validate_correlation_preservation.html">validate_correlation_preservation()</a></code>, which only checks
 cross-property correlation and only at the first five depths, this
 checks BOTH halves of the joint structure - cross-property correlation
@@ -918,9 +912,8 @@ original values unchanged rather than erroring.</p>
 <span>  boundary_distinctness <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  kernel <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"exponential"</span>, <span class="st">"matern"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p><strong>Purpose</strong>: The default vertical-correlation method as
-of <code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code> - a drop-in for
-<code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code> (identical
+<p><strong>Purpose</strong>: The default vertical-correlation method - a
+drop-in for <code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code> (identical
 required-parameter shape/order) that draws depth correlation and
 property correlation <em>simultaneously</em> rather than retrofitting
 one after the other. <code>primary_property</code> is accepted for
@@ -938,16 +931,15 @@ supplied); <code>boundary_distinctness</code> - optional per-depth
 <code>"exponential"</code> or <code>"matern"</code>.
 <strong>Returns</strong>: List of adjusted property matrices, same
 contract as <code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code> - degrades
-gracefully to the original, unadjusted matrices (with a warning) on
-insufficient dimensions or a sampling/mapping failure.
-<strong>Algorithm</strong>: Estimates <code>R_prop</code> empirically
-from the surface (first) depth’s already-drawn values (falls back to the
-identity matrix on a single property or an estimation failure - e.g. too
-few realizations for <code><a href="https://rdrr.io/r/stats/cor.html" class="external-link">stats::cor()</a></code>), builds
-<code>R_depth</code> via <code><a href="../reference/build_depth_correlation_kernel.html">build_depth_correlation_kernel()</a></code>,
-draws the joint sample via
-<code><a href="../reference/sample_joint_depth_property_copula.html">sample_joint_depth_property_copula()</a></code>, and maps it onto the
-real marginals via <code><a href="../reference/apply_copula_to_marginals.html">apply_copula_to_marginals()</a></code>.</p>
+gracefully to the unadjusted matrices (with a warning) on insufficient
+dimensions or a sampling/mapping failure. <strong>Algorithm</strong>:
+Estimates <code>R_prop</code> empirically from the surface (first)
+depth’s already-drawn values (falls back to the identity matrix on a
+single property or an estimation failure - e.g. too few realizations for
+<code><a href="https://rdrr.io/r/stats/cor.html" class="external-link">stats::cor()</a></code>), builds <code>R_depth</code> via
+<code><a href="../reference/build_depth_correlation_kernel.html">build_depth_correlation_kernel()</a></code>, draws the joint sample
+via <code><a href="../reference/sample_joint_depth_property_copula.html">sample_joint_depth_property_copula()</a></code>, and maps it onto
+the real marginals via <code><a href="../reference/apply_copula_to_marginals.html">apply_copula_to_marginals()</a></code>.</p>
 </div>
 <div class="section level4">
 <h4 id="apply_nrcs_trend_adjustments">

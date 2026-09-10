@@ -3,29 +3,17 @@
 depth simulation, thickness-variability estimation via repeated simulation,
 OSD-distinctness-derived boundary perturbation, and
 aqp::SoilProfileCollection-level orchestration (single profile, whole
-collection, parallelized collection, or by-mukey). Ported from
-code_ref/brdf/depth_simulation.R, the canonical, generalized version of
-this logic (superseding earlier copies kept for historical reference in
-code/scratch/, not part of this port).
+collection, parallelized collection, or by-mukey).
 This is the first place aqp/SoilProfileCollection objects are used in
-soilSIM; the random triangular-distribution sampler these functions rely
-on, tri_dist(), lives in R/distributions.R (it was originally defined
-in the companion legacy file, code_ref/brdf/property_simulation.R, not
-in depth_simulation.R itself). That companion file's correlated-property
-and van Genuchten/AWS modeling functions remain out of scope for this port."><meta property="og:description" content="SSURGO-based soil-profile horizon-depth simulation: top-down/bottom-up
+soilSIM. The random triangular-distribution sampler these functions rely
+on, tri_dist(), lives in R/distributions.R."><meta property="og:description" content="SSURGO-based soil-profile horizon-depth simulation: top-down/bottom-up
 depth simulation, thickness-variability estimation via repeated simulation,
 OSD-distinctness-derived boundary perturbation, and
 aqp::SoilProfileCollection-level orchestration (single profile, whole
-collection, parallelized collection, or by-mukey). Ported from
-code_ref/brdf/depth_simulation.R, the canonical, generalized version of
-this logic (superseding earlier copies kept for historical reference in
-code/scratch/, not part of this port).
+collection, parallelized collection, or by-mukey).
 This is the first place aqp/SoilProfileCollection objects are used in
-soilSIM; the random triangular-distribution sampler these functions rely
-on, tri_dist(), lives in R/distributions.R (it was originally defined
-in the companion legacy file, code_ref/brdf/property_simulation.R, not
-in depth_simulation.R itself). That companion file's correlated-property
-and van Genuchten/AWS modeling functions remain out of scope for this port."></head><body>
+soilSIM. The random triangular-distribution sampler these functions rely
+on, tri_dist(), lives in R/distributions.R."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -95,16 +83,10 @@ and van Genuchten/AWS modeling functions remain out of scope for this port."></h
 depth simulation, thickness-variability estimation via repeated simulation,
 OSD-distinctness-derived boundary perturbation, and
 <code><a href="https://ncss-tech.github.io/aqp/reference/SoilProfileCollection-class.html" class="external-link">aqp::SoilProfileCollection</a></code>-level orchestration (single profile, whole
-collection, parallelized collection, or by-mukey). Ported from
-<code>code_ref/brdf/depth_simulation.R</code>, the canonical, generalized version of
-this logic (superseding earlier copies kept for historical reference in
-<code>code/scratch/</code>, not part of this port).</p>
+collection, parallelized collection, or by-mukey).</p>
 <p>This is the first place <code>aqp</code>/<code>SoilProfileCollection</code> objects are used in
-<code>soilSIM</code>; the random triangular-distribution sampler these functions rely
-on, <code><a href="tri_dist.html">tri_dist()</a></code>, lives in <code>R/distributions.R</code> (it was originally defined
-in the <em>companion</em> legacy file, <code>code_ref/brdf/property_simulation.R</code>, not
-in <code>depth_simulation.R</code> itself). That companion file's correlated-property
-and van Genuchten/AWS modeling functions remain out of scope for this port.</p>
+<code>soilSIM</code>. The random triangular-distribution sampler these functions rely
+on, <code><a href="tri_dist.html">tri_dist()</a></code>, lives in <code>R/distributions.R</code>.</p>
     </div>
 
 

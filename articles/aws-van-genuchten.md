@@ -8,10 +8,9 @@ curve, whose shape parameters soilSIM estimates via
 [`soilDB::ROSETTA()`](http://ncss-tech.github.io/soilDB/reference/ROSETTA.md),
 a live pedotransfer-function API. This vignette derives real AWS
 estimates for real soil components from the same Amador-area AOI used in
-the “Getting Started” vignette. See
-`soilSIM/docs/07_aws_van_genuchten_modeling.md` for the full
-function-level reference, including two intentional, ported-as-is quirks
-in
+the “Getting Started” vignette. See the “AWS / Van Genuchten Modeling”
+architecture article for the full function-level reference, including
+two behavioral notes on
 [`simulate_vg_aws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_vg_aws.md)
 this vignette doesn’t need to touch.
 

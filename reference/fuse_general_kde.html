@@ -125,7 +125,7 @@ matches the closed-form route.</p>
 
 <dt id="arg-mukey-raster-mukey-draws">mukey_raster, mukey_draws<a class="anchor" aria-label="anchor" href="#arg-mukey-raster-mukey-draws"></a></dt>
 <dd><p>Optional - opts into <code>prior_fusion_method = "raw_draws"</code> (see
-<code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code> task P2.2/P2.3). <code>mukey_raster</code> must already be
+). <code>mukey_raster</code> must already be
 aligned to the same grid as <code>prior_value_rasters</code>/<code>lik_value_rasters</code> (nearest-neighbor
 resampled, since it's categorical - bilinear would fabricate nonsensical mukey codes).
 <code>mukey_draws</code> is a <code><a href="mukey_draws_lookup.html">mukey_draws_lookup()</a></code> result. When both are supplied, the PRIOR side's
@@ -146,7 +146,7 @@ that function's docs). <code>NULL</code> (default) resolves to <a href="FUSE_POS
 plain-vector return"), this is an internal orchestration parameter with no external
 plain-vector consumers, so its <code>NULL</code> means "use the standard rich default" instead. Also used
 to compute <code>mu</code>/<code>sigma</code> (via the exact grid-based mean/var, not <code><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean()</a></code>/<code><a href="https://rdrr.io/r/stats/cor.html" class="external-link">var()</a></code> on a resampled
-vector - a strictly more accurate replacement for the pre-P3.2 computation, at no extra cost).</p></dd>
+vector - a strictly more accurate replacement for the previous computation, at no extra cost).</p></dd>
 
 </dl></div>
 

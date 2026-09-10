@@ -230,7 +230,7 @@ Validated upstream against <code><a href="https://lbbe-software.github.io/fitdis
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fit_beta_mle_newton_raster.html">fit_beta_mle_newton_raster</a></span><span class="op">(</span><span class="va">value_rasters</span>, <span class="va">bounds</span>, n_iter <span class="op">=</span> <span class="fl">15</span>, eps <span class="op">=</span> <span class="fl">1e-6</span><span class="op">)</span></span>
 <span><span class="co"># value_rasters - list of percentile-value SpatRasters (any count &gt;= 3)</span></span>
 <span><span class="co"># bounds        - c(lower, upper) physical bounds</span></span>
-<span><span class="co"># n_iter        - fixed Newton-Raphson iteration count (validated sufficient at 15 upstream)</span></span>
+<span><span class="co"># n_iter        - fixed Newton-Raphson iteration count (validated sufficient at 15)</span></span>
 <span><span class="co"># eps           - clamp epsilon away from the exact 0/1 rescaled boundary</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/fit_beta_mle_newton_raster.html">quantile_beta_mle_newton_raster</a></span><span class="op">(</span><span class="va">fit</span>, <span class="va">q</span><span class="op">)</span></span>
@@ -267,9 +267,8 @@ exactly-determined linear solve, vectorized as raster arithmetic — the
 raster counterpart of <code>R/distributions.R</code>’s
 <code><a href="../reference/fit_metalog_linear.html">fit_metalog_linear()</a></code>. EXACT when feasible (implied density
 non-negative everywhere); matches <code>rmetalog::metalog()</code> to
-~1e-12 per upstream validation, but reproduces none of
-<code>rmetalog</code>’s LP-based feasibility-correction fallback for
-when it isn’t feasible — see
+~1e-12, but reproduces none of <code>rmetalog</code>’s LP-based
+feasibility-correction fallback for when it isn’t feasible — see
 <code><a href="../reference/check_metalog_feasibility_raster.html">check_metalog_feasibility_raster()</a></code> below.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
@@ -320,16 +319,16 @@ cells where it isn’t.</p>
 <code>y_grid</code> value and flags cells where the probe value
 <em>decreases</em> from the previous probe — a probe, not a proof, but
 fully vectorized. Streams one probe raster at a time (rather than
-materializing the whole grid at once), validated upstream as necessary
-to avoid an allocation failure at large cell counts.</p>
+materializing the whole grid at once), set to avoid an allocation
+failure at large cell counts.</p>
 </div>
 <div class="section level4">
 <h4 id="quantile_metalog_linear_with_fallback">7. <code>quantile_metalog_linear_with_fallback()</code><a class="anchor" aria-label="anchor" href="#quantile_metalog_linear_with_fallback"></a>
 </h4>
 <p><strong>Purpose</strong>: Metalog quantile evaluation with automatic
 per-cell fallback to <code><a href="../reference/quantile_linear_cdf_raster.html">quantile_linear_cdf_raster()</a></code> on
-infeasible cells — validated upstream to have zero effect on feasible
-cells and an exact <code>linear_cdf</code> match on infeasible ones.</p>
+infeasible cells — verified to have zero effect on feasible cells and an
+exact <code>linear_cdf</code> match on infeasible ones.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/quantile_metalog_linear_with_fallback.html">quantile_metalog_linear_with_fallback</a></span><span class="op">(</span><span class="va">fit</span>, <span class="va">infeasible_r</span>, <span class="va">full_value_rasters</span>, <span class="va">full_probs</span>,</span>
@@ -590,9 +589,9 @@ hardcoded to literal clay/sand/silt names).</p>
 (e.g. clay/sand/silt) JOINTLY via ILR (isometric log-ratio) fusion,
 rather than independently fusing each member with
 <code><a href="../reference/fuse_beta.html">fuse_beta()</a></code> — independent fusion measurably breaks
-sum-to-100 (up to 10.5 percentage points on realistic synthetic data,
-per upstream validation). The raster counterpart of the already-ported
-scalar <code><a href="../reference/fuse_texture_group_from_triplets.html">fuse_texture_group_from_triplets()</a></code>
+sum-to-100 (up to about 10 percentage points on realistic synthetic
+data). The raster counterpart of the scalar
+<code><a href="../reference/fuse_texture_group_from_triplets.html">fuse_texture_group_from_triplets()</a></code>
 (<code>bayesian-updating.R</code>).</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
@@ -818,8 +817,7 @@ adapter and orchestrator above uses.</p>
 <span></span>
 <span><span class="fu"><a href="../reference/cache_set.html">cache_set</a></span><span class="op">(</span><span class="va">key</span>, <span class="va">kind</span>, <span class="va">value</span><span class="op">)</span></span>
 <span><span class="co"># key   - a cache key from build_cache_key()</span></span>
-<span><span class="co"># kind  - unused beyond documenting intent at call sites (matches the original bundle's</span></span>
-<span><span class="co">#         3-argument calling convention) - the value is stored keyed only by key, since</span></span>
+<span><span class="co"># kind  - unused; documents intent at call sites. The value is stored keyed only by key, since</span></span>
 <span><span class="co">#         build_cache_key() already encodes kind</span></span>
 <span><span class="co"># value - the R object to cache (anything saveRDS() can serialize)</span></span></code></pre></div>
 <p><strong>Returns</strong>: <code><a href="../reference/cache_get.html">cache_get()</a></code> returns the cached
@@ -970,8 +968,7 @@ weighted by that overlap.</p>
 (<code>SSURGO_SIM_PROPERTY_COLUMNS</code> lists them) but the id map was
 incomplete, blocking water-retention <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>
 (needed by <code><a href="../reference/remarginalized_awc.html">remarginalized_awc()</a></code>). The 5 chemistry-property
-rows were added 2026-09-04 (MULTI_PROPERTY_FUSION_PLAN.md task P2) -
-self-mapping since the SOLUS variable name, the SSURGO chorizon column
+rows self-map, since the SOLUS variable name, the SSURGO chorizon column
 stem, and the id are all identical spellings for these 5.</p>
 </div>
 <div class="section level4">
@@ -1066,33 +1063,26 @@ SOC value (<code>om * OM_TO_SOC_FACTOR</code>, the Van Bemmelen factor,
 <code>1/1.724</code>) before it enters the correlated draw, so this
 <code>soc</code> column - and everything fused against SOLUS100’s real
 <code>soc</code> variable via <code>solus_variable = "soc"</code> - is
-SOC-scale, not raw OM (fixed as of MULTI_PROPERTY_FUSION_PLAN.md task
-P1; previously it was raw <code>om</code> mislabeled <code>soc</code>).
-The KSSL reference correlation matrix’s <code>soc</code> correlations
-were still fit on OM data and needed no change (correlation is invariant
-under a linear rescale of one variable) - treat those
-<em>correlations</em> as an OM-based approximation, but the simulated
-<em>values</em> as genuine SOC estimates.</p>
+SOC-scale, not raw OM. The KSSL reference correlation matrix’s
+<code>soc</code> correlations were still fit on OM data and needed no
+change (correlation is invariant under a linear rescale of one variable)
+- treat those <em>correlations</em> as an OM-based approximation, but
+the simulated <em>values</em> as genuine SOC estimates.</p>
 <p><strong>Note on the 5 chemistry properties
-(<code>caco3</code>/<code>ec</code>/<code>ecec</code>/<code>gypsum</code>/<code>sar</code>,
-task P2)</strong>: added 2026-09-04, SSURGO chorizon column names
-live-confirmed against a real gSSURGO query. They have
-<strong>no</strong> entry in the static KSSL reference matrices
-(<code><a href="../reference/dot-kssl_property_matrices.html">.kssl_property_matrices()</a></code>, fit years ago, predates these 5
-properties) - <code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> builds its
-per-genhz correlation matrices via
-<code><a href="../reference/build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code> (sized to the full
-<code>param_order</code> vocabulary, not just the original 9) so these 5
+(<code>caco3</code>/<code>ec</code>/<code>ecec</code>/<code>gypsum</code>/<code>sar</code>)</strong>:
+SSURGO chorizon column names confirmed against a real gSSURGO query.
+They have <strong>no</strong> entry in the static KSSL reference
+matrices (<code><a href="../reference/dot-kssl_property_matrices.html">.kssl_property_matrices()</a></code>) -
+<code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> builds its per-genhz
+correlation matrices via <code><a href="../reference/build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code>
+(sized to the full <code>param_order</code> vocabulary) so these 5
 simulate as <em>uncorrelated</em> with everything else (and each other)
-rather than erroring or being silently dropped - the confirmed design
-decision for this task (option (a) in the plan doc: identity fallback
-now, real correlations only after a future KSSL-data re-fit that needs
-no code changes elsewhere - see
+rather than erroring: identity fallback now, real correlations after a
+future KSSL-data re-fit that needs no code changes here (see
 <code><a href="../reference/build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code>’s own docs). SSURGO coverage
-for these 5 is real but noticeably sparser than the original 9 in
-spot-checks (e.g. <code>ecec</code> was populated in only ~25% of
-sampled horizons for one AOI) - expect more <code>NA</code> in their
-fused output than the longer-established properties, a genuine SSURGO
+for these 5 is real but noticeably sparser in spot-checks (e.g.
+<code>ecec</code> was populated in only ~25% of sampled horizons for one
+AOI) - expect more <code>NA</code> in their fused output - a SSURGO
 data-completeness gap, not a pipeline defect.</p>
 </div>
 <div class="section level4">
@@ -1171,10 +1161,9 @@ data frame, and rasterizes via
 <p><strong>Purpose</strong>: Snap a
 <code>[top_depth, bottom_depth]</code> depth window to the nearest
 native SOLUS depth slice, since <code><a href="http://ncss-tech.github.io/soilDB/reference/fetchSOLUS.html" class="external-link">soilDB::fetchSOLUS()</a></code>’s
-<code>depth_slices</code> are single depth points, not ranges. New
-design for this port (referenced but never defined in the source it was
-ported from) — the simplest representative-point choice for an otherwise
-point-based data source.</p>
+<code>depth_slices</code> are single depth points, not ranges - the
+simplest representative-point choice for an otherwise point-based data
+source.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/closest_solus_depth_slice.html">closest_solus_depth_slice</a></span><span class="op">(</span><span class="va">top_depth</span>, <span class="va">bottom_depth</span>, available_slices <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">5</span>, <span class="fl">15</span>, <span class="fl">30</span>, <span class="fl">60</span>, <span class="fl">100</span>, <span class="fl">150</span><span class="op">)</span><span class="op">)</span></span>
@@ -1186,13 +1175,12 @@ point-based data source.</p>
 <code>(top_depth + bottom_depth) / 2</code> and returns whichever
 <code>available_slices</code> value minimizes
 <code>abs(available_slices - midpoint)</code>.</p>
-<p><strong>Superseded for the fusion pipeline</strong> (2026-09-02):
-<code><a href="../reference/fetch_solus_low_pred_high.html">fetch_solus_low_pred_high()</a></code> no longer uses this — a
-midpoint point-value only equals the window depth-average for a linear
-profile, and it left the SOLUS likelihood as a different estimand than
-the SSURGO prior’s window mean. Replaced by
-<code><a href="../reference/solus_depth_window_weights.html">solus_depth_window_weights()</a></code>. Kept as public API for
-back-compat.</p>
+<p><strong>Relationship to the fusion pipeline</strong>:
+<code><a href="../reference/fetch_solus_low_pred_high.html">fetch_solus_low_pred_high()</a></code> uses
+<code><a href="../reference/solus_depth_window_weights.html">solus_depth_window_weights()</a></code> for a trapezoidal
+depth-average across native slices, so the SOLUS likelihood and SSURGO
+prior both represent a window mean. This function is public API for
+callers that want a single nearest slice.</p>
 </div>
 <div class="section level4">
 <h4 id="b--solus_depth_window_weights">28b. <code>solus_depth_window_weights()</code><a class="anchor" aria-label="anchor" href="#b--solus_depth_window_weights"></a>
@@ -1310,9 +1298,7 @@ remain what single-property <code><a href="../reference/run_stage1_fusion.html">
 </h3>
 <p>Wires the fused posterior back into the modelling framework as a
 <strong>per-pixel</strong> product, without touching either existing
-pipeline. See
-<code>planning-docs/RASTER_FUSION_PERPIXEL_ENSEMBLE_DESIGN.md</code> and
-<code>RASTER_STATISTICS_INTEGRATION_PLAN.md</code> Problem A.</p>
+pipeline.</p>
 <div class="section level4">
 <h4 id="extract_mukey_joint_ensemble-ssurgo-simulation-r">31. <code>extract_mukey_joint_ensemble()</code>
 <em>(ssurgo-simulation.R)</em><a class="anchor" aria-label="anchor" href="#extract_mukey_joint_ensemble-ssurgo-simulation-r"></a>
@@ -1327,8 +1313,8 @@ multi-window analogue of <code><a href="../reference/mukey_draws_lookup.html">mu
 <code>properties</code> (which columns to keep) and, separately,
 <code>requested_properties</code> (which properties the simulation
 itself draws — defaulting to <code>properties</code>, so a call
-restricted to the Saxton-Rawls inputs no longer pays for the properties
-it will discard).</p>
+restricted to the Saxton-Rawls inputs does not pay for the properties it
+will discard).</p>
 </div>
 <div class="section level4">
 <h4 id="remarginalize_ensemble_to_posterior">32. <code>remarginalize_ensemble_to_posterior()</code><a class="anchor" aria-label="anchor" href="#remarginalize_ensemble_to_posterior"></a>
@@ -1386,22 +1372,20 @@ a caller with a non-SOLUS water-retention likelihood.</li>
 </ul>
 <p><code>tile_rows =</code> processes the AOI in row-strips for bounded
 memory, numerically identical to the whole-grid run.</p>
-<p><strong><code>restriction_depth =</code>
-(MULTI_PROPERTY_FUSION_PLAN.md task S2, 2026-09-04) - optional
-bedrock/restriction-depth truncation.</strong> <code>NULL</code>
-(default) preserves every prior behavior exactly - each window uses its
-full nominal <code>thickness = bottom - top</code> regardless of
-bedrock, which is physically wrong for shallow soils (SOLUS predicts
-every property at every depth even where bedrock is shallower) but was
-the only behavior available before this task. When supplied (a
-single-layer <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code> of restriction depth in cm -
-typically <code>fetch_solus_restriction_depth(aoi_vect)</code>),
-resampled once (bilinear) onto the working grid, <code>NA</code> cells
-recoded to <code>Inf</code> (no evidence -&gt; don’t truncate), and each
-window’s thickness becomes the per-pixel <strong>effective</strong>
-thickness <code>pmax(0, pmin(bottom, restriction_depth) - top)</code>
-instead - via
-<code>terra::clamp(restriction_depth, upper = bottom)</code> then
+<p><strong><code>restriction_depth =</code></strong> - optional
+bedrock/restriction-depth truncation.** <code>NULL</code> (default)
+preserves every prior behavior exactly - each window uses its full
+nominal <code>thickness = bottom - top</code> regardless of bedrock,
+which is physically wrong for shallow soils (SOLUS predicts every
+property at every depth even where bedrock is shallower) but was the
+only behavior available before this task. When supplied (a single-layer
+<code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code> of restriction depth in cm - typically
+<code>fetch_solus_restriction_depth(aoi_vect)</code>), resampled once
+(bilinear) onto the working grid, <code>NA</code> cells recoded to
+<code>Inf</code> (no evidence -&gt; don’t truncate), and each window’s
+thickness becomes the per-pixel <strong>effective</strong> thickness
+<code>pmax(0, pmin(bottom, restriction_depth) - top)</code> instead -
+via <code>terra::clamp(restriction_depth, upper = bottom)</code> then
 <code>terra::clamp(... - top, lower = 0)</code>, since
 <code>clamp(x, upper=)</code>/<code>clamp(x, lower=)</code> are exactly
 <code>pmin</code>/<code>pmax</code> against a scalar. A window entirely
@@ -1412,15 +1396,15 @@ incorrectly blank the whole pixel’s AWC, including valid shallower
 windows, rather than just that one window’s contribution). The
 single-layer effective-thickness raster is recycled across the
 multi-layer <code>fc</code>/<code>wp</code> realization stack by
-<code>terra</code>’s own arithmetic recycling, the same way the old
-scalar <code>thickness</code> value was implicitly “recycled” - no other
-code in <code>.awc_block()</code>’s per-window loop changes.</p>
+<code>terra</code>’s own arithmetic recycling, in place of a scalar
+<code>thickness</code> factor.</p>
 </div>
 <div class="section level4">
 <h4 id="b--fetch_solus_site_level-fetch_solus_restriction_depth-solus-simulation-r">34b. <code>fetch_solus_site_level()</code> /
-<code>fetch_solus_restriction_depth()</code> *(solus-simulation.R,<a class="anchor" aria-label="anchor" href="#b--fetch_solus_site_level-fetch_solus_restriction_depth-solus-simulation-r"></a>
+<code>fetch_solus_restriction_depth()</code>
+<em>(solus-simulation.R)</em><a class="anchor" aria-label="anchor" href="#b--fetch_solus_site_level-fetch_solus_restriction_depth-solus-simulation-r"></a>
 </h4>
-<p>task S2)* <strong>Purpose</strong>: Fetch a SOLUS100
+<p><strong>Purpose</strong>: Fetch a SOLUS100
 <strong>site-level</strong> (depth-independent) variable -
 <code>anylithicdpt</code> (depth to bedrock) / <code>resdept</code>
 (depth to restriction) are the two relevant ones - requested via
@@ -1756,10 +1740,9 @@ equations are duplicated, not called, because the scalar function’s
 over a raster stack).</p>
 <p><code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>/<code><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code>
 (<code>R/raster-fusion.R</code>) are the top-level AOI orchestrators
-tying all of the above together — the single entry points a caller
-(e.g. a Shiny app or batch script) needs, hiding the
-fetch/cache/align/fuse sequence behind one call per property (or per
-compositional group) per AOI/depth window.</p>
+tying all of the above together — the single entry points a downstream
+caller needs, hiding the fetch/cache/align/fuse sequence behind one call
+per property (or per compositional group) per AOI/depth window.</p>
 </div>
 <div class="section level2">
 <h2 id="data-flow-inout">Data Flow In/Out<a class="anchor" aria-label="anchor" href="#data-flow-inout"></a>
@@ -1803,12 +1786,12 @@ keyed by AOI + id + depth window + kind via
 <ol style="list-style-type: decimal">
 <li><p><strong><code><a href="../reference/metalog_moments_raster.html">metalog_moments_raster()</a></code> is new,
 less-validated glue code</strong> (<code>R/raster-fusion.R</code>).
-Unlike the rest of this pipeline’s math — validated upstream against
+Unlike the rest of this pipeline’s math — validated against
 <code>fitdistrplus</code>/closed-form references — the
 mean/variance-via-quadrature computation in
-<code><a href="../reference/metalog_moments_raster.html">metalog_moments_raster()</a></code> has no prior validated version.
-Per the original source bundle’s own caveat, it should be spot-checked
-against real data before being trusted in production.</p></li>
+<code><a href="../reference/metalog_moments_raster.html">metalog_moments_raster()</a></code> is less validated and should be
+spot-checked against real data before being trusted in
+production.</p></li>
 <li><p><strong><code>SpatRaster</code>/<code>SpatVector</code> objects
 do not survive a plain <code><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">saveRDS()</a></code>/<code><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">readRDS()</a></code>
 round-trip</strong> (<code>R/raster-cache.R</code>). These objects hold

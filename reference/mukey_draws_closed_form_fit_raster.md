@@ -9,13 +9,12 @@ not a per-cell computation, unlike
 [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)'s
 raw_draws branch (which needs a per-cell
 [`density()`](https://rdrr.io/r/stats/density.html) call and so is
-meaningfully slower). Verified cheap
-(`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` tasks P2.6/P2.10): at 100,172
-synthetic cells and 150 unique mukeys, the whole precompute+broadcast
-pipeline measured ~0.18s total - negligible next to the existing
-family-specific fit costs it complements (beta's Newton-Raphson fit
-alone measured ~20s at the same cell count), because cost here scales
-with mukey CARDINALITY, not cell count.
+meaningfully slower). Verified cheap : at 100,172 synthetic cells and
+150 unique mukeys, the whole precompute+broadcast pipeline measured
+~0.18s total - negligible next to the existing family-specific fit costs
+it complements (beta's Newton-Raphson fit alone measured ~20s at the
+same cell count), because cost here scales with mukey CARDINALITY, not
+cell count.
 
 ## Usage
 
@@ -43,9 +42,9 @@ mukey_draws_closed_form_fit_raster(
 
 - family:
 
-  One of "normal", "beta", "gamma", "lognormal". `"lognormal"` (added
-  `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.12) fits `mu`/`sigma`
-  directly from `log(draws)` - the same LOG-SPACE parameterization
+  One of "normal", "beta", "gamma", "lognormal". `"lognormal"` (added )
+  fits `mu`/`sigma` directly from `log(draws)` - the same LOG-SPACE
+  parameterization
   [`fuse_lognormal_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_lognormal_adaptive.md)'s
   large-AOI branch already uses internally
   ([`normal_to_lognormal_params()`](https://jjmaynard.github.io/soilSIM/reference/normal_to_lognormal_params.md)'s

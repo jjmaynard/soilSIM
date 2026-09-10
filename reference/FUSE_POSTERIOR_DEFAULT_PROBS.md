@@ -1,9 +1,8 @@
-# Default posterior percentile set computed by `fuse_general_kde()` (and, as later routes adopt it, every other fusion route - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P3.2+).
+# Default posterior percentile set computed by `fuse_general_kde()` (and, as later routes adopt it, every other fusion route).
 
 Default posterior percentile set computed by
 [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)
-(and, as later routes adopt it, every other fusion route - see
-`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P3.2+).
+(and, as later routes adopt it, every other fusion route).
 
 ## Usage
 
@@ -29,9 +28,8 @@ existing median/IQR.
 
 ## Reliability note
 
-For the closed-form analytic routes (`qnorm`/`qbeta`/`qgamma`, not yet
-on this constant as of P3.2 - see P3.3), extra percentiles are free and
-exact regardless of how extreme they are. For
+For the closed-form analytic routes (`qnorm`/`qbeta`/`qgamma`), extra
+percentiles are free and exact regardless of how extreme they are. For
 [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)'s
 sample/grid-based route, percentiles are read directly off
 [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s

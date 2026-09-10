@@ -46,10 +46,9 @@ fuse_lognormal_adaptive(
   [`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md)'s
   docs). Small-AOI branch: forwarded to
   [`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md)'s
-  general route unchanged. Large-AOI closed-form branch (added
-  `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.12): each mukey's
-  real draws are fit directly in log-space
+  general route unchanged. Large-AOI closed-form branch Raw-draws
+  inputs: each mukey's real draws are fit directly in log-space
   (`mukey_draws_closed_form_fit_raster(..., family = "lognormal")`) and
   merged over the percentile-triplet-derived log-space fit wherever a
-  mukey has draws coverage - the same merge pattern P2.6 established for
+  mukey has draws coverage - the same merge pattern used for
   normal/beta/gamma on the closed-form route.

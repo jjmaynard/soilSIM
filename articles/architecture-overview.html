@@ -113,15 +113,14 @@ low/representative/high triplet or prior/likelihood pair, regardless of
 where the numbers came from. SSURGO and SOLUS100 are the two concrete
 data-source <strong>adapters</strong> wired in today, supplying the
 prior and likelihood sides (respectively) of the raster fusion pipeline.
-The architecture is deliberately split this way so that future data
-sources (e.g. HWSD, SoilGrids) can plug in as new adapters alongside
+The architecture is split this way so that additional data sources
+(e.g. HWSD, SoilGrids) can plug in as new adapters alongside
 SSURGO/SOLUS, reusing the same simulation/fusion core rather than
-duplicating it. See <code>soilSIM/R/soilSIM-package.R</code> (rendered
-as <code><a href="../reference/soilSIM-package.html">?soilSIM</a></code>) for the package-level roxygen summary of this
-framing.</p>
-<p>This directory’s 10 documents go one level deeper than that package
-doc or the per-function <code>.Rd</code>/roxygen reference: each covers
-a functional group’s full function signatures, internal call graphs,
+duplicating it. See <code><a href="../reference/soilSIM-package.html">?soilSIM</a></code> for the package-level roxygen
+summary of this framing.</p>
+<p>These 10 documents go one level deeper than that package doc or the
+per-function <code>.Rd</code>/roxygen reference: each covers a
+functional group’s full function signatures, internal call graphs,
 cross-file dependencies, data flow, and known limitations.</p>
 </div>
 <div class="section level2">
@@ -145,10 +144,10 @@ cross-file dependencies, data flow, and known limitations.</p>
               ┌───────────────────────┼───────────────────────┐
               │                       │                       │
    ┌──────────▼──────────┐ ┌──────────▼──────────┐ ┌──────────▼──────────┐
-   │  SSURGO ADAPTER      │ │  SOLUS100 ADAPTER    │ │  (future adapters:   │
+   │  SSURGO ADAPTER      │ │  SOLUS100 ADAPTER    │ │  (further adapters:  │
    │  01 Acquisition/     │ │  09 solus-           │ │   HWSD, SoilGrids,   │
-   │     processing        │ │     simulation.R      │ │   etc. - not yet     │
-   │  06 Property/depth/   │ │  supplies raster      │ │   implemented)       │
+   │     processing        │ │     simulation.R      │ │   etc.)              │
+   │  06 Property/depth/   │ │  supplies raster      │ │                      │
    │     component sim     │ │  fusion likelihood    │ │                      │
    │  09 ssurgo-           │ │  side                 │ │                      │
    │     simulation.R      │ │                       │ │                      │
@@ -229,9 +228,9 @@ property-lookup helper).</p>
 wants tabular Monte Carlo estimates from SSURGO alone stops after step
 05/06 and never touches the raster fusion group.
 <code>08 Bayesian updating (scalar)</code> provides the same fusion
-primitives <code>09</code>’s raster pipeline is built on, but as
-standalone building blocks, not yet called from <code>04</code>’s
-tabular pipeline directly.</p>
+primitives <code>09</code>’s raster pipeline is built on, as standalone
+building blocks; <code>04</code>’s tabular pipeline does not call them
+directly.</p>
 </div>
 <div class="section level2">
 <h2 id="group-documents">Group documents<a class="anchor" aria-label="anchor" href="#group-documents"></a>
@@ -340,72 +339,6 @@ Raster Fusion Pipeline</a></td>
 </tr>
 </tbody>
 </table>
-</div>
-<div class="section level2">
-<h2 id="known-issues-surfaced-while-writing-this-documentation">Known issues surfaced while writing this documentation<a class="anchor" aria-label="anchor" href="#known-issues-surfaced-while-writing-this-documentation"></a>
-</h2>
-<p>Producing these docs required reading every function body (not just
-signatures), which turned up a few real, previously-undocumented issues.
-Three were fixed (with a regression test and a clean
-<code>devtools::check()</code> afterward); the fourth turned out not to
-be a bug on closer inspection:</p>
-<ul>
-<li>
-<strong>Fixed</strong>: <code><a href="../reference/validate_monte_carlo_quality.html">validate_monte_carlo_quality()</a></code>
-(<code>validation-diagnostics.R</code>, see <a href="architecture-statistics-diagnostics.html">Statistics &amp;
-Diagnostics</a>) called <code><a href="../reference/generate_simulation_diagnostics.html">generate_simulation_diagnostics()</a></code>
-with 2 arguments, but that function (defined in
-<code>monte-carlo.R</code>) requires 5. The call always errored and was
-silently absorbed by a surrounding <code>tryCatch</code> into a
-<code>validation_failed</code> placeholder result. Fixed by passing all
-5 args, sourced from data already in scope (<code>original_data</code>,
-the local <code>simulation_data</code>, and
-<code>monte_carlo_results$metadata$properties</code>/<code>$correlation_structure</code>).</li>
-<li>
-<strong>Fixed</strong>: <code>raster-fusion.R</code>’s top-of-file
-comment used to say <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>/
-<code><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code> were “not ported” because their
-dependencies “don’t exist anywhere in this repo” - stale, since all of
-those dependencies (<code>raster-cache.R</code>,
-<code>ssurgo-simulation.R</code>, <code>solus-simulation.R</code>) now
-exist and both orchestrator functions are fully implemented later in the
-same file. Updated the comment to describe the current state (see <a href="architecture-multi-source-raster-fusion-pipeline.html">Multi-Source
-Raster Fusion Pipeline</a>).</li>
-<li>
-<strong>Fixed</strong>: the <code>sim_comppct</code> integration gap
-between <code>property-simulation.R</code> and
-<code>depth-simulation.R</code> (see <a href="architecture-profile-component-depth-simulation.html">Profile,
-Component &amp; Depth Simulation</a>) -
-<code><a href="../reference/simulate_profile_depths_by_mukey.html">simulate_profile_depths_by_mukey()</a></code> now calls
-<code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code> and left-joins the result onto every
-horizon row by <code>cokey</code> internally, mirroring the
-already-verified pattern in <code>ssurgo-simulation.R</code>’s
-<code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>. Its previously-unused
-<code>n_simulations</code> parameter now flows into that call. Verified
-with a new deterministic offline regression test (mocked SDA fetch, a
-degenerate <code>comppct_l = comppct_r = comppct_h = 100</code>
-component that makes <code>sim_comppct</code> exactly equal to
-<code>n_simulations</code>).
-<code><a href="../reference/simulate_and_perturb_soil_profiles.html">simulate_and_perturb_soil_profiles()</a></code>’s own contract - it
-still requires the join to already be done when called directly - is
-unchanged.</li>
-<li>
-<strong>Not a bug, on closer inspection</strong>:
-<code>utils.R</code>’s <code>get_predefined_properties("ssurgo")</code>
-calling <code><a href="../reference/create_ssurgo_property_lookup_working.html">create_ssurgo_property_lookup_working()</a></code> (which
-lives in <code>ssurgo-acquisition.R</code>) is a real exception to
-“utils.R is a leaf module,” but it’s a deliberate,
-already-<code>tryCatch</code>-guarded design (see the inline comment at
-that call site) - R packages have no per-file circular-dependency
-restriction within one namespace, so this isn’t a functional defect,
-just an architectural note worth knowing about (see <a href="architecture-utilities.html">Utilities</a>). Left as-is, along
-with <code>utils.R</code>’s few unused exported functions
-(<code><a href="../reference/check_required_columns.html">check_required_columns()</a></code>,
-<code><a href="../reference/export_workflow_metadata.html">export_workflow_metadata()</a></code>, most of the WKT
-geometry-validation helpers) - unused surface area, not broken code, and
-removing public API without confirming nothing external depends on it
-isn’t a call to make silently.</li>
-</ul>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

@@ -30,9 +30,10 @@ process_aoi_and_get_mukeys_working(
   [`fetch_ssurgo_mukey_raster`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_mukey_raster.md)).
   When supplied, this function skips its own
   [`soilDB::mukey.wcs()`](http://ncss-tech.github.io/soilDB/reference/mukey.wcs.md)
-  call entirely and derives `mu`/`mukey_list` directly from it - see
-  `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P1.2. `NULL` (default)
-  preserves the original behavior exactly.
+  call entirely and derives `mu`/`mukey_list` directly from it. `NULL`
+  (default): this function makes its own
+  [`soilDB::mukey.wcs()`](http://ncss-tech.github.io/soilDB/reference/mukey.wcs.md)
+  call.
 
 ## Value
 

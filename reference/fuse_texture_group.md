@@ -1,4 +1,4 @@
-# Fuse a compositional group's members JOINTLY via ILR fusion (`R/distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`, `R/bayesian-updating.R`'s `fuse_bivariate_normal()`), rather than independently via `fuse_beta()` per member - independent fusion measurably breaks sum-to-100 (up to 10.5 percentage points on realistic synthetic data, per upstream validation). The raster counterpart of the already-ported scalar `fuse_texture_group_from_triplets()`.
+# Fuse a compositional group's members JOINTLY via ILR fusion (`R/distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`, `R/bayesian-updating.R`'s `fuse_bivariate_normal()`), rather than independently via `fuse_beta()` per member - independent fusion measurably breaks sum-to-100 (up to 10.5 percentage points on realistic synthetic data). The raster counterpart of the already-ported scalar `fuse_texture_group_from_triplets()`.
 
 Fuse a compositional group's members JOINTLY via ILR fusion
 (`R/distributions.R`'s
@@ -8,8 +8,8 @@ Fuse a compositional group's members JOINTLY via ILR fusion
 rather than independently via
 [`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)
 per member - independent fusion measurably breaks sum-to-100 (up to 10.5
-percentage points on realistic synthetic data, per upstream validation).
-The raster counterpart of the already-ported scalar
+percentage points on realistic synthetic data). The raster counterpart
+of the already-ported scalar
 [`fuse_texture_group_from_triplets()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_from_triplets.md).
 
 ## Usage
@@ -37,14 +37,12 @@ fuse_texture_group(
 
   Optional - opts into `prior_fusion_method = "raw_draws"` (see
   [`fuse_texture_group_batch_core()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_batch.md)'s
-  docs and `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4).
-  `mukey_raster` must already be aligned to the same grid as `fetched`'s
-  percentile rasters (nearest-neighbor resampled - it's categorical).
-  `mukey_texture_draws` is a
+  docs). `mukey_raster` must already be aligned to the same grid as
+  `fetched`'s percentile rasters (nearest-neighbor resampled - it's
+  categorical). `mukey_texture_draws` is a
   [`mukey_texture_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_texture_draws_lookup.md)
-  result. `NULL` (default) for either preserves the original
-  percentile-reconstruction behavior exactly - bit-identical output to
-  before these parameters existed.
+  result. `NULL` (default) for either uses the percentile-reconstruction
+  path.
 
 - posterior_probs:
 

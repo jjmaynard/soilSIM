@@ -108,8 +108,8 @@ after.</p>
 
 <dt id="arg-correlation-matrices">correlation_matrices<a class="anchor" aria-label="anchor" href="#arg-correlation-matrices"></a></dt>
 <dd><p>A list of correlation matrices keyed by <code>genhz</code>, with row/column
-names matching (a subset of) <code>c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc", "caco3", "ec", "ecec", "gypsum", "sar")</code>. The 5 chemistry properties added in
-MULTI_PROPERTY_FUSION_PLAN.md task P2 have no real KSSL-fit correlation data (see
+names matching (a subset of) <code>c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc", "caco3", "ec", "ecec", "gypsum", "sar")</code>. The 5 chemistry properties
+<code>caco3</code>/<code>ec</code>/<code>ecec</code>/<code>gypsum</code>/<code>sar</code> have no real KSSL-fit correlation data (see
 <code><a href="build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code>) - <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> builds its
 <code>correlation_matrices</code> through that function so they're present (as identity/uncorrelated)
 rather than missing; a direct caller supplying its own matrix without them will simply never
@@ -139,7 +139,7 @@ noise); see <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_m
 (when <code>sim_cokey</code> itself has a <code>bound_sd</code> column - see <code><a href="attach_osd_boundary_distinctness.html">attach_osd_boundary_distinctness()</a></code>)
 <code>bound_sd</code>. The <code>soc</code> column is an SSURGO-organic-matter-<strong>derived SOC estimate</strong>
 (<code>om * OM_TO_SOC_FACTOR</code>, the inverse Van Bemmelen factor) - not a lab-measured soil organic
-carbon value. See <code>OM_TO_SOC_FACTOR</code>'s own docs (MULTI_PROPERTY_FUSION_PLAN.md task P1).</p>
+carbon value. See <code>OM_TO_SOC_FACTOR</code>'s own docs.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

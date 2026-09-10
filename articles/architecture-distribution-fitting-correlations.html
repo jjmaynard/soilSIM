@@ -241,9 +241,7 @@ degenerate/invalid triangle. <strong>Algorithm</strong>:
 <code><a href="../reference/quantile_triangular.html">quantile_triangular()</a></code> is the standard closed-form
 triangular inverse-CDF split at the mode fraction
 <code>fc = (mode-min)/(max-min)</code>. <code><a href="../reference/tri_dist.html">tri_dist()</a></code> is a
-separately-maintained random-draw implementation (ported from the
-<code>triangle</code> package via
-<code>code_ref/brdf/property_simulation.R</code>) kept distinct from
+separately-maintained random-draw implementation kept distinct from
 <code><a href="../reference/quantile_triangular.html">quantile_triangular()</a></code> specifically to preserve its own
 edge-case contract: it errors on invalid <code>n</code> but returns
 <code>NaN</code> (not an error) when <code>a &gt; c</code>,
@@ -331,8 +329,7 @@ vs. low-side spread around the representative value). If
 otherwise <code>"normal"</code> if the skew proxy is finite and within
 <code>skew_threshold</code> of zero, else <code>"lognormal"</code>.
 Deliberately never resolves to <code>"metalog"</code> - that stays an
-explicit, opted-in config choice, matching the original reference
-implementation’s own documented restriction.</p>
+explicit, opted-in config choice.</p>
 </div>
 <div class="section level4">
 <h4 id="fit_percentile_triplet---master-percentile-triplet-dispatcher">7. <strong><code>fit_percentile_triplet()</code></strong> - MASTER
@@ -373,31 +370,29 @@ interval, so “always draw <code>r</code>” is the only honest
 representation). If <code>family == "auto"</code>, calls
 <code><a href="../reference/resolve_property_family.html">resolve_property_family()</a></code>, additionally downgrading
 <code>"lognormal"</code> to <code>"normal"</code> when any value is
-non-positive (matching the legacy
-<code><a href="../reference/get_appropriate_distributions.html">get_appropriate_distributions()</a></code> behavior). Then dispatches
-via <code>switch(family, ...)</code> to the corresponding fitter:
-<code>triangular</code>/<code>uniform</code> build their fit lists
-directly from <code>l</code>/<code>r</code>/<code>h</code>;
-<code>normal</code> calls <code><a href="../reference/fit_normal_triplet.html">fit_normal_triplet()</a></code>;
-<code>lognormal</code> calls <code><a href="../reference/fit_normal_triplet.html">fit_normal_triplet()</a></code> on logged
-values, falling back to plain <code>"normal"</code> if any value is
-non-positive; <code>beta</code> requires <code>bounds</code> (errors
-otherwise) and calls <code><a href="../reference/fit_beta_mle_newton.html">fit_beta_mle_newton()</a></code>;
-<code>metalog</code> calls <code><a href="../reference/fit_metalog_linear.html">fit_metalog_linear()</a></code> and
-immediately attaches <code>infeasible</code> (via
-<code><a href="../reference/check_metalog_feasible.html">check_metalog_feasible()</a></code>) plus the full
-<code>fallback_probs</code>/<code>fallback_values</code> needed by
-<code><a href="../reference/quantile_metalog_with_fallback.html">quantile_metalog_with_fallback()</a></code>; <code>linear_cdf</code>
-stores the raw <code>probs</code>/<code>values</code>; any other family
-string errors.</p>
+non-positive. Then dispatches via <code>switch(family, ...)</code> to
+the corresponding fitter: <code>triangular</code>/<code>uniform</code>
+build their fit lists directly from
+<code>l</code>/<code>r</code>/<code>h</code>; <code>normal</code> calls
+<code><a href="../reference/fit_normal_triplet.html">fit_normal_triplet()</a></code>; <code>lognormal</code> calls
+<code><a href="../reference/fit_normal_triplet.html">fit_normal_triplet()</a></code> on logged values, falling back to
+plain <code>"normal"</code> if any value is non-positive;
+<code>beta</code> requires <code>bounds</code> (errors otherwise) and
+calls <code><a href="../reference/fit_beta_mle_newton.html">fit_beta_mle_newton()</a></code>; <code>metalog</code> calls
+<code><a href="../reference/fit_metalog_linear.html">fit_metalog_linear()</a></code> and immediately attaches
+<code>infeasible</code> (via <code><a href="../reference/check_metalog_feasible.html">check_metalog_feasible()</a></code>) plus
+the full <code>fallback_probs</code>/<code>fallback_values</code> needed
+by <code><a href="../reference/quantile_metalog_with_fallback.html">quantile_metalog_with_fallback()</a></code>;
+<code>linear_cdf</code> stores the raw
+<code>probs</code>/<code>values</code>; any other family string
+errors.</p>
 </div>
 <div class="section level4">
 <h4 id="quantile_from_fit---master-quantile-dispatcher">8. <strong><code>quantile_from_fit()</code></strong> - MASTER
 quantile dispatcher<a class="anchor" aria-label="anchor" href="#quantile_from_fit---master-quantile-dispatcher"></a>
 </h4>
-<p><strong>Purpose</strong>: Replaces the legacy
-<code>transform_to_distribution()</code> design - a thin dispatcher from
-<code>family</code> to the matching <code>quantile_*()</code> function.
+<p><strong>Purpose</strong>: A thin dispatcher from <code>family</code>
+to the matching <code>quantile_*()</code> function.
 <strong>Signature</strong>:
 <code>quantile_from_fit(u, family, fit)</code>
 <strong>Parameters</strong>: <code>u</code> - vector of probabilities
@@ -420,10 +415,9 @@ error) when <code>fit</code> is <code>NULL</code>/invalid, or when
 <h4 id="validate_fit_parameters---fit-sanity-checks">9. <strong><code>validate_fit_parameters()</code></strong> - Fit
 sanity checks<a class="anchor" aria-label="anchor" href="#validate_fit_parameters---fit-sanity-checks"></a>
 </h4>
-<p><strong>Purpose</strong>: Real replacement for the
-always-<code>valid=TRUE</code>
-<code><a href="../reference/validate_distribution_parameters.html">validate_distribution_parameters()</a></code> stub in an earlier
-version of the Monte Carlo simulation code. <strong>Signature</strong>:
+<p><strong>Purpose</strong>: Checks that a fitted distribution’s
+parameters are structurally complete and in range for its family.
+<strong>Signature</strong>:
 <code>validate_fit_parameters(family, fit)</code>
 <strong>Returns</strong>: <code>list(valid=, message=)</code>.
 <strong>Algorithm</strong>: <code>family</code>-specific
@@ -450,9 +444,7 @@ callers to discard a usable fit in favor of a cruder guess;
 <h3 id="b--ilr-isometric-log-ratio-compositional-transforms-distributions-r-section-2">B. ILR (Isometric Log-Ratio) Compositional Transforms
 (<code>distributions.R</code>, section 2)<a class="anchor" aria-label="anchor" href="#b--ilr-isometric-log-ratio-compositional-transforms-distributions-r-section-2"></a>
 </h3>
-<p>Dependency-free port of
-<code>code_ref/reanalysis-platform/texture_ilr_fusion.R</code>,
-validated there to match <code>compositions::ilr()</code> exactly and
+<p>These formulas match <code>compositions::ilr()</code> exactly and
 round-trip to ~1e-14. The balance hierarchy (position 1 vs. {2,3}, then
 2 vs. 3) is fixed by these formulas; the
 <code>clay</code>/<code>sand</code>/<code>silt</code> parameter and
@@ -574,7 +566,7 @@ whether ALL of its <code>members</code> are present in
 position of the first member and marks the group
 <code>active = TRUE</code>; if only some members are present, the group
 is left inactive and a <code>log_message("WARN", ...)</code> is emitted
-(properties then simulate independently via the legacy path).
+(those properties then simulate independently).
 <code><a href="../reference/restore_composition_properties.html">restore_composition_properties()</a></code> reverses this: passthrough
 (non-group) properties are copied straight through; for each active
 group, <code><a href="../reference/ilr_inverse.html">ilr_inverse()</a></code> is applied per horizon (vectorized
@@ -635,10 +627,7 @@ match <code>length(properties)</code>; is the diagonal all 1 (within
 MASTER robust correlation estimator<a class="anchor" aria-label="anchor" href="#estimate_correlation_matrix_robust---master-robust-correlation-estimator"></a>
 </h4>
 <p><strong>Purpose</strong>: Estimate a correlation matrix from real
-data with grouped and global fallbacks, porting
-<code>code_ref/brdf/property_simulation.R</code>’s
-<code><a href="../reference/simulate_soil_properties.html">simulate_soil_properties()</a></code> correlation pattern.
-<strong>Signature</strong>:</p>
+data with grouped and global fallbacks. <strong>Signature</strong>:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/estimate_correlation_matrix_robust.html">estimate_correlation_matrix_robust</a></span><span class="op">(</span><span class="va">data</span>, group_var <span class="op">=</span> <span class="cn">NULL</span>, min_group_n <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>                                    global_fallback <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -840,12 +829,10 @@ prefer for a given data shape.</p>
 (<code>kssl-reference-correlations.R</code>)<a class="anchor" aria-label="anchor" href="#e--kssl-reference-correlations-kssl-reference-correlations-r"></a>
 </h3>
 <p>Static, pre-computed, genetic-horizon-keyed (O/A/E/B/C/Cr, plus R for
-the texture matrix) correlation matrices fit once from KSSL lab data by
-an older, unrelated codebase
-(<code>code_ref/brdf/property_simulation.R</code>), stored internally as
-package sysdata. These let <code>monte-carlo.R</code>’s
-correlation-structure estimation optionally fall back to real
-lab-derived correlations
+the texture matrix) correlation matrices fit once from KSSL lab data,
+stored internally as package sysdata. These let
+<code>monte-carlo.R</code>’s correlation-structure estimation optionally
+fall back to real lab-derived correlations
 (<code>config$monte_carlo$correlation_fallback = "kssl_global"</code>)
 instead of a plain identity matrix when there isn’t enough SSURGO data
 to estimate correlations empirically.</p>
@@ -917,13 +904,11 @@ soilSIM property names (<code>dbovendry</code>, <code>wthirdbar</code>,
 to KSSL matrix column names (<code>db</code>, <code>wr_3b</code>,
 <code>wr_15b</code>, <code>ph</code>, <code>cec</code>,
 <code>soc</code>, <code>rfv</code>, <code>ilr1</code>,
-<code>ilr2</code>) - confirmed against the exact lookup table that built
-the source data. Notably, <code>om -&gt; soc</code> is a caveat: the
+<code>ilr2</code>). Notably, <code>om -&gt; soc</code> is a caveat: the
 KSSL matrix’s <code>soc</code> column is actually populated from
 <code>om_r</code> (organic matter %), not true lab-measured soil organic
 carbon, so it should be treated as an organic-matter proxy.</p>
-<p><strong>5 chemistry properties, no KSSL data yet
-(MULTI_PROPERTY_FUSION_PLAN.md task P2, 2026-09-04)</strong>:
+<p><strong>5 chemistry properties, no KSSL data yet</strong>:
 <code>.kssl_property_name_map</code> also maps
 <code>caco3</code>/<code>ec</code>/<code>ecec</code>/<code>gypsum</code>/<code>sar</code>
 to themselves, but none of them has a matching column in
@@ -1198,8 +1183,8 @@ level.</li>
 <code><a href="../reference/tri_dist.html">tri_dist()</a></code> directly for profile-depth simulation.</li>
 <li>
 <strong><code>distribution-fitting-raster.R</code></strong> - the
-<code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code>-native sibling implementation whose math
-this file’s closed-form fitters were ported from/validated against.</li>
+<code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code>-native sibling implementation of this
+file’s closed-form fitters.</li>
 </ul>
 </div>
 </div>

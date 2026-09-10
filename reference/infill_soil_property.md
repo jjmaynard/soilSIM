@@ -1,8 +1,8 @@
 # Main Soil Property Infilling Function
 
-Enhanced version of the core infilling function with comprehensive
-recovery strategies and automatic exclusion of unsuitable horizons (R,
-Cr, O horizons).
+Version of the core infilling function with comprehensive recovery
+strategies and automatic exclusion of unsuitable horizons (R, Cr, O
+horizons).
 
 ## Usage
 

@@ -104,8 +104,10 @@ or multi-layer; single-layer inputs are recycled.</p></dd>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Because <code><a href="remarginalized_awc.html">remarginalized_awc()</a></code> re-marginalizes <code>sand</code>/<code>silt</code>/<code>clay</code> to their own fused
-posteriors independently, a realization's texture triple may no longer sum to 100. This
-reproduces <code><a href="calculate_saxton_rawls_single.html">calculate_saxton_rawls_single()</a></code>'s renormalization: where `|sand + silt + clay - 100|5`, the three are rescaled to sum to 100 before the equations run (the equations themselves useonly the sand and clay fractions).</p>
+posteriors independently, a realization's texture triple may not sum to 100. This
+reproduces <code><a href="calculate_saxton_rawls_single.html">calculate_saxton_rawls_single()</a></code>'s renormalization: where the texture sum is off
+by more than 5 points, the three fractions are rescaled to sum to 100 before the equations run
+(the equations themselves use only the sand and clay fractions).</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -106,15 +106,13 @@ component.</p>
 functions - this function alone does not satisfy their requirement.</p>
     </div>
     <div class="section level2">
-    <h2 id="sim-comppct-s-derivation-is-unusual-documented-not-fixed-"><code>sim_comppct</code>'s derivation is unusual - documented, not "fixed"<a class="anchor" aria-label="anchor" href="#sim-comppct-s-derivation-is-unusual-documented-not-fixed-"></a></h2>
+    <h2 id="sim-comppct-s-derivation"><code>sim_comppct</code>'s derivation<a class="anchor" aria-label="anchor" href="#sim-comppct-s-derivation"></a></h2>
 
 
-<p><code>sim_comppct &lt;- round(sum(&lt;n_simulations&gt; triangular draws of comppct) / 100)</code> - this is
+<p><code>sim_comppct &lt;- round(sum(&lt;n_simulations&gt; triangular draws of comppct) / 100)</code>, which is
 <code>round(n_simulations * comppct_r / 100)</code> in expectation (e.g. <code>comppct_r = 30</code>,
-<code>n_simulations = 1000</code> -&gt; <code>sim_comppct</code> ~= 300), not an independently-meaningful simulation
-count. Ported verbatim (preserve-behavior convention) since the legacy pipeline's exact intent
-for this derivation isn't independently confirmable from this file alone - do not assume it
-means something more sensible than what's written here.</p>
+<code>n_simulations = 1000</code> -&gt; <code>sim_comppct</code> ~= 300). It is not an independently-meaningful
+simulation count.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

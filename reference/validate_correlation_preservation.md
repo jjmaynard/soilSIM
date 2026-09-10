@@ -1,7 +1,7 @@
 # Validate Correlation Preservation
 
-Helper function from GP-depth-adjust.R to validate correlation
-preservation
+Validates that correlation structure is preserved after depth-trend
+adjustment.
 
 ## Usage
 

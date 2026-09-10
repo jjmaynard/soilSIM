@@ -9,8 +9,8 @@ a single depth trend. This vignette is a companion, finer-grained tour
 of the same functional group: it walks through the *individual*
 functions in `R/gp-modeling.R` and `R/multivariate-adjustment.R` one at
 a time, explains what each parameter controls (not just how to call the
-function), and shows parameter effects visually. See
-`soilSIM/docs/05_gp_modeling_multivariate_adjustment.md` for the full
+function), and shows parameter effects visually. See the “GP Modeling &
+Multivariate Adjustment” architecture article for the full
 function-level architecture reference this vignette is drawn from.
 
 Functions covered, in order:
@@ -37,9 +37,9 @@ Functions covered, in order:
     vs. [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md) -
     regional vs. local trends
 9.  [`preserve_correlation_structure_joint()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure_joint.md) -
-    the joint depth x property copula method (now the package default),
-    A/B tested against the original `gp_quantile_retrofit` algorithm
-    from Step 7 above on this vignette’s own real fitted GP models
+    the joint depth x property copula method (the package default),
+    compared against the `gp_quantile_retrofit` method from Step 7 above
+    on this vignette’s own real fitted GP models
 
 This vignette reuses the same real, cached Amador County, CA SSURGO data
 (`inst/extdata/ssurgo_amador.rds`) that
@@ -385,8 +385,8 @@ fitted models pass; anything lower is worth investigating via
 ## Step 6: Why correlation-preserving adjustment matters
 
 Once GP depth-trend models exist, the next step in the full pipeline
-(see `getting-started-monte-carlo.Rmd`’s closing note and
-`soilSIM/docs/05_gp_modeling_multivariate_adjustment.md`) is to nudge
+(see `getting-started-monte-carlo.Rmd`’s closing note and the “GP
+Modeling & Multivariate Adjustment” architecture article) is to nudge
 Monte Carlo simulation realizations toward those depth trends. The naive
 way to do this - adjust each property’s realizations independently to
 match its own GP trend - breaks the *cross-property* correlation that
@@ -516,8 +516,7 @@ intact.
 
 [`adjust_multivariate_depthwise_GP()`](https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.md)
 above (from `gp-modeling.R`) operates directly on `[depth x simulation]`
-matrices and is the original, array-based implementation of this
-algorithm. The pipeline
+matrices - the array-based form of this algorithm. The pipeline
 [`integrate_monte_carlo_with_gp()`](https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.md)
 actually calls works on long-format Monte Carlo output instead, via
 `multivariate-adjustment.R`’s
@@ -650,51 +649,41 @@ useful when a cokey’s own data really does deviate from its group’s
 regional pattern, but a weaker signal to lean on than the regional model
 when a cokey has little data of its own.
 
-## Step 9: why the production default changed - the joint depth x property copula
+## Step 9: the joint depth x property copula
 
 Steps 6-7 above walked through
-[`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md) -
-the ORIGINAL algorithm this package used, still fully supported today as
-an explicit opt-out
+[`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md),
+the `"gp_quantile_retrofit"` method
 (`config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"`).
 It keeps cross-*property* correlation intact while nudging realizations
 toward a GP-fitted depth trend, via a shared reference-quantile trick.
-That same mechanism has a side effect that motivated replacing it as the
-default: because it anchors EVERY depth’s adjustment to one FIXED
+That mechanism anchors every depth’s adjustment to one fixed
 per-realization percentile (established once, at the surface, and reused
-unchanged at every deeper depth), it doesn’t just preserve realization
-*ranking* - it forces realization *j* to occupy the same percentile at
-every depth, for the life of the profile. That is a much stronger, more
-rigid constraint than “vertical correlation”: it’s independent of how
-quickly or slowly the underlying property actually varies with depth
-(the GP model’s own fitted smoothness plays no role here at all), and -
-as the comparison below shows on this vignette’s own real fitted
-models - the result is spuriously near-perfect (`> 0.99`) correlation
-across the *entire* depth profile, not a realistic decay.
+unchanged at every deeper depth), so it does not just preserve
+realization *ranking* - it forces realization *j* to occupy the same
+percentile at every depth, for the life of the profile. That is a
+stronger, more rigid constraint than “vertical correlation”: it is
+independent of how quickly or slowly the underlying property varies with
+depth (the GP model’s own fitted smoothness plays no role), and - as the
+comparison below shows on this vignette’s own real fitted models - the
+result is spuriously near-perfect (`> 0.99`) correlation across the
+*entire* depth profile, not a realistic decay.
 
-`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` (in the package root)
-documents the replacement:
-[`preserve_correlation_structure_joint()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure_joint.md),
+The default method, `"joint_copula"`
+([`preserve_correlation_structure_joint()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure_joint.md),
 wired into
-[`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md)
-behind `config$monte_carlo$vertical_correlation_method` (now defaulting
-to `"joint_copula"` as of that plan’s Phase 13 -
-`"gp_quantile_retrofit"` remains available as an explicit opt-out, not
-removed). Instead of a sequential mean-nudge, it draws depth correlation
-and property correlation **simultaneously** from a single
-Kronecker-separable joint distribution
+[`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md)),
+draws depth correlation and property correlation **simultaneously** from
+a single Kronecker-separable joint distribution
 ([`sample_joint_depth_property_copula()`](https://jjmaynard.github.io/soilSIM/reference/sample_joint_depth_property_copula.md)),
-so both are satisfied by construction rather than left to chance. This
-default flip followed multi-AOI real-data validation (a second AOI
-beyond this vignette’s own Amador County data, plus a full-AOI
-performance check finding no meaningful overhead) and closing every
-other blocking gap identified before the switch - see
-`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`’s own decision-tracking
-sections for the full record.
+so both are satisfied by construction. Its depth kernel’s length-scale
+comes from the already-fitted GP model, so how fast correlation decays
+with depth reflects the property’s actual fitted smoothness.
+`"gp_quantile_retrofit"` remains available as an explicit opt-out.
 
-To A/B the two methods fairly, this section reuses the SAME real fitted
-GP models from Step 3 (`clay_gp_model`/`sand_gp_model`, for `xv_group`)
-but needs a different starting fixture than Step 6’s
+To compare the two methods fairly, this section reuses the same real
+fitted GP models from Step 3 (`clay_gp_model`/`sand_gp_model`, for
+`xv_group`) but needs a different starting fixture than Step 6’s
 `clay_mat`/`sand_mat`: those matrices deliberately replicate one shared
 per-simulation draw across every depth (`byrow = TRUE`, no fresh noise
 per depth), which is perfect for demonstrating the reference-quantile
@@ -772,12 +761,10 @@ joint_result <- apply_gp_depth_trends(
 )
 ```
 
-[`validate_joint_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/validate_joint_correlation_structure.md) -
-the same acceptance-test helper
-`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`’s Phase 0 built for exactly
-this comparison - reports both halves of the joint structure (property
-correlation at every depth, depth correlation for every property)
-against a known target, for each method’s output:
+[`validate_joint_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/validate_joint_correlation_structure.md)
+reports both halves of the joint structure (property correlation at
+every depth, depth correlation for every property) against a known
+target, for each method’s output:
 
 ``` r
 
@@ -794,19 +781,16 @@ retrofit_check <- validate_joint_correlation_structure(retrofit_matrices, target
 joint_check <- validate_joint_correlation_structure(joint_matrices, target_property_corr = target_prop_corr)
 
 data.frame(
-  method = c("gp_quantile_retrofit (production default)", "joint_copula (new, opt-in)"),
+  method = c("gp_quantile_retrofit", "joint_copula (default)"),
   property_corr_max_diff = c(retrofit_check$overall_property_max_diff, joint_check$overall_property_max_diff),
   clay_surface_vs_deepest_corr = c(
     retrofit_check$achieved_depth_correlation$claytotal[1, length(vc_depths)],
     joint_check$achieved_depth_correlation$claytotal[1, length(vc_depths)]
   )
 )
-#>                                      method property_corr_max_diff
-#> 1 gp_quantile_retrofit (production default)             0.01750089
-#> 2                joint_copula (new, opt-in)             0.04444873
-#>   clay_surface_vs_deepest_corr
-#> 1                   0.99389059
-#> 2                  -0.02504001
+#>                   method property_corr_max_diff clay_surface_vs_deepest_corr
+#> 1   gp_quantile_retrofit             0.01750089                   0.99389059
+#> 2 joint_copula (default)             0.04444873                  -0.02504001
 ```
 
 ``` r
@@ -815,7 +799,7 @@ depth_cor_df <- rbind(
   data.frame(
     depth = vc_depths,
     correlation = retrofit_check$achieved_depth_correlation$claytotal[1, ],
-    method = "gp_quantile_retrofit\n(production default)"
+    method = "gp_quantile_retrofit"
   ),
   data.frame(
     depth = vc_depths,
@@ -861,26 +845,19 @@ clay actually varies with depth in this soil group’s own training data.
 `joint_copula`, by contrast, reproduces a decay directly tied to
 `clay_gp_model`’s own fitted length-scale, dropping toward zero within a
 few tens of centimeters - the behavior a genuinely physically-motivated
-vertical correlation model should have, and the concrete gap
-`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`’s redesign was built to
-close.
+vertical correlation model should have.
 
 This is real AOI data (Amador County SSURGO, via the same cached data
 and fitted GP models used throughout this vignette) run through both
 methods with identical synthetic Monte Carlo-style inputs -
-offline-reproducible validation of the joint-copula redesign’s core
-claim, without requiring a live network call.
-`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`’s later phases extended this
-validation to a second, independent AOI (finding the same result),
-confirmed negligible full-AOI performance overhead, and closed the
-remaining top-level API gaps - `joint_copula` is now reachable through
+offline-reproducible without a live network call. `joint_copula` is the
+package default and is reachable through
 [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)/[`integrate_monte_carlo_with_gp()`](https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.md)’s
-own top-level config, not only via
+own top-level config as well as via
 [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md)
-directly, and is now the package default. What remains open per that
-plan’s own decision-tracking notes: calibrating the depth kernel’s
-discontinuity-gating defaults (`distinctness_range`/`min_gate_weight`,
-still off by default via `vertical_correlation_gating = FALSE`) against
+directly. The depth kernel’s discontinuity-gating defaults
+(`distinctness_range`/`min_gate_weight`) are off by default
+(`vertical_correlation_gating = FALSE`), pending calibration against
 real KSSL/SSURGO profile lag-correlations.
 
 ## Where this data came from

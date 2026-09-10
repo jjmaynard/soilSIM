@@ -1,7 +1,7 @@
 # Validate Joint Depth x Property Correlation Structure
 
-Diagnostic helper for the vertical-correlation redesign (see
-`PERFORMANCE_IMPROVEMENT_PLAN.md`-style acceptance testing): unlike
+Diagnostic helper for the joint depth x property correlation structure.
+Unlike
 [`validate_correlation_preservation()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_preservation.md),
 which only checks cross-property correlation and (via its caller
 [`adjust_multivariate_depthwise_GP()`](https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.md))

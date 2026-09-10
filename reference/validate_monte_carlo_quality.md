@@ -1,6 +1,6 @@
 # Validate Monte Carlo Quality
 
-Enhanced Monte Carlo validation utilities and validation framework.
+Validate Monte Carlo Quality
 
 ## Usage
 

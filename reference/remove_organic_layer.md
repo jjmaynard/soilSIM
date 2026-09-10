@@ -2,8 +2,8 @@
 
 Removes rows with organic horizons (where `hzname` contains a capital
 "O") and recalculates the remaining horizons' depths within each `cokey`
-group so they stay cumulative and re-anchored to 0, preserving the
-original horizon thicknesses.
+group so they stay cumulative and re-anchored to 0, preserving each
+horizon's thickness.
 
 ## Usage
 

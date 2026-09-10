@@ -48,8 +48,8 @@ quantile_metalog_linear_raster(fit, q, bounds, boundedness)
 
 ## Details
 
-CAVEAT (from upstream validation): this is the same fast path `rmetalog`
-itself takes when its solution is already feasible (implied density
+CAVEAT (from validation): this is the same fast path `rmetalog` itself
+takes when its solution is already feasible (implied density
 non-negative); `rmetalog` also has an LP-based feasibility-correction
 fallback for when it isn't - not reproduced here. Use
 [`check_metalog_feasibility_raster()`](https://jjmaynard.github.io/soilSIM/reference/check_metalog_feasibility_raster.md) +

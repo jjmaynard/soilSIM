@@ -111,9 +111,8 @@ varying that parameter changes the result. It is the finer-grained,
 “read the primitives” companion to
 <code>raster-fusion-ssurgo-solus.Rmd</code>, which exercises this exact
 math implicitly (raster-native, cell by cell) inside its fusion pipeline
-but never isolates it. See
-<code>soilSIM/docs/08_bayesian_updating.md</code> for the full
-function-level reference this vignette is based on.</p>
+but never isolates it. See the “Bayesian Updating” architecture article
+for the full function-level reference this vignette is based on.</p>
 <p><code>bayesian-updating.R</code> fuses a <strong>prior</strong>
 belief about a soil property (e.g. an SSURGO-derived estimate) with a
 <strong>likelihood</strong> - newly observed data (e.g. lab or field
@@ -618,9 +617,9 @@ full clay/sand/silt triplets - that full workflow is
 <code><a href="../reference/fuse_texture_group_from_triplets.html">fuse_texture_group_from_triplets()</a></code>, which wraps this
 function together with <code>distributions.R</code>’s
 <code><a href="../reference/estimate_ilr_moments_mc.html">estimate_ilr_moments_mc()</a></code>/<code><a href="../reference/sample_ilr_posterior.html">sample_ilr_posterior()</a></code>;
-see <code>soilSIM/docs/08_bayesian_updating.md</code> for that whole
-chain). Here we fuse two independent bivariate Normal beliefs about a 2D
-ILR coordinate pair directly:</p>
+see the “Bayesian Updating” architecture article for that whole chain).
+Here we fuse two independent bivariate Normal beliefs about a 2D ILR
+coordinate pair directly:</p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mu1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="op">-</span><span class="fl">0.30</span><span class="op">)</span>                      <span class="co"># hypothetical prior ILR-space belief</span></span>
 <span><span class="va">Sigma1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span><span class="op">^</span><span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0.04</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
@@ -794,9 +793,9 @@ are already assembled into a complete pipeline, applying them unchanged
 to <code>SpatRaster</code> cell values (via <code>terra</code>’s
 operator overloading) rather than plain scalars/vectors - see
 <code>raster-fusion-ssurgo-solus.Rmd</code> for that pipeline in action,
-and <code>soilSIM/docs/08_bayesian_updating.md</code> /
-<code>soilSIM/docs/09_multi_source_raster_fusion_pipeline.md</code> for
-the full function-level references behind both.</p>
+and the “Bayesian Updating” architecture article / the “Multi-Source
+Raster Fusion Pipeline” architecture article for the full function-level
+references behind both.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

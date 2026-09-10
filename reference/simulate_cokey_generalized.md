@@ -35,8 +35,8 @@ simulate_cokey_generalized(
   A list of correlation matrices keyed by `genhz`, with row/column names
   matching (a subset of)
   `c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc", "caco3", "ec", "ecec", "gypsum", "sar")`.
-  The 5 chemistry properties added in MULTI_PROPERTY_FUSION_PLAN.md task
-  P2 have no real KSSL-fit correlation data (see
+  The 5 chemistry properties `caco3`/`ec`/`ecec`/`gypsum`/`sar` have no
+  real KSSL-fit correlation data (see
   [`build_kssl_fallback_matrix()`](https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.md)) -
   [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
   builds its `correlation_matrices` through that function so they're
@@ -78,4 +78,4 @@ with `compname`, `mukey`, `cokey`, `hzdept_r`, `hzdepb_r`,
 `bound_sd`. The `soc` column is an SSURGO-organic-matter-**derived SOC
 estimate** (`om * OM_TO_SOC_FACTOR`, the inverse Van Bemmelen factor) -
 not a lab-measured soil organic carbon value. See `OM_TO_SOC_FACTOR`'s
-own docs (MULTI_PROPERTY_FUSION_PLAN.md task P1).
+own docs.

@@ -1,11 +1,10 @@
-# Default `winsorize_probs` `fuse_general_kde()` passes to `bayesian_update()` on its `raw_draws` branch only (see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P3.1).
+# Default `winsorize_probs` `fuse_general_kde()` passes to `bayesian_update()` on its `raw_draws` branch only.
 
 Default `winsorize_probs`
 [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)
 passes to
 [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
-on its `raw_draws` branch only (see
-`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P3.1).
+on its `raw_draws` branch only.
 
 ## Usage
 
@@ -22,7 +21,7 @@ An object of class `numeric` of length 2.
 [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
 `stats::density(bw = "nrd0")` bandwidth choice is sensitive to outliers
 a raw-draws resample can genuinely contain - confirmed via a dedicated
-adversarial test (P2.7): a right-skewed synthetic prior's raw resample
+adversarial test: a right-skewed synthetic prior's raw resample
 (realized range ~4-195) produced a measurably wider KDE bandwidth, and a
 *less* accurate fused posterior mean on average across 8 seeds, than the
 percentile-reconstruction route's resample (confined to ~7-64, the same

@@ -1,6 +1,6 @@
-# Detect Comprehensive Outliers (Enhanced)
+# Detect Comprehensive Outliers
 
-Enhanced outlier detection using Module 0 utilities
+Detect Comprehensive Outliers
 
 ## Usage
 
@@ -24,4 +24,4 @@ detect_comprehensive_outliers(data, properties, config)
 
 ## Value
 
-Enhanced outlier analysis results
+outlier analysis results

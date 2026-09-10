@@ -1,4 +1,4 @@
-# Metalog quantile with automatic fallback to `linear_cdf` for infeasible cells - validated upstream: zero effect on feasible cells, exact `linear_cdf` match on infeasible ones.
+# Metalog quantile with automatic fallback to `linear_cdf` for infeasible cells - zero effect on feasible cells, exact `linear_cdf` match on infeasible ones.
 
 Feasibility is computed ONCE per fit (via
 [`check_metalog_feasibility_raster()`](https://jjmaynard.github.io/soilSIM/reference/check_metalog_feasibility_raster.md))

@@ -1,6 +1,7 @@
 # Extract NRCS Depth Trends
 
-Enhanced version with Module 8 validation and error handling.
+Predicts each stratified-grouped NRCS GP model's depth trend on a common
+depth grid, returning one data frame of predicted values per property.
 
 ## Usage
 

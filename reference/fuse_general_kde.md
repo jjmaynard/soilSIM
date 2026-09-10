@@ -61,8 +61,7 @@ fuse_general_kde(
 
 - mukey_raster, mukey_draws:
 
-  Optional - opts into `prior_fusion_method = "raw_draws"` (see
-  `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.2/P2.3).
+  Optional - opts into `prior_fusion_method = "raw_draws"` (see ).
   `mukey_raster` must already be aligned to the same grid as
   `prior_value_rasters`/`lik_value_rasters` (nearest-neighbor resampled,
   since it's categorical - bilinear would fabricate nonsensical mukey
@@ -98,4 +97,4 @@ fuse_general_kde(
   the exact grid-based mean/var, not
   [`mean()`](https://rdrr.io/r/base/mean.html)/[`var()`](https://rdrr.io/r/stats/cor.html)
   on a resampled vector - a strictly more accurate replacement for the
-  pre-P3.2 computation, at no extra cost).
+  previous computation, at no extra cost).

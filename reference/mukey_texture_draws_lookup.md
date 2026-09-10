@@ -13,8 +13,7 @@ current percentile-reconstruction fusion discards entirely, since it
 draws each fraction independently from its own marginal
 percentile-derived normal. Used by
 [`fuse_texture_group_batch_core()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_batch.md)'s
-`prior_fusion_method = "raw_draws"` opt-in - see
-`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4.
+`prior_fusion_method = "raw_draws"` opt-in.
 
 ## Usage
 

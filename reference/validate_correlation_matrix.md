@@ -1,6 +1,6 @@
 # Validate a correlation matrix's shape and positive-definiteness
 
-Relocated verbatim from `mod05_monte_carlo.R`.
+Validate a correlation matrix's shape and positive-definiteness
 
 ## Usage
 

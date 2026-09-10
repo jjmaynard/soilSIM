@@ -40,14 +40,12 @@ fuse_metalog_adapter(
   from beyond that Normal approximation; carries forward this route's
   existing "less-validated glue code" caveat (see
   [`metalog_moments_raster()`](https://jjmaynard.github.io/soilSIM/reference/metalog_moments_raster.md)'s
-  own docs) to its percentile output too, not a new limitation
-  introduced here.
+  own docs) to its percentile output too.
 
 - mukey_raster, mukey_draws:
 
-  Optional raw-draws inputs (added
-  `MUKEY_DRAWS_FUSION_ IMPROVEMENT_PLAN.md` task P2.12). Metalog has no
-  moment/density fit analogous to
+  Optional raw-draws inputs. Metalog has no moment/density fit analogous
+  to
   [`fuse_closed_form()`](https://jjmaynard.github.io/soilSIM/reference/fuse_closed_form.md)'s
   normal/beta/gamma/lognormal routes (its fit is an exact linear
   interpolation through fixed percentile knots) - the real extension is

@@ -1,6 +1,6 @@
-# Cache SSURGO Data (Enhanced)
+# Cache SSURGO Data
 
-Enhanced data caching with comprehensive metadata.
+Cache SSURGO Data
 
 ## Usage
 

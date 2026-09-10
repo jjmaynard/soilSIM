@@ -27,9 +27,8 @@ simulate_correlated_triangular(
   List of `c(a, b, c)` triples, one per distribution - **note the order
   here is (lower, mode, upper)**, unlike
   [`tri_dist()`](https://jjmaynard.github.io/soilSIM/reference/tri_dist.md)'s
-  own `(a = lower, b = upper, c = mode)` convention. Preserved exactly
-  as the legacy source defines it; a real source of confusion if assumed
-  to match
+  own `(a = lower, b = upper, c = mode)` convention. A real source of
+  confusion if assumed to match
   [`tri_dist()`](https://jjmaynard.github.io/soilSIM/reference/tri_dist.md)'s
   argument order.
 

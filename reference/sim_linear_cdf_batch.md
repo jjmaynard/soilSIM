@@ -4,19 +4,12 @@ Vectorized equivalent of calling
 `sim_linear_cdf(probs, values_mat[i, ], n)` once per row of `values_mat`
 and rbind-ing the results - built for
 [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)
-(`R/raster-fusion.R`), where
-[`stats::approxfun()`](https://rdrr.io/r/stats/approxfun.html) was
-previously rebuilt once per raster cell
-([`Rprof()`](https://rdrr.io/r/utils/Rprof.html) profiling attributed
-~9% of
-[`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)'s
-total wall-clock to
-[`extract_percentile_pairs()`](https://jjmaynard.github.io/soilSIM/reference/extract_percentile_pairs.md)'s
-per-cell dispatch overhead alone, on top of the sampling itself - see
-PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4). All rows must share the same
-`probs` knots (true for a raster chunk, where every cell's percentile
-columns are the same fixed set, e.g. P5/P50/P95) - this is what makes
-batching valid; per-row-varying `probs` would need the per-row
+(`R/raster-fusion.R`), where every cell shares the same `probs` knots
+and [`stats::approxfun()`](https://rdrr.io/r/stats/approxfun.html) would
+otherwise be rebuilt once per cell. All rows must share the same `probs`
+knots (true for a raster chunk, where every cell's percentile columns
+are the same fixed set, e.g. P5/P50/P95) - this is what makes batching
+valid; per-row-varying `probs` would need the per-row
 [`approxfun()`](https://rdrr.io/r/stats/approxfun.html) approach this
 function replaces.
 

@@ -6,8 +6,7 @@ Applies
 each cokey's own within-simulation depth trend, no pre-supplied GP
 models needed) per cokey, when `GPfit` is installed and a cokey has
 enough distinct depths. Cokeys with fewer than `min_depths` distinct
-depths pass through unadjusted, exactly as the original per-cokey guard
-did.
+depths pass through unadjusted.
 
 ## Usage
 
@@ -36,16 +35,14 @@ maybe_adjust_soil_data_depth_trend(
 
 - min_depths:
 
-  Minimum distinct depths required to attempt GP fitting (default 2,
-  matching the source's `length(unique_depths) >= 2` guard).
+  Minimum distinct depths required to attempt GP fitting (default 2).
 
 - parallel:
 
   Logical; if `TRUE`, process cokeys across multiple
   [`future::multisession`](https://future.futureverse.org/reference/multisession.html)
-  worker processes (default `FALSE` - sequential, matching prior
-  behavior exactly). Falls back to sequential processing if the parallel
-  setup itself errors. See
+  worker processes (default `FALSE`, sequential). Falls back to
+  sequential processing if the parallel setup itself errors. See
   [`run_parallel_lapply()`](https://jjmaynard.github.io/soilSIM/reference/run_parallel_lapply.md)
   (`R/parallel-utils.R`).
 
@@ -63,12 +60,16 @@ maybe_adjust_soil_data_depth_trend(
   -\>
   [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md).
   `config$monte_carlo$vertical_correlation_method` (default
-  `"joint_copula"` as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`
-  Phase 13; set to `"gp_quantile_retrofit"` to opt back into the
-  original algorithm) selects the vertical-correlation method; `NULL`
-  (default) resolves to `"joint_copula"`, matching
+  `"joint_copula"`, or `"gp_quantile_retrofit"`) selects the
+  vertical-correlation method; `NULL` (default) resolves to
+  `"joint_copula"`, matching
   [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)'s
   own default.
+
+- seed:
+
+  Optional integer. When set, seeds the parallel depth-trend path via
+  `future.seed`. `NULL` (default) leaves the RNG stream unseeded.
 
 ## Value
 
@@ -77,10 +78,8 @@ maybe_adjust_soil_data_depth_trend(
 ## Details
 
 Each cokey's GP fitting is completely independent of every other
-cokey's, so this step is embarrassingly parallel - profiling on a real
-AOI showed it as the dominant cost of the whole SSURGO simulation
-pipeline (see
+cokey's, so this step is embarrassingly parallel and is the dominant
+cost of the whole SSURGO simulation pipeline (see
 [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md)/[`fit_local_gp_model_single()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_model_single.md)),
 so for AOIs with many cokeys, `parallel = TRUE` can give a further
-speedup roughly proportional to available cores on top of the
-sequential-path optimizations already applied there.
+speedup roughly proportional to available cores.

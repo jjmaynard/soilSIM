@@ -1,18 +1,13 @@
 # Bayesian Updating: Conjugate Fusion and General Grid-KDE Fusion
 
-Standalone toolkit for fusing a prior belief distribution with a
-likelihood (e.g. an SSURGO-derived prior against field-measured data),
-ported from `code_ref/brdf/bayesian_updating.R` and the validated
-`code_ref/reanalysis-platform/{bayes_fuse.R, reanalysis-platform-fusion.R, texture_ilr_fusion.R}`
-bundle (there raster-native; here plain-vector/ scalar, since the
-underlying math is ordinary base-R arithmetic once `terra::` is stripped
-out).
+Scalar (plain-vector) toolkit for fusing a prior belief distribution
+with a likelihood (e.g. an SSURGO-derived prior against field-measured
+data).
 
-**This module is intentionally NOT called anywhere in `monte-carlo.R`.**
-It is a standalone, independently-tested set of building blocks for a
-future "update an SSURGO-derived prior against observed/field data"
-feature - not wired into the main Monte Carlo simulation pipeline in
-this pass.
+These are standalone building blocks. The raster fusion pipeline in
+`raster-fusion.R` supplies the equivalent primitives used in the
+production SSURGO x SOLUS100 workflow; the tabular Monte Carlo pipeline
+in `monte-carlo.R` does not call these functions directly.
 
 Three tiers, in increasing order of generality/cost:
 
@@ -39,5 +34,5 @@ texture, in whichever role order `monte-carlo.R`'s
 `distributions.R`'s ILR section header), since independent per-fraction
 fusion (e.g. three separate
 [`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)
-calls) measurably breaks sum-to-100 (documented upstream: up to 10.5
-percentage points on realistic synthetic data).
+calls) measurably breaks sum-to-100 (up to about 10 percentage points on
+realistic synthetic data).

@@ -39,7 +39,7 @@ download_ssurgo_tabular(
   aoi_wkt,                     # Character. WKT representation of the area of interest.
   properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
                  "cec7", "om", "wthirdbar", "wfifteenbar",
-                 "caco3", "ec", "ecec", "gypsum", "sar"),  # last 5 added task P2, 2026-09-04
+                 "caco3", "ec", "ecec", "gypsum", "sar"),  # 5 chemistry properties
   include_restrictions = TRUE, # Logical. Include restriction/horizon-suitability fields.
   cache_dir = NULL,            # Character. Directory for caching; NULL disables caching.
   force_download = FALSE,      # Logical. Bypass cache and force a fresh download.
@@ -90,10 +90,9 @@ names.
 **Returns**: A data frame with columns `Property`, `SSURGO_Label_Low`,
 `SSURGO_Label_Rep`, `SSURGO_Label_High`, one row per of the 14 known
 properties (`sandtotal`, `claytotal`, `silttotal`, `dbovendry`,
-`ph1to1h2o`, `cec7`, `om`, `wthirdbar`, `wfifteenbar`, plus `caco3`,
-`ec`, `ecec`, `gypsum`, `sar` - added MULTI_PROPERTY_FUSION_PLAN.md task
-P2, 2026-09-04, column names live-confirmed against a real gSSURGO
-chorizon query).
+`ph1to1h2o`, `cec7`, `om`, `wthirdbar`, `wfifteenbar`, plus the
+chemistry properties `caco3`, `ec`, `ecec`, `gypsum`, `sar`; column
+names confirmed against a real gSSURGO chorizon query).
 
 **Algorithm**: Static
 [`data.frame()`](https://rdrr.io/r/base/data.frame.html) construction -
@@ -426,8 +425,7 @@ texture data and the optional `soiltexture` package are available) the
 most probable USDA texture class and its simulation-frequency
 probability. This is a downstream/reporting function operating on
 already-simulated (`sim_*`-style) data rather than raw acquisition
-output, but lives in this file as it was ported directly from the legacy
-`code/sim-functions.R`.
+output; it is co-located here as a reporting utility.
 
 **Parameters**: `hz_data` - simulated horizon data frame with `mukey`,
 `hzdept_r`, `hzdepb_r`, and any of a recognized property set
@@ -704,10 +702,9 @@ spreads if `add_ranges`), annotating `infill_method`.
   /
   [`apply_validation_rules()`](https://jjmaynard.github.io/soilSIM/reference/apply_validation_rules.md)** -
   a small pluggable rule-configuration system for range/relationship
-  checks; note relationship rules are recorded but **not** currently
-  enforced by
-  [`apply_validation_rules()`](https://jjmaynard.github.io/soilSIM/reference/apply_validation_rules.md)
-  (matches legacy behavior, not a new bug).
+  checks; note relationship rules are recorded but **not** enforced by
+  [`apply_validation_rules()`](https://jjmaynard.github.io/soilSIM/reference/apply_validation_rules.md),
+  which enforces only range rules.
 - **`summarize_unsuitable_horizons(df, hzname_col = "hzname")`** -
   reporting companion to
   [`is_unsuitable()`](https://jjmaynard.github.io/soilSIM/reference/is_unsuitable.md);
@@ -920,8 +917,7 @@ spreads if `add_ranges`), annotating `infill_method`.
 module, all in `R/utils.R`):
 [`log_message()`](https://jjmaynard.github.io/soilSIM/reference/log_message.md),
 [`handle_workflow_error()`](https://jjmaynard.github.io/soilSIM/reference/handle_workflow_error.md)
-*(referenced in this group’s older code comments; not called directly in
-the current source)*,
+*(not called directly in the current source)*,
 [`validate_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_parameters.md),
 [`validate_wkt_geometry()`](https://jjmaynard.github.io/soilSIM/reference/validate_wkt_geometry.md),
 [`validate_properties_with_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/validate_properties_with_synonyms.md),
@@ -961,9 +957,8 @@ consume the `sim_*`/triplet columns this group guarantees are gap-free).
 [`hz_quant_prob_mukey()`](https://jjmaynard.github.io/soilSIM/reference/hz_quant_prob_mukey.md)
 runs in the opposite direction - it consumes *already-simulated* horizon
 data (post Monte Carlo) to produce per-mukey/depth summary statistics,
-so it is better understood as a reporting utility co-located here for
-historical (ported-file) reasons rather than a pure
-acquisition/processing step.
+so it is better understood as a reporting utility co-located here rather
+than a pure acquisition/processing step.
 
 ## Data Flow In/Out
 

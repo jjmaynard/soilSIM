@@ -9,8 +9,7 @@ quantiles. This is what lets raster-fusion routes (`R/raster-fusion.R`'s
 once they opt into `prior_fusion_method = "raw_draws"`) fuse directly
 against the real empirical distribution computed once per unique mukey,
 rather than resampling a lower-fidelity reconstruction from just a few
-percentile values - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task
-P2.1.
+percentile values.
 
 ## Usage
 

@@ -52,9 +52,8 @@ fuse_closed_form(
 - mukey_raster, mukey_draws:
 
   Optional - opts into `prior_fusion_method = "raw_draws"` for this
-  (closed-form) route, added `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`
-  task P2.6. Fits the PRIOR side's family parameters directly from each
-  cell's mukey's real Monte Carlo draws (via
+  (closed-form) route: fits the PRIOR side's family parameters directly
+  from each cell's mukey's real Monte Carlo draws (via
   [`mukey_draws_closed_form_fit_raster()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_closed_form_fit_raster.md))
   instead of
   [`fit_normal_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_raster.md)/

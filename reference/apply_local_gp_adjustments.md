@@ -1,6 +1,8 @@
 # Apply Local GP Adjustments
 
-Enhanced version with Module 8 utilities and better error handling.
+Fits per-component Gaussian-process depth models for the requested
+properties and applies their predicted trends to the component's
+simulation data.
 
 ## Usage
 
@@ -36,7 +38,8 @@ apply_local_gp_adjustments(
 
 - config:
 
-  Configuration from Module 8
+  Optional configuration list; defaults to the package validation
+  configuration
 
 - gp_control:
 

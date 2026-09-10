@@ -112,14 +112,13 @@ step is individually `tryCatch`-wrapped with
 `handle_workflow_error(..., "warn")`, so a failure in any one step
 degrades gracefully rather than aborting the whole analysis.
 
-The enhanced-chain config-plumbing bug (its functions read statistical
-parameters flat off `config$X` when
+The enhanced-chain functions read statistical parameters through the
+internal helper `.stat_cfg(config, key, default)` =
+`config$statistical_analysis[[key]] %||% config[[key]] %||% default`, so
+they accept parameters both flat off `config$X` and nested under
+`config$statistical_analysis$X` (the shape
 [`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md)
-nests them under `config$statistical_analysis$X`, so
-`analyze_soil_statistics(data)` with no `analysis_config` hard-errored
-the enhanced chain) was fixed 2026-09-02 via the internal
-`.stat_cfg(config, key, default)` =
-`config$statistical_analysis[[key]] %||% config[[key]] %||% default`.
+produces).
 
 #### 2. `run_comprehensive_correlation_analysis()` — Enhanced Correlation Analysis
 
@@ -154,8 +153,8 @@ not filter to complete-case rows the way the `_safe` version does, so it
 assumes `available_properties` are already appropriately cleaned. Config
 reads go through
 [`.stat_cfg()`](https://jjmaynard.github.io/soilSIM/reference/dot-stat_cfg.md)
-(`config$statistical_analysis$X %||% config$X %||% <default>`), so it no
-longer requires a flat config.
+(`config$statistical_analysis$X %||% config$X %||% <default>`), so it
+accepts both flat and nested config shapes.
 
 #### 3. `compute_stratified_correlations()`
 
@@ -516,17 +515,10 @@ relative change),
 [`assess_simulation_coverage()`](https://jjmaynard.github.io/soilSIM/reference/assess_simulation_coverage.md),
 [`validate_distribution_fidelity()`](https://jjmaynard.github.io/soilSIM/reference/validate_distribution_fidelity.md),
 and a `"diagnostics"` step that calls
-[`generate_simulation_diagnostics()`](https://jjmaynard.github.io/soilSIM/reference/generate_simulation_diagnostics.md).
-**Fixed** (previously a bug): that last call used to pass only 2
-positional arguments while
 [`generate_simulation_diagnostics()`](https://jjmaynard.github.io/soilSIM/reference/generate_simulation_diagnostics.md)
-(defined in `monte-carlo.R`) takes 5
-(`original_data, simulation_results, properties, correlation_config, config`),
-so it always raised an argument-mismatch error, silently caught by the
-surrounding `tryCatch` into a
-`list(validation_failed = TRUE, error = ...)` placeholder instead of
-real diagnostics. The call now passes all 5 args by name, sourced from
-this function’s own `original_data` parameter, the already-fetched
+(defined in `monte-carlo.R`) with all 5 arguments
+(`original_data, simulation_results, properties, correlation_config, config`)
+by name, sourced from this function’s own `original_data` parameter, the
 `simulation_data` local (the constrained
 `[horizon, property, realization]` array), and
 `monte_carlo_results$metadata$properties`/`monte_carlo_results$correlation_structure`.

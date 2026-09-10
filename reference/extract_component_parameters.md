@@ -2,9 +2,7 @@
 
 Extracts `min`/`mode`/`max` for one component row from its
 `comppct_l`/`comppct_r`/`comppct_h` triplet, filling missing
-`comppct_l`/`comppct_h` from `comppct_r -/+ 2` (matching the legacy
-[`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
-fallback).
+`comppct_l`/`comppct_h` from `comppct_r -/+ 2`.
 
 ## Usage
 

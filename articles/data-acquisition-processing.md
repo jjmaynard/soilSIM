@@ -45,8 +45,8 @@ each function actually does to the data and why each parameter exists:
     and
     [`summarize_unsuitable_horizons()`](https://jjmaynard.github.io/soilSIM/reference/summarize_unsuitable_horizons.md)
 
-See `soilSIM/docs/01_data_acquisition_processing.md` for the full
-function-level reference this vignette is drawn from.
+See the “Data Acquisition & Processing” architecture article for the
+full function-level reference this vignette is drawn from.
 
 ``` r
 
@@ -623,7 +623,7 @@ wr_overwrite <- infill_water_retention_saxton_rawls_integrated(
   wr_input, max_depth = 150, overwrite = TRUE, verbose = FALSE
 )
 # every suitable, in-depth, texture-and-bulk-density-complete row now gets a Saxton-Rawls estimate,
-# not just the previously-missing ones
+# not just the ones that were missing
 sum(!is.na(wr_overwrite$wthirdbar_r)) - sum(!is.na(wr_result$wthirdbar_r))
 #> [1] 0
 ```
@@ -700,12 +700,11 @@ clay_values[result$violations]
 ```
 
 Relationship rules like the sum-to-100 texture rule added above are
-recorded on the config but are *not* currently enforced by
+recorded on the config but are *not* enforced by
 [`apply_validation_rules()`](https://jjmaynard.github.io/soilSIM/reference/apply_validation_rules.md)
-(it only evaluates `range_rules`) - this matches the legacy reference
-implementation’s behavior rather than being an oversight introduced
-here, but it means a relationship rule alone won’t flag anything until a
-caller writes their own enforcement against `config$relationship_rules`.
+(it only evaluates `range_rules`) - this is by design, but it means a
+relationship rule alone won’t flag anything until a caller writes their
+own enforcement against `config$relationship_rules`.
 
 Finally,
 [`summarize_unsuitable_horizons()`](https://jjmaynard.github.io/soilSIM/reference/summarize_unsuitable_horizons.md)
@@ -742,6 +741,7 @@ infilled[1, c("hzname", "claytotal_l", "claytotal_r", "claytotal_h", "infill_met
 This is exactly the shape `getting-started-monte-carlo.Rmd` starts Step
 3 from - percentile-triplet distribution fitting and the correlated
 Monte Carlo simulation core both consume these `_l/_r/_h` columns
-directly. See `soilSIM/docs/01_data_acquisition_processing.md` for the
-full function-level reference, and `getting-started-monte-carlo.Rmd` for
-how this output feeds into simulation.
+directly. See the “Data Acquisition & Processing” architecture article
+for the full function-level reference, and
+`getting-started-monte-carlo.Rmd` for how this output feeds into
+simulation.

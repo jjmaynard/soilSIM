@@ -1,6 +1,6 @@
-# Check SSURGO Data Cache (Enhanced)
+# Check SSURGO Data Cache
 
-Enhanced cache checking with metadata validation.
+Check SSURGO Data Cache
 
 ## Usage
 

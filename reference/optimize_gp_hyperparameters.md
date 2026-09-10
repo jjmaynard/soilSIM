@@ -41,9 +41,7 @@ optimize_gp_hyperparameters(X, Y, n_folds = 5, gp_control = c(20, 10, 2))
   [`fit_individual_gp_model()`](https://jjmaynard.github.io/soilSIM/reference/fit_individual_gp_model.md)'s
   docs for why the default is much smaller than `GP_fit()`'s own
   default. With the default 5 folds x 3 correlation candidates + a
-  refit, this is ~16 `GP_fit()` calls per invocation - the single
-  highest-multiplier fix in the package's performance audit (see
-  PERFORMANCE_IMPROVEMENT_PLAN.md).
+  refit, this is ~16 `GP_fit()` calls per invocation.
 
 ## Value
 

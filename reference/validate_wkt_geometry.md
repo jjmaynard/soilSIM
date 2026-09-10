@@ -59,29 +59,13 @@ Comprehensive geometry validation results
 
 ## Implementation note
 
-This is the package's single live WKT validation entry point. It
-delegates to the granular validators below
+This is the package's single WKT validation entry point. It delegates to
+the granular validators below
 ([`validate_wkt_string()`](https://jjmaynard.github.io/soilSIM/reference/validate_wkt_string.md),
 [`validate_geometry_validity()`](https://jjmaynard.github.io/soilSIM/reference/validate_geometry_validity.md),
 [`validate_geometry_complexity()`](https://jjmaynard.github.io/soilSIM/reference/validate_geometry_complexity.md),
 [`validate_geographic_context()`](https://jjmaynard.github.io/soilSIM/reference/validate_geographic_context.md)/[`validate_projected_context()`](https://jjmaynard.github.io/soilSIM/reference/validate_projected_context.md))
-rather than duplicating their logic inline, so `validation_context`,
-`complexity_limits`, and `strict_mode` are now all actually read
-(previously accepted but silently ignored). `ssurgo-acquisition.R`'s own
-downstream code already expected the nested
-`geometry_stats$complexity_validation$complexity_stats` shape this now
-produces (see its `complexity_score %||% NA` fallback, previously always
-hitting the `NA` branch).
-
-Fixed a real, previously-silent bug while doing this: the old
-implementation's outer `tryCatch(..., error = function(e) {...})` never
-assigned the [`tryCatch()`](https://rdrr.io/r/base/conditions.html)
-call's own result back to `validation_result` - assignments inside the
-`error =` handler only modified a local copy inside that handler's own
-function scope, discarded when it returned. This meant a WKT string that
-failed to parse (e.g. malformed syntax) still made this function return
-`valid = TRUE` with placeholder geometry stats, silently passing invalid
-input through as valid. Fixed by capturing
-[`tryCatch()`](https://rdrr.io/r/base/conditions.html)'s return value
-directly instead of relying on `<-` inside the error handler to reach
-the outer scope.
+rather than duplicating their logic inline. `validation_context`,
+`complexity_limits`, and `strict_mode` are all read. The result is the
+nested `geometry_stats$complexity_validation$complexity_stats` shape
+that `ssurgo-acquisition.R`'s downstream code expects.

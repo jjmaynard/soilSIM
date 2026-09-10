@@ -8,9 +8,9 @@ later, per call, in
 The downloaded tabular data therefore depends only on the AOI (and the
 fixed default `properties` list every call site uses - never varied),
 not on any depth window. Keying the tabular cache on
-`top_depth`/`bottom_depth` (as it was before this function existed -
-MULTI_PROPERTY_FUSION_PLAN.md task L1) fragments one AOI's cache into
-one unusable copy per distinct window ever requested for it, so e.g.
+`top_depth`/`bottom_depth` (as it was before this function existed -)
+fragments one AOI's cache into one unusable copy per distinct window
+ever requested for it, so e.g.
 [`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md)'s
 wide-span simulation and a later single-window
 [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)

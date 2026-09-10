@@ -1,7 +1,6 @@
-# Enhanced SSURGO Download Input Validation (Wrapper)
+# SSURGO Download Input Validation (Wrapper)
 
-Convenience wrapper that provides additional configuration options and
-integrates with Module 8 configuration management
+Convenience wrapper that provides additional configuration options.
 
 ## Usage
 
@@ -39,4 +38,4 @@ validate_download_inputs_ssurgo_with_config(
 
 ## Value
 
-Enhanced validation results
+validation results

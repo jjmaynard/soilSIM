@@ -1,6 +1,6 @@
 # Assess Cholesky Decomposition
 
-Enhanced Cholesky validation error handling.
+Assess Cholesky Decomposition
 
 ## Usage
 

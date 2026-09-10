@@ -12,13 +12,13 @@ pipeline.
 - [`validate_download_inputs_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/validate_download_inputs_ssurgo.md)
   : Validate Download Inputs (SSURGO-specific)
 - [`validate_download_inputs_ssurgo_with_config()`](https://jjmaynard.github.io/soilSIM/reference/validate_download_inputs_ssurgo_with_config.md)
-  : Enhanced SSURGO Download Input Validation (Wrapper)
+  : SSURGO Download Input Validation (Wrapper)
 - [`generate_validation_report_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/generate_validation_report_ssurgo.md)
   : Generate SSURGO Validation Report
 - [`check_ssurgo_cache()`](https://jjmaynard.github.io/soilSIM/reference/check_ssurgo_cache.md)
-  : Check SSURGO Data Cache (Enhanced)
+  : Check SSURGO Data Cache
 - [`cache_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/cache_ssurgo_data.md)
-  : Cache SSURGO Data (Enhanced)
+  : Cache SSURGO Data
 - [`download_and_prepare_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/download_and_prepare_ssurgo.md)
   : Download and Prepare SSURGO Data (Workflow Convenience Wrapper)
 - [`process_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_data.md)
@@ -70,7 +70,7 @@ pipeline.
 - [`horizon_name_property_infill()`](https://jjmaynard.github.io/soilSIM/reference/horizon_name_property_infill.md)
   : Horizon Name Property Infill
 - [`infill_rfv_property_integrated()`](https://jjmaynard.github.io/soilSIM/reference/infill_rfv_property_integrated.md)
-  : Enhanced RFV Property Infilling
+  : Infill Rock Fragment Volume
 - [`infill_water_retention_saxton_rawls_integrated()`](https://jjmaynard.github.io/soilSIM/reference/infill_water_retention_saxton_rawls_integrated.md)
   : Water Retention Estimation using Saxton-Rawls
 - [`impute_rfv_values()`](https://jjmaynard.github.io/soilSIM/reference/impute_rfv_values.md)
@@ -90,15 +90,15 @@ QA.
 - [`compute_stratified_correlations()`](https://jjmaynard.github.io/soilSIM/reference/compute_stratified_correlations.md)
   : Compute Stratified Correlations
 - [`analyze_property_distributions()`](https://jjmaynard.github.io/soilSIM/reference/analyze_property_distributions.md)
-  : Analyze Property Distributions (Enhanced)
+  : Analyze Property Distributions
 - [`fit_property_distributions()`](https://jjmaynard.github.io/soilSIM/reference/fit_property_distributions.md)
-  : Fit Property Distributions (Enhanced)
+  : Fit Property Distributions
 - [`detect_comprehensive_outliers()`](https://jjmaynard.github.io/soilSIM/reference/detect_comprehensive_outliers.md)
-  : Detect Comprehensive Outliers (Enhanced)
+  : Detect Comprehensive Outliers
 - [`validate_statistical_results()`](https://jjmaynard.github.io/soilSIM/reference/validate_statistical_results.md)
-  : Validate Statistical Results (Enhanced)
+  : Validate Statistical Results
 - [`generate_statistical_quality_report()`](https://jjmaynard.github.io/soilSIM/reference/generate_statistical_quality_report.md)
-  : Generate Statistical Quality Report (Enhanced)
+  : Generate Statistical Quality Report
 - [`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md)
   : Get Statistical Analysis Default Configuration
 - [`validate_statistical_config()`](https://jjmaynard.github.io/soilSIM/reference/validate_statistical_config.md)
@@ -106,7 +106,7 @@ QA.
 - [`identify_numeric_soil_properties()`](https://jjmaynard.github.io/soilSIM/reference/identify_numeric_soil_properties.md)
   : Identify Numeric Soil Properties
 - [`compute_property_statistics()`](https://jjmaynard.github.io/soilSIM/reference/compute_property_statistics.md)
-  : Compute Property Statistics (Enhanced)
+  : Compute Property Statistics
 - [`get_appropriate_distributions()`](https://jjmaynard.github.io/soilSIM/reference/get_appropriate_distributions.md)
   : Determine candidate distributions to fit for a property
 - [`analyze_texture_correlations()`](https://jjmaynard.github.io/soilSIM/reference/analyze_texture_correlations.md)
@@ -273,31 +273,31 @@ Correlated Monte Carlo simulation engine (core).
   : Generate Monte Carlo Realizations of Soil Properties
 
 - [`simulate_correlated_properties()`](https://jjmaynard.github.io/soilSIM/reference/simulate_correlated_properties.md)
-  : Simulate Correlated Properties Using Enhanced Distribution Framework
+  : Simulate Correlated Properties
 
 - [`sim_component_compositions()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_compositions.md)
-  : Simulate Component Compositions (Enhanced)
+  : Simulate Component Compositions
 
 - [`setup_distributions()`](https://jjmaynard.github.io/soilSIM/reference/setup_distributions.md)
-  : Setup Distributions (Enhanced)
+  : Setup Distributions
 
 - [`prepare_simulation_parameters()`](https://jjmaynard.github.io/soilSIM/reference/prepare_simulation_parameters.md)
-  : Prepare Simulation Parameters (Enhanced)
+  : Prepare Simulation Parameters
 
 - [`fuse_observed_data_into_priors()`](https://jjmaynard.github.io/soilSIM/reference/fuse_observed_data_into_priors.md)
   : Fuse Observed Field/Lab Data into SSURGO-Derived Priors
 
 - [`configure_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/configure_correlation_structure.md)
-  : Configure Correlation Structure (Enhanced)
+  : Configure Correlation Structure
 
 - [`apply_simulation_constraints()`](https://jjmaynard.github.io/soilSIM/reference/apply_simulation_constraints.md)
-  : Apply Simulation Constraints (Enhanced)
+  : Apply Simulation Constraints
 
 - [`validate_monte_carlo_inputs()`](https://jjmaynard.github.io/soilSIM/reference/validate_monte_carlo_inputs.md)
-  : Validate Monte Carlo Inputs (Enhanced)
+  : Validate Monte Carlo Inputs
 
 - [`validate_simulation_output()`](https://jjmaynard.github.io/soilSIM/reference/validate_simulation_output.md)
-  : Validate Simulation Output (Enhanced)
+  : Validate Simulation Output
 
 - [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)
   : Get Monte Carlo Default Configuration
@@ -311,14 +311,13 @@ Correlated Monte Carlo simulation engine (core).
   : Validate Monte Carlo Configuration
 
 - [`prepare_simulation_data()`](https://jjmaynard.github.io/soilSIM/reference/prepare_simulation_data.md)
-  : Prepare Simulation Data (Enhanced)
+  : Prepare Simulation Data
 
 - [`extract_property_parameters()`](https://jjmaynard.github.io/soilSIM/reference/extract_property_parameters.md)
-  : Extract Simulation Parameters for One Horizon/Property (Enhanced)
+  : Extract Simulation Parameters for One Horizon/Property
 
 - [`estimate_property_correlations()`](https://jjmaynard.github.io/soilSIM/reference/estimate_property_correlations.md)
-  : Estimate a Correlation Matrix from Simulation Parameters (Real
-  Implementation)
+  : Estimate a Correlation Matrix from Simulation Parameters
 
 ## GP Depth Modeling & Multivariate Adjustment
 
@@ -340,7 +339,7 @@ Gaussian-process depth-trend modeling and Monte Carlo/GP integration
 - [`validate_correlation_preservation()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_preservation.md)
   : Validate Correlation Preservation
 - [`simulate_soil_properties()`](https://jjmaynard.github.io/soilSIM/reference/simulate_soil_properties.md)
-  : Enhanced Soil Property Simulation with NRCS GP Models + Cholesky
+  : Soil Property Simulation with NRCS GP Models and Cholesky
   Correlations
 - [`match_soils_to_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/match_soils_to_gp_models.md)
   : Match Soils to GP Models
@@ -533,15 +532,15 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
   at a fixed grid of y-values and flags cells where consecutive probe
   values decrease - a probe, not a proof, but fully vectorized raster
   arithmetic. Streams one probe raster at a time rather than
-  materializing all of them (validated upstream to avoid an allocation
-  failure at large cell counts).
+  materializing all of them (avoids an allocation failure at large cell
+  counts).
 
 - [`quantile_metalog_linear_with_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_with_fallback.md)
   :
 
   Metalog quantile with automatic fallback to `linear_cdf` for
-  infeasible cells - validated upstream: zero effect on feasible cells,
-  exact `linear_cdf` match on infeasible ones.
+  infeasible cells - zero effect on feasible cells, exact `linear_cdf`
+  match on infeasible ones.
 
 - [`fit_gamma_mom_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_gamma_mom_raster.md)
   : Method-of-moments Gamma fit from a list of percentile-value rasters
@@ -595,8 +594,8 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
   rather than independently via
   [`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)
   per member - independent fusion measurably breaks sum-to-100 (up to
-  10.5 percentage points on realistic synthetic data, per upstream
-  validation). The raster counterpart of the already-ported scalar
+  10.5 percentage points on realistic synthetic data). The raster
+  counterpart of the already-ported scalar
   [`fuse_texture_group_from_triplets()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_from_triplets.md).
 
 - [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
@@ -824,7 +823,7 @@ if you’re reading soilSIM’s source.
   : Safe Property Distribution Analysis
 
 - [`apply_basic_range_limits()`](https://jjmaynard.github.io/soilSIM/reference/apply_basic_range_limits.md)
-  : Apply Basic Range Limits (Enhanced)
+  : Apply Basic Range Limits
 
 - [`apply_composition_constraints()`](https://jjmaynard.github.io/soilSIM/reference/apply_composition_constraints.md)
   : Apply Composition Constraints
@@ -1287,8 +1286,7 @@ if you’re reading soilSIM’s source.
   : Validate Correlation Matrix Quality
 
 - [`validate_distribution_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_distribution_parameters.md)
-  : Validate a Horizon's Fitted Distribution Parameters (Real
-  Implementation)
+  : Validate a Horizon's Fitted Distribution Parameters
 
 - [`validate_distribution_setup()`](https://jjmaynard.github.io/soilSIM/reference/validate_distribution_setup.md)
   : Validate Distribution Setup
@@ -1350,7 +1348,6 @@ if you’re reading soilSIM’s source.
 
 - [`preserve_correlation_structure_joint()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure_joint.md)
   : Preserve Correlation Structure via a Joint Depth x Property Copula
-  (Phase 3)
 
 - [`raster_fusion_bridge`](https://jjmaynard.github.io/soilSIM/reference/raster_fusion_bridge.md)
   : Per-Pixel Ensemble Re-Marginalization (raster-fusion \<-\> tabular

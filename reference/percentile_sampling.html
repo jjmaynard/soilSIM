@@ -3,29 +3,23 @@
 percentiles&quot; approaches (a piecewise-linear inverse-CDF, a monotonic-spline
 inverse-CDF, a KDE/truncated-normal approach, and beta/normal parametric
 fits) behind a single method argument, for arbitrary percentile counts
-(not just SSURGO's low/rep/high triplet). Ported from
-code_ref/brdf/distribution_fitting.R. Complements, rather than
-replaces, R/distributions.R's fit_percentile_triplet()/
+(not just SSURGO's low/rep/high triplet). Complements
+R/distributions.R's fit_percentile_triplet()/
 quantile_from_fit(), which is the production Monte Carlo engine's
 fixed 3-point fitter.
-method = &quot;metalog&quot; is deliberately not ported: it would need the
-rmetalog package, which distributions.R's own header documents a
-project decision to avoid entirely (validated hang/segfault history) -
-soilSIM already has a dependency-free closed-form metalog fitter
+method = &quot;metalog&quot; is not provided here: it would need the rmetalog
+package, which the package avoids. A dependency-free closed-form metalog fitter
 (fit_metalog_linear()/quantile_metalog_linear()) that doesn't need
 it."><meta property="og:description" content="Consolidates several &quot;simulate a distribution from summary
 percentiles&quot; approaches (a piecewise-linear inverse-CDF, a monotonic-spline
 inverse-CDF, a KDE/truncated-normal approach, and beta/normal parametric
 fits) behind a single method argument, for arbitrary percentile counts
-(not just SSURGO's low/rep/high triplet). Ported from
-code_ref/brdf/distribution_fitting.R. Complements, rather than
-replaces, R/distributions.R's fit_percentile_triplet()/
+(not just SSURGO's low/rep/high triplet). Complements
+R/distributions.R's fit_percentile_triplet()/
 quantile_from_fit(), which is the production Monte Carlo engine's
 fixed 3-point fitter.
-method = &quot;metalog&quot; is deliberately not ported: it would need the
-rmetalog package, which distributions.R's own header documents a
-project decision to avoid entirely (validated hang/segfault history) -
-soilSIM already has a dependency-free closed-form metalog fitter
+method = &quot;metalog&quot; is not provided here: it would need the rmetalog
+package, which the package avoids. A dependency-free closed-form metalog fitter
 (fit_metalog_linear()/quantile_metalog_linear()) that doesn't need
 it."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -97,15 +91,12 @@ it."></head><body>
 percentiles" approaches (a piecewise-linear inverse-CDF, a monotonic-spline
 inverse-CDF, a KDE/truncated-normal approach, and beta/normal parametric
 fits) behind a single <code>method</code> argument, for arbitrary percentile counts
-(not just SSURGO's low/rep/high triplet). Ported from
-<code>code_ref/brdf/distribution_fitting.R</code>. Complements, rather than
-replaces, <code>R/distributions.R</code>'s <code><a href="fit_percentile_triplet.html">fit_percentile_triplet()</a></code>/
+(not just SSURGO's low/rep/high triplet). Complements
+<code>R/distributions.R</code>'s <code><a href="fit_percentile_triplet.html">fit_percentile_triplet()</a></code>/
 <code><a href="quantile_from_fit.html">quantile_from_fit()</a></code>, which is the production Monte Carlo engine's
 fixed 3-point fitter.</p>
-<p><code>method = "metalog"</code> is deliberately <strong>not</strong> ported: it would need the
-<code>rmetalog</code> package, which <code>distributions.R</code>'s own header documents a
-project decision to avoid entirely (validated hang/segfault history) -
-soilSIM already has a dependency-free closed-form metalog fitter
+<p><code>method = "metalog"</code> is not provided here: it would need the <code>rmetalog</code>
+package, which the package avoids. A dependency-free closed-form metalog fitter
 (<code><a href="fit_metalog_linear.html">fit_metalog_linear()</a></code>/<code><a href="quantile_metalog_linear.html">quantile_metalog_linear()</a></code>) that doesn't need
 it.</p>
     </div>

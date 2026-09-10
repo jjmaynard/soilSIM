@@ -114,10 +114,10 @@ depth-aware simulation</li>
 </ol>
 <p>Every number in this vignette originated from a real download against
 NRCS Soil Data Access - see the “Where this data came from” note below.
-See <code>soilSIM/docs/01_data_acquisition_processing.md</code>,
-<code>03_distribution_fitting_correlations.md</code>,
-<code>04_monte_carlo_simulation.md</code>, and
-<code>05_gp_modeling_multivariate_adjustment.md</code> for the full
+See the “Data Acquisition &amp; Processing” architecture article, the
+“Distribution Fitting &amp; Correlations” architecture article, the
+“Monte Carlo Simulation” architecture article, and the “GP Modeling
+&amp; Multivariate Adjustment” architecture article for the full
 function-level reference behind each step.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://jjmaynard.github.io/soilSIM/">soilSIM</a></span><span class="op">)</span></span>
@@ -346,9 +346,9 @@ group:</p>
 <span>    y <span class="op">=</span> <span class="st">"Clay content (%)"</span></span>
 <span>  <span class="op">)</span></span></code></pre></div>
 <p><img src="getting-started-monte-carlo_files/figure-html/unnamed-chunk-14-1.png" class="r-plt" alt="" width="576"></p>
-<p>From here, <code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code> (see
-<code>soilSIM/docs/05_gp_modeling_multivariate_adjustment.md</code>)
-combines these depth-trend models with a Monte Carlo simulation like
+<p>From here, <code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code> (see the “GP
+Modeling &amp; Multivariate Adjustment” architecture article) combines
+these depth-trend models with a Monte Carlo simulation like
 <code>mc_result</code> above, nudging each realization toward its
 group’s fitted depth trend while preserving the cross-property
 correlation structure - the natural next step beyond this vignette’s

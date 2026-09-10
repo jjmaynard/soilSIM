@@ -1,6 +1,6 @@
 # Validate GP Predictions
 
-Enhanced GP prediction validation using Module 5 functions.
+Validate GP Predictions
 
 ## Usage
 

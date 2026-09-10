@@ -1,6 +1,6 @@
-# Fit Property Distributions (Enhanced)
+# Fit Property Distributions
 
-Enhanced distribution fitting with better error handling
+Fit Property Distributions
 
 ## Usage
 

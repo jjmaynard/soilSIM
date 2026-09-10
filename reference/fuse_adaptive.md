@@ -76,10 +76,10 @@ fuse_adaptive(
   Optional - opts into `prior_fusion_method = "raw_draws"` on whichever
   route runs
   ([`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)
-  for the general route - task P2.2/P2.3;
+  for the general route -;
   [`fuse_closed_form()`](https://jjmaynard.github.io/soilSIM/reference/fuse_closed_form.md)
-  for the closed-form route - task P2.6, added at negligible cost since
-  that route's raw_draws fit is a per-mukey precompute +
+  for the closed-form route -, added at negligible cost since that
+  route's raw_draws fit is a per-mukey precompute +
   [`terra::subst()`](https://rspatial.github.io/terra/reference/subst.html)
   broadcast, not a per-cell computation - see
   [`mukey_draws_closed_form_fit_raster()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_closed_form_fit_raster.md)'s
@@ -111,7 +111,7 @@ A list:
   `alpha`/`beta` for "beta", `shape`/`rate` for "gamma") - always this
   shape regardless of which route ran. Also carries `percentiles`: a
   named list of `SpatRaster`s (`"P01"`..`"P99"` by default), one per
-  `posterior_probs` entry, on both routes (as of P3.3).
+  `posterior_probs` entry, on both routes.
 
 - `route`: one of `"bayesian_update_general"`, `"closed_form_normal"`,
   `"closed_form_beta"`, `"closed_form_gamma"`.

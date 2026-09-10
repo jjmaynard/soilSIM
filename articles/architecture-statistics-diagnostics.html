@@ -208,15 +208,12 @@ descriptive summary statistics per property, not actual fits;
 analytical step is individually <code>tryCatch</code>-wrapped with
 <code>handle_workflow_error(..., "warn")</code>, so a failure in any one
 step degrades gracefully rather than aborting the whole analysis.</p>
-<p>The enhanced-chain config-plumbing bug (its functions read
-statistical parameters flat off <code>config$X</code> when
-<code><a href="../reference/get_statistical_analysis_defaults.html">get_statistical_analysis_defaults()</a></code> nests them under
-<code>config$statistical_analysis$X</code>, so
-<code>analyze_soil_statistics(data)</code> with no
-<code>analysis_config</code> hard-errored the enhanced chain) was fixed
-2026-09-02 via the internal <code>.stat_cfg(config, key, default)</code>
-=
-<code>config$statistical_analysis[[key]] %||% config[[key]] %||% default</code>.</p>
+<p>The enhanced-chain functions read statistical parameters through the
+internal helper <code>.stat_cfg(config, key, default)</code> =
+<code>config$statistical_analysis[[key]] %||% config[[key]] %||% default</code>,
+so they accept parameters both flat off <code>config$X</code> and nested
+under <code>config$statistical_analysis$X</code> (the shape
+<code><a href="../reference/get_statistical_analysis_defaults.html">get_statistical_analysis_defaults()</a></code> produces).</p>
 </div>
 <div class="section level4">
 <h4 id="run_comprehensive_correlation_analysis-enhanced-correlation-analysis">2. <code>run_comprehensive_correlation_analysis()</code> — Enhanced
@@ -253,7 +250,7 @@ version does, so it assumes <code>available_properties</code> are
 already appropriately cleaned. Config reads go through
 <code><a href="../reference/dot-stat_cfg.html">.stat_cfg()</a></code>
 (<code>config$statistical_analysis$X %||% config$X %||% &lt;default&gt;</code>),
-so it no longer requires a flat config.</p>
+so it accepts both flat and nested config shapes.</p>
 </div>
 <div class="section level4">
 <h4 id="compute_stratified_correlations">3. <code>compute_stratified_correlations()</code><a class="anchor" aria-label="anchor" href="#compute_stratified_correlations"></a>
@@ -625,17 +622,11 @@ stabilized within <code>tolerance</code>, default 0.05 relative change),
 <code><a href="../reference/assess_simulation_coverage.html">assess_simulation_coverage()</a></code>,
 <code><a href="../reference/validate_distribution_fidelity.html">validate_distribution_fidelity()</a></code>, and a
 <code>"diagnostics"</code> step that calls
-<code><a href="../reference/generate_simulation_diagnostics.html">generate_simulation_diagnostics()</a></code>. <strong>Fixed</strong>
-(previously a bug): that last call used to pass only 2 positional
-arguments while <code><a href="../reference/generate_simulation_diagnostics.html">generate_simulation_diagnostics()</a></code> (defined
-in <code>monte-carlo.R</code>) takes 5
-(<code>original_data, simulation_results, properties, correlation_config, config</code>),
-so it always raised an argument-mismatch error, silently caught by the
-surrounding <code>tryCatch</code> into a
-<code>list(validation_failed = TRUE, error = ...)</code> placeholder
-instead of real diagnostics. The call now passes all 5 args by name,
-sourced from this function’s own <code>original_data</code> parameter,
-the already-fetched <code>simulation_data</code> local (the constrained
+<code><a href="../reference/generate_simulation_diagnostics.html">generate_simulation_diagnostics()</a></code> (defined in
+<code>monte-carlo.R</code>) with all 5 arguments
+(<code>original_data, simulation_results, properties, correlation_config, config</code>)
+by name, sourced from this function’s own <code>original_data</code>
+parameter, the <code>simulation_data</code> local (the constrained
 <code>[horizon, property, realization]</code> array), and
 <code>monte_carlo_results$metadata$properties</code>/<code>monte_carlo_results$correlation_structure</code>.
 <strong>Returns</strong>

@@ -1,4 +1,4 @@
-# Vectorized feasibility check: a valid metalog quantile function must be monotonically increasing in y (equivalent to its density staying non-negative everywhere). Probes `quantile_metalog_linear_raster()` at a fixed grid of y-values and flags cells where consecutive probe values decrease - a probe, not a proof, but fully vectorized raster arithmetic. Streams one probe raster at a time rather than materializing all of them (validated upstream to avoid an allocation failure at large cell counts).
+# Vectorized feasibility check: a valid metalog quantile function must be monotonically increasing in y (equivalent to its density staying non-negative everywhere). Probes `quantile_metalog_linear_raster()` at a fixed grid of y-values and flags cells where consecutive probe values decrease - a probe, not a proof, but fully vectorized raster arithmetic. Streams one probe raster at a time rather than materializing all of them (avoids an allocation failure at large cell counts).
 
 Vectorized feasibility check: a valid metalog quantile function must be
 monotonically increasing in y (equivalent to its density staying
@@ -7,8 +7,7 @@ non-negative everywhere). Probes
 at a fixed grid of y-values and flags cells where consecutive probe
 values decrease - a probe, not a proof, but fully vectorized raster
 arithmetic. Streams one probe raster at a time rather than materializing
-all of them (validated upstream to avoid an allocation failure at large
-cell counts).
+all of them (avoids an allocation failure at large cell counts).
 
 ## Usage
 

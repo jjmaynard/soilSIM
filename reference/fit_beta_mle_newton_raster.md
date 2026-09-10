@@ -27,8 +27,7 @@ quantile_beta_mle_newton_raster(fit, q)
 
 - n_iter:
 
-  Fixed Newton-Raphson iteration count (validated sufficient at 15
-  upstream).
+  Fixed Newton-Raphson iteration count (validated sufficient at 15).
 
 - eps:
 

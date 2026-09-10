@@ -1,6 +1,6 @@
 # Build Stratified GP Models
 
-Enhanced version with proper Module 0 error handling and validation
+Build Stratified GP Models
 
 ## Usage
 

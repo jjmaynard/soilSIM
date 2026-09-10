@@ -45,7 +45,7 @@ prepare_nrcs_training_data(
 
 - validation_config:
 
-  Validation configuration from Module 0
+  Validation configuration from the shared utilities
 
 - verbose:
 

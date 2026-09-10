@@ -1,6 +1,6 @@
 # Validate GP Model Performance
 
-Enhanced GP performance validation using Module 5 functions.
+Validate GP Model Performance
 
 ## Usage
 

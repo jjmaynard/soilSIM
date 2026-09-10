@@ -135,11 +135,10 @@ Column name containing horizon designations (default
 <code>"hzname"</code>). If this column is absent, the function logs a
 WARN and returns all-<code>FALSE</code> (nothing flagged) rather than
 erroring. - <code>strict_mode</code> - Whether to apply additional
-strict-mode criteria (default <code>TRUE</code>; note this differs from
-an earlier version of this function, which defaulted to
-<code>FALSE</code>). - <code>custom_exclusions</code> - Optional
-additional regex patterns (matched against raw <code>hzname</code>
-values) to flag as unsuitable.</p>
+strict-mode criteria (default <code>TRUE</code>). -
+<code>custom_exclusions</code> - Optional additional regex patterns
+(matched against raw <code>hzname</code> values) to flag as
+unsuitable.</p>
 <p><strong>Returns</strong>: A logical vector, one element per row of
 <code>data</code>, <code>TRUE</code> where the horizon is considered
 unsuitable.</p>
@@ -169,14 +168,12 @@ transitional-horizon patterns (<code>^C$</code>, <code>^C[0-9]</code>,
 <code>hznames</code>. Any <code>custom_exclusions</code> regexes are
 applied last, also case-sensitively against raw <code>hznames</code>.
 Final counts and (if &lt;= 10 distinct) the actual unsuitable
-horizon-name values are logged via <code><a href="../reference/log_message.html">log_message()</a></code>. Note the
-default <code>strict_mode = TRUE</code> here differs from an earlier
-version of this function, which defaulted to <code>FALSE</code>, and the
-strict-mode pattern pass and custom-exclusion pass both match against
-the <strong>raw, non-uppercased</strong> <code>hznames</code> vector
-rather than the upper-cased <code>hz</code> used earlier in the loop - a
-mixed-case horizon name (e.g. <code>"bc"</code>) will not match the
-strict-mode <code>"BC"</code> pattern.</p>
+horizon-name values are logged via <code><a href="../reference/log_message.html">log_message()</a></code>. Note that
+the strict-mode pattern pass and custom-exclusion pass both match
+against the <strong>raw, non-uppercased</strong> <code>hznames</code>
+vector rather than the upper-cased <code>hz</code> used earlier in the
+loop - a mixed-case horizon name (e.g. <code>"bc"</code>) will not match
+the strict-mode <code>"BC"</code> pattern.</p>
 </div>
 <div class="section level4">
 <h4 id="validate_data_qualitydata-required_columns-character0-numeric_columns-character0-quality_thresholds-null">
@@ -617,15 +614,9 @@ dispatches to
 <code>validate_properties(props, lookup$properties, strict_mode)</code>
 when <code>lookup$synonyms</code> is <code>NULL</code>, or to
 <code>validate_properties_with_synonyms(props, lookup$properties, strict_mode = strict_mode)</code>
-otherwise. A source comment at this call site notes a
-previously-existing bug: the synonym-matching branch used to pass
-<code>lookup$synonyms</code> and <code>strict_mode</code> positionally,
-which landed in <code><a href="../reference/validate_properties_with_synonyms.html">validate_properties_with_synonyms()</a></code>’s
-<code>strict_mode</code> and <code>max_invalid_pct</code> argument slots
-respectively (since that function has no <code>synonyms</code> parameter
-at all) - silently mis-validating whenever a lookup object had synonyms
-set. The current code passes <code>strict_mode</code> by name to avoid
-this.</p>
+otherwise. <code>strict_mode</code> is passed by name, since
+<code><a href="../reference/validate_properties_with_synonyms.html">validate_properties_with_synonyms()</a></code> has no
+<code>synonyms</code> parameter.</p>
 </div>
 </div>
 </div>
@@ -1497,9 +1488,7 @@ definitions.</li>
 present anywhere in <code>utils.R</code> itself; the items above were
 identified by reading the source rather than from author-flagged doc
 comments (one exception is the <code><a href="../reference/create_property_lookup.html">create_property_lookup()</a></code>
-synonym-argument bug, which the file’s own source comment documents as a
-fixed historical bug rather than an open limitation - see that
-function’s write-up above).</li>
+synonym-argument handling noted above).</li>
 </ul>
 </div>
 <div class="section level2">

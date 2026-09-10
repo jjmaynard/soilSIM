@@ -3,22 +3,14 @@
 Shared foundation used by both `statistics.R` and `monte-carlo.R` (and,
 for the ILR pieces, `bayesian-updating.R`).
 
-The percentile-triplet fitting/quantile functions below are adapted from
-validated closed-form math originally written as
-[`terra::SpatRaster`](https://rspatial.github.io/terra/reference/SpatRaster-class.html)
-arithmetic
-(`code_ref/reanalysis-platform/distribution_fitting_raster.R`): stripped
-of all `terra::` calls, the underlying math is ordinary base-R vector
-arithmetic, so it ports directly. The Beta fit (vectorized
-Newton-Raphson MLE) was validated there against
+The percentile-triplet fitting/quantile functions are closed-form base-R
+vector arithmetic. The Beta fit is a vectorized Newton-Raphson MLE
+(matches
 [`fitdistrplus::fitdist()`](https://lbbe-software.github.io/fitdistrplus/reference/fitdist.html)
-to ~1e-3 to 1e-5; the metalog fit (exact linear solve when the number of
-interior percentiles equals the number of terms) was validated to ~1e-12
-against `rmetalog::metalog()` - this project therefore never needs the
-`rmetalog` package (which `code_ref/brdf/distribution_fitting.R`
-documents as prone to hangs and a reproduced segfault).
+to ~1e-3 to 1e-5); the metalog fit is an exact linear solve when the
+number of interior percentiles equals the number of terms (matches
+`rmetalog::metalog()` to ~1e-12), so the `rmetalog` package is not
+required.
 
-The ILR (isometric log-ratio) transform is ported verbatim from
-`code_ref/reanalysis-platform/texture_ilr_fusion.R`, itself validated to
-match `compositions::ilr()` exactly - so this package needs no
-`compositions` dependency either.
+The ILR (isometric log-ratio) transform matches `compositions::ilr()`
+exactly, so the `compositions` package is not required either.

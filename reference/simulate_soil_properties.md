@@ -1,9 +1,7 @@
-# Enhanced Soil Property Simulation with NRCS GP Models + Cholesky Correlations
+# Soil Property Simulation with NRCS GP Models and Cholesky Correlations
 
-Complete implementation from GP-depth-adjust.R that combines triangular
-distribution
-
-- Cholesky approach with NRCS GP models for realistic depth trends
+Combines triangular-distribution + Cholesky-correlated sampling with
+NRCS GP models for realistic depth trends.
 
 ## Usage
 
@@ -69,5 +67,5 @@ simulate_soil_properties(
 
 ## Value
 
-Enhanced simulation results with realistic depth trends and preserved
+simulation results with realistic depth trends and preserved
 correlations

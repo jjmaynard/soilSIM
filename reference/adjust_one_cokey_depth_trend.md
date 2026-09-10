@@ -29,9 +29,10 @@ adjust_one_cokey_depth_trend(cokey_data, properties, min_depths, config = NULL)
 
   Optional Monte Carlo config, passed through to
   [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md)
-  (`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 10) - see
-  [`maybe_adjust_soil_data_depth_trend()`](https://jjmaynard.github.io/soilSIM/reference/maybe_adjust_soil_data_depth_trend.md)'s
-  own `config` docs.
+
+  - see
+    [`maybe_adjust_soil_data_depth_trend()`](https://jjmaynard.github.io/soilSIM/reference/maybe_adjust_soil_data_depth_trend.md)'s
+    own `config` docs.
 
 ## Value
 

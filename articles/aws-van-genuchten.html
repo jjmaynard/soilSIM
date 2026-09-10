@@ -105,11 +105,10 @@ can hold - is derived from the van Genuchten (1980) water-retention
 curve, whose shape parameters soilSIM estimates via
 <code><a href="http://ncss-tech.github.io/soilDB/reference/ROSETTA.html" class="external-link">soilDB::ROSETTA()</a></code>, a live pedotransfer-function API. This
 vignette derives real AWS estimates for real soil components from the
-same Amador-area AOI used in the “Getting Started” vignette. See
-<code>soilSIM/docs/07_aws_van_genuchten_modeling.md</code> for the full
-function-level reference, including two intentional, ported-as-is quirks
-in <code><a href="../reference/simulate_vg_aws.html">simulate_vg_aws()</a></code> this vignette doesn’t need to
-touch.</p>
+same Amador-area AOI used in the “Getting Started” vignette. See the
+“AWS / Van Genuchten Modeling” architecture article for the full
+function-level reference, including two behavioral notes on
+<code><a href="../reference/simulate_vg_aws.html">simulate_vg_aws()</a></code> this vignette doesn’t need to touch.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://jjmaynard.github.io/soilSIM/">soilSIM</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span></code></pre></div>

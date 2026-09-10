@@ -1,6 +1,7 @@
 # Apply Local Depth Trends
 
-Enhanced version with Module 8 error handling.
+Applies locally fitted GP depth-trend predictions to a component's
+simulation data via apply_gp_depth_trends().
 
 ## Usage
 
@@ -45,13 +46,10 @@ apply_local_depth_trends(
 
   Optional config, passed straight through to
   [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md) -
-  lets `config$monte_carlo$vertical_correlation_method` (default
-  `"joint_copula"` as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`
-  Phase 13; set to `"gp_quantile_retrofit"` to opt back into the
-  original algorithm) reach this call site. `NULL` (default) resolves to
-  `"joint_copula"`, matching
-  [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)'s
-  own default.
+  lets `config$monte_carlo$vertical_correlation_method`
+  (`"joint_copula"` default, or `"gp_quantile_retrofit"`) reach this
+  call site. `NULL` (default) resolves to `"joint_copula"`, matching
+  [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md).
 
 - gp_models:
 

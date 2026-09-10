@@ -1,9 +1,7 @@
 # Resolve a property's distribution family from its own percentile skew
 
-Adapted from `code_ref/reanalysis-platform/property_fusion_dispatch.R`'s
-[`resolve_property_dist()`](https://jjmaynard.github.io/soilSIM/reference/resolve_property_dist.md):
-computed directly from this row's own l/r/h (no spatial/AOI aggregation
-needed in a tabular context). Deliberately narrow - never resolves to
+Computed directly from this row's own l/r/h (no spatial/AOI aggregation
+in a tabular context). Deliberately narrow - never resolves to
 `"metalog"` (that stays an explicit config choice), matching the
 reference's own documented restriction.
 

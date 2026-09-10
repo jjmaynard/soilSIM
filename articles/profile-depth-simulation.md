@@ -8,8 +8,8 @@ map unit: how much of a map unit a component actually occupies
 and thicknesses are in the field (depth/thickness variability, informed
 by Official Series Description boundary-distinctness data). This
 vignette demonstrates both, using a real map unit from the same
-Amador-area AOI as the “Getting Started” vignette. See
-`soilSIM/docs/06_profile_component_depth_simulation.md` for the full
+Amador-area AOI as the “Getting Started” vignette. See the “Profile,
+Component & Depth Simulation” architecture article for the full
 function-level reference.
 
 ``` r
@@ -218,11 +218,10 @@ The third horizon (H3) in this real component is missing its
 `sandtotal_h`/`claytotal_h` (upper bound) values - a genuine SSURGO data
 gap, not a simulation artifact. soilSIM’s
 [`evaluate_simulated_depths()`](https://jjmaynard.github.io/soilSIM/reference/evaluate_simulated_depths.md)
-QC function (see
-`soilSIM/docs/06_profile_component_depth_simulation.md`) flags exactly
-this kind of gap: it can only assess whether a simulated depth falls
-outside a horizon’s original low/high bounds when those bounds are
-actually present in the source data.
+QC function (see the “Profile, Component & Depth Simulation”
+architecture article) flags exactly this kind of gap: it can only assess
+whether a simulated depth falls outside a horizon’s original low/high
+bounds when those bounds are actually present in the source data.
 
 ## Where this data came from
 

@@ -17,9 +17,8 @@ cache_set(key, kind, value)
 
 - kind:
 
-  Unused beyond documenting intent at call sites (matches the original
-  bundle's 3-argument `cache_set(key, kind, value)` calling
-  convention) - the value is stored keyed only by `key`, since
+  Unused; documents intent at call sites. The value is stored keyed only
+  by `key`, since
   [`build_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/build_cache_key.md)
   already encodes `kind`.
 

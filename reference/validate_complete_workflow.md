@@ -1,7 +1,6 @@
 # Validate Complete Workflow
 
-Master validation function enhanced for comprehensive assessment of the
-entire soil simulation workflow.
+Assesses the entire soil simulation workflow end to end.
 
 ## Usage
 
@@ -28,7 +27,7 @@ validate_complete_workflow(
 
 - validation_config:
 
-  Configuration for validation parameters (uses Module 0 defaults)
+  Configuration for validation parameters (uses package defaults)
 
 - generate_plots:
 

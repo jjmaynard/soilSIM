@@ -1,7 +1,7 @@
 # Comprehensive Statistical Analysis (Main Entry Point)
 
-Enhanced statistical analysis leveraging Module 0 utilities for data
-validation, error handling, logging, and statistical computations.
+Statistical analysis for data validation, error handling, logging, and
+statistical computations.
 
 ## Usage
 
@@ -22,7 +22,7 @@ analyze_soil_statistics(
 
 - processed_data:
 
-  Processed SSURGO data from Module 2
+  Processed SSURGO data from the statistics step
 
 - analysis_config:
 
@@ -66,8 +66,7 @@ analyze_soil_statistics(
   `distribution_analysis$fitted_distributions[[prop]]` is a flat stats
   list under `_safe` and a family-name-keyed list of fit objects under
   enhanced. Both chains stay public API. Whether the default should ever
-  flip is a separate, later, benchmark-driven decision (see
-  `RASTER_STATISTICS_INTEGRATION_PLAN.md` Problem B).
+  flip is a separate, later, benchmark-driven decision.
 
 - verbose:
 

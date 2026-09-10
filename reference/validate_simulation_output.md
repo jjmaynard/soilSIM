@@ -1,6 +1,6 @@
-# Validate Simulation Output (Enhanced)
+# Validate Simulation Output
 
-Enhanced output validation
+Validate Simulation Output
 
 ## Usage
 
@@ -36,4 +36,4 @@ validate_simulation_output(
 
 ## Value
 
-Enhanced validation results
+validation results

@@ -1,8 +1,8 @@
-# Prepare Simulation Parameters (Enhanced)
+# Prepare Simulation Parameters
 
-Enhanced parameter preparation. Composition-group pseudo-properties
-(e.g. `"ilr1"`/`"ilr2"`) are special-cased: BOTH are fit together, once
-per horizon, via `distributions.R`'s
+Parameter preparation. Composition-group pseudo-properties (e.g.
+`"ilr1"`/`"ilr2"`) are special-cased: BOTH are fit together, once per
+horizon, via `distributions.R`'s
 [`estimate_ilr_moments_mc()`](https://jjmaynard.github.io/soilSIM/reference/estimate_ilr_moments_mc.md)
 from the group's real member `_l/_r/_h` triplets - their joint
 covariance only makes sense computed jointly, not by looping
@@ -56,4 +56,4 @@ prepare_simulation_parameters(
 
 ## Value
 
-Enhanced simulation parameters
+simulation parameters

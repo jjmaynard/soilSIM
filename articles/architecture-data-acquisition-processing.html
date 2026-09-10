@@ -137,7 +137,7 @@ unsuitable-horizon flagging, and data-quality validation.</p>
 <span>  <span class="va">aoi_wkt</span>,                     <span class="co"># Character. WKT representation of the area of interest.</span></span>
 <span>  properties <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"sandtotal"</span>, <span class="st">"claytotal"</span>, <span class="st">"silttotal"</span>, <span class="st">"dbovendry"</span>, <span class="st">"ph1to1h2o"</span>,</span>
 <span>                 <span class="st">"cec7"</span>, <span class="st">"om"</span>, <span class="st">"wthirdbar"</span>, <span class="st">"wfifteenbar"</span>,</span>
-<span>                 <span class="st">"caco3"</span>, <span class="st">"ec"</span>, <span class="st">"ecec"</span>, <span class="st">"gypsum"</span>, <span class="st">"sar"</span><span class="op">)</span>,  <span class="co"># last 5 added task P2, 2026-09-04</span></span>
+<span>                 <span class="st">"caco3"</span>, <span class="st">"ec"</span>, <span class="st">"ecec"</span>, <span class="st">"gypsum"</span>, <span class="st">"sar"</span><span class="op">)</span>,  <span class="co"># 5 chemistry properties</span></span>
 <span>  include_restrictions <span class="op">=</span> <span class="cn">TRUE</span>, <span class="co"># Logical. Include restriction/horizon-suitability fields.</span></span>
 <span>  cache_dir <span class="op">=</span> <span class="cn">NULL</span>,            <span class="co"># Character. Directory for caching; NULL disables caching.</span></span>
 <span>  force_download <span class="op">=</span> <span class="cn">FALSE</span>,      <span class="co"># Logical. Bypass cache and force a fresh download.</span></span>
@@ -186,11 +186,10 @@ mapping the 14 default SSURGO property base names to their
 per of the 14 known properties (<code>sandtotal</code>,
 <code>claytotal</code>, <code>silttotal</code>, <code>dbovendry</code>,
 <code>ph1to1h2o</code>, <code>cec7</code>, <code>om</code>,
-<code>wthirdbar</code>, <code>wfifteenbar</code>, plus
-<code>caco3</code>, <code>ec</code>, <code>ecec</code>,
-<code>gypsum</code>, <code>sar</code> - added
-MULTI_PROPERTY_FUSION_PLAN.md task P2, 2026-09-04, column names
-live-confirmed against a real gSSURGO chorizon query).</p>
+<code>wthirdbar</code>, <code>wfifteenbar</code>, plus the chemistry
+properties <code>caco3</code>, <code>ec</code>, <code>ecec</code>,
+<code>gypsum</code>, <code>sar</code>; column names confirmed against a
+real gSSURGO chorizon query).</p>
 <p><strong>Algorithm</strong>: Static <code><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame()</a></code>
 construction - a hardcoded lookup, not derived from the input
 properties.</p>
@@ -541,9 +540,8 @@ soil properties, plus (when texture data and the optional
 <code>soiltexture</code> package are available) the most probable USDA
 texture class and its simulation-frequency probability. This is a
 downstream/reporting function operating on already-simulated
-(<code>sim_*</code>-style) data rather than raw acquisition output, but
-lives in this file as it was ported directly from the legacy
-<code>code/sim-functions.R</code>.</p>
+(<code>sim_*</code>-style) data rather than raw acquisition output; it
+is co-located here as a reporting utility.</p>
 <p><strong>Parameters</strong>: <code>hz_data</code> - simulated horizon
 data frame with <code>mukey</code>, <code>hzdept_r</code>,
 <code>hzdepb_r</code>, and any of a recognized property set
@@ -830,9 +828,9 @@ categorizes an RFV percentage into
 <code><a href="../reference/add_range_rule.html">add_range_rule()</a></code> / <code><a href="../reference/add_relationship_rule.html">add_relationship_rule()</a></code> /
 <code><a href="../reference/apply_validation_rules.html">apply_validation_rules()</a></code></strong> - a small pluggable
 rule-configuration system for range/relationship checks; note
-relationship rules are recorded but <strong>not</strong> currently
-enforced by <code><a href="../reference/apply_validation_rules.html">apply_validation_rules()</a></code> (matches legacy
-behavior, not a new bug).</li>
+relationship rules are recorded but <strong>not</strong> enforced by
+<code><a href="../reference/apply_validation_rules.html">apply_validation_rules()</a></code>, which enforces only range
+rules.</li>
 <li>
 <strong><code>summarize_unsuitable_horizons(df, hzname_col = "hzname")</code></strong>
 - reporting companion to <code><a href="../reference/is_unsuitable.html">is_unsuitable()</a></code>; returns count and
@@ -1059,9 +1057,8 @@ process_soil_properties_comprehensive() [data-infilling.R, MULTI-PROPERTY WORKFL
 </h2>
 <p><strong>From elsewhere in soilSIM</strong> (the <a href="architecture-utilities.html">Utilities</a> module, all in
 <code>R/utils.R</code>): <code><a href="../reference/log_message.html">log_message()</a></code>,
-<code><a href="../reference/handle_workflow_error.html">handle_workflow_error()</a></code> <em>(referenced in this group’s
-older code comments; not called directly in the current source)</em>,
-<code><a href="../reference/validate_parameters.html">validate_parameters()</a></code>,
+<code><a href="../reference/handle_workflow_error.html">handle_workflow_error()</a></code> <em>(not called directly in the
+current source)</em>, <code><a href="../reference/validate_parameters.html">validate_parameters()</a></code>,
 <code><a href="../reference/validate_wkt_geometry.html">validate_wkt_geometry()</a></code>,
 <code><a href="../reference/validate_properties_with_synonyms.html">validate_properties_with_synonyms()</a></code>,
 <code><a href="../reference/validate_data_quality.html">validate_data_quality()</a></code>,
@@ -1100,8 +1097,7 @@ this group guarantees are gap-free). <code><a href="../reference/hz_quant_prob_m
 runs in the opposite direction - it consumes <em>already-simulated</em>
 horizon data (post Monte Carlo) to produce per-mukey/depth summary
 statistics, so it is better understood as a reporting utility co-located
-here for historical (ported-file) reasons rather than a pure
-acquisition/processing step.</p>
+here rather than a pure acquisition/processing step.</p>
 </div>
 <div class="section level2">
 <h2 id="data-flow-inout">Data Flow In/Out<a class="anchor" aria-label="anchor" href="#data-flow-inout"></a>

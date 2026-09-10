@@ -129,26 +129,14 @@ Supports multiple coordinate systems, validation contexts, and customizable thre
     <h2 id="implementation-note">Implementation note<a class="anchor" aria-label="anchor" href="#implementation-note"></a></h2>
 
 
-<p>This is the package's single live WKT validation entry point. It delegates
-to the granular validators below (<code><a href="validate_wkt_string.html">validate_wkt_string()</a></code>,
+<p>This is the package's single WKT validation entry point. It delegates to
+the granular validators below (<code><a href="validate_wkt_string.html">validate_wkt_string()</a></code>,
 <code><a href="validate_geometry_validity.html">validate_geometry_validity()</a></code>, <code><a href="validate_geometry_complexity.html">validate_geometry_complexity()</a></code>,
 <code><a href="validate_geographic_context.html">validate_geographic_context()</a></code>/<code><a href="validate_projected_context.html">validate_projected_context()</a></code>) rather than
-duplicating their logic inline, so <code>validation_context</code>, <code>complexity_limits</code>,
-and <code>strict_mode</code> are now all actually read (previously accepted but
-silently ignored). <code>ssurgo-acquisition.R</code>'s own downstream code already
-expected the nested <code>geometry_stats$complexity_validation$complexity_stats</code>
-shape this now produces (see its <code>complexity_score %||% NA</code> fallback,
-previously always hitting the <code>NA</code> branch).</p>
-<p>Fixed a real, previously-silent bug while doing this: the old
-implementation's outer <code>tryCatch(..., error = function(e) {...})</code> never
-assigned the <code><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch()</a></code> call's own result back to <code>validation_result</code> -
-assignments inside the <code>error =</code> handler only modified a local copy inside
-that handler's own function scope, discarded when it returned. This meant
-a WKT string that failed to parse (e.g. malformed syntax) still made this
-function return <code>valid = TRUE</code> with placeholder geometry stats, silently
-passing invalid input through as valid. Fixed by capturing <code><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch()</a></code>'s
-return value directly instead of relying on <code>&lt;-</code> inside the error handler
-to reach the outer scope.</p>
+duplicating their logic inline. <code>validation_context</code>, <code>complexity_limits</code>,
+and <code>strict_mode</code> are all read. The result is the nested
+<code>geometry_stats$complexity_validation$complexity_stats</code> shape that
+<code>ssurgo-acquisition.R</code>'s downstream code expects.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

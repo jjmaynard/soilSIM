@@ -4,11 +4,11 @@ Companion to
 [`mukey_draws_closed_form_fit_raster()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_closed_form_fit_raster.md)
 for routes that consume percentile VALUES directly rather than a family
 parameter fit -
-[`fuse_metalog_adapter()`](https://jjmaynard.github.io/soilSIM/reference/fuse_metalog_adapter.md)
-(P2.12), whose metalog fit is an exact linear interpolation through
-fixed percentile knots ([`solve()`](https://rdrr.io/r/base/solve.html)
-on a basis matrix), not a moment/density fit. There is no "metalog fit
-to raw draws" analogous to
+[`fuse_metalog_adapter()`](https://jjmaynard.github.io/soilSIM/reference/fuse_metalog_adapter.md),
+whose metalog fit is an exact linear interpolation through fixed
+percentile knots ([`solve()`](https://rdrr.io/r/base/solve.html) on a
+basis matrix), not a moment/density fit. There is no "metalog fit to raw
+draws" analogous to
 [`mukey_draws_closed_form_fit_raster()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_closed_form_fit_raster.md)'s
 normal/beta/gamma/lognormal cases - the real extension for a
 percentile-interpolation method is to interpolate through REAL empirical

@@ -1,8 +1,7 @@
 # Adjust Multiple Soil Properties While Preserving Correlations
 
-Core function from GP-depth-adjust.R that adjusts multiple simulated
-soil properties simultaneously to follow GP-predicted trends while
-preserving within-depth correlations.
+Adjusts multiple simulated soil properties simultaneously to follow
+GP-predicted trends while preserving within-depth correlations.
 
 ## Usage
 

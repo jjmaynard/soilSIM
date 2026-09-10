@@ -1,6 +1,6 @@
 # Validate Properties with Synonyms
 
-Enhanced version that includes synonym matching
+Validate Properties with Synonyms
 
 ## Usage
 
@@ -38,4 +38,4 @@ validate_properties_with_synonyms(
 
 ## Value
 
-Enhanced validation results with synonym matching
+validation results with synonym matching

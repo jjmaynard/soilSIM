@@ -1,6 +1,6 @@
-# Analyze Property Distributions (Enhanced)
+# Analyze Property Distributions
 
-Enhanced distribution analysis using Module 0 utilities
+Analyze Property Distributions
 
 ## Usage
 
@@ -24,4 +24,4 @@ analyze_property_distributions(data, properties, config)
 
 ## Value
 
-Enhanced distribution analysis results
+distribution analysis results

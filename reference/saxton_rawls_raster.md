@@ -33,9 +33,9 @@ saxton_rawls_raster(sand, clay, silt, db, rfv, om)
 Because
 [`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)
 re-marginalizes `sand`/`silt`/`clay` to their own fused posteriors
-independently, a realization's texture triple may no longer sum to 100.
-This reproduces
+independently, a realization's texture triple may not sum to 100. This
+reproduces
 [`calculate_saxton_rawls_single()`](https://jjmaynard.github.io/soilSIM/reference/calculate_saxton_rawls_single.md)'s
-renormalization: where \`\|sand + silt + clay - 100\|5\`, the three are
-rescaled to sum to 100 before the equations run (the equations
-themselves useonly the sand and clay fractions).
+renormalization: where the texture sum is off by more than 5 points, the
+three fractions are rescaled to sum to 100 before the equations run (the
+equations themselves use only the sand and clay fractions).

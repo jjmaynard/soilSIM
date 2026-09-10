@@ -1,13 +1,12 @@
-# Preserve Correlation Structure via a Joint Depth x Property Copula (Phase 3)
+# Preserve Correlation Structure via a Joint Depth x Property Copula
 
 Drop-in alternative to
 [`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md) -
 same required parameters, in the same order, so existing call sites work
 unchanged - that replaces its sequential
 `gp_ratio`/single-"primary-property" retrofit with the joint
-Kronecker-copula sampler from `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`
-Phase 2
-([`sample_joint_depth_property_copula()`](https://jjmaynard.github.io/soilSIM/reference/sample_joint_depth_property_copula.md) +
+Kronecker-copula sampler from the joint Kronecker-copula sampler
+(sample_joint_depth_property_copula() +
 [`apply_copula_to_marginals()`](https://jjmaynard.github.io/soilSIM/reference/apply_copula_to_marginals.md)),
 so depth correlation and property correlation are satisfied
 SIMULTANEOUSLY by construction rather than approximated by a
@@ -73,19 +72,18 @@ preserve_correlation_structure_joint(
   depth kernel's length-scale is derived from
   [`extract_depth_length_scale()`](https://jjmaynard.github.io/soilSIM/reference/extract_depth_length_scale.md)
   applied to every property with a usable model, averaged across them
-  (reusing the already-fitted, already-cross-validated GP fits per
-  `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 1, rather than a new
-  estimation step). When `NULL`/empty (e.g. this function is called
-  standalone, without the fitted models available), falls back to a
-  length-scale spanning the full depth range (`diff(range(depths))`) - a
-  conservative "moderate smooth correlation across the whole profile"
-  default that keeps this function usable without requiring GP models.
+  (reusing each property's already-fitted, already-cross-validated GP
+  fit). When `NULL`/empty (e.g. this function is called standalone,
+  without the fitted models available), falls back to a length-scale
+  spanning the full depth range (`diff(range(depths))`) - a conservative
+  "moderate smooth correlation across the whole profile" default that
+  keeps this function usable without requiring GP models.
 
 - boundary_distinctness:
 
   Optional per-depth `bound_sd` vector, passed through to
   [`build_depth_correlation_kernel()`](https://jjmaynard.github.io/soilSIM/reference/build_depth_correlation_kernel.md)
-  for discontinuity gating (Phase 1c/1d). `NULL` (default) skips gating.
+  for discontinuity gating. `NULL` (default) skips gating.
 
 - kernel:
 
@@ -96,8 +94,8 @@ preserve_correlation_structure_joint(
 
 List of adjusted property matrices - same shape/contract as
 [`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md)'s
-return value. Degrades gracefully to the original, unadjusted
-`property_matrices` (with a warning) on insufficient dimensions or a
-sampling/ mapping failure, matching
+return value. Degrades gracefully to the unadjusted `property_matrices`
+(with a warning) on insufficient dimensions or a sampling/ mapping
+failure, matching
 [`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md)'s
 own graceful-failure contract.

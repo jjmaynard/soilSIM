@@ -16,11 +16,11 @@ Nevada foothills of Amador County, California:
 
 Every number in this vignette originated from a real download against
 NRCS Soil Data Access - see the “Where this data came from” note below.
-See `soilSIM/docs/01_data_acquisition_processing.md`,
-`03_distribution_fitting_correlations.md`,
-`04_monte_carlo_simulation.md`, and
-`05_gp_modeling_multivariate_adjustment.md` for the full function-level
-reference behind each step.
+See the “Data Acquisition & Processing” architecture article, the
+“Distribution Fitting & Correlations” architecture article, the “Monte
+Carlo Simulation” architecture article, and the “GP Modeling &
+Multivariate Adjustment” architecture article for the full
+function-level reference behind each step.
 
 ``` r
 
@@ -296,11 +296,11 @@ ggplot(gp_depth_trend, aes(x = depth, y = mean)) +
 
 From here,
 [`integrate_monte_carlo_with_gp()`](https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.md)
-(see `soilSIM/docs/05_gp_modeling_multivariate_adjustment.md`) combines
-these depth-trend models with a Monte Carlo simulation like `mc_result`
-above, nudging each realization toward its group’s fitted depth trend
-while preserving the cross-property correlation structure - the natural
-next step beyond this vignette’s scope.
+(see the “GP Modeling & Multivariate Adjustment” architecture article)
+combines these depth-trend models with a Monte Carlo simulation like
+`mc_result` above, nudging each realization toward its group’s fitted
+depth trend while preserving the cross-property correlation structure -
+the natural next step beyond this vignette’s scope.
 
 ## Where this data came from
 

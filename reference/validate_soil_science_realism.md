@@ -1,6 +1,6 @@
 # Validate Soil Science Realism
 
-Enhanced soil science validation property validation and utilities.
+Validate Soil Science Realism
 
 ## Usage
 

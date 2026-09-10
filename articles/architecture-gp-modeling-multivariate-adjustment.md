@@ -20,9 +20,8 @@ and validation.
 Two vertical-correlation methods are available, selected via
 `config$monte_carlo$vertical_correlation_method`:
 
-- **`"joint_copula"`** (the default as of
-  `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`) - draws depth correlation
-  and property correlation *simultaneously* from a single
+- **`"joint_copula"`** (the default) - draws depth correlation and
+  property correlation *simultaneously* from a single
   Kronecker-separable joint distribution
   ([`sample_joint_depth_property_copula()`](https://jjmaynard.github.io/soilSIM/reference/sample_joint_depth_property_copula.md),
   [`apply_copula_to_marginals()`](https://jjmaynard.github.io/soilSIM/reference/apply_copula_to_marginals.md),
@@ -37,14 +36,13 @@ Two vertical-correlation methods are available, selected via
   default pending calibration - see
   [`attach_osd_boundary_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/attach_osd_boundary_distinctness.md)
   in the Data Acquisition & Processing module).
-- **`"gp_quantile_retrofit"`** (the original algorithm, still fully
-  supported as an explicit opt-out) - nudges each realization at each
-  depth toward the GP-predicted trend using a single reference-quantile
-  (“rank-preserving”) transform fixed at the surface depth. Real-AOI
-  validation found this induces spurious near-perfect (`>0.99`)
-  correlation across the entire depth profile regardless of physical
-  distance, independent of the GP model’s own fitted smoothness - the
-  motivation for the `"joint_copula"` replacement.
+- **`"gp_quantile_retrofit"`** (an explicit opt-out) - nudges each
+  realization at each depth toward the GP-predicted trend using a single
+  reference-quantile (“rank-preserving”) transform fixed at the surface
+  depth. Real-AOI validation found this induces spurious near-perfect
+  (`>0.99`) correlation across the entire depth profile regardless of
+  physical distance, independent of the GP model’s own fitted
+  smoothness - the motivation for the `"joint_copula"` replacement.
 
 ## Core Functions
 
@@ -94,13 +92,11 @@ cleaned, grouped training set ready for
   [`standardize_property_names()`](https://jjmaynard.github.io/soilSIM/reference/standardize_property_names.md),
   computes `unsuitable_horizon` with
   `is_unsuitable(processed_data, strict_mode = TRUE)` and filters those
-  horizons out (a `|>`-pipe-safe rewrite of the original
-  `%>% mutate(is_unsuitable(.))` pattern - see the inline code comment
-  about why the flag must be precomputed rather than referenced via a
-  bare `.` inside `mutate()`), auto-selects a grouping strategy if
-  requested, reconciles `hzdept_r`/`hzdepb_r` from whichever depth
-  columns are populated, coalesces synonym columns into the eight
-  standard property names via
+  horizons out (the `unsuitable_horizon` flag is precomputed rather than
+  computed inside a `mutate()` call - see the inline code comment),
+  auto-selects a grouping strategy if requested, reconciles
+  `hzdept_r`/`hzdepb_r` from whichever depth columns are populated,
+  coalesces synonym columns into the eight standard property names via
   [`safe_coalesce()`](https://jjmaynard.github.io/soilSIM/reference/safe_coalesce.md),
   assigns `soil_group` via `create_soil_groups()`, drops inadequate
   groups, and logs a processing summary.
@@ -220,19 +216,18 @@ predictions can rescale new depths later), fits the GP via
 adjust_multivariate_depthwise_GP(simulated_list, gp_models, depths, primary_property = NULL)
 ```
 
-**Purpose**: The original (pre-refactor) multivariate
-correlation-preserving adjustment routine, operating directly on
-matrices rather than long-format simulation data frames. **Parameters**:
-`simulated_list` - named list of `[depths x simulations]` matrices, one
-per property; `gp_models` - named list of fitted GP models (or nested
-`list(gp_model = ...)` structures) per property; `depths` - depth vector
-matching matrix rows; `primary_property` - reference property whose
-surface-depth quantile ordering is applied to every other property
-(defaults to the first property in `simulated_list`). **Returns**: A
-named list of adjusted matrices, same shape as `simulated_list`.
-**Algorithm**: Validates that all matrices share dimensions and that
-every property has a corresponding GP model, predicts GP means at each
-depth (via
+**Purpose**: A multivariate correlation-preserving adjustment routine
+operating directly on matrices rather than long-format simulation data
+frames. **Parameters**: `simulated_list` - named list of
+`[depths x simulations]` matrices, one per property; `gp_models` - named
+list of fitted GP models (or nested `list(gp_model = ...)` structures)
+per property; `depths` - depth vector matching matrix rows;
+`primary_property` - reference property whose surface-depth quantile
+ordering is applied to every other property (defaults to the first
+property in `simulated_list`). **Returns**: A named list of adjusted
+matrices, same shape as `simulated_list`. **Algorithm**: Validates that
+all matrices share dimensions and that every property has a
+corresponding GP model, predicts GP means at each depth (via
 [`predict_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/predict_gp_depth_trends.md)
 for nested models or
 [`GPfit::predict.GP()`](https://rdrr.io/pkg/GPfit/man/predict.html)
@@ -282,10 +277,8 @@ validate_joint_correlation_structure(
 )
 ```
 
-**Purpose**: The acceptance-test helper the joint-copula
-vertical-correlation redesign
-(`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`) was built and validated
-against. Unlike
+**Purpose**: A diagnostic helper for the joint depth x property
+correlation structure. Unlike
 [`validate_correlation_preservation()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_preservation.md),
 which only checks cross-property correlation and only at the first five
 depths, this checks BOTH halves of the joint structure - cross-property
@@ -776,8 +769,7 @@ preserve_correlation_structure_joint(
 )
 ```
 
-**Purpose**: The default vertical-correlation method as of
-`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` - a drop-in for
+**Purpose**: The default vertical-correlation method - a drop-in for
 [`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md)
 (identical required-parameter shape/order) that draws depth correlation
 and property correlation *simultaneously* rather than retrofitting one
@@ -796,11 +788,11 @@ discontinuity gating (passed through to
 `kernel` - `"exponential"` or `"matern"`. **Returns**: List of adjusted
 property matrices, same contract as
 [`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md) -
-degrades gracefully to the original, unadjusted matrices (with a
-warning) on insufficient dimensions or a sampling/mapping failure.
-**Algorithm**: Estimates `R_prop` empirically from the surface (first)
-depth’s already-drawn values (falls back to the identity matrix on a
-single property or an estimation failure - e.g. too few realizations for
+degrades gracefully to the unadjusted matrices (with a warning) on
+insufficient dimensions or a sampling/mapping failure. **Algorithm**:
+Estimates `R_prop` empirically from the surface (first) depth’s
+already-drawn values (falls back to the identity matrix on a single
+property or an estimation failure - e.g. too few realizations for
 [`stats::cor()`](https://rdrr.io/r/stats/cor.html)), builds `R_depth`
 via
 [`build_depth_correlation_kernel()`](https://jjmaynard.github.io/soilSIM/reference/build_depth_correlation_kernel.md),

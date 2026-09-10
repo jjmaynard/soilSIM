@@ -1,6 +1,6 @@
 # Validate Within Depth Correlations
 
-Enhanced within-depth correlation validation utilities.
+Validate Within Depth Correlations
 
 ## Usage
 

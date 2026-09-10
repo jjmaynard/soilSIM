@@ -1,6 +1,6 @@
 # Generate Validation Report
 
-Enhanced report generation I/O utilities and error handling.
+Generate Validation Report
 
 ## Usage
 

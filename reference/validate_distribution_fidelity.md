@@ -1,6 +1,6 @@
 # Validate Distribution Fidelity
 
-Enhanced distribution validation utilities.
+Validate Distribution Fidelity
 
 ## Usage
 

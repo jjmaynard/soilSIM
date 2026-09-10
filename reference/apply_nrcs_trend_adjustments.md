@@ -1,7 +1,8 @@
 # Apply NRCS Trend Adjustments
 
-Enhanced version with Module 8 integration and proper Module 5 function
-calls.
+Maps each requested property to its NRCS regional GP model, predicts
+that model's depth trend for the component's depths, and applies it via
+apply_gp_depth_trends().
 
 ## Usage
 
@@ -25,7 +26,7 @@ apply_nrcs_trend_adjustments(
 
 - gp_models:
 
-  NRCS GP models from gp_modeling module
+  Fitted NRCS GP depth models
 
 - model_group:
 
@@ -50,14 +51,11 @@ apply_nrcs_trend_adjustments(
 
   Optional Monte Carlo config, passed through to
   [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md) -
-  `config$monte_carlo$vertical_correlation_method` (default
-  `"joint_copula"` as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`
-  Phase 13; set to `"gp_quantile_retrofit"` to opt back into the
-  original algorithm) reaches the NRCS/regional GP path the same way it
-  already reaches the local-GP path (Phase 6/11). `NULL` (default)
-  resolves to `"joint_copula"`, matching
-  [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)'s
-  own default.
+  `config$monte_carlo$vertical_correlation_method` (`"joint_copula"`
+  default, or `"gp_quantile_retrofit"`) reaches the NRCS/regional GP
+  path as well as the local-GP path. `NULL` (default) resolves to
+  `"joint_copula"`, matching
+  [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md).
 
 ## Value
 

@@ -18,16 +18,13 @@ variability, and boundary distinctness for whole
 [`aqp::SoilProfileCollection`](https://ncss-tech.github.io/aqp/reference/SoilProfileCollection-class.html)
 profiles, using OSD (Official Series Description) data to inform
 boundary perturbation, with sequential, parallel
-(`future`/`future.apply`), and by-mukey orchestration entry points. Both
-files were ported from `code_ref/brdf/property_simulation.R` and
-`code_ref/brdf/depth_simulation.R` respectively; both are also the two
-smaller, standalone-horizon-data helpers
+(`future`/`future.apply`), and by-mukey orchestration entry points.
+`property-simulation.R` also holds two smaller standalone horizon-data
+helpers,
 [`remove_organic_layer()`](https://jjmaynard.github.io/soilSIM/reference/remove_organic_layer.md)
 and
-[`slice_and_aggregate_soil_data()`](https://jjmaynard.github.io/soilSIM/reference/slice_and_aggregate_soil_data.md)
-(`property-simulation.R`), which are not tied to the
-compositional-simulation machinery but shipped from the same legacy
-file.
+[`slice_and_aggregate_soil_data()`](https://jjmaynard.github.io/soilSIM/reference/slice_and_aggregate_soil_data.md),
+which are not tied to the compositional-simulation machinery.
 
 ## Core Functions
 
@@ -46,9 +43,9 @@ file.
   `hzdept_r` so they stay consistent, zeroes any low/high top-depth
   value that lands exactly on the new top horizon, then recomputes
   `hzdept_r`/ `hzdepb_r` (and the low/high pairs, if present and not
-  entirely `NA`) as cumulative sums of the original horizon
-  thicknesses - preserving each horizon’s thickness while removing the
-  organic layer’s contribution to depth.
+  entirely `NA`) as cumulative sums of the horizon thicknesses -
+  preserving each horizon’s thickness while removing the organic layer’s
+  contribution to depth.
 
 #### `slice_and_aggregate_soil_data(df, depth_ranges = list(c(0, 30), c(30, 100)))`
 
@@ -92,10 +89,9 @@ file.
   (e.g. `comppct_r = 30`, `n_simulations = 1000` gives `sim_comppct` ~=
   300)
   - a component-percent-weighted realization count, not an independently
-    meaningful statistic, ported verbatim from the legacy source. This
-    output is per-**component**, but the depth-simulation functions
-    below need `sim_comppct` on every **horizon** row - see Known
-    Limitations.
+    meaningful statistic. This output is per-**component**, but the
+    depth-simulation functions below need `sim_comppct` on every
+    **horizon** row - see Known Limitations.
 
 #### `simulate_correlated_triangular(n, params, correlation_matrix, random_seed = NULL)`
 
@@ -104,8 +100,7 @@ file.
   - `params` - a list of `c(a, b, c)` triples, one per distribution, in
     **`(lower, mode, upper)`** order - note this differs from
     [`tri_dist()`](https://jjmaynard.github.io/soilSIM/reference/tri_dist.md)’s
-    own `(a = lower, b = upper, c = mode)` argument convention;
-    preserved exactly as the legacy source defines it.
+    own `(a = lower, b = upper, c = mode)` argument convention.
   - `correlation_matrix` - a square, positive-semi-definite correlation
     matrix, `length(params)` x `length(params)`.
   - `random_seed` - optional integer seed for reproducibility.
@@ -251,13 +246,12 @@ file.
   horizon data, so it can also gate the joint-copula
   vertical-correlation depth kernel (see the GP Depth Modeling &
   Multivariate Adjustment module,
-  [`build_depth_correlation_kernel()`](https://jjmaynard.github.io/soilSIM/reference/build_depth_correlation_kernel.md)) -
-  previously `bound_sd` was computed and consumed only inside
-  [`simulate_and_perturb_soil_profiles()`](https://jjmaynard.github.io/soilSIM/reference/simulate_and_perturb_soil_profiles.md),
+  [`build_depth_correlation_kernel()`](https://jjmaynard.github.io/soilSIM/reference/build_depth_correlation_kernel.md)).
+  `bound_sd` is also used by
+  [`simulate_and_perturb_soil_profiles()`](https://jjmaynard.github.io/soilSIM/reference/simulate_and_perturb_soil_profiles.md)
   as
   [`aqp::perturb()`](https://ncss-tech.github.io/aqp/reference/perturb.html)’s
-  `boundary.attr` for horizon-*depth* perturbation, and never reached
-  the property-*value* Monte Carlo simulation pipeline. Calls
+  `boundary.attr` for horizon-*depth* perturbation. Calls
   [`query_osd_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/query_osd_distinctness.md),
   then reuses the identical
   `dplyr::group_by(id, genhz) |> dplyr::summarise(bound_sd = mean(bound_sd, na.rm = TRUE))`
@@ -627,8 +621,7 @@ file.
   - **AWS / van Genuchten modeling** (`R/aws-simulation.R`) is
     documented in `R/soilSIM-package.R` as conceptually downstream in
     the pipeline (depth- sliced, depth-simulated profiles feeding
-    available-water-storage estimation, per the legacy
-    `code/soil_simulation_summary.md` workflow), but there is no direct
+    available-water-storage estimation), but there is no direct
     function-level call between `depth-simulation.R` and
     `aws-simulation.R` in the current codebase - `aws-simulation.R`’s
     own header notes it is self-contained and does not depend on
@@ -697,8 +690,8 @@ out-of-range simulated depths
   and left-joins the result onto every horizon row by `cokey`
   internally, mirroring the same pattern `R/ssurgo-simulation.R`’s
   [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
-  already used for the property-simulation path. Its `n_simulations`
-  parameter is no longer unused - it now flows directly into
+  uses for the property-simulation path. Its `n_simulations` parameter
+  flows into
   [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)’s
   own `n_simulations` argument (number of triangular draws per
   component).

@@ -1,6 +1,6 @@
 # Validate Correlation Structures
 
-Enhanced correlation validation utilities and Module 6 integration.
+Validate Correlation Structures
 
 ## Usage
 

@@ -32,10 +32,9 @@ designation information. - `hzname_col` - Column name containing horizon
 designations (default `"hzname"`). If this column is absent, the
 function logs a WARN and returns all-`FALSE` (nothing flagged) rather
 than erroring. - `strict_mode` - Whether to apply additional strict-mode
-criteria (default `TRUE`; note this differs from an earlier version of
-this function, which defaulted to `FALSE`). - `custom_exclusions` -
-Optional additional regex patterns (matched against raw `hzname` values)
-to flag as unsuitable.
+criteria (default `TRUE`). - `custom_exclusions` - Optional additional
+regex patterns (matched against raw `hzname` values) to flag as
+unsuitable.
 
 **Returns**: A logical vector, one element per row of `data`, `TRUE`
 where the horizon is considered unsuitable.
@@ -61,12 +60,10 @@ applied last, also case-sensitively against raw `hznames`. Final counts
 and (if \<= 10 distinct) the actual unsuitable horizon-name values are
 logged via
 [`log_message()`](https://jjmaynard.github.io/soilSIM/reference/log_message.md).
-Note the default `strict_mode = TRUE` here differs from an earlier
-version of this function, which defaulted to `FALSE`, and the
-strict-mode pattern pass and custom-exclusion pass both match against
-the **raw, non-uppercased** `hznames` vector rather than the upper-cased
-`hz` used earlier in the loop - a mixed-case horizon name (e.g. `"bc"`)
-will not match the strict-mode `"BC"` pattern.
+Note that the strict-mode pattern pass and custom-exclusion pass both
+match against the **raw, non-uppercased** `hznames` vector rather than
+the upper-cased `hz` used earlier in the loop - a mixed-case horizon
+name (e.g. `"bc"`) will not match the strict-mode `"BC"` pattern.
 
 #### `validate_data_quality(data, required_columns = character(0), numeric_columns = character(0), quality_thresholds = NULL)`
 
@@ -446,14 +443,9 @@ closures attached: `$get_properties()` (returns `lookup$properties`) and
 `validate_properties(props, lookup$properties, strict_mode)` when
 `lookup$synonyms` is `NULL`, or to
 `validate_properties_with_synonyms(props, lookup$properties, strict_mode = strict_mode)`
-otherwise. A source comment at this call site notes a
-previously-existing bug: the synonym-matching branch used to pass
-`lookup$synonyms` and `strict_mode` positionally, which landed in
-[`validate_properties_with_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/validate_properties_with_synonyms.md)’s
-`strict_mode` and `max_invalid_pct` argument slots respectively (since
-that function has no `synonyms` parameter at all) - silently
-mis-validating whenever a lookup object had synonyms set. The current
-code passes `strict_mode` by name to avoid this.
+otherwise. `strict_mode` is passed by name, since
+[`validate_properties_with_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/validate_properties_with_synonyms.md)
+has no `synonyms` parameter.
 
 ### Configuration Management
 
@@ -1208,9 +1200,7 @@ write to disk and return a path or a success boolean).
   source rather than from author-flagged doc comments (one exception is
   the
   [`create_property_lookup()`](https://jjmaynard.github.io/soilSIM/reference/create_property_lookup.md)
-  synonym-argument bug, which the file’s own source comment documents as
-  a fixed historical bug rather than an open limitation - see that
-  function’s write-up above).
+  synonym-argument handling noted above).
 
 ## Usage Example
 

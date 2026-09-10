@@ -1,6 +1,7 @@
 # Match Simulations to NRCS Models
 
-Enhanced version with Module 8 error handling.
+Looks up the NRCS GP model group for a cokey in cokey_mapping, returning
+fallback_group when no mapping is found.
 
 ## Usage
 
@@ -21,7 +22,7 @@ match_simulations_to_nrcs_models(
 
 - cokey_mapping:
 
-  Mapping from gp_modeling::match_soils_to_gp_models()
+  Mapping from match_soils_to_gp_models()
 
 - fallback_group:
 

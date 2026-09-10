@@ -16,17 +16,17 @@ low/representative/high triplet or prior/likelihood pair, regardless of
 where the numbers came from. SSURGO and SOLUS100 are the two concrete
 data-source **adapters** wired in today, supplying the prior and
 likelihood sides (respectively) of the raster fusion pipeline. The
-architecture is deliberately split this way so that future data sources
+architecture is split this way so that additional data sources
 (e.g. HWSD, SoilGrids) can plug in as new adapters alongside
 SSURGO/SOLUS, reusing the same simulation/fusion core rather than
-duplicating it. See `soilSIM/R/soilSIM-package.R` (rendered as
-[`?soilSIM`](https://jjmaynard.github.io/soilSIM/reference/soilSIM-package.md))
+duplicating it. See
+[`?soilSIM`](https://jjmaynard.github.io/soilSIM/reference/soilSIM-package.md)
 for the package-level roxygen summary of this framing.
 
-This directory’s 10 documents go one level deeper than that package doc
-or the per-function `.Rd`/roxygen reference: each covers a functional
-group’s full function signatures, internal call graphs, cross-file
-dependencies, data flow, and known limitations.
+These 10 documents go one level deeper than that package doc or the
+per-function `.Rd`/roxygen reference: each covers a functional group’s
+full function signatures, internal call graphs, cross-file dependencies,
+data flow, and known limitations.
 
 ## Core vs. adapters
 
@@ -49,10 +49,10 @@ dependencies, data flow, and known limitations.
               ┌───────────────────────┼───────────────────────┐
               │                       │                       │
    ┌──────────▼──────────┐ ┌──────────▼──────────┐ ┌──────────▼──────────┐
-   │  SSURGO ADAPTER      │ │  SOLUS100 ADAPTER    │ │  (future adapters:   │
+   │  SSURGO ADAPTER      │ │  SOLUS100 ADAPTER    │ │  (further adapters:  │
    │  01 Acquisition/     │ │  09 solus-           │ │   HWSD, SoilGrids,   │
-   │     processing        │ │     simulation.R      │ │   etc. - not yet     │
-   │  06 Property/depth/   │ │  supplies raster      │ │   implemented)       │
+   │     processing        │ │     simulation.R      │ │   etc.)              │
+   │  06 Property/depth/   │ │  supplies raster      │ │                      │
    │     component sim     │ │  fusion likelihood    │ │                      │
    │  09 ssurgo-           │ │  side                 │ │                      │
    │     simulation.R      │ │                       │ │                      │
@@ -135,8 +135,8 @@ Not every path runs through all of this - e.g. a caller who only wants
 tabular Monte Carlo estimates from SSURGO alone stops after step 05/06
 and never touches the raster fusion group.
 `08 Bayesian updating (scalar)` provides the same fusion primitives
-`09`’s raster pipeline is built on, but as standalone building blocks,
-not yet called from `04`’s tabular pipeline directly.
+`09`’s raster pipeline is built on, as standalone building blocks;
+`04`’s tabular pipeline does not call them directly.
 
 ## Group documents
 
@@ -152,68 +152,3 @@ not yet called from `04`’s tabular pipeline directly.
 | 08 | [Bayesian Updating (Scalar)](https://jjmaynard.github.io/soilSIM/articles/architecture-bayesian-updating.md) | Scalar Bayesian updating/fusion (core) | `bayesian-updating.R` |
 | 09 | [Multi-Source Raster Fusion Pipeline](https://jjmaynard.github.io/soilSIM/articles/architecture-multi-source-raster-fusion-pipeline.md) | Raster-native fusion core + SSURGO/SOLUS100 adapters | `distribution-fitting-raster.R`, `raster-fusion.R`, `raster-cache.R`, `ssurgo-simulation.R`, `solus-simulation.R` |
 | 10 | [Utilities](https://jjmaynard.github.io/soilSIM/articles/architecture-utilities.md) | Shared validation, logging, config, I/O (leaf module) | `utils.R` |
-
-## Known issues surfaced while writing this documentation
-
-Producing these docs required reading every function body (not just
-signatures), which turned up a few real, previously-undocumented issues.
-Three were fixed (with a regression test and a clean `devtools::check()`
-afterward); the fourth turned out not to be a bug on closer inspection:
-
-- **Fixed**:
-  [`validate_monte_carlo_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_monte_carlo_quality.md)
-  (`validation-diagnostics.R`, see [Statistics &
-  Diagnostics](https://jjmaynard.github.io/soilSIM/articles/architecture-statistics-diagnostics.md))
-  called
-  [`generate_simulation_diagnostics()`](https://jjmaynard.github.io/soilSIM/reference/generate_simulation_diagnostics.md)
-  with 2 arguments, but that function (defined in `monte-carlo.R`)
-  requires 5. The call always errored and was silently absorbed by a
-  surrounding `tryCatch` into a `validation_failed` placeholder result.
-  Fixed by passing all 5 args, sourced from data already in scope
-  (`original_data`, the local `simulation_data`, and
-  `monte_carlo_results$metadata$properties`/`$correlation_structure`).
-- **Fixed**: `raster-fusion.R`’s top-of-file comment used to say
-  [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)/
-  [`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
-  were “not ported” because their dependencies “don’t exist anywhere in
-  this repo” - stale, since all of those dependencies (`raster-cache.R`,
-  `ssurgo-simulation.R`, `solus-simulation.R`) now exist and both
-  orchestrator functions are fully implemented later in the same file.
-  Updated the comment to describe the current state (see [Multi-Source
-  Raster Fusion
-  Pipeline](https://jjmaynard.github.io/soilSIM/articles/architecture-multi-source-raster-fusion-pipeline.md)).
-- **Fixed**: the `sim_comppct` integration gap between
-  `property-simulation.R` and `depth-simulation.R` (see [Profile,
-  Component & Depth
-  Simulation](https://jjmaynard.github.io/soilSIM/articles/architecture-profile-component-depth-simulation.md)) -
-  [`simulate_profile_depths_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths_by_mukey.md)
-  now calls
-  [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
-  and left-joins the result onto every horizon row by `cokey`
-  internally, mirroring the already-verified pattern in
-  `ssurgo-simulation.R`’s
-  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md).
-  Its previously-unused `n_simulations` parameter now flows into that
-  call. Verified with a new deterministic offline regression test
-  (mocked SDA fetch, a degenerate
-  `comppct_l = comppct_r = comppct_h = 100` component that makes
-  `sim_comppct` exactly equal to `n_simulations`).
-  [`simulate_and_perturb_soil_profiles()`](https://jjmaynard.github.io/soilSIM/reference/simulate_and_perturb_soil_profiles.md)’s
-  own contract - it still requires the join to already be done when
-  called directly - is unchanged.
-- **Not a bug, on closer inspection**: `utils.R`’s
-  `get_predefined_properties("ssurgo")` calling
-  [`create_ssurgo_property_lookup_working()`](https://jjmaynard.github.io/soilSIM/reference/create_ssurgo_property_lookup_working.md)
-  (which lives in `ssurgo-acquisition.R`) is a real exception to
-  “utils.R is a leaf module,” but it’s a deliberate,
-  already-`tryCatch`-guarded design (see the inline comment at that call
-  site) - R packages have no per-file circular-dependency restriction
-  within one namespace, so this isn’t a functional defect, just an
-  architectural note worth knowing about (see
-  [Utilities](https://jjmaynard.github.io/soilSIM/articles/architecture-utilities.md)).
-  Left as-is, along with `utils.R`’s few unused exported functions
-  ([`check_required_columns()`](https://jjmaynard.github.io/soilSIM/reference/check_required_columns.md),
-  [`export_workflow_metadata()`](https://jjmaynard.github.io/soilSIM/reference/export_workflow_metadata.md),
-  most of the WKT geometry-validation helpers) - unused surface area,
-  not broken code, and removing public API without confirming nothing
-  external depends on it isn’t a call to make silently.

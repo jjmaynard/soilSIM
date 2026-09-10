@@ -139,9 +139,7 @@ triangle. **Algorithm**:
 is the standard closed-form triangular inverse-CDF split at the mode
 fraction `fc = (mode-min)/(max-min)`.
 [`tri_dist()`](https://jjmaynard.github.io/soilSIM/reference/tri_dist.md)
-is a separately-maintained random-draw implementation (ported from the
-`triangle` package via `code_ref/brdf/property_simulation.R`) kept
-distinct from
+is a separately-maintained random-draw implementation kept distinct from
 [`quantile_triangular()`](https://jjmaynard.github.io/soilSIM/reference/quantile_triangular.md)
 specifically to preserve its own edge-case contract: it errors on
 invalid `n` but returns `NaN` (not an error) when `a > c`, `b < c`, or
@@ -224,8 +222,7 @@ representative value). If `bounds` is supplied, always resolves to
 `"beta"`; otherwise `"normal"` if the skew proxy is finite and within
 `skew_threshold` of zero, else `"lognormal"`. Deliberately never
 resolves to `"metalog"` - that stays an explicit, opted-in config
-choice, matching the original reference implementation’s own documented
-restriction.
+choice.
 
 #### 7. **`fit_percentile_triplet()`** - MASTER percentile-triplet dispatcher
 
@@ -262,9 +259,7 @@ interval, so “always draw `r`” is the only honest representation). If
 `family == "auto"`, calls
 [`resolve_property_family()`](https://jjmaynard.github.io/soilSIM/reference/resolve_property_family.md),
 additionally downgrading `"lognormal"` to `"normal"` when any value is
-non-positive (matching the legacy
-[`get_appropriate_distributions()`](https://jjmaynard.github.io/soilSIM/reference/get_appropriate_distributions.md)
-behavior). Then dispatches via `switch(family, ...)` to the
+non-positive. Then dispatches via `switch(family, ...)` to the
 corresponding fitter: `triangular`/`uniform` build their fit lists
 directly from `l`/`r`/`h`; `normal` calls
 [`fit_normal_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_triplet.md);
@@ -284,11 +279,11 @@ errors.
 
 #### 8. **`quantile_from_fit()`** - MASTER quantile dispatcher
 
-**Purpose**: Replaces the legacy `transform_to_distribution()` design -
-a thin dispatcher from `family` to the matching `quantile_*()` function.
-**Signature**: `quantile_from_fit(u, family, fit)` **Parameters**: `u` -
-vector of probabilities (e.g. correlated uniform draws from a
-Cholesky-copula step); `family` - one of
+**Purpose**: A thin dispatcher from `family` to the matching
+`quantile_*()` function. **Signature**:
+`quantile_from_fit(u, family, fit)` **Parameters**: `u` - vector of
+probabilities (e.g. correlated uniform draws from a Cholesky-copula
+step); `family` - one of
 [`fit_percentile_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_percentile_triplet.md)’s
 resolved families; `fit` - the `fit` element of
 [`fit_percentile_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_percentile_triplet.md)’s
@@ -309,10 +304,9 @@ as appropriate.
 
 #### 9. **`validate_fit_parameters()`** - Fit sanity checks
 
-**Purpose**: Real replacement for the always-`valid=TRUE`
-[`validate_distribution_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_distribution_parameters.md)
-stub in an earlier version of the Monte Carlo simulation code.
-**Signature**: `validate_fit_parameters(family, fit)` **Returns**:
+**Purpose**: Checks that a fitted distribution’s parameters are
+structurally complete and in range for its family. **Signature**:
+`validate_fit_parameters(family, fit)` **Returns**:
 `list(valid=, message=)`. **Algorithm**: `family`-specific
 structural/numeric checks: `triangular`/`uniform` require finite
 `min <= max` and (if present) `mode` inside `[min, max]`;
@@ -328,13 +322,11 @@ discard a usable fit in favor of a cruder guess; `linear_cdf` requires
 
 ### B. ILR (Isometric Log-Ratio) Compositional Transforms (`distributions.R`, section 2)
 
-Dependency-free port of
-`code_ref/reanalysis-platform/texture_ilr_fusion.R`, validated there to
-match `compositions::ilr()` exactly and round-trip to ~1e-14. The
-balance hierarchy (position 1 vs. {2,3}, then 2 vs. 3) is fixed by these
-formulas; the `clay`/`sand`/`silt` parameter and output names are
-**positional-role placeholders** (position 1/2/3 of the sequential
-binary partition), not an identity requirement - callers (via
+These formulas match `compositions::ilr()` exactly and round-trip to
+~1e-14. The balance hierarchy (position 1 vs. {2,3}, then 2 vs. 3) is
+fixed by these formulas; the `clay`/`sand`/`silt` parameter and output
+names are **positional-role placeholders** (position 1/2/3 of the
+sequential binary partition), not an identity requirement - callers (via
 `monte-carlo.R`’s `composition_groups$texture$members`) determine which
 real property occupies which position.
 
@@ -442,8 +434,8 @@ checks, per configured group, whether ALL of its `members` are present
 in `properties`; if so it splices in the group’s `pseudo` names
 (`ilr1`/`ilr2`) at the position of the first member and marks the group
 `active = TRUE`; if only some members are present, the group is left
-inactive and a `log_message("WARN", ...)` is emitted (properties then
-simulate independently via the legacy path).
+inactive and a `log_message("WARN", ...)` is emitted (those properties
+then simulate independently).
 [`restore_composition_properties()`](https://jjmaynard.github.io/soilSIM/reference/restore_composition_properties.md)
 reverses this: passthrough (non-group) properties are copied straight
 through; for each active group,
@@ -487,9 +479,7 @@ check’s message, or `valid = TRUE`.
 #### 16. **`estimate_correlation_matrix_robust()`** - MASTER robust correlation estimator
 
 **Purpose**: Estimate a correlation matrix from real data with grouped
-and global fallbacks, porting `code_ref/brdf/property_simulation.R`’s
-[`simulate_soil_properties()`](https://jjmaynard.github.io/soilSIM/reference/simulate_soil_properties.md)
-correlation pattern. **Signature**:
+and global fallbacks. **Signature**:
 
 ``` r
 
@@ -662,8 +652,7 @@ prefer for a given data shape.
 ### E. KSSL Reference Correlations (`kssl-reference-correlations.R`)
 
 Static, pre-computed, genetic-horizon-keyed (O/A/E/B/C/Cr, plus R for
-the texture matrix) correlation matrices fit once from KSSL lab data by
-an older, unrelated codebase (`code_ref/brdf/property_simulation.R`),
+the texture matrix) correlation matrices fit once from KSSL lab data,
 stored internally as package sysdata. These let `monte-carlo.R`’s
 correlation-structure estimation optionally fall back to real
 lab-derived correlations
@@ -721,16 +710,14 @@ exactly singular for `E`/`Cr`/`R`). `.kssl_property_name_map` is the
 fixed lookup vector mapping soilSIM property names (`dbovendry`,
 `wthirdbar`, `wfifteenbar`, `ph1to1h2o`, `cec7`, `om`, `rfv`, `ilr1`,
 `ilr2`) to KSSL matrix column names (`db`, `wr_3b`, `wr_15b`, `ph`,
-`cec`, `soc`, `rfv`, `ilr1`, `ilr2`) - confirmed against the exact
-lookup table that built the source data. Notably, `om -> soc` is a
-caveat: the KSSL matrix’s `soc` column is actually populated from `om_r`
+`cec`, `soc`, `rfv`, `ilr1`, `ilr2`). Notably, `om -> soc` is a caveat:
+the KSSL matrix’s `soc` column is actually populated from `om_r`
 (organic matter %), not true lab-measured soil organic carbon, so it
 should be treated as an organic-matter proxy.
 
-**5 chemistry properties, no KSSL data yet
-(MULTI_PROPERTY_FUSION_PLAN.md task P2, 2026-09-04)**:
-`.kssl_property_name_map` also maps `caco3`/`ec`/`ecec`/`gypsum`/`sar`
-to themselves, but none of them has a matching column in
+**5 chemistry properties, no KSSL data yet**: `.kssl_property_name_map`
+also maps `caco3`/`ec`/`ecec`/`gypsum`/`sar` to themselves, but none of
+them has a matching column in
 [`.kssl_property_matrices()`](https://jjmaynard.github.io/soilSIM/reference/dot-kssl_property_matrices.md)’s
 actual 9x9 data (fit years before these properties existed in this
 pipeline) -
@@ -994,8 +981,7 @@ final_matrix <- ensure_positive_definite_matrix(candidate_matrix, min_eigenvalue
   directly for profile-depth simulation.
 - **`distribution-fitting-raster.R`** - the
   [`terra::SpatRaster`](https://rspatial.github.io/terra/reference/SpatRaster-class.html)-native
-  sibling implementation whose math this file’s closed-form fitters were
-  ported from/validated against.
+  sibling implementation of this file’s closed-form fitters.
 
 ## Data Flow In/Out
 

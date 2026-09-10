@@ -1,6 +1,6 @@
 # Validate Correlation Preservation
 
-Enhanced correlation preservation validation using Module 6 utilities.
+Validate Correlation Preservation
 
 ## Usage
 

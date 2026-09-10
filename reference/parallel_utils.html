@@ -4,14 +4,14 @@ future/future.apply (future::multisession, which behaves identically on Windows 
 Unix), replacing the hand-rolled base-parallel:: boilerplate (OS branching between
 parallel::makeCluster()/parLapply() on Windows and parallel::mclapply() elsewhere,
 explicit library(soilSIM) on Windows workers, explicit soil_workflow_log_config
-propagation) that used to be duplicated across process_cokeys_parallel()
+propagation) shared by process_cokeys_parallel()
 (multivariate-adjustment.R), run_parallel_simulation() (monte-carlo.R), and
 maybe_adjust_soil_data_depth_trend() (ssurgo-simulation.R)."><meta property="og:description" content="A single internal helper standardizing this package's parallel processing on
 future/future.apply (future::multisession, which behaves identically on Windows and
 Unix), replacing the hand-rolled base-parallel:: boilerplate (OS branching between
 parallel::makeCluster()/parLapply() on Windows and parallel::mclapply() elsewhere,
 explicit library(soilSIM) on Windows workers, explicit soil_workflow_log_config
-propagation) that used to be duplicated across process_cokeys_parallel()
+propagation) shared by process_cokeys_parallel()
 (multivariate-adjustment.R), run_parallel_simulation() (monte-carlo.R), and
 maybe_adjust_soil_data_depth_trend() (ssurgo-simulation.R)."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -84,7 +84,7 @@ maybe_adjust_soil_data_depth_trend() (ssurgo-simulation.R)."></head><body>
 Unix), replacing the hand-rolled base-<code>parallel::</code> boilerplate (OS branching between
 <code><a href="https://rdrr.io/r/parallel/makeCluster.html" class="external-link">parallel::makeCluster()</a></code>/<code>parLapply()</code> on Windows and <code><a href="https://rdrr.io/r/parallel/mclapply.html" class="external-link">parallel::mclapply()</a></code> elsewhere,
 explicit <code><a href="https://jjmaynard.github.io/soilSIM/">library(soilSIM)</a></code> on Windows workers, explicit <code>soil_workflow_log_config</code>
-propagation) that used to be duplicated across <code>process_cokeys_parallel()</code>
+propagation) shared by <code>process_cokeys_parallel()</code>
 (<code>multivariate-adjustment.R</code>), <code><a href="run_parallel_simulation.html">run_parallel_simulation()</a></code> (<code>monte-carlo.R</code>), and
 <code><a href="maybe_adjust_soil_data_depth_trend.html">maybe_adjust_soil_data_depth_trend()</a></code> (<code>ssurgo-simulation.R</code>).</p>
     </div>

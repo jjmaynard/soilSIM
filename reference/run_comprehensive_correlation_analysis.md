@@ -1,6 +1,6 @@
 # Run Comprehensive Correlation Analysis
 
-Enhanced correlation analysis using Module 0 statistical utilities
+Run Comprehensive Correlation Analysis
 
 ## Usage
 
@@ -33,4 +33,4 @@ run_comprehensive_correlation_analysis(
 
 ## Value
 
-Enhanced correlation analysis results
+correlation analysis results

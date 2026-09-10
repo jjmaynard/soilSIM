@@ -1,12 +1,9 @@
 # Build a Depth Correlation Kernel Matrix
 
 Constructs an `n_depths x n_depths` correlation matrix from real depth
-*distances* (not just adjacent-lag steps, unlike the sequential
-`gp_ratio` nudge this is designed to replace - see
-`VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 1/2), via an
-exponential or Matern kernel with a given `length_scale`. Intended as
-the depth half of a Kronecker-separable `R_depth (x) R_property` joint
-covariance (Phase 2's
+*distances* (not just adjacent-lag steps), via an exponential or Matern
+kernel with a given `length_scale`. This is the depth half of a
+Kronecker-separable `R_depth (x) R_property` joint covariance (see
 [`sample_joint_depth_property_copula()`](https://jjmaynard.github.io/soilSIM/reference/sample_joint_depth_property_copula.md)).
 
 ## Usage
@@ -57,18 +54,18 @@ build_depth_correlation_kernel(
 
   Optional numeric vector, same length as `depths`, of OSD-derived
   `bound_sd` values (see
-  [`attach_osd_boundary_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/attach_osd_boundary_distinctness.md) -
-  `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 1b/1c) - one value
-  per depth, interpreted as the distinctness of the boundary immediately
-  ABOVE that depth (in sorted-ascending order; the value for the
-  shallowest depth is unused, since there is no boundary above the top
-  of the profile). Smaller `bound_sd` (e.g.
+  [`attach_osd_boundary_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/attach_osd_boundary_distinctness.md)) -
+  one value per depth, interpreted as the distinctness of the boundary
+  immediately ABOVE that depth (in sorted-ascending order; the value for
+  the shallowest depth is unused, since there is no boundary above the
+  top of the profile). Smaller `bound_sd` (e.g.
   [`aqp::hzDistinctnessCodeToOffset()`](https://ncss-tech.github.io/aqp/reference/hzDistinctnessCodeToOffset.html)'s
   `abrupt` ~= 1, `clear` ~= 2.5) means a sharper real discontinuity and
   more strongly suppresses correlation across that boundary; larger
   `bound_sd` (`gradual` ~= 7.5, `diffuse` ~= 10) leaves the plain
   distance-decay kernel almost untouched. `NULL` (default) or all-`NA`
-  skips gating entirely, reproducing the plain (Phase 1) kernel exactly.
+  skips gating entirely, reproducing the plain distance-decay kernel
+  exactly.
 
 - distinctness_range:
 

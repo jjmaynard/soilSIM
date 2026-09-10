@@ -2,9 +2,8 @@
 
 The truncation-depth signal for bedrock/restriction-aware AWC
 ([`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)'s
-`restriction_depth` argument, MULTI_PROPERTY_FUSION_PLAN.md task S2).
-Default variable is `"anylithicdpt"` - trained (per SOLUS100's own
-published methodology) **only** on
+`restriction_depth` argument). Default variable is `"anylithicdpt"` -
+trained (per SOLUS100's own published methodology) **only** on
 `reskind %in% c("Lithic bedrock", "Paralithic bedrock")` records, making
 it hard-bedrock-specific by construction; no separate SSURGO-side
 hard/soft classifier is needed since SOLUS already encodes that

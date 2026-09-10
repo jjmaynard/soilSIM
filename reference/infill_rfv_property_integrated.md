@@ -1,4 +1,4 @@
-# Enhanced RFV Property Infilling
+# Infill Rock Fragment Volume
 
 Specialized infilling for rock fragment volume with context-aware
 estimation and integration with the main workflow.

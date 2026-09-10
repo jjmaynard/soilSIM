@@ -1,6 +1,6 @@
 # Validate GP Models
 
-Enhanced validation with comprehensive diagnostics
+Validate GP Models
 
 ## Usage
 

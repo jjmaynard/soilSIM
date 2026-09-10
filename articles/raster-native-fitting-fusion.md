@@ -17,8 +17,8 @@ which does exactly one thing to a
 individually is what makes the pipeline’s behavior (which route it took,
 why a family was resolved a certain way, why two sources’ percentiles
 had to be realigned before fusing) legible rather than a black box. See
-`soilSIM/docs/09_multi_source_raster_fusion_pipeline.md` for the full
-function-level reference this vignette is built from.
+the “Multi-Source Raster Fusion Pipeline” architecture article for the
+full function-level reference this vignette is built from.
 
 ``` r
 
@@ -1437,6 +1437,6 @@ The cached data this vignette loads
 (SSURGO) and
 [`soilDB::fetchSOLUS()`](http://ncss-tech.github.io/soilDB/reference/fetchSOLUS.md)
 (SOLUS100) for the Salinas Valley AOI. See that vignette for the full
-fetch-through-fuse pipeline view, and
-`soilSIM/docs/09_multi_source_raster_fusion_pipeline.md` for the
-complete function-level reference this vignette exposed piece by piece.
+fetch-through-fuse pipeline view, and the “Multi-Source Raster Fusion
+Pipeline” architecture article for the complete function-level reference
+this vignette exposed piece by piece.

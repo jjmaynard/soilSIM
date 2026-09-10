@@ -33,7 +33,7 @@ controls:
     [`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md),
     [`validate_statistical_config()`](https://jjmaynard.github.io/soilSIM/reference/validate_statistical_config.md)
 
-See `soilSIM/docs/02_statistics_diagnostics.md` for the full
+See the “Statistics & Diagnostics” architecture article for the full
 function-level architecture reference behind this group.
 
 Because this vignette is about statistical *behavior* rather than any

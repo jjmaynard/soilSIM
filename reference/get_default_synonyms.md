@@ -26,5 +26,4 @@ for callers who need it, not dead/broken code. Its `"ssurgo"` branch
 shares the same canonical synonym data as
 `get_default_property_mapping()` (internal) and
 [`validate_properties_with_synonyms`](https://jjmaynard.github.io/soilSIM/reference/validate_properties_with_synonyms.md)
-(see `.ssurgo_property_synonyms()`), so it can no longer drift from
-them.
+(see `.ssurgo_property_synonyms()`).

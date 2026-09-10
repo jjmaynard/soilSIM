@@ -26,8 +26,7 @@ density estimation over `seq(grid_min, grid_max, by = grid_resolution)`)
 are the dominant cost of
 [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)'s
 per-cell loop - [`Rprof()`](https://rdrr.io/r/utils/Rprof.html)
-profiling on a synthetic 10,000-cell raster
-(PERFORMANCE_IMPROVEMENT_PLAN.md Tier 4) attributed 65% of total
+profiling on a synthetic 10,000-cell raster attributed 65% of total
 wall-clock time to [`density()`](https://rdrr.io/r/stats/density.html)
 (`dnorm`/`fft` internals) at the `0.01` default, vs. 12% for the
 per-cell percentile-sampling step. At `0.01`, a typical soil-property

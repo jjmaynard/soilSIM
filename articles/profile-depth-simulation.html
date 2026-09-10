@@ -106,9 +106,9 @@ SSURGO map unit: how much of a map unit a component actually occupies
 and thicknesses are in the field (depth/thickness variability, informed
 by Official Series Description boundary-distinctness data). This
 vignette demonstrates both, using a real map unit from the same
-Amador-area AOI as the “Getting Started” vignette. See
-<code>soilSIM/docs/06_profile_component_depth_simulation.md</code> for
-the full function-level reference.</p>
+Amador-area AOI as the “Getting Started” vignette. See the “Profile,
+Component &amp; Depth Simulation” architecture article for the full
+function-level reference.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://jjmaynard.github.io/soilSIM/">soilSIM</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span></code></pre></div>
@@ -285,11 +285,11 @@ simulation:</p>
 <p>The third horizon (H3) in this real component is missing its
 <code>sandtotal_h</code>/<code>claytotal_h</code> (upper bound) values -
 a genuine SSURGO data gap, not a simulation artifact. soilSIM’s
-<code><a href="../reference/evaluate_simulated_depths.html">evaluate_simulated_depths()</a></code> QC function (see
-<code>soilSIM/docs/06_profile_component_depth_simulation.md</code>)
-flags exactly this kind of gap: it can only assess whether a simulated
-depth falls outside a horizon’s original low/high bounds when those
-bounds are actually present in the source data.</p>
+<code><a href="../reference/evaluate_simulated_depths.html">evaluate_simulated_depths()</a></code> QC function (see the “Profile,
+Component &amp; Depth Simulation” architecture article) flags exactly
+this kind of gap: it can only assess whether a simulated depth falls
+outside a horizon’s original low/high bounds when those bounds are
+actually present in the source data.</p>
 </div>
 <div class="section level2">
 <h2 id="where-this-data-came-from">Where this data came from<a class="anchor" aria-label="anchor" href="#where-this-data-came-from"></a>

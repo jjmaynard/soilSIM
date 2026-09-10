@@ -168,7 +168,7 @@ path, not a convenience wrapper around the resampled <code>samples</code> vector
     <h2 id="known-limitation-raw-draws-fusion-vs-percentile-reconstruction-fusion-">Known limitation (raw-draws fusion vs. percentile-reconstruction fusion)<a class="anchor" aria-label="anchor" href="#known-limitation-raw-draws-fusion-vs-percentile-reconstruction-fusion-"></a></h2>
 
 
-<p>A dedicated adversarial test (<code>MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md</code> task P2.7) found that for
+<p>A dedicated adversarial test found that for
 a skewed prior fused against a weak/wide likelihood, <code>soilSIM</code>'s <code>prior_fusion_method = "raw_draws"</code> route (a genuine empirical resample as the prior side) can produce a fused posterior
 mean measurably <em>less</em> close to the prior population's true mean than the default
 percentile-reconstruction route, in a way that first looked like a bandwidth-selection bug. Task

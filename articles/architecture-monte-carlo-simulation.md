@@ -117,17 +117,16 @@ used only to recognize which flat key names belong under `monte_carlo`.
 
 **Returns**: `simulation_config`, wrapped under `$monte_carlo` if it was
 flat and its names matched known `monte_carlo` keys; passed through
-unchanged otherwise. **Behavior/rationale**: A flat config previously
-landed silently as an unused top-level key (confirmed by testing:
-passing `distribution_type = "normal"` flat left
-`config$monte_carlo$distribution_type` at `"triangular"` every time)
-since
+unchanged otherwise. **Behavior/rationale**:
 [`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md)
-merges strictly by key path. This function is called immediately before
+merges strictly by key path, so a flat config key
+(e.g. `distribution_type = "normal"`) would not reach
+`config$monte_carlo$distribution_type`. This function runs immediately
+before
 [`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md)
 in
 [`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)
-to fix that.
+to lift flat keys into the `monte_carlo` sub-list.
 
 ### 4. `validate_monte_carlo_inputs()` - Input Validation
 
@@ -584,9 +583,8 @@ property count (fails fast otherwise). For each property, calls
 and flags a low success rate; runs
 [`detect_outliers()`](https://jjmaynard.github.io/soilSIM/reference/detect_outliers.md)
 (IQR method) and flags a high outlier rate (guarding against `NaN`
-outlier rates - e.g. a property missing from every horizon - which
-previously crashed the pipeline via an `if (NaN > x)` error instead of
-degrading gracefully). Computes
+outlier rates - e.g. a property missing from every horizon - with an
+[`is.finite()`](https://rdrr.io/r/base/is.finite.html) check). Computes
 [`calculate_simulation_quality_metrics()`](https://jjmaynard.github.io/soilSIM/reference/calculate_simulation_quality_metrics.md)
 for an overall quality summary, an overall `success_rate` across all
 properties/horizons/realizations, and sets `valid = FALSE` if that

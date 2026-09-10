@@ -109,9 +109,9 @@ data-source <strong>adapters</strong> - SSURGO (supplying the prior) and
 SOLUS100 (supplying the likelihood) - over a shared, real area of
 interest (AOI). The architecture is designed so future data sources
 (e.g. HWSD, SoilGrids) could plug in as new adapters supplying either
-side, without changing the fusion core. See
-<code>soilSIM/docs/09_multi_source_raster_fusion_pipeline.md</code> for
-the full function-level reference.</p>
+side, without changing the fusion core. See the “Multi-Source Raster
+Fusion Pipeline” architecture article for the full function-level
+reference.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://jjmaynard.github.io/soilSIM/">soilSIM</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span> <span class="co"># only for the non-spatial prior/likelihood/posterior comparison chart below</span></span></code></pre></div>
@@ -405,10 +405,9 @@ on <code>bayesian-updating.R</code>’s scalar fusion functions
 work unchanged on <code>SpatRaster</code> inputs via
 <code>terra</code>’s operator overloading, so the raster-native code in
 <code>raster-fusion.R</code> reuses them directly rather than
-reimplementing the same math per-cell. See
-<code>soilSIM/docs/08_bayesian_updating.md</code> for these building
-blocks used directly on scalar prior/likelihood pairs, independent of
-any raster or AOI.</p>
+reimplementing the same math per-cell. See the “Bayesian Updating”
+architecture article for these building blocks used directly on scalar
+prior/likelihood pairs, independent of any raster or AOI.</p>
 </div>
 <div class="section level2">
 <h2 id="where-this-data-came-from">Where this data came from<a class="anchor" aria-label="anchor" href="#where-this-data-came-from"></a>

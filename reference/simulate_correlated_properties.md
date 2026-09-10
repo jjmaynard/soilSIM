@@ -1,6 +1,6 @@
-# Simulate Correlated Properties Using Enhanced Distribution Framework
+# Simulate Correlated Properties
 
-Core simulation function leveraging Module 0 statistical utilities
+Core simulation function
 
 ## Usage
 

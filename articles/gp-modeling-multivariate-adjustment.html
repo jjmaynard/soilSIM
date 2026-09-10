@@ -108,10 +108,9 @@ finer-grained tour of the same functional group: it walks through the
 <em>individual</em> functions in <code>R/gp-modeling.R</code> and
 <code>R/multivariate-adjustment.R</code> one at a time, explains what
 each parameter controls (not just how to call the function), and shows
-parameter effects visually. See
-<code>soilSIM/docs/05_gp_modeling_multivariate_adjustment.md</code> for
-the full function-level architecture reference this vignette is drawn
-from.</p>
+parameter effects visually. See the “GP Modeling &amp; Multivariate
+Adjustment” architecture article for the full function-level
+architecture reference this vignette is drawn from.</p>
 <p>Functions covered, in order:</p>
 <ol style="list-style-type: decimal">
 <li>
@@ -142,9 +141,9 @@ vs. <code><a href="../reference/apply_local_gp_adjustments.html">apply_local_gp
 trends</li>
 <li>
 <code><a href="../reference/preserve_correlation_structure_joint.html">preserve_correlation_structure_joint()</a></code> - the joint
-depth x property copula method (now the package default), A/B tested
-against the original <code>gp_quantile_retrofit</code> algorithm from
-Step 7 above on this vignette’s own real fitted GP models</li>
+depth x property copula method (the package default), compared against
+the <code>gp_quantile_retrofit</code> method from Step 7 above on this
+vignette’s own real fitted GP models</li>
 </ol>
 <p>This vignette reuses the same real, cached Amador County, CA SSURGO
 data (<code>inst/extdata/ssurgo_amador.rds</code>) that
@@ -483,21 +482,21 @@ before trusting the model set downstream.</p>
 <h2 id="step-6-why-correlation-preserving-adjustment-matters">Step 6: Why correlation-preserving adjustment matters<a class="anchor" aria-label="anchor" href="#step-6-why-correlation-preserving-adjustment-matters"></a>
 </h2>
 <p>Once GP depth-trend models exist, the next step in the full pipeline
-(see <code>getting-started-monte-carlo.Rmd</code>’s closing note and
-<code>soilSIM/docs/05_gp_modeling_multivariate_adjustment.md</code>) is
-to nudge Monte Carlo simulation realizations toward those depth trends.
-The naive way to do this - adjust each property’s realizations
-independently to match its own GP trend - breaks the
-<em>cross-property</em> correlation that the Monte Carlo engine worked
-to preserve in the first place (e.g. clay and sand content are naturally
-anti-correlated within a horizon; adjusting each to its own trend
-independently reshuffles which simulated clay value is paired with which
-simulated sand value). <code><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP()</a></code>
-avoids this by computing a single <em>reference quantile</em> per
-simulation (from the primary property’s surface-depth distribution) and
-using that same quantile - not each property’s own independent quantile
-- to drive every property’s adjustment, so realization <em>j</em>’s
-properties all move together.</p>
+(see <code>getting-started-monte-carlo.Rmd</code>’s closing note and the
+“GP Modeling &amp; Multivariate Adjustment” architecture article) is to
+nudge Monte Carlo simulation realizations toward those depth trends. The
+naive way to do this - adjust each property’s realizations independently
+to match its own GP trend - breaks the <em>cross-property</em>
+correlation that the Monte Carlo engine worked to preserve in the first
+place (e.g. clay and sand content are naturally anti-correlated within a
+horizon; adjusting each to its own trend independently reshuffles which
+simulated clay value is paired with which simulated sand value).
+<code><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP()</a></code> avoids this by computing
+a single <em>reference quantile</em> per simulation (from the primary
+property’s surface-depth distribution) and using that same quantile -
+not each property’s own independent quantile - to drive every property’s
+adjustment, so realization <em>j</em>’s properties all move
+together.</p>
 <p>To demonstrate concretely with real fitted models, build a small
 synthetic set of “before adjustment” Monte Carlo-style realizations for
 clay and sand content at a few depths, correlated within each simulation
@@ -602,8 +601,8 @@ nearly intact.</p>
 </h2>
 <p><code><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP()</a></code> above (from
 <code>gp-modeling.R</code>) operates directly on
-<code>[depth x simulation]</code> matrices and is the original,
-array-based implementation of this algorithm. The pipeline
+<code>[depth x simulation]</code> matrices - the array-based form of
+this algorithm. The pipeline
 <code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code> actually calls works on
 long-format Monte Carlo output instead, via
 <code>multivariate-adjustment.R</code>’s
@@ -727,47 +726,38 @@ signal to lean on than the regional model when a cokey has little data
 of its own.</p>
 </div>
 <div class="section level2">
-<h2 id="step-9-why-the-production-default-changed---the-joint-depth-x-property-copula">Step 9: why the production default changed - the joint depth x
-property copula<a class="anchor" aria-label="anchor" href="#step-9-why-the-production-default-changed---the-joint-depth-x-property-copula"></a>
+<h2 id="step-9-the-joint-depth-x-property-copula">Step 9: the joint depth x property copula<a class="anchor" aria-label="anchor" href="#step-9-the-joint-depth-x-property-copula"></a>
 </h2>
 <p>Steps 6-7 above walked through
-<code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code> - the ORIGINAL algorithm
-this package used, still fully supported today as an explicit opt-out
+<code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code>, the
+<code>"gp_quantile_retrofit"</code> method
 (<code>config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"</code>).
 It keeps cross-<em>property</em> correlation intact while nudging
 realizations toward a GP-fitted depth trend, via a shared
-reference-quantile trick. That same mechanism has a side effect that
-motivated replacing it as the default: because it anchors EVERY depth’s
-adjustment to one FIXED per-realization percentile (established once, at
-the surface, and reused unchanged at every deeper depth), it doesn’t
+reference-quantile trick. That mechanism anchors every depth’s
+adjustment to one fixed per-realization percentile (established once, at
+the surface, and reused unchanged at every deeper depth), so it does not
 just preserve realization <em>ranking</em> - it forces realization
 <em>j</em> to occupy the same percentile at every depth, for the life of
-the profile. That is a much stronger, more rigid constraint than
-“vertical correlation”: it’s independent of how quickly or slowly the
-underlying property actually varies with depth (the GP model’s own
-fitted smoothness plays no role here at all), and - as the comparison
-below shows on this vignette’s own real fitted models - the result is
-spuriously near-perfect (<code>&gt; 0.99</code>) correlation across the
-<em>entire</em> depth profile, not a realistic decay.</p>
-<p><code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code> (in the package
-root) documents the replacement:
-<code><a href="../reference/preserve_correlation_structure_joint.html">preserve_correlation_structure_joint()</a></code>, wired into
-<code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code> behind
-<code>config$monte_carlo$vertical_correlation_method</code> (now
-defaulting to <code>"joint_copula"</code> as of that plan’s Phase 13 -
+the profile. That is a stronger, more rigid constraint than “vertical
+correlation”: it is independent of how quickly or slowly the underlying
+property varies with depth (the GP model’s own fitted smoothness plays
+no role), and - as the comparison below shows on this vignette’s own
+real fitted models - the result is spuriously near-perfect
+(<code>&gt; 0.99</code>) correlation across the <em>entire</em> depth
+profile, not a realistic decay.</p>
+<p>The default method, <code>"joint_copula"</code>
+(<code><a href="../reference/preserve_correlation_structure_joint.html">preserve_correlation_structure_joint()</a></code>, wired into
+<code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code>), draws depth correlation and
+property correlation <strong>simultaneously</strong> from a single
+Kronecker-separable joint distribution
+(<code><a href="../reference/sample_joint_depth_property_copula.html">sample_joint_depth_property_copula()</a></code>), so both are
+satisfied by construction. Its depth kernel’s length-scale comes from
+the already-fitted GP model, so how fast correlation decays with depth
+reflects the property’s actual fitted smoothness.
 <code>"gp_quantile_retrofit"</code> remains available as an explicit
-opt-out, not removed). Instead of a sequential mean-nudge, it draws
-depth correlation and property correlation
-<strong>simultaneously</strong> from a single Kronecker-separable joint
-distribution (<code><a href="../reference/sample_joint_depth_property_copula.html">sample_joint_depth_property_copula()</a></code>), so
-both are satisfied by construction rather than left to chance. This
-default flip followed multi-AOI real-data validation (a second AOI
-beyond this vignette’s own Amador County data, plus a full-AOI
-performance check finding no meaningful overhead) and closing every
-other blocking gap identified before the switch - see
-<code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code>’s own
-decision-tracking sections for the full record.</p>
-<p>To A/B the two methods fairly, this section reuses the SAME real
+opt-out.</p>
+<p>To compare the two methods fairly, this section reuses the same real
 fitted GP models from Step 3
 (<code>clay_gp_model</code>/<code>sand_gp_model</code>, for
 <code>xv_group</code>) but needs a different starting fixture than Step
@@ -834,12 +824,10 @@ generic full-depth-range default):</p>
 <span>  config <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>monte_carlo <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>vertical_correlation_method <span class="op">=</span> <span class="st">"joint_copula"</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  gp_models <span class="op">=</span> <span class="va">vc_gp_models</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p><code><a href="../reference/validate_joint_correlation_structure.html">validate_joint_correlation_structure()</a></code> - the same
-acceptance-test helper
-<code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code>’s Phase 0 built
-for exactly this comparison - reports both halves of the joint structure
-(property correlation at every depth, depth correlation for every
-property) against a known target, for each method’s output:</p>
+<p><code><a href="../reference/validate_joint_correlation_structure.html">validate_joint_correlation_structure()</a></code> reports both
+halves of the joint structure (property correlation at every depth,
+depth correlation for every property) against a known target, for each
+method’s output:</p>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sim_nums</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">vc_cokey_data</span><span class="op">$</span><span class="va">simulation_number</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">retrofit_matrices</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/convert_to_property_matrices.html">convert_to_property_matrices</a></span><span class="op">(</span><span class="va">retrofit_result</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"claytotal"</span>, <span class="st">"sandtotal"</span><span class="op">)</span>, <span class="va">vc_depths</span>, <span class="va">sim_nums</span><span class="op">)</span></span>
@@ -854,25 +842,22 @@ property) against a known target, for each method’s output:</p>
 <span><span class="va">joint_check</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/validate_joint_correlation_structure.html">validate_joint_correlation_structure</a></span><span class="op">(</span><span class="va">joint_matrices</span>, target_property_corr <span class="op">=</span> <span class="va">target_prop_corr</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gp_quantile_retrofit (production default)"</span>, <span class="st">"joint_copula (new, opt-in)"</span><span class="op">)</span>,</span>
+<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gp_quantile_retrofit"</span>, <span class="st">"joint_copula (default)"</span><span class="op">)</span>,</span>
 <span>  property_corr_max_diff <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">retrofit_check</span><span class="op">$</span><span class="va">overall_property_max_diff</span>, <span class="va">joint_check</span><span class="op">$</span><span class="va">overall_property_max_diff</span><span class="op">)</span>,</span>
 <span>  clay_surface_vs_deepest_corr <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>    <span class="va">retrofit_check</span><span class="op">$</span><span class="va">achieved_depth_correlation</span><span class="op">$</span><span class="va">claytotal</span><span class="op">[</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">vc_depths</span><span class="op">)</span><span class="op">]</span>,</span>
 <span>    <span class="va">joint_check</span><span class="op">$</span><span class="va">achieved_depth_correlation</span><span class="op">$</span><span class="va">claytotal</span><span class="op">[</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">vc_depths</span><span class="op">)</span><span class="op">]</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt;                                      method property_corr_max_diff</span></span>
-<span><span class="co">#&gt; 1 gp_quantile_retrofit (production default)             0.01750089</span></span>
-<span><span class="co">#&gt; 2                joint_copula (new, opt-in)             0.04444873</span></span>
-<span><span class="co">#&gt;   clay_surface_vs_deepest_corr</span></span>
-<span><span class="co">#&gt; 1                   0.99389059</span></span>
-<span><span class="co">#&gt; 2                  -0.02504001</span></span></code></pre></div>
+<span><span class="co">#&gt;                   method property_corr_max_diff clay_surface_vs_deepest_corr</span></span>
+<span><span class="co">#&gt; 1   gp_quantile_retrofit             0.01750089                   0.99389059</span></span>
+<span><span class="co">#&gt; 2 joint_copula (default)             0.04444873                  -0.02504001</span></span></code></pre></div>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">depth_cor_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>    depth <span class="op">=</span> <span class="va">vc_depths</span>,</span>
 <span>    correlation <span class="op">=</span> <span class="va">retrofit_check</span><span class="op">$</span><span class="va">achieved_depth_correlation</span><span class="op">$</span><span class="va">claytotal</span><span class="op">[</span><span class="fl">1</span>, <span class="op">]</span>,</span>
-<span>    method <span class="op">=</span> <span class="st">"gp_quantile_retrofit\n(production default)"</span></span>
+<span>    method <span class="op">=</span> <span class="st">"gp_quantile_retrofit"</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>    depth <span class="op">=</span> <span class="va">vc_depths</span>,</span>
@@ -916,27 +901,19 @@ in this soil group’s own training data. <code>joint_copula</code>, by
 contrast, reproduces a decay directly tied to
 <code>clay_gp_model</code>’s own fitted length-scale, dropping toward
 zero within a few tens of centimeters - the behavior a genuinely
-physically-motivated vertical correlation model should have, and the
-concrete gap <code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code>’s
-redesign was built to close.</p>
+physically-motivated vertical correlation model should have.</p>
 <p>This is real AOI data (Amador County SSURGO, via the same cached data
 and fitted GP models used throughout this vignette) run through both
 methods with identical synthetic Monte Carlo-style inputs -
-offline-reproducible validation of the joint-copula redesign’s core
-claim, without requiring a live network call.
-<code>VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md</code>’s later phases
-extended this validation to a second, independent AOI (finding the same
-result), confirmed negligible full-AOI performance overhead, and closed
-the remaining top-level API gaps - <code>joint_copula</code> is now
-reachable through
+offline-reproducible without a live network call.
+<code>joint_copula</code> is the package default and is reachable
+through
 <code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>/<code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code>’s
-own top-level config, not only via <code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code>
-directly, and is now the package default. What remains open per that
-plan’s own decision-tracking notes: calibrating the depth kernel’s
-discontinuity-gating defaults
-(<code>distinctness_range</code>/<code>min_gate_weight</code>, still off
-by default via <code>vertical_correlation_gating = FALSE</code>) against
-real KSSL/SSURGO profile lag-correlations.</p>
+own top-level config as well as via <code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code>
+directly. The depth kernel’s discontinuity-gating defaults
+(<code>distinctness_range</code>/<code>min_gate_weight</code>) are off
+by default (<code>vertical_correlation_gating = FALSE</code>), pending
+calibration against real KSSL/SSURGO profile lag-correlations.</p>
 </div>
 <div class="section level2">
 <h2 id="where-this-data-came-from">Where this data came from<a class="anchor" aria-label="anchor" href="#where-this-data-came-from"></a>

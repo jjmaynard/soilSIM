@@ -28,10 +28,11 @@ organic carbon - are fused and re-marginalized, and water retention is
 derived from them per (pixel, realization) via the Saxton-Rawls
 pedotransfer function.
 
-See `docs/09_multi_source_raster_fusion_pipeline.md` -\> “Statistical
-structure of the per-pixel bridge” for the full treatment of what the
-resulting uncertainty band does and does not capture; this vignette
-walks the mechanics with real data.
+See
+`docs/the "Multi-Source Raster Fusion Pipeline" architecture article`
+-\> “Statistical structure of the per-pixel bridge” for the full
+treatment of what the resulting uncertainty band does and does not
+capture; this vignette walks the mechanics with real data.
 
 ``` r
 

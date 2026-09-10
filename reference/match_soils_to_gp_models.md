@@ -1,6 +1,6 @@
 # Match Soils to GP Models
 
-Enhanced version with better error handling and fallback strategies
+Match Soils to GP Models
 
 ## Usage
 

@@ -1,7 +1,7 @@
 # Apply GP Depth Trends with Correlation Preservation
 
-Enhanced core function that applies GP-derived depth trends using Module
-8 utilities for robust error handling and validation.
+Applies GP-predicted depth trends to one component's simulation data,
+optionally preserving within-depth cross-property correlations.
 
 ## Usage
 
@@ -52,23 +52,20 @@ apply_gp_depth_trends(
   Optional Monte Carlo config (as from
   [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md))
   whose `monte_carlo$vertical_correlation_method` selects between
-  `"joint_copula"` (default as of
-  `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md` Phase 13 - dispatches to
+  `"joint_copula"` (the default; dispatches to
   [`preserve_correlation_structure_joint()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure_joint.md),
   drawing depth correlation and property correlation simultaneously) and
-  `"gp_quantile_retrofit"` (the original algorithm, still fully
-  supported as an explicit opt-out - dispatches to
+  `"gp_quantile_retrofit"` (an explicit opt-out that dispatches to
   [`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md)).
   `NULL` (default) resolves to `"joint_copula"`, matching
   [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)'s
   own default - set
   `config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"`
-  explicitly to opt back into the original behavior. Under
+  explicitly to select the quantile-retrofit method. Under
   `"joint_copula"`, `config$monte_carlo$vertical_correlation_gating`
   (default `FALSE`) separately controls whether `bound_sd`-based
-  discontinuity gating (Phase 1c/1d) is applied - kept independent of
-  the core method choice since its numeric defaults are not yet
-  empirically calibrated (Phase 8).
+  discontinuity gating is applied. Its numeric defaults are conservative
+  and kept independent of the core method choice.
 
 - gp_models:
 

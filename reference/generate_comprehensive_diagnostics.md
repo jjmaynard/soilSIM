@@ -1,11 +1,10 @@
 # Generate diagnostic plots across all validated workflow components
 
-Builds real plots from `components` (mod01-07 outputs) and
-`validation_results` (this file's own already-computed assessments)
-rather than returning empty placeholders. Each of the 5 categories is
-independently tryCatch-wrapped so a missing/malformed component degrades
-that one category to an empty list rather than failing the whole call -
-matching this file's existing per-step error-tolerance convention.
+Builds plots from `components` (the upstream workflow outputs) and
+`validation_results` (this file's assessments). Each of the 5 categories
+is independently tryCatch-wrapped, so a missing or malformed component
+degrades that one category to an empty list rather than failing the
+whole call.
 
 ## Usage
 

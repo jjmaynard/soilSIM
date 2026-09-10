@@ -1,6 +1,6 @@
-# Setup Distributions (Enhanced)
+# Setup Distributions
 
-Enhanced distribution setup
+Setup Distributions
 
 ## Usage
 
@@ -36,4 +36,4 @@ setup_distributions(
 
 ## Value
 
-Enhanced distribution configuration
+distribution configuration

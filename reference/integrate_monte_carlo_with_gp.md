@@ -2,8 +2,7 @@
 
 Master function that integrates Monte Carlo simulation results with GP
 models to apply realistic depth trends while preserving within-depth
-correlations. Enhanced with Module 8 utilities for robust processing and
-validation.
+correlations.
 
 ## Usage
 
@@ -26,11 +25,12 @@ integrate_monte_carlo_with_gp(
 
 - simulation_results:
 
-  Results from monte_carlo::generate_monte_carlo_realizations()
+  Results from generate_monte_carlo_realizations()
 
 - gp_models:
 
-  Optional NRCS GP models from gp_modeling module
+  Optional fitted NRCS GP depth models (from
+  build_stratified_gp_models())
 
 - cokey_mapping:
 
@@ -58,7 +58,8 @@ integrate_monte_carlo_with_gp(
 
 - config:
 
-  Integration configuration (uses Module 8 defaults if NULL)
+  Integration configuration (uses the package default configuration if
+  NULL)
 
 - verbose:
 

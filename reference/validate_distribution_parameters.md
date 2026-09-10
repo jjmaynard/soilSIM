@@ -1,9 +1,7 @@
-# Validate a Horizon's Fitted Distribution Parameters (Real Implementation)
+# Validate a Horizon's Fitted Distribution Parameters
 
 Thin wrapper around `distributions.R`'s
 [`validate_fit_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_fit_parameters.md).
-Previously this was a stub always returning `valid=TRUE` regardless of
-input, so nothing ever caught a malformed/undefined parameter set.
 
 ## Usage
 

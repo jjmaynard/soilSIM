@@ -12,9 +12,9 @@ whether a percentile triplet came from SSURGO, SOLUS, or a KSSL lab
 table; these functions take plain numeric percentiles and physical
 bounds and hand back fitted-distribution objects, quantile functions,
 ILR-transformed compositional coordinates, and repaired
-positive-definite correlation matrices. See
-`soilSIM/docs/03_distribution_fitting_correlations.md` for the full
-function-level reference.
+positive-definite correlation matrices. See the “Distribution Fitting &
+Correlations” architecture article for the full function-level
+reference.
 
 All data in this vignette is small and synthetic - hand-constructed
 numbers, not a real download - so that each parameter’s effect is easy

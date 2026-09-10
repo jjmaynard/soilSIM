@@ -114,15 +114,11 @@ horizon-thickness variability, and boundary distinctness for whole
 <code><a href="https://ncss-tech.github.io/aqp/reference/SoilProfileCollection-class.html" class="external-link">aqp::SoilProfileCollection</a></code> profiles, using OSD (Official
 Series Description) data to inform boundary perturbation, with
 sequential, parallel (<code>future</code>/<code>future.apply</code>),
-and by-mukey orchestration entry points. Both files were ported from
-<code>code_ref/brdf/property_simulation.R</code> and
-<code>code_ref/brdf/depth_simulation.R</code> respectively; both are
-also the two smaller, standalone-horizon-data helpers
-<code><a href="../reference/remove_organic_layer.html">remove_organic_layer()</a></code> and
-<code><a href="../reference/slice_and_aggregate_soil_data.html">slice_and_aggregate_soil_data()</a></code>
-(<code>property-simulation.R</code>), which are not tied to the
-compositional-simulation machinery but shipped from the same legacy
-file.</p>
+and by-mukey orchestration entry points.
+<code>property-simulation.R</code> also holds two smaller standalone
+horizon-data helpers, <code><a href="../reference/remove_organic_layer.html">remove_organic_layer()</a></code> and
+<code><a href="../reference/slice_and_aggregate_soil_data.html">slice_and_aggregate_soil_data()</a></code>, which are not tied to the
+compositional-simulation machinery.</p>
 </div>
 <div class="section level2">
 <h2 id="core-functions">Core Functions<a class="anchor" aria-label="anchor" href="#core-functions"></a>
@@ -154,9 +150,8 @@ horizon’s original <code>hzdept_r</code> so they stay consistent, zeroes
 any low/high top-depth value that lands exactly on the new top horizon,
 then recomputes <code>hzdept_r</code>/ <code>hzdepb_r</code> (and the
 low/high pairs, if present and not entirely <code>NA</code>) as
-cumulative sums of the original horizon thicknesses - preserving each
-horizon’s thickness while removing the organic layer’s contribution to
-depth.</li>
+cumulative sums of the horizon thicknesses - preserving each horizon’s
+thickness while removing the organic layer’s contribution to depth.</li>
 </ul>
 </div>
 <div class="section level4">
@@ -233,10 +228,9 @@ component (default <code>1000</code>).</li>
 gives <code>sim_comppct</code> ~= 300)
 <ul>
 <li>a component-percent-weighted realization count, not an independently
-meaningful statistic, ported verbatim from the legacy source. This
-output is per-<strong>component</strong>, but the depth-simulation
-functions below need <code>sim_comppct</code> on every
-<strong>horizon</strong> row - see Known Limitations.</li>
+meaningful statistic. This output is per-<strong>component</strong>, but
+the depth-simulation functions below need <code>sim_comppct</code> on
+every <strong>horizon</strong> row - see Known Limitations.</li>
 </ul>
 </li>
 </ul>
@@ -255,8 +249,7 @@ functions below need <code>sim_comppct</code> on every
 <code>params</code> - a list of <code>c(a, b, c)</code> triples, one
 per distribution, in <strong><code>(lower, mode, upper)</code></strong>
 order - note this differs from <code><a href="../reference/tri_dist.html">tri_dist()</a></code>’s own
-<code>(a = lower, b = upper, c = mode)</code> argument convention;
-preserved exactly as the legacy source defines it.</li>
+<code>(a = lower, b = upper, c = mode)</code> argument convention.</li>
 <li>
 <code>correlation_matrix</code> - a square, positive-semi-definite
 correlation matrix, <code>length(params)</code> x
@@ -459,12 +452,10 @@ failure (e.g. no network access), degrades to an all-<code>NA</code>
 already-genhz-averaged <code>bound_sd</code> value on arbitrary horizon
 data, so it can also gate the joint-copula vertical-correlation depth
 kernel (see the GP Depth Modeling &amp; Multivariate Adjustment module,
-<code><a href="../reference/build_depth_correlation_kernel.html">build_depth_correlation_kernel()</a></code>) - previously
-<code>bound_sd</code> was computed and consumed only inside
-<code><a href="../reference/simulate_and_perturb_soil_profiles.html">simulate_and_perturb_soil_profiles()</a></code>, as
+<code><a href="../reference/build_depth_correlation_kernel.html">build_depth_correlation_kernel()</a></code>). <code>bound_sd</code> is
+also used by <code><a href="../reference/simulate_and_perturb_soil_profiles.html">simulate_and_perturb_soil_profiles()</a></code> as
 <code><a href="https://ncss-tech.github.io/aqp/reference/perturb.html" class="external-link">aqp::perturb()</a></code>’s <code>boundary.attr</code> for
-horizon-<em>depth</em> perturbation, and never reached the
-property-<em>value</em> Monte Carlo simulation pipeline. Calls
+horizon-<em>depth</em> perturbation. Calls
 <code><a href="../reference/query_osd_distinctness.html">query_osd_distinctness()</a></code>, then reuses the identical
 <code>dplyr::group_by(id, genhz) |&gt; dplyr::summarise(bound_sd = mean(bound_sd, na.rm = TRUE))</code>
 aggregation <code><a href="../reference/simulate_and_perturb_soil_profiles.html">simulate_and_perturb_soil_profiles()</a></code> already
@@ -966,9 +957,8 @@ It does <strong>not</strong> call anything in
 (<code>R/aws-simulation.R</code>) is documented in
 <code>R/soilSIM-package.R</code> as conceptually downstream in the
 pipeline (depth- sliced, depth-simulated profiles feeding
-available-water-storage estimation, per the legacy
-<code>code/soil_simulation_summary.md</code> workflow), but there is no
-direct function-level call between <code>depth-simulation.R</code> and
+available-water-storage estimation), but there is no direct
+function-level call between <code>depth-simulation.R</code> and
 <code>aws-simulation.R</code> in the current codebase -
 <code>aws-simulation.R</code>’s own header notes it is self-contained
 and does not depend on <code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code> or any other
@@ -1036,10 +1026,9 @@ now calls
 and left-joins the result onto every horizon row by <code>cokey</code>
 internally, mirroring the same pattern
 <code>R/ssurgo-simulation.R</code>’s
-<code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> already used for the
-property-simulation path. Its <code>n_simulations</code> parameter is no
-longer unused - it now flows directly into
-<code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code>’s own <code>n_simulations</code>
+<code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> uses for the
+property-simulation path. Its <code>n_simulations</code> parameter flows
+into <code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code>’s own <code>n_simulations</code>
 argument (number of triangular draws per component).</li>
 </ul>
 </div>

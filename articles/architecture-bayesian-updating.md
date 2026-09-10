@@ -599,14 +599,10 @@ the `*_to_moments()`/`moments_to_*()` fallback chain itself.
 
 ### Integration status
 
-This file is **standalone and not currently called anywhere in
-`monte-carlo.R`** - the module’s own header comment states this
-explicitly. It is a set of independently-tested building blocks for a
-future “update an SSURGO-derived prior against observed/field data”
-feature, not yet wired into the main Monte Carlo simulation pipeline.
+The functions in this file are standalone building blocks; the tabular
+Monte Carlo pipeline in `monte-carlo.R` does not call them directly.
 
-This contrasts with `R/raster-fusion.R`, which reuses these exact
-functions
+`R/raster-fusion.R` uses these same functions
 ([`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md),
 [`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md),
 [`fuse_gamma()`](https://jjmaynard.github.io/soilSIM/reference/fuse_gamma.md),
@@ -615,16 +611,13 @@ the `*_to_moments()`/`moments_to_*()` helpers,
 [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md),
 and
 [`fuse_bivariate_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_bivariate_normal.md))
-as the computational core of a complete, adaptive, per-cell fusion
-pipeline
+as the computational core of an adaptive, per-cell fusion pipeline
 ([`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md)/[`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md))
 that routes between the closed-form and general tiers by AOI cell count
 and includes Lognormal/metalog adapters and infeasible-cell fallback
-handling automatically. In other words: `bayesian-updating.R` supplies
-the primitives with no top-level orchestrator of its own, while
-`raster-fusion.R` assembles those same primitives into one - though
-`raster-fusion.R` is, like this file, also not yet called from
-`monte-carlo.R`.
+handling. In other words: `bayesian-updating.R` supplies the scalar
+primitives, and `raster-fusion.R` assembles the raster-native
+equivalents into a complete pipeline.
 
 ## Data Flow In/Out
 

@@ -1,9 +1,7 @@
 # Draw random samples from a triangular distribution
 
-Ported verbatim from `code_ref/brdf/property_simulation.R`'s
-`tri_dist()` (originally adapted from the `triangle` package), used by
-`R/depth-simulation.R`'s profile-depth simulators. Kept as its own
-random-draw implementation rather than layered on
+Used by `R/depth-simulation.R`'s profile-depth simulators. Kept as its
+own random-draw implementation rather than layered on
 [`quantile_triangular()`](https://jjmaynard.github.io/soilSIM/reference/quantile_triangular.md)
 (a deterministic inverse-CDF evaluator with different degenerate-input
 handling) so its exact edge-case behavior is preserved: it errors on

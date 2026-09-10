@@ -226,15 +226,13 @@ recognize which flat key names belong under
 <p><strong>Returns</strong>: <code>simulation_config</code>, wrapped
 under <code>$monte_carlo</code> if it was flat and its names matched
 known <code>monte_carlo</code> keys; passed through unchanged otherwise.
-<strong>Behavior/rationale</strong>: A flat config previously landed
-silently as an unused top-level key (confirmed by testing: passing
-<code>distribution_type = "normal"</code> flat left
-<code>config$monte_carlo$distribution_type</code> at
-<code>"triangular"</code> every time) since
-<code><a href="../reference/merge_configurations.html">merge_configurations()</a></code> merges strictly by key path. This
-function is called immediately before
-<code><a href="../reference/merge_configurations.html">merge_configurations()</a></code> in
-<code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code> to fix that.</p>
+<strong>Behavior/rationale</strong>: <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>
+merges strictly by key path, so a flat config key
+(e.g. <code>distribution_type = "normal"</code>) would not reach
+<code>config$monte_carlo$distribution_type</code>. This function runs
+immediately before <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code> in
+<code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code> to lift flat keys into
+the <code>monte_carlo</code> sub-list.</p>
 </div>
 <div class="section level3">
 <h3 id="validate_monte_carlo_inputs---input-validation">4. <code>validate_monte_carlo_inputs()</code> - Input
@@ -679,8 +677,7 @@ calls <code>analyze_property_simulation_quality()</code> (finite-rate,
 mean/SD, range) and flags a low success rate; runs
 <code><a href="../reference/detect_outliers.html">detect_outliers()</a></code> (IQR method) and flags a high outlier
 rate (guarding against <code>NaN</code> outlier rates - e.g. a property
-missing from every horizon - which previously crashed the pipeline via
-an <code>if (NaN &gt; x)</code> error instead of degrading gracefully).
+missing from every horizon - with an <code><a href="https://rdrr.io/r/base/is.finite.html" class="external-link">is.finite()</a></code> check).
 Computes <code><a href="../reference/calculate_simulation_quality_metrics.html">calculate_simulation_quality_metrics()</a></code> for an
 overall quality summary, an overall <code>success_rate</code> across all
 properties/horizons/realizations, and sets <code>valid = FALSE</code> if

@@ -1,6 +1,7 @@
 # Fit Local GP Models
 
-Enhanced version with Module 8 validation and configuration management.
+Fits one Gaussian-process depth model per property from a single
+component's depth-aggregated values.
 
 ## Usage
 

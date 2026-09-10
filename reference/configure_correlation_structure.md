@@ -1,6 +1,6 @@
-# Configure Correlation Structure (Enhanced)
+# Configure Correlation Structure
 
-Enhanced correlation configuration
+Configure Correlation Structure
 
 ## Usage
 
@@ -49,4 +49,4 @@ configure_correlation_structure(
 
 ## Value
 
-Enhanced correlation configuration
+correlation configuration

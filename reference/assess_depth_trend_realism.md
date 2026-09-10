@@ -1,7 +1,6 @@
 # Assess Depth Trend Realism
 
-Enhanced depth trend validation using Module 5 prediction functions and
-Module 0 utilities.
+Assess Depth Trend Realism
 
 ## Usage
 

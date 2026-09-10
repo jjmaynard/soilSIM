@@ -1,6 +1,6 @@
 # Fit Individual GP Model
 
-Enhanced version with better error handling and diagnostics
+Fit Individual GP Model
 
 ## Usage
 

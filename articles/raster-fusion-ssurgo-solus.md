@@ -11,9 +11,8 @@ built on the same Bayesian-updating primitives as the scalar
 likelihood) - over a shared, real area of interest (AOI). The
 architecture is designed so future data sources (e.g. HWSD, SoilGrids)
 could plug in as new adapters supplying either side, without changing
-the fusion core. See
-`soilSIM/docs/09_multi_source_raster_fusion_pipeline.md` for the full
-function-level reference.
+the fusion core. See the “Multi-Source Raster Fusion Pipeline”
+architecture article for the full function-level reference.
 
 ``` r
 
@@ -366,8 +365,8 @@ Both fusion routes above ultimately reduce to elementwise arithmetic on
 general grid-KDE fusion) - they already work unchanged on `SpatRaster`
 inputs via `terra`’s operator overloading, so the raster-native code in
 `raster-fusion.R` reuses them directly rather than reimplementing the
-same math per-cell. See `soilSIM/docs/08_bayesian_updating.md` for these
-building blocks used directly on scalar prior/likelihood pairs,
+same math per-cell. See the “Bayesian Updating” architecture article for
+these building blocks used directly on scalar prior/likelihood pairs,
 independent of any raster or AOI.
 
 ## Where this data came from

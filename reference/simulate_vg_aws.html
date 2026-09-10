@@ -112,21 +112,16 @@ columns <code>alpha</code>, <code>sd_alpha</code>, <code>npar</code>, <code>sd_n
 (absent from the result).</p>
     </div>
     <div class="section level2">
-    <h2 id="ported-as-is-behavioral-quirks">Ported-as-is behavioral quirks<a class="anchor" aria-label="anchor" href="#ported-as-is-behavioral-quirks"></a></h2>
+    <h2 id="behavioral-notes">Behavioral notes<a class="anchor" aria-label="anchor" href="#behavioral-notes"></a></h2>
 
 
-<p>Two aspects of this function are preserved exactly as in the legacy source
-rather than "fixed," since both are plausibly intentional design choices
-(not unconditional-crash bugs) and changing either would alter the actual
-simulated values every caller receives:</p><ul><li><p><code>set.seed(123)</code> is called <strong>inside</strong> the per-row loop, so every row
+<ul><li><p><code>set.seed(123)</code> is called <strong>inside</strong> the per-row loop, so every row
 re-seeds and draws from an identically-seeded random stream rather than
 an evolving one across rows.</p></li>
-<li><p>Sampled <code>alpha</code>/<code>n</code> values are back-transformed via <code>10^(...)</code>, i.e. the
+<li><p>Sampled <code>alpha</code>/<code>n</code> values are back-transformed via <code>10^(...)</code>: the
 input <code>data$alpha</code>/<code>data$npar</code> (and their SDs) are treated as already
-being in log10 space. This is a standard technique for keeping van
-Genuchten shape parameters positive after adding Gaussian noise, but
-whether <code><a href="http://ncss-tech.github.io/soilDB/reference/ROSETTA.html" class="external-link">soilDB::ROSETTA()</a></code>'s actual reported values are meant to be
-interpreted this way is not verified by this port.</p></li>
+being in log10 space. This keeps the van Genuchten shape parameters
+positive after Gaussian noise is added.</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

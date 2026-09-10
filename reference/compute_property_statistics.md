@@ -1,6 +1,6 @@
-# Compute Property Statistics (Enhanced)
+# Compute Property Statistics
 
-Enhanced property statistics computation using Module 0 utilities
+Compute Property Statistics
 
 ## Usage
 
@@ -24,4 +24,4 @@ compute_property_statistics(data, properties, config)
 
 ## Value
 
-Enhanced property statistics
+property statistics

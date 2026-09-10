@@ -1,6 +1,6 @@
 # Assess Property Constraints
 
-Enhanced property constraint validation property utilities.
+Assess Property Constraints
 
 ## Usage
 

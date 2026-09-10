@@ -1,7 +1,6 @@
 # Fit a single candidate distribution to a property's values
 
-Modeled on the fitting style used in
-BCQRF/code/R/distribution_fitting.R: a guarded
+Uses a guarded
 [`requireNamespace()`](https://rdrr.io/r/base/ns-load.html) dependency,
 a `tryCatch`-wrapped fit, and a structured return value rather than a
 raw fit object.

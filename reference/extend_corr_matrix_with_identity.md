@@ -4,8 +4,7 @@ Adds a 1-on-diagonal, 0-cross-correlation row/column for each name in
 `missing_names` not already in `m`'s dimnames - the same "uncorrelated
 with everything, safe default" convention
 [`build_kssl_fallback_matrix()`](https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.md)
-uses for properties without KSSL reference data (see
-MULTI_PROPERTY_FUSION_PLAN.md task P2). Used by
+uses for properties without KSSL reference data. Used by
 [`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md)
 as a defensive fallback so an unrecognized-but-requested property
 degrades to independence rather than erroring on

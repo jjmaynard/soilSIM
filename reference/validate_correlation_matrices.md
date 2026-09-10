@@ -1,8 +1,8 @@
 # Validate a set of correlation matrices
 
-Real implementation using the shared
+Validates each matrix with the shared
 [`validate_correlation_matrix()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrix.md)
-(`distributions.R`) - previously a stub always returning `valid=TRUE`.
+(`distributions.R`).
 
 ## Usage
 

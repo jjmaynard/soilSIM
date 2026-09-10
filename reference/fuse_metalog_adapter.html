@@ -99,11 +99,11 @@ both sides to Normal-equivalent moments (<code><a href="metalog_moments_raster.h
 final <code><a href="bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code> step, so there is no richer distributional shape to draw
 percentiles from beyond that Normal approximation; carries forward this route's existing
 "less-validated glue code" caveat (see <code><a href="metalog_moments_raster.html">metalog_moments_raster()</a></code>'s own docs) to its
-percentile output too, not a new limitation introduced here.</p></dd>
+percentile output too.</p></dd>
 
 
 <dt id="arg-mukey-raster-mukey-draws">mukey_raster, mukey_draws<a class="anchor" aria-label="anchor" href="#arg-mukey-raster-mukey-draws"></a></dt>
-<dd><p>Optional raw-draws inputs (added <code>MUKEY_DRAWS_FUSION_ IMPROVEMENT_PLAN.md</code> task P2.12). Metalog has no moment/density fit analogous to
+<dd><p>Optional raw-draws inputs. Metalog has no moment/density fit analogous to
 <code><a href="fuse_closed_form.html">fuse_closed_form()</a></code>'s normal/beta/gamma/lognormal routes (its fit is an exact linear
 interpolation through fixed percentile knots) - the real extension is interpolating through
 each mukey's REAL empirical percentiles (<code><a href="mukey_draws_percentiles_raster.html">mukey_draws_percentiles_raster()</a></code>) instead of the

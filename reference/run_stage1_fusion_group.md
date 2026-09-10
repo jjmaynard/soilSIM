@@ -90,9 +90,9 @@ SSURGO/SOLUS fetch failed.
 [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)'s
 own dispatch slices this down to the single requested member
 (`group_result[[property_config$id]]`) to keep its own per-property
-return contract consistent regardless of `dist`. `percentiles` (added
-`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P3.6) is THIS member's own
-fraction's percentiles (a named list of `SpatRaster`s) - see
+return contract consistent regardless of `dist`. `percentiles` is THIS
+member's own fraction's percentiles (a named list of `SpatRaster`s) -
+see
 [`fuse_texture_group()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group.md)'s
 `@section Sum-to-100 caveat`: unlike `value`, these do NOT generally sum
 to 100 across the group's three members.
@@ -104,22 +104,13 @@ Set `prior_fusion_method = "raw_draws"` on ANY member's
 (clay, sand, silt) Monte Carlo draws instead of independent
 percentile-reconstructed marginals - see
 [`fuse_texture_group()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group.md)'s
-docs and `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4/P2.5.
-Checked across all members (not just one) since the group is always
-fused jointly regardless of which member's config carries the setting.
-Like
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)'s
-equivalent section, this forces the shared simulation to run even when
-every member's own `"ssurgo"` percentile cache is already warm (the
-draws that produced those cached percentiles weren't kept - see
+docs. It is checked across all members (not just one), since the group
+is always fused jointly regardless of which member's config carries the
+setting. This forces the shared simulation to run even when every
+member's own `"ssurgo"` percentile cache is already warm (the draws that
+produced those cached percentiles are not kept - see
 [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)'s
-docs). Unset on every member (default) preserves the original
-percentile-reconstruction behavior exactly. **Unlike
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)'s
-P2.10 default flip, this default is intentionally unchanged** - the
-joint texture-group raw-draws route
-([`fuse_texture_group_batch_core()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_batch.md)'s
-per-cell Cholesky/MC sampler) has no equivalent
-`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` P2.9-style cost benchmark yet,
-so flipping its default too would be an unverified assumption, not a
-data-driven decision.
+docs). Unset on every member (default) uses the
+percentile-reconstruction path; unlike
+[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md),
+the joint texture-group route does not default to raw draws.

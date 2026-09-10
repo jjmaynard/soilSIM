@@ -1,9 +1,8 @@
 # Download SSURGO Tabular Data with Comprehensive Processing
 
-Enhanced version of the proven download_ssurgo_tabular function with
-additional caching, validation, and reporting capabilities while
-maintaining compatibility with existing soil property simulation
-workflows.
+Version of the proven download_ssurgo_tabular function with additional
+caching, validation, and reporting capabilities while maintaining
+compatibility with existing soil property simulation workflows.
 
 ## Usage
 
@@ -32,11 +31,10 @@ download_ssurgo_tabular(
 
   Character vector. Soil properties to download. Default: c("sandtotal",
   "claytotal", "silttotal", "dbovendry", "ph1to1h2o", "cec7", "om",
-  "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar") -
-  the last 5 added in MULTI_PROPERTY_FUSION_PLAN.md task P2 (needs a
-  matching row in
+  "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar").
+  Each needs a matching row in
   [`create_ssurgo_property_lookup_working()`](https://jjmaynard.github.io/soilSIM/reference/create_ssurgo_property_lookup_working.md)
-  to actually reach the SQL query - already present).
+  to reach the SQL query.
 
 - include_restrictions:
 
@@ -67,11 +65,9 @@ download_ssurgo_tabular(
   [`process_aoi_and_get_mukeys_working`](https://jjmaynard.github.io/soilSIM/reference/process_aoi_and_get_mukeys_working.md)
   so it can skip its own independent
   [`soilDB::mukey.wcs()`](http://ncss-tech.github.io/soilDB/reference/mukey.wcs.md)
-  call. `NULL` (default) preserves this function's original behavior
-  exactly (it fetches its own grid) - see
-  `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P1.2 for why this exists
-  (raster-fusion callers that already fetched a mukey grid for the same
-  AOI can now reuse it instead of triggering a second network call).
+  call. `NULL` (default): this function fetches its own grid.
+  Raster-fusion callers that already fetched a mukey grid for the same
+  AOI can pass it here to avoid a second network call.
 
 - verbose:
 

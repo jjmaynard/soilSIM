@@ -1,6 +1,6 @@
 # Assess Simulation Coverage
 
-Enhanced coverage assessment validation utilities.
+Assess Simulation Coverage
 
 ## Usage
 

@@ -1,7 +1,7 @@
 # Create Infill-Compatible Dataset
 
 Creates main processed dataset that's fully compatible with
-infill_soil_property() Uses Module 8 utilities for data manipulation
+infill_soil_property() Uses shared utilities for data manipulation
 
 ## Usage
 

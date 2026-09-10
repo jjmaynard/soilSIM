@@ -1,8 +1,7 @@
 # Validate a fitted distribution's parameters
 
-Real replacement for the always-`valid=TRUE`
-[`validate_distribution_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_distribution_parameters.md)
-stub previously in `mod05_monte_carlo.R`.
+Checks that a fitted distribution's parameters are structurally complete
+and in range for its family.
 
 ## Usage
 

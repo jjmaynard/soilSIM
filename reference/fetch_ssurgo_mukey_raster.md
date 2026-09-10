@@ -32,20 +32,12 @@ named `"mukey"`, or `NULL` if the grid fetch returns nothing.
 
 ## Implementation note
 
-Previously this function *also* issued a separate
-`soilDB::SDA_spatialQuery(what="mupolygon")` vector fetch and rasterized
-it onto `mukey.wcs()`'s own grid purely as a template, discarding that
-grid's own cell values -
-[`soilDB::mukey.wcs()`](http://ncss-tech.github.io/soilDB/reference/mukey.wcs.md)'s
-own documented example
-([`?soilDB::mukey.wcs`](http://ncss-tech.github.io/soilDB/reference/mukey.wcs.md))
-reads mukey codes directly off its returned raster's values
-(`unique(values(res))`), confirming no separate polygon fetch/rasterize
-step is needed. Dropped that redundant fetch (see
-`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`, task P1.1) - this function now
-issues exactly one network call per cache miss instead of two. Also
-disk-cached (`raster-cache.R`, kind `"mukey_grid"`, depth-agnostic key
-via
+[`soilDB::mukey.wcs()`](http://ncss-tech.github.io/soilDB/reference/mukey.wcs.md)
+returns a raster whose cell values are the mukey codes
+(`unique(values(res))`), so no separate polygon fetch/rasterize step is
+needed - the function issues exactly one network call per cache miss.
+The result is disk-cached (`raster-cache.R`, kind `"mukey_grid"`,
+depth-agnostic key via
 [`mukey_grid_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/mukey_grid_cache_key.md))
 so repeated calls for the same AOI across separate top-level user calls
 hit zero network calls.

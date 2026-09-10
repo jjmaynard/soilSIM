@@ -38,10 +38,9 @@ metalog_moments_raster(
 ## Known limitation
 
 This is new glue code with no prior validated version (unlike the rest
-of this file's math, which was validated upstream against
-`fitdistrplus`/ closed-form references) - spot-check against real data
-before trusting it in production, per the original source bundle's own
-caveat.
+of this file's math, which was validated against `fitdistrplus`/
+closed-form references) - spot-check against real data before trusting
+it in production, per the original source bundle's own caveat.
 
 Uses
 [`quantile_metalog_linear_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear_raster.md)

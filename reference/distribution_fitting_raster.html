@@ -4,62 +4,56 @@
 arithmetic and/or terra::app()/terra::lapp() calls to vectorized
 base-R math functions (qnorm, qbeta, digamma/trigamma) - never a
 per-cell optimizer, which is what makes these fast across whole rasters.
-Ported from code_ref/reanalysis-platform/distribution_fitting_raster.R.
 Reuses R/distributions.R's existing metalog_basis_matrix()/
 metalog_to_z()/metalog_from_z() directly rather than duplicating
 them: those functions are pure elementwise arithmetic (log/exp//
 plus building a small, non-spatial coefficient matrix from the fixed
 probability grid), so they already work unchanged whether their x/z
-arguments are plain numerics or terra::SpatRasters - confirmed by a
-dedicated smoke test before this file was written, not assumed.
-Status, from the original source:
+arguments are plain numerics or terra::SpatRasters.
+Family status:
 fit_normal_raster() / quantile_normal_raster() - EXACT.
 quantile_linear_cdf_raster() - EXACT (nonparametric fallback target).
 fit_beta_mom_raster() - method-of-moments Beta fit, APPROXIMATE
 relative to MLE, used only as the Newton-Raphson seed below.
 fit_beta_mle_newton_raster() / quantile_beta_mle_newton_raster() -
-vectorized Newton-Raphson Beta MLE, validated (upstream) directly
-against fitdistrplus::fitdist() (~1e-3 to 1e-5).
+vectorized Newton-Raphson Beta MLE, validated against
+fitdistrplus::fitdist() (~1e-3 to 1e-5).
 fit_metalog_linear_raster() / quantile_metalog_linear_raster() /
 check_metalog_feasibility_raster() / quantile_metalog_linear_with_fallback() -
 exact linear-solve metalog reformulation (matches rmetalog::metalog()
-to ~1e-12 when its own fit is feasible, per upstream validation), with
-a validated fallback to linear_cdf for the cells where it isn't.
+to ~1e-12 when its own fit is feasible), with a fallback to linear_cdf
+for the cells where it isn't.
 
 
-spline is intentionally excluded (per the original project's own
-decision - its accuracy relative to R's splinefun(method=&quot;monoH.FC&quot;)
-was never confirmed bit-exact)."><meta property="og:description" content="Fits a distribution to a property's percentile-value rasters
+spline is not provided as a raster family: its accuracy relative to R's
+splinefun(method = &quot;monoH.FC&quot;) is not confirmed bit-exact."><meta property="og:description" content="Fits a distribution to a property's percentile-value rasters
 (e.g. SSURGO low/rep/high, SOLUS low/pred/high) as pure terra::SpatRaster
 arithmetic and/or terra::app()/terra::lapp() calls to vectorized
 base-R math functions (qnorm, qbeta, digamma/trigamma) - never a
 per-cell optimizer, which is what makes these fast across whole rasters.
-Ported from code_ref/reanalysis-platform/distribution_fitting_raster.R.
 Reuses R/distributions.R's existing metalog_basis_matrix()/
 metalog_to_z()/metalog_from_z() directly rather than duplicating
 them: those functions are pure elementwise arithmetic (log/exp//
 plus building a small, non-spatial coefficient matrix from the fixed
 probability grid), so they already work unchanged whether their x/z
-arguments are plain numerics or terra::SpatRasters - confirmed by a
-dedicated smoke test before this file was written, not assumed.
-Status, from the original source:
+arguments are plain numerics or terra::SpatRasters.
+Family status:
 fit_normal_raster() / quantile_normal_raster() - EXACT.
 quantile_linear_cdf_raster() - EXACT (nonparametric fallback target).
 fit_beta_mom_raster() - method-of-moments Beta fit, APPROXIMATE
 relative to MLE, used only as the Newton-Raphson seed below.
 fit_beta_mle_newton_raster() / quantile_beta_mle_newton_raster() -
-vectorized Newton-Raphson Beta MLE, validated (upstream) directly
-against fitdistrplus::fitdist() (~1e-3 to 1e-5).
+vectorized Newton-Raphson Beta MLE, validated against
+fitdistrplus::fitdist() (~1e-3 to 1e-5).
 fit_metalog_linear_raster() / quantile_metalog_linear_raster() /
 check_metalog_feasibility_raster() / quantile_metalog_linear_with_fallback() -
 exact linear-solve metalog reformulation (matches rmetalog::metalog()
-to ~1e-12 when its own fit is feasible, per upstream validation), with
-a validated fallback to linear_cdf for the cells where it isn't.
+to ~1e-12 when its own fit is feasible), with a fallback to linear_cdf
+for the cells where it isn't.
 
 
-spline is intentionally excluded (per the original project's own
-decision - its accuracy relative to R's splinefun(method=&quot;monoH.FC&quot;)
-was never confirmed bit-exact)."></head><body>
+spline is not provided as a raster family: its accuracy relative to R's
+splinefun(method = &quot;monoH.FC&quot;) is not confirmed bit-exact."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -129,30 +123,27 @@ was never confirmed bit-exact)."></head><body>
 (e.g. SSURGO low/rep/high, SOLUS low/pred/high) as pure <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code>
 arithmetic and/or <code><a href="https://rspatial.github.io/terra/reference/app.html" class="external-link">terra::app()</a></code>/<code><a href="https://rspatial.github.io/terra/reference/lapp.html" class="external-link">terra::lapp()</a></code> calls to <em>vectorized</em>
 base-R math functions (<code>qnorm</code>, <code>qbeta</code>, <code>digamma</code>/<code>trigamma</code>) - never a
-per-cell optimizer, which is what makes these fast across whole rasters.
-Ported from <code>code_ref/reanalysis-platform/distribution_fitting_raster.R</code>.</p>
+per-cell optimizer, which is what makes these fast across whole rasters.</p>
 <p>Reuses <code>R/distributions.R</code>'s existing <code><a href="metalog_basis_matrix.html">metalog_basis_matrix()</a></code>/
 <code>metalog_to_z()</code>/<code>metalog_from_z()</code> directly rather than duplicating
 them: those functions are pure elementwise arithmetic (<code>log</code>/<code>exp</code>/<code>/</code>
 plus building a small, non-spatial coefficient matrix from the fixed
 probability grid), so they already work unchanged whether their <code>x</code>/<code>z</code>
-arguments are plain numerics or <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code>s - confirmed by a
-dedicated smoke test before this file was written, not assumed.</p>
-<p>Status, from the original source:</p><ul><li><p><code><a href="fit_normal_raster.html">fit_normal_raster()</a></code> / <code><a href="fit_normal_raster.html">quantile_normal_raster()</a></code> - EXACT.</p></li>
+arguments are plain numerics or <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code>s.</p>
+<p>Family status:</p><ul><li><p><code><a href="fit_normal_raster.html">fit_normal_raster()</a></code> / <code><a href="fit_normal_raster.html">quantile_normal_raster()</a></code> - EXACT.</p></li>
 <li><p><code><a href="quantile_linear_cdf_raster.html">quantile_linear_cdf_raster()</a></code> - EXACT (nonparametric fallback target).</p></li>
 <li><p><code><a href="fit_beta_mom_raster.html">fit_beta_mom_raster()</a></code> - method-of-moments Beta fit, APPROXIMATE
 relative to MLE, used only as the Newton-Raphson seed below.</p></li>
 <li><p><code><a href="fit_beta_mle_newton_raster.html">fit_beta_mle_newton_raster()</a></code> / <code><a href="fit_beta_mle_newton_raster.html">quantile_beta_mle_newton_raster()</a></code> -
-vectorized Newton-Raphson Beta MLE, validated (upstream) directly
-against <code><a href="https://lbbe-software.github.io/fitdistrplus/reference/fitdist.html" class="external-link">fitdistrplus::fitdist()</a></code> (~1e-3 to 1e-5).</p></li>
+vectorized Newton-Raphson Beta MLE, validated against
+<code><a href="https://lbbe-software.github.io/fitdistrplus/reference/fitdist.html" class="external-link">fitdistrplus::fitdist()</a></code> (~1e-3 to 1e-5).</p></li>
 <li><p><code><a href="fit_metalog_linear_raster.html">fit_metalog_linear_raster()</a></code> / <code><a href="fit_metalog_linear_raster.html">quantile_metalog_linear_raster()</a></code> /
 <code><a href="check_metalog_feasibility_raster.html">check_metalog_feasibility_raster()</a></code> / <code><a href="quantile_metalog_linear_with_fallback.html">quantile_metalog_linear_with_fallback()</a></code> -
 exact linear-solve metalog reformulation (matches <code>rmetalog::metalog()</code>
-to ~1e-12 when its own fit is feasible, per upstream validation), with
-a validated fallback to <code>linear_cdf</code> for the cells where it isn't.</p></li>
-</ul><p><code>spline</code> is intentionally excluded (per the original project's own
-decision - its accuracy relative to R's <code>splinefun(method="monoH.FC")</code>
-was never confirmed bit-exact).</p>
+to ~1e-12 when its own fit is feasible), with a fallback to <code>linear_cdf</code>
+for the cells where it isn't.</p></li>
+</ul><p><code>spline</code> is not provided as a raster family: its accuracy relative to R's
+<code>splinefun(method = "monoH.FC")</code> is not confirmed bit-exact.</p>
     </div>
 
 

@@ -1,6 +1,6 @@
 # Select Optimal Grouping Strategy
 
-Enhanced version that uses Module 0 validation utilities
+Select Optimal Grouping Strategy
 
 ## Usage
 

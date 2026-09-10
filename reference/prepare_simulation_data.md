@@ -1,6 +1,6 @@
-# Prepare Simulation Data (Enhanced)
+# Prepare Simulation Data
 
-Enhanced data preparation
+Prepare Simulation Data
 
 ## Usage
 

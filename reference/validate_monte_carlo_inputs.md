@@ -1,4 +1,4 @@
-# Validate Monte Carlo Inputs (Enhanced)
+# Validate Monte Carlo Inputs
 
 Comprehensive input validation
 

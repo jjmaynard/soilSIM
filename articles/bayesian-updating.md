@@ -11,9 +11,9 @@ it computes, what each parameter controls, and how varying that
 parameter changes the result. It is the finer-grained, “read the
 primitives” companion to `raster-fusion-ssurgo-solus.Rmd`, which
 exercises this exact math implicitly (raster-native, cell by cell)
-inside its fusion pipeline but never isolates it. See
-`soilSIM/docs/08_bayesian_updating.md` for the full function-level
-reference this vignette is based on.
+inside its fusion pipeline but never isolates it. See the “Bayesian
+Updating” architecture article for the full function-level reference
+this vignette is based on.
 
 `bayesian-updating.R` fuses a **prior** belief about a soil property
 (e.g. an SSURGO-derived estimate) with a **likelihood** - newly observed
@@ -581,8 +581,8 @@ clay/sand/silt triplets - that full workflow is
 [`fuse_texture_group_from_triplets()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_from_triplets.md),
 which wraps this function together with `distributions.R`’s
 [`estimate_ilr_moments_mc()`](https://jjmaynard.github.io/soilSIM/reference/estimate_ilr_moments_mc.md)/[`sample_ilr_posterior()`](https://jjmaynard.github.io/soilSIM/reference/sample_ilr_posterior.md);
-see `soilSIM/docs/08_bayesian_updating.md` for that whole chain). Here
-we fuse two independent bivariate Normal beliefs about a 2D ILR
+see the “Bayesian Updating” architecture article for that whole chain).
+Here we fuse two independent bivariate Normal beliefs about a 2D ILR
 coordinate pair directly:
 
 ``` r
@@ -773,7 +773,7 @@ observed/field data” feature. `R/raster-fusion.R` is the one place these
 exact functions are already assembled into a complete pipeline, applying
 them unchanged to `SpatRaster` cell values (via `terra`’s operator
 overloading) rather than plain scalars/vectors - see
-`raster-fusion-ssurgo-solus.Rmd` for that pipeline in action, and
-`soilSIM/docs/08_bayesian_updating.md` /
-`soilSIM/docs/09_multi_source_raster_fusion_pipeline.md` for the full
-function-level references behind both.
+`raster-fusion-ssurgo-solus.Rmd` for that pipeline in action, and the
+“Bayesian Updating” architecture article / the “Multi-Source Raster
+Fusion Pipeline” architecture article for the full function-level
+references behind both.

@@ -47,9 +47,7 @@ clean_property_data(
 
   `"aggressive_iqr"`
 
-  :   generic `IQR x 3` for every property alike (the legacy
-      [`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md)
-      behavior). Opt-in only.
+  :   generic `IQR x 3` for every property alike. Opt-in only.
 
   `"none"`
 

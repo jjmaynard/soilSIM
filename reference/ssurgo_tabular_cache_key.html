@@ -4,7 +4,7 @@ it fetches every horizon for every AOI mukey; depth filtering happens later, per
 aggregate_depth_window_by_replicate(). The downloaded tabular data therefore depends only on
 the AOI (and the fixed default properties list every call site uses - never varied), not on
 any depth window. Keying the tabular cache on top_depth/bottom_depth (as it was before this
-function existed - MULTI_PROPERTY_FUSION_PLAN.md task L1) fragments one AOI's cache into one
+function existed -) fragments one AOI's cache into one
 unusable copy per distinct window ever requested for it, so e.g. run_stage1_fusion_multi()'s
 wide-span simulation and a later single-window run_stage1_fusion() call for the same AOI never
 shared a tabular download. Mirrors mukey_grid_cache_key()'s fixed-sentinel pattern."><meta property="og:description" content="download_ssurgo_tabular() (R/ssurgo-acquisition.R) takes no depth-window argument at all -
@@ -12,7 +12,7 @@ it fetches every horizon for every AOI mukey; depth filtering happens later, per
 aggregate_depth_window_by_replicate(). The downloaded tabular data therefore depends only on
 the AOI (and the fixed default properties list every call site uses - never varied), not on
 any depth window. Keying the tabular cache on top_depth/bottom_depth (as it was before this
-function existed - MULTI_PROPERTY_FUSION_PLAN.md task L1) fragments one AOI's cache into one
+function existed -) fragments one AOI's cache into one
 unusable copy per distinct window ever requested for it, so e.g. run_stage1_fusion_multi()'s
 wide-span simulation and a later single-window run_stage1_fusion() call for the same AOI never
 shared a tabular download. Mirrors mukey_grid_cache_key()'s fixed-sentinel pattern."></head><body>
@@ -86,7 +86,7 @@ it fetches every horizon for every AOI mukey; depth filtering happens later, per
 <code><a href="aggregate_depth_window_by_replicate.html">aggregate_depth_window_by_replicate()</a></code>. The downloaded tabular data therefore depends only on
 the AOI (and the fixed default <code>properties</code> list every call site uses - never varied), not on
 any depth window. Keying the tabular cache on <code>top_depth</code>/<code>bottom_depth</code> (as it was before this
-function existed - MULTI_PROPERTY_FUSION_PLAN.md task L1) fragments one AOI's cache into one
+function existed -) fragments one AOI's cache into one
 unusable copy per distinct window ever requested for it, so e.g. <code><a href="run_stage1_fusion_multi.html">run_stage1_fusion_multi()</a></code>'s
 wide-span simulation and a later single-window <code><a href="run_stage1_fusion.html">run_stage1_fusion()</a></code> call for the same AOI never
 shared a tabular download. Mirrors <code><a href="mukey_grid_cache_key.html">mukey_grid_cache_key()</a></code>'s fixed-sentinel pattern.</p>

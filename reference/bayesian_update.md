@@ -107,13 +107,12 @@ around the resampled `samples` vector.
 
 ## Known limitation (raw-draws fusion vs. percentile-reconstruction fusion)
 
-A dedicated adversarial test (`MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`
-task P2.7) found that for a skewed prior fused against a weak/wide
-likelihood, `soilSIM`'s `prior_fusion_method = "raw_draws"` route (a
-genuine empirical resample as the prior side) can produce a fused
-posterior mean measurably *less* close to the prior population's true
-mean than the default percentile-reconstruction route, in a way that
-first looked like a bandwidth-selection bug. Task P3.1's follow-up
+A dedicated adversarial test found that for a skewed prior fused against
+a weak/wide likelihood, `soilSIM`'s `prior_fusion_method = "raw_draws"`
+route (a genuine empirical resample as the prior side) can produce a
+fused posterior mean measurably *less* close to the prior population's
+true mean than the default percentile-reconstruction route, in a way
+that first looked like a bandwidth-selection bug. Task P3.1's follow-up
 investigation ruled that out directly (forcing both routes onto the
 exact same [`stats::density()`](https://rdrr.io/r/stats/density.html)
 bandwidth left the gap essentially unchanged) and traced the real

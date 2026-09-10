@@ -1,15 +1,11 @@
 # Clean Property Data (SSURGO Compatible) - deprecated
 
-**Deprecated.** Superseded by
-[`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md),
-which is now the single property-value cleaner for the package. This
-shim forwards to it with `outlier_policy = "aggressive_iqr"` (the
-generic `IQR x 3` this function used to apply) and
-`generate_report = TRUE`, so existing callers keep their exact behavior.
-New code should call
+**Deprecated.** Use
 [`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md)
-directly and choose an `outlier_policy` explicitly - `"soil_aware"` is
-the recommended default.
+directly. This shim forwards to it with
+`outlier_policy = "aggressive_iqr"` (a generic `IQR x 3`) and
+`generate_report = TRUE`. New code should choose an `outlier_policy`
+explicitly; `"soil_aware"` is the recommended default.
 
 ## Usage
 

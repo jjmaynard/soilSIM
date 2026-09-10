@@ -105,12 +105,8 @@ evaluating the closed-form van Genuchten (1980) water-retention curve,
 Monte Carlo-simulating available water holding capacity (AWHC) from
 ROSETTA-derived pedotransfer parameters, and depth-slicing/summarizing
 AWHC per soil component. It is implemented entirely in
-<code>R/aws-simulation.R</code> and is self-contained - unlike
-<code>R/depth-simulation.R</code>’s functions, none of the three
-functions here depend on any other not-yet-ported helper
-(e.g. <code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code>). It can be read, tested, and
-used in isolation from the rest of the <code>soilSIM</code>
-migration.</p>
+<code>R/aws-simulation.R</code>. The three functions here are
+self-contained and depend on no other part of the package.</p>
 </div>
 <div class="section level2">
 <h2 id="core-functions">Core Functions<a class="anchor" aria-label="anchor" href="#core-functions"></a>
@@ -193,43 +189,35 @@ permanent wilting point are converted from kPa to cmH2O (1 kPa =
 10.19716 cmH2O): <code>h_fc = -33 * 10.19716</code> and
 <code>h_pwp = -1500 * 10.19716</code>. A per-draw data frame is built
 with the sampled/back-transformed parameters plus <code>sim_num</code>,
-then <code><a href="https://dplyr.tidyverse.org/reference/rowwise.html" class="external-link">dplyr::rowwise()</a></code> + <code><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">dplyr::mutate()</a></code> calls
+then a vectorized <code><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">dplyr::mutate()</a></code> calls
 <code><a href="../reference/van_genuchten.html">van_genuchten()</a></code> once at <code>h_fc</code> and once at
 <code>h_pwp</code> to get <code>theta_fc</code> and
 <code>theta_pwp</code> for each draw;
-<code>AWHC &lt;- theta_fc - theta_pwp</code> is computed as a plain
-vectorized column after ungrouping. The resulting per-row data frame is
-stored in the output list under key
-<code>paste(data$layerID[i], i, sep = "_")</code>.</p>
-<p><strong>Ported-as-is behavioral quirks</strong> (documented in the
-source as intentional, not bugs): - <code>set.seed(123)</code> is called
-<strong>inside</strong> the per-row loop, so every row re-seeds and
-draws from an identically-seeded random stream rather than an evolving
-stream across rows. This means the <code>n_simulations</code> draws for
-row 1 and row 2 (before back-transformation) are numerically identical
-in their underlying <code><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm()</a></code> output, differing only through
-each row’s own mean/SD. - Sampled <code>alpha</code>/<code>n</code>
-values are back-transformed via <code>10^(...)</code>, i.e. the input
+<code>AWHC &lt;- theta_fc - theta_pwp</code> is a plain vectorized
+column. The resulting per-row data frame is stored in the output list
+under key <code>paste(data$layerID[i], i, sep = "_")</code>.</p>
+<p><strong>Behavioral notes</strong>: - <code>set.seed(123)</code> is
+called <strong>inside</strong> the per-row loop, so every row re-seeds
+and draws from an identically-seeded random stream rather than an
+evolving stream across rows. The <code>n_simulations</code> draws for
+row 1 and row 2 (before back-transformation) share the same underlying
+<code><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm()</a></code> output, differing only through each row’s own
+mean/SD. - Sampled <code>alpha</code>/<code>n</code> values are
+back-transformed via <code>10^(...)</code>: the input
 <code>data$alpha</code>/<code>data$npar</code> (and their SDs) are
-treated as already being in log10 space. This is a standard technique
-for keeping van Genuchten shape parameters positive after adding
-Gaussian noise, but whether <code><a href="http://ncss-tech.github.io/soilDB/reference/ROSETTA.html" class="external-link">soilDB::ROSETTA()</a></code>’s actual
-reported values are meant to be interpreted this way is not
-independently verified by this port - it is preserved exactly as it
-existed in the legacy source.</p>
+treated as already being in log10 space, which keeps the van Genuchten
+shape parameters positive after Gaussian noise is added.</p>
 </div>
 <div class="section level3">
 <h3 id="aws_slab_mean---internal-slab-fun-helper-not-exported">3. <code>.aws_slab_mean()</code> - Internal <code>slab.fun</code>
 Helper (not exported)<a class="anchor" aria-label="anchor" href="#aws_slab_mean---internal-slab-fun-helper-not-exported"></a>
 </h3>
-<p><strong>Purpose</strong>: A minimal replacement for the
-no-longer-available <code>aqp::mean_na()</code> (removed/renamed in
-current <code>aqp</code> versions), preserving its old
-single-value-per-slab contract that <code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code>’s current
-default <code>slab.fun</code>
-(<code>slab_function(method = "numeric")</code>) does not provide (the
-current default returns quantile columns instead of a single
-<code>value</code> column).</p>
+<p><strong>Purpose</strong>: A minimal <code>slab.fun</code> returning a
+single na.rm mean per slab in a <code>value</code> column.
+<code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code>’s current default <code>slab.fun</code>
+(<code>slab_function(method = "numeric")</code>) returns quantile
+columns instead, which <code><a href="https://tidyr.tidyverse.org/reference/pivot_wider.html" class="external-link">tidyr::pivot_wider()</a></code> in
+<code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code> cannot consume.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">.aws_slab_mean</span><span class="op">(</span><span class="va">values</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
@@ -244,12 +232,12 @@ passes additional arguments positionally.</li>
 <p><strong>Returns</strong>: A single numeric value,
 <code>mean(values, na.rm = TRUE)</code>.</p>
 <p><strong>Algorithm/behavior</strong>: One-line pass-through to
-<code>mean(values, na.rm = TRUE)</code>. It exists purely so
+<code>mean(values, na.rm = TRUE)</code>. It exists so
 <code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code>’s call to <code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code>
-yields a <code>value</code> column that
-<code><a href="https://tidyr.tidyverse.org/reference/pivot_wider.html" class="external-link">tidyr::pivot_wider()</a></code> can consume, matching the shape the
-legacy code relied on from the now-removed
-<code>aqp::mean_na()</code>.</p>
+yields a single <code>value</code> column that
+<code><a href="https://tidyr.tidyverse.org/reference/pivot_wider.html" class="external-link">tidyr::pivot_wider()</a></code> can consume;
+<code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code>’s current default <code>slab.fun</code> returns
+quantile columns instead.</p>
 </div>
 <div class="section level3">
 <h3 id="calculate_aws_df---master-aws-by-depth-interval-function">4. <code>calculate_aws_df()</code> - Master AWS-by-Depth-Interval
@@ -317,14 +305,11 @@ on this object).
 <code>aqp::slab(sim_aws_df, fm = cokey ~ AWHC, slab.structure = c(0, 5, 15, 30, 60, 100), slab.fun = .aws_slab_mean)</code>
 then computes the mean AWHC within each of the fixed depth slabs (0-5,
 5-15, 15-30, 30-60, 60-100 cm) per <code>cokey</code>, using the local
-<code>.aws_slab_mean()</code> in place of the removed
-<code>aqp::mean_na()</code>. Finally, the slab output has its
+<code>.aws_slab_mean()</code>. Finally, the slab output has its
 <code>contributing_fraction</code> column dropped and is pivoted wider
 via
-<code>tidyr::pivot_wider(names_from = variable, values_from = value)</code>,
-and any remaining <code>NA</code> values are reassigned to
-<code>NA</code> (a no-op cleanup line preserved from the original
-source) before the data frame is returned.</p>
+<code>tidyr::pivot_wider(names_from = variable, values_from = value)</code>
+before the data frame is returned.</p>
 </div>
 </div>
 <div class="section level2">
@@ -368,16 +353,14 @@ source) before the data frame is returned.</p>
 <div class="section level3">
 <h3 id="soilsim-dependencies-consumers">soilSIM dependencies / consumers<a class="anchor" aria-label="anchor" href="#soilsim-dependencies-consumers"></a>
 </h3>
-<p>This module is a leaf/standalone module within <code>soilSIM</code>.
-It does not call into any other not-yet-ported <code>soilSIM</code>
-helper (unlike <code>R/depth-simulation.R</code>, which depends on
-<code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code>). Upstream, component-level texture,
-bulk-density, and water-retention data produced by SSURGO
+<p>This is a leaf group within <code>soilSIM</code>: it does not call
+into any other <code>soilSIM</code> helper. Upstream, component-level
+texture, bulk-density, and water-retention data produced by SSURGO
 acquisition/property-simulation steps elsewhere in <code>soilSIM</code>
 can be reshaped into the
 <code>sand_total</code>/<code>silt_total</code>/<code>clay_total</code>/<code>bulk_density_third_bar</code>/<code>water_retention_third_bar</code>/<code>water_retention_15_bar</code>/<code>compname</code>/<code>hzdept_r</code>/<code>hzdepb_r</code>/<code>cokey</code>
 shape <code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code> expects, but no such wiring exists
-inside this file itself - the caller is responsible for producing
+inside this file - the caller is responsible for producing
 <code>sim_data_df</code> in the expected shape.</p>
 </div>
 </div>
@@ -418,31 +401,22 @@ There is no offline/local fallback path in this file.</li>
 <li>
 <strong>Per-row <code>set.seed(123)</code> re-seeding</strong>
 (<code><a href="../reference/simulate_vg_aws.html">simulate_vg_aws()</a></code>): the random seed is reset inside the
-per-row loop rather than being set once before the loop, so each row’s
-Monte Carlo draws come from an identically-seeded random stream. This is
-preserved intentionally from the legacy source rather than “fixed,”
-since it may be a deliberate reproducibility choice and changing it
-would alter the simulated AWHC values every caller receives.</li>
+per-row loop rather than once before it, so each row’s Monte Carlo draws
+come from an identically-seeded random stream.</li>
 <li>
 <strong><code>10^(...)</code> back-transformation of
 <code>alpha</code>/<code>npar</code></strong>
 (<code><a href="../reference/simulate_vg_aws.html">simulate_vg_aws()</a></code>): sampled <code>alpha</code> and
-<code>n</code> values are exponentiated as if the input means/SDs were
-supplied in log10 space. This is a standard technique for keeping van
-Genuchten shape parameters positive, but whether
-<code><a href="http://ncss-tech.github.io/soilDB/reference/ROSETTA.html" class="external-link">soilDB::ROSETTA()</a></code>’s actual output values are intended to be
-interpreted this way has not been independently verified by this port -
-it is preserved as-is.</li>
+<code>n</code> values are exponentiated, treating the input means/SDs as
+supplied in log10 space. This keeps the van Genuchten shape parameters
+positive.</li>
 <li>
-<strong><code>.aws_slab_mean()</code> as a replacement for
-<code>aqp::mean_na()</code></strong>: current versions of
-<code>aqp</code> no longer export <code>mean_na()</code>
-(removed/renamed), and <code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code>’s current default
-<code>slab.fun</code> returns quantile columns rather than a single
-<code>value</code> column. <code>.aws_slab_mean()</code> is a minimal
-local stand-in restoring the old single-value-per-slab contract; if
-<code>aqp</code>’s API changes further, this shim may need
-revisiting.</li>
+<strong><code>.aws_slab_mean()</code> as
+<code>slab.fun</code></strong>: <code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code>’s current
+default <code>slab.fun</code> returns quantile columns rather than a
+single <code>value</code> column, so <code>.aws_slab_mean()</code>
+supplies a single na.rm mean per slab; if <code>aqp</code>’s API
+changes, this helper may need revisiting.</li>
 <li>
 <strong>Silent row-skipping in
 <code><a href="../reference/simulate_vg_aws.html">simulate_vg_aws()</a></code></strong>: rows with any missing van

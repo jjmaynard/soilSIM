@@ -135,7 +135,7 @@ RFV-specific imputation (<code><a href="../reference/impute_rfv_values.html">imp
 <code><a href="../reference/summarize_unsuitable_horizons.html">summarize_unsuitable_horizons()</a></code>
 </li>
 </ol>
-<p>See <code>soilSIM/docs/01_data_acquisition_processing.md</code> for
+<p>See the “Data Acquisition &amp; Processing” architecture article for
 the full function-level reference this vignette is drawn from.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://jjmaynard.github.io/soilSIM/">soilSIM</a></span><span class="op">)</span></span>
@@ -688,7 +688,7 @@ routine infilling:</p>
 <span>  <span class="va">wr_input</span>, max_depth <span class="op">=</span> <span class="fl">150</span>, overwrite <span class="op">=</span> <span class="cn">TRUE</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co"># every suitable, in-depth, texture-and-bulk-density-complete row now gets a Saxton-Rawls estimate,</span></span>
-<span><span class="co"># not just the previously-missing ones</span></span>
+<span><span class="co"># not just the ones that were missing</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">wr_overwrite</span><span class="op">$</span><span class="va">wthirdbar_r</span><span class="op">)</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">wr_result</span><span class="op">$</span><span class="va">wthirdbar_r</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 0</span></span></code></pre></div>
 </div>
@@ -750,13 +750,11 @@ alone would let through:</p>
 <span><span class="va">clay_values</span><span class="op">[</span><span class="va">result</span><span class="op">$</span><span class="va">violations</span><span class="op">]</span></span>
 <span><span class="co">#&gt; numeric(0)</span></span></code></pre></div>
 <p>Relationship rules like the sum-to-100 texture rule added above are
-recorded on the config but are <em>not</em> currently enforced by
+recorded on the config but are <em>not</em> enforced by
 <code><a href="../reference/apply_validation_rules.html">apply_validation_rules()</a></code> (it only evaluates
-<code>range_rules</code>) - this matches the legacy reference
-implementation’s behavior rather than being an oversight introduced
-here, but it means a relationship rule alone won’t flag anything until a
-caller writes their own enforcement against
-<code>config$relationship_rules</code>.</p>
+<code>range_rules</code>) - this is by design, but it means a
+relationship rule alone won’t flag anything until a caller writes their
+own enforcement against <code>config$relationship_rules</code>.</p>
 <p>Finally, <code><a href="../reference/summarize_unsuitable_horizons.html">summarize_unsuitable_horizons()</a></code> (introduced in
 Step 2) is worth revisiting here as the reporting counterpart to this
 validation layer - it tells you what was <em>excluded</em> from all of
@@ -788,9 +786,8 @@ recoverable) for every requested property, an
 <code>getting-started-monte-carlo.Rmd</code> starts Step 3 from -
 percentile-triplet distribution fitting and the correlated Monte Carlo
 simulation core both consume these <code>_l/_r/_h</code> columns
-directly. See
-<code>soilSIM/docs/01_data_acquisition_processing.md</code> for the full
-function-level reference, and
+directly. See the “Data Acquisition &amp; Processing” architecture
+article for the full function-level reference, and
 <code>getting-started-monte-carlo.Rmd</code> for how this output feeds
 into simulation.</p>
 </div>

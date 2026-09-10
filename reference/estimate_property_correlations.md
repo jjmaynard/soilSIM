@@ -1,4 +1,4 @@
-# Estimate a Correlation Matrix from Simulation Parameters (Real Implementation)
+# Estimate a Correlation Matrix from Simulation Parameters
 
 Builds one representative-value-per-horizon data frame - the per-horizon
 fitted mean/mode for each property (for composition-group
@@ -7,9 +7,7 @@ fitted mean IS the representative value) - plus `genhz` from
 `simulation_data` if present, then calls `distributions.R`'s
 [`estimate_correlation_matrix_robust()`](https://jjmaynard.github.io/soilSIM/reference/estimate_correlation_matrix_robust.md)
 ([`Hmisc::rcorr()`](https://rdrr.io/pkg/Hmisc/man/rcorr.html) +
-PD-repair, genhz-stratified when possible). Previously this was a
-placeholder always returning `valid=FALSE`, so `auto_correlation=TRUE`
-silently fell back to the identity matrix.
+PD-repair, genhz-stratified when possible).
 
 ## Usage
 
@@ -58,11 +56,11 @@ estimate_property_correlations(
 ## Details
 
 When `config$monte_carlo$correlation_fallback == "kssl_global"` (opt-in;
-defaults to `"identity"`, today's exact behavior), a group that fails
-empirical estimation falls back to that group's own KSSL reference
-correlation matrix (`kssl-reference-correlations.R`) instead of being
-dropped, and the final identity fallback becomes a KSSL-pooled matrix
-instead. `genhz` is auto-derived from `simulation_data$hzname` via
+defaults to `"identity"`), a group that fails empirical estimation falls
+back to that group's own KSSL reference correlation matrix
+(`kssl-reference-correlations.R`) instead of being dropped, and the
+final identity fallback becomes a KSSL-pooled matrix instead. `genhz` is
+auto-derived from `simulation_data$hzname` via
 [`classify_genhz()`](https://jjmaynard.github.io/soilSIM/reference/classify_genhz.md)
 when this is requested and `simulation_data$genhz` isn't already
 present - scoped narrowly behind the opt-in flag so a caller who has

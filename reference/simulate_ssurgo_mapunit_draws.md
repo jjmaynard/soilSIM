@@ -70,11 +70,9 @@ An object of class `character` of length 15.
   -\>
   [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md).
   `config$monte_carlo$vertical_correlation_method` (default
-  `"joint_copula"` as of `VERTICAL_CORRELATION_IMPROVEMENT_PLAN.md`
-  Phase 13; set to `"gp_quantile_retrofit"` to opt back into the
-  original algorithm) selects this top-level entry point's
-  vertical-correlation method; `NULL` (default) resolves to
-  `"joint_copula"`, matching
+  `"joint_copula"` default, or `"gp_quantile_retrofit"`) selects this
+  top-level entry point's vertical-correlation method; `NULL` (default)
+  resolves to `"joint_copula"`, matching
   [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)'s
   own default.
 
@@ -89,9 +87,8 @@ An object of class `character` of length 15.
   so its tabular fetch reuses it instead of issuing a second,
   independent
   [`soilDB::mukey.wcs()`](http://ncss-tech.github.io/soilDB/reference/mukey.wcs.md)
-  call - see `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P1.2/P1.3.
-  Only consulted on a `"ssurgo_tabular"` cache miss. `NULL` (default)
-  preserves original behavior exactly.
+  call. Only consulted on a `"ssurgo_tabular"` cache miss. `NULL`
+  (default): the tabular fetch issues its own call.
 
 - depth_windows:
 
@@ -154,38 +151,23 @@ sibling let them be recovered - see
 This function's own disk cache
 ([`build_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/build_cache_key.md)/[`cache_get()`](https://jjmaynard.github.io/soilSIM/reference/cache_get.md)/[`cache_set()`](https://jjmaynard.github.io/soilSIM/reference/cache_set.md)
 via
-[`ssurgo_tabular_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/ssurgo_tabular_cache_key.md),
-keyed by `aoi_vect` **only** - depth-independent as of
-MULTI_PROPERTY_FUSION_PLAN.md task L1, since
+[`ssurgo_tabular_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/ssurgo_tabular_cache_key.md))
+is keyed by `aoi_vect` **only** -
 [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
 takes no depth-window argument and fetches every horizon for every AOI
-mukey regardless) is separate from
+mukey - and is separate from
 [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)'s
 own `cache_dir` parameter (always `NULL` here). One AOI's tabular
 download is shared across every depth window/call requested for that
-AOI. A cache entry written before component recovery shipped predates it
-entirely - clear that cache entry (or the whole cache directory) to pick
-up recovered components. Entries written before the L1 fix (keyed by
-`aoi_vect`/depth window) are simply orphaned and age out via the normal
-TTL - no migration needed.
+AOI. Clear the cache entry (or the whole cache directory) to force a
+fresh fetch.
 
-This function's own SIMULATED output (as opposed to the raw tabular
-SSURGO input it's cached from) is deliberately NOT disk-cached - every
-call re-simulates fresh random draws, matching the original contract
-exactly. An earlier version of `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md`
-task P2.1 added an unconditional disk cache here so raster-fusion's
-raw-draws opt-in (`R/raster-fusion.R`'s
-[`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md))
-could reuse draws across calls - reverted after review: it silently
-froze repeat output for EVERY caller of this function (including ones
-with nothing to do with raw-draws fusion, e.g. direct
-[`fetch_ssurgo_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_percentiles.md)
-use), which broke this project's own "default unchanged until opted in"
-convention. Raw-draws fusion instead reuses draws purely in-memory
+This function's SIMULATED output is not disk-cached: every call
+re-simulates fresh random draws. Raw-draws fusion reuses draws in memory
 within one
 [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
-call (compute once, use for both the percentile cache and
-[`mukey_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md)) -
-see that function's implementation and
+call (computed once, used for both the percentile cache and
+[`mukey_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md));
+see also
 [`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)'s
-pre-existing `shared_draws` pattern, which already did this.
+`shared_draws` pattern.

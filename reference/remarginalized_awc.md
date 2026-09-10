@@ -71,8 +71,7 @@ remarginalized_awc(
   Optional single-layer
   [`terra::SpatRaster`](https://rspatial.github.io/terra/reference/SpatRaster-class.html)
   of restriction depth in cm - typically
-  `fetch_solus_restriction_depth(aoi_vect)`
-  (MULTI_PROPERTY_FUSION_PLAN.md task S2), already
+  `fetch_solus_restriction_depth(aoi_vect)`, already
   right-censoring-guarded (cells with no detected restriction are `Inf`,
   never `SOLUS_RESTRICTION_CENSOR_CM` itself). `NULL` (default)
   preserves today's behavior exactly - every window contributes its full

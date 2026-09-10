@@ -139,8 +139,8 @@ returns <code>NULL</code> on error via its own outer <code><a href="https://rdrr
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list of <code>FUN(x, ...)</code> results, one per element of <code>X</code>, in <code>X</code>'s order - the same
-shape <code><a href="https://rdrr.io/r/parallel/clusterApply.html" class="external-link">parallel::parLapply()</a></code>/<code>mclapply()</code> already produced, so callers that previously
-consumed those results (e.g. via <code><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">dplyr::bind_rows()</a></code> or manual concatenation) need no change.</p>
+shape <code><a href="https://rdrr.io/r/parallel/clusterApply.html" class="external-link">parallel::parLapply()</a></code>/<code>mclapply()</code> already produced, so callers can consume the result
+with <code><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">dplyr::bind_rows()</a></code> or manual concatenation.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

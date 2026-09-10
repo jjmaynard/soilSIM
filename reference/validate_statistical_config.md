@@ -1,6 +1,6 @@
 # Validate Statistical Configuration
 
-Validate statistical analysis configuration using Module 0 utilities
+Validate statistical analysis configuration
 
 ## Usage
 

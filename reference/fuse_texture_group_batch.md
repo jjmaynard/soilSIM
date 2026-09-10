@@ -79,9 +79,8 @@ fuse_texture_group_batch_core(
 
 - mukey_prior_texture_samples:
 
-  Optional - opts into `prior_fusion_method = "raw_draws"` (see
-  `MUKEY_DRAWS_FUSION_IMPROVEMENT_PLAN.md` task P2.4). A named list,
-  keyed by mukey (as character), each element an `n_mc x 3` matrix
+  Optional - opts into `prior_fusion_method = "raw_draws"` . A named
+  list, keyed by mukey (as character), each element an `n_mc x 3` matrix
   (columns `clay_total`/`sand_total`/ `silt_total`) of real joint
   texture draws for that mukey - see
   [`mukey_texture_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_texture_draws_lookup.md).

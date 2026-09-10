@@ -1,6 +1,6 @@
-# Apply Simulation Constraints (Enhanced)
+# Apply Simulation Constraints
 
-Enhanced constraint application
+Apply Simulation Constraints
 
 ## Usage
 

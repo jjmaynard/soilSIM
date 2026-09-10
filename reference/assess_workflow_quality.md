@@ -1,6 +1,6 @@
 # Assess Workflow Quality
 
-Enhanced quality assessment validation framework.
+Assess Workflow Quality
 
 ## Usage
 

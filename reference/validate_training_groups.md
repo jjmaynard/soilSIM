@@ -1,6 +1,6 @@
 # Validate Training Groups
 
-Enhanced validation using Module 0 utilities
+Validate Training Groups
 
 ## Usage
 

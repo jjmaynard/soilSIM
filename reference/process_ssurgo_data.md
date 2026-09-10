@@ -1,9 +1,8 @@
 # Process SSURGO Data (Main Entry Point)
 
-Enhanced version that maintains compatibility with working
-infill_soil_property() while adding comprehensive processing,
-validation, and reporting capabilities. Uses Module 8 utilities for
-general processing tasks.
+Version that maintains compatibility with working infill_soil_property()
+while adding comprehensive processing, validation, and reporting
+capabilities. Uses shared utilities for general processing tasks.
 
 ## Usage
 

@@ -39,13 +39,9 @@ this output onto horizon-level data by `cokey` before passing it to
 those functions - this function alone does not satisfy their
 requirement.
 
-## `sim_comppct`'s derivation is unusual - documented, not "fixed"
+## `sim_comppct`'s derivation
 
-`sim_comppct <- round(sum(<n_simulations> triangular draws of comppct) / 100)` -
-this is `round(n_simulations * comppct_r / 100)` in expectation (e.g.
-`comppct_r = 30`, `n_simulations = 1000` -\> `sim_comppct` ~= 300), not
-an independently-meaningful simulation count. Ported verbatim
-(preserve-behavior convention) since the legacy pipeline's exact intent
-for this derivation isn't independently confirmable from this file
-alone - do not assume it means something more sensible than what's
-written here.
+`sim_comppct <- round(sum(<n_simulations> triangular draws of comppct) / 100)`,
+which is `round(n_simulations * comppct_r / 100)` in expectation (e.g.
+`comppct_r = 30`, `n_simulations = 1000` -\> `sim_comppct` ~= 300). It
+is not an independently-meaningful simulation count.
