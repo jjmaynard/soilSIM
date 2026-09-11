@@ -65,11 +65,13 @@ deviation) - one value per grid cell, at SOLUS100's native 100 m resolution:
 
 ```{r}
 fusion_clay$posterior$mu
-terra::plot(fusion_clay$posterior$mu, main = "Fused posterior mean clay content (%)")
+terra::plot(fusion_clay$posterior$mu, main = "Fused posterior mean clay content (%)",
+            mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
 ```{r}
-terra::plot(fusion_clay$posterior$sigma, main = "Fused posterior clay uncertainty (SD)")
+terra::plot(fusion_clay$posterior$sigma, main = "Fused posterior clay uncertainty (SD)",
+            mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
 ### Comparing the prior, likelihood, and fused posterior
@@ -106,7 +108,8 @@ terra::plot(
   main = c("SSURGO prior (median)", "SOLUS likelihood (median)", "Fused posterior mean"),
   col = grDevices::hcl.colors(50, "viridis"),
   range = shared_range,
-  nc = 3
+  nc = 3,
+  mar = c(3.1, 3.1, 5.1, 7.1)
 )
 ```
 
@@ -180,7 +183,8 @@ credible_width <- p95 - p05
 terra::plot(
   credible_width,
   main = "90% credible interval width (P95 - P5) for clay content (%)",
-  col = grDevices::hcl.colors(50, "inferno", rev = TRUE)
+  col = grDevices::hcl.colors(50, "inferno", rev = TRUE),
+  mar = c(3.1, 3.1, 5.1, 7.1)
 )
 ```
 
@@ -204,7 +208,8 @@ elevated_clay_risk <- p95 > 25
 terra::plot(
   elevated_clay_risk,
   main = "Cells where P95 clay content exceeds 25% (elevated-clay risk)",
-  col = c("grey85", "firebrick")
+  col = c("grey85", "firebrick"),
+  mar = c(3.1, 3.1, 5.1, 7.1)
 )
 ```
 
@@ -252,7 +257,8 @@ fusion's guarantee, verified here on real fused output rather than just asserted
 terra::plot(c(fusion_texture$clay$posterior$value,
               fusion_texture$sand$posterior$value,
               fusion_texture$silt$posterior$value),
-            main = c("Clay", "Sand", "Silt"))
+            main = c("Clay", "Sand", "Silt"),
+            mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
 Each member also carries its own fraction's posterior percentiles, drawn from a dedicated
