@@ -7,8 +7,8 @@ per candidate. Shared helper used by
 [`optimize_gp_hyperparameters()`](https://jjmaynard.github.io/soilSIM/reference/optimize_gp_hyperparameters.md)
 and
 [`perform_gp_cross_validation()`](https://jjmaynard.github.io/soilSIM/reference/perform_gp_cross_validation.md)
-(validation-diagnostics.R) so the fold-splitting logic is not duplicated
-across files.
+(diagnostics.R) so the fold-splitting logic is not duplicated across
+files.
 
 ## Usage
 

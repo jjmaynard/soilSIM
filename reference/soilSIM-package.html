@@ -27,7 +27,7 @@ adapters."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -109,8 +109,8 @@ that operates on any low/representative/high triplet or prior/likelihood
 pair regardless of where the numbers came from, and a set of
 source-specific <strong>adapters</strong> that acquire, process, and shape a given soil
 data product's output into that generic form. SSURGO
-(<code>ssurgo-acquisition.R</code>, <code>ssurgo-processing.R</code>, <code>ssurgo-simulation.R</code>) and
-SOLUS100 (<code>solus-simulation.R</code>) are the two adapters shipped today; new
+(<code>adapter-ssurgo-acquire.R</code>, <code>adapter-ssurgo-process.R</code>, <code>adapter-ssurgo-simulate.R</code>) and
+SOLUS100 (<code>adapter-solus.R</code>) are the two adapters shipped today; new
 data sources are intended to plug in as additional adapters alongside
 them, reusing the same core rather than duplicating it.</p>
     </div>
@@ -119,7 +119,7 @@ them, reusing the same core rather than duplicating it.</p>
 
 
 <p>The SSURGO adapter: <code><a href="download_ssurgo_tabular.html">download_ssurgo_tabular()</a></code>/
-<code><a href="download_and_prepare_ssurgo.html">download_and_prepare_ssurgo()</a></code> acquire and cache tabular SSURGO data for
+<code><a href="fetch_ssurgo_data.html">fetch_ssurgo_data()</a></code> acquire and cache tabular SSURGO data for
 an area of interest; <code><a href="process_ssurgo_data.html">process_ssurgo_data()</a></code> cleans and standardizes it
 into modeling-ready horizon/component tables;
 <code><a href="process_soil_properties_comprehensive.html">process_soil_properties_comprehensive()</a></code>/<code><a href="infill_soil_property.html">infill_soil_property()</a></code> fill
@@ -131,7 +131,7 @@ missing property values using pedologically informed recovery strategies.</p>
 
 <p><code><a href="analyze_soil_statistics.html">analyze_soil_statistics()</a></code> characterizes processed data (correlations,
 distribution fitting, outliers, summary statistics);
-<code><a href="validate_complete_workflow.html">validate_complete_workflow()</a></code>/<code><a href="generate_validation_report.html">generate_validation_report()</a></code> provide
+<code><a href="diagnose_workflow.html">diagnose_workflow()</a></code>/<code><a href="generate_validation_report.html">generate_validation_report()</a></code> provide
 end-to-end quality assurance across the full simulation workflow.</p>
     </div>
     <div class="section level2">
@@ -149,7 +149,7 @@ transforms used for compositional texture data.</p>
     <h2 id="monte-carlo-simulation-core-">Monte Carlo simulation (core)<a class="anchor" aria-label="anchor" href="#monte-carlo-simulation-core-"></a></h2>
 
 
-<p><code><a href="generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code> is the master pipeline for correlated
+<p><code><a href="simulate_monte_carlo.html">simulate_monte_carlo()</a></code> is the master pipeline for correlated
 Monte Carlo simulation of soil properties from percentile inputs;
 <code><a href="simulate_correlated_properties.html">simulate_correlated_properties()</a></code> is its Cholesky-copula core simulator.</p>
     </div>
@@ -157,8 +157,8 @@ Monte Carlo simulation of soil properties from percentile inputs;
     <h2 id="gp-depth-modeling-amp-multivariate-adjustment-core-">GP depth modeling &amp; multivariate adjustment (core)<a class="anchor" aria-label="anchor" href="#gp-depth-modeling-amp-multivariate-adjustment-core-"></a></h2>
 
 
-<p><code><a href="build_stratified_gp_models.html">build_stratified_gp_models()</a></code>/<code><a href="simulate_soil_properties.html">simulate_soil_properties()</a></code> fit and apply
-Gaussian-process depth-trend models; <code><a href="integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code>
+<p><code><a href="fit_depth_gp_models.html">fit_depth_gp_models()</a></code>/<code><a href="simulate_soil_properties.html">simulate_soil_properties()</a></code> fit and apply
+Gaussian-process depth-trend models; <code><a href="apply_depth_gp_to_simulation.html">apply_depth_gp_to_simulation()</a></code>
 combines Monte Carlo output with GP depth trends across a whole dataset
 while preserving cross-property correlation structure.</p>
     </div>
@@ -166,24 +166,24 @@ while preserving cross-property correlation structure.</p>
     <h2 id="profile-component-amp-depth-simulation">Profile, component &amp; depth simulation<a class="anchor" aria-label="anchor" href="#profile-component-amp-depth-simulation"></a></h2>
 
 
-<p><code><a href="sim_component_comp.html">sim_component_comp()</a></code>/<code><a href="simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code> simulate component
+<p><code><a href="simulate_component_composition.html">simulate_component_composition()</a></code>/<code><a href="simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code> simulate component
 composition and per-cokey properties;
-<code><a href="simulate_and_perturb_soil_profiles.html">simulate_and_perturb_soil_profiles()</a></code>/<code><a href="simulate_profile_depths_by_mukey.html">simulate_profile_depths_by_mukey()</a></code>
+<code><a href="simulate_and_perturb_soil_profiles.html">simulate_and_perturb_soil_profiles()</a></code>/<code><a href="simulate_profile_depths.html">simulate_profile_depths()</a></code>
 simulate horizon depths and thicknesses for whole soil profiles.</p>
     </div>
     <div class="section level2">
     <h2 id="aws-van-genuchten-modeling">AWS / Van Genuchten modeling<a class="anchor" aria-label="anchor" href="#aws-van-genuchten-modeling"></a></h2>
 
 
-<p><code><a href="van_genuchten.html">van_genuchten()</a></code>/<code><a href="simulate_vg_aws.html">simulate_vg_aws()</a></code>/<code><a href="calculate_aws_df.html">calculate_aws_df()</a></code> estimate
+<p><code><a href="van_genuchten.html">van_genuchten()</a></code>/<code><a href="simulate_vg_aws.html">simulate_vg_aws()</a></code>/<code><a href="compute_aws.html">compute_aws()</a></code> estimate
 available water storage from ROSETTA pedotransfer parameters.</p>
     </div>
     <div class="section level2">
     <h2 id="bayesian-updating-scalar-core-">Bayesian updating (scalar, core)<a class="anchor" aria-label="anchor" href="#bayesian-updating-scalar-core-"></a></h2>
 
 
-<p><code><a href="bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code> and family provide closed-form same-family
-fusion of a prior and observed data; <code><a href="bayesian_update.html">bayesian_update()</a></code> provides a fully
+<p><code><a href="fuse_normal_normal.html">fuse_normal_normal()</a></code> and family provide closed-form same-family
+fusion of a prior and observed data; <code><a href="update_prior.html">update_prior()</a></code> provides a fully
 general grid-KDE fusion for arbitrary distributions;
 <code><a href="fuse_texture_group_from_triplets.html">fuse_texture_group_from_triplets()</a></code> fuses compositional texture data
 jointly in ILR space.</p>
@@ -192,7 +192,7 @@ jointly in ILR space.</p>
     <h2 id="multi-source-raster-fusion-pipeline">Multi-source raster fusion pipeline<a class="anchor" aria-label="anchor" href="#multi-source-raster-fusion-pipeline"></a></h2>
 
 
-<p><code><a href="fuse_property_adaptive.html">fuse_property_adaptive()</a></code>/<code><a href="fuse_texture_group.html">fuse_texture_group()</a></code> (in <code>raster-fusion.R</code>)
+<p><code><a href="fuse_property_adaptive.html">fuse_property_adaptive()</a></code>/<code><a href="fuse_texture_group.html">fuse_texture_group()</a></code> (in <code>core-fusion.R</code>)
 are the generic raster-native fusion core, combining prior and likelihood
 <code>SpatRaster</code> inputs cell-by-cell over an area of interest; the SSURGO
 adapter (<code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>) supplies the prior side and the

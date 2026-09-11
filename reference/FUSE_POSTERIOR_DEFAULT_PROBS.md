@@ -32,7 +32,7 @@ For the closed-form analytic routes (`qnorm`/`qbeta`/`qgamma`), extra
 percentiles are free and exact regardless of how extreme they are. For
 [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)'s
 sample/grid-based route, percentiles are read directly off
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)'s
 discretized `posterior_prob` (see that function's own "Grid-based
 percentiles" section) - exact relative to `grid_resolution` and NOT
 resampling-noise-limited, but still subject to how well the underlying

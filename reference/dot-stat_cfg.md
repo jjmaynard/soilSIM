@@ -1,6 +1,6 @@
 # Resolve a statistical-analysis config value: nested location, then flat, then default
 
-[`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md)
+[`default_statistics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_statistics_config.md)
 nests every statistical parameter under
 `config$statistical_analysis$...`, but the enhanced-chain functions
 ([`analyze_property_distributions()`](https://jjmaynard.github.io/soilSIM/reference/analyze_property_distributions.md),
@@ -15,7 +15,7 @@ chain. This mirrors
 own `config$statistical_analysis$X %||% config$X %||% <default>` pattern
 (see its `min_quality_score` line). Defaults here match the `_safe`
 chain's hardcoded values and
-[`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md).
+[`default_statistics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_statistics_config.md).
 
 ## Usage
 

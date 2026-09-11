@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -116,8 +116,8 @@ function-level reference, including two behavioral notes on
 <div class="section level2">
 <h2 id="step-1-real-texturebulk-density-input">Step 1: Real texture/bulk-density input<a class="anchor" aria-label="anchor" href="#step-1-real-texturebulk-density-input"></a>
 </h2>
-<p><code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code> expects ROSETTA’s own input variable
-names (<code>sand_total</code>, <code>silt_total</code>,
+<p><code><a href="../reference/compute_aws.html">compute_aws()</a></code> expects ROSETTA’s own input variable names
+(<code>sand_total</code>, <code>silt_total</code>,
 <code>clay_total</code>, <code>bulk_density_third_bar</code>,
 <code>water_retention_third_bar</code>,
 <code>water_retention_15_bar</code>) - different from soilSIM’s usual
@@ -141,22 +141,21 @@ Started” vignette:</p>
 <span><span class="co">#&gt; 7    Chaix       20       86       66.3         10                   1.50</span></span></code></pre></div>
 <p>These are 15 real horizons across 2 real components from the
 Amador-area AOI, each with complete real texture, bulk density, and
-water-retention data (<code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code> requires all six
+water-retention data (<code><a href="../reference/compute_aws.html">compute_aws()</a></code> requires all six
 ROSETTA input variables present).</p>
 </div>
 <div class="section level2">
 <h2 id="step-2-run-rosetta-and-simulate-available-water-storage">Step 2: Run ROSETTA and simulate available water storage<a class="anchor" aria-label="anchor" href="#step-2-run-rosetta-and-simulate-available-water-storage"></a>
 </h2>
-<p><code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code> (1) calls
-<code><a href="http://ncss-tech.github.io/soilDB/reference/ROSETTA.html" class="external-link">soilDB::ROSETTA()</a></code> - a live POST to
-<code>handbook60.org</code> - to derive van Genuchten shape parameters
-from the texture/bulk-density inputs, (2) Monte Carlo-simulates field
-capacity and permanent wilting point water content via
-<code><a href="../reference/simulate_vg_aws.html">simulate_vg_aws()</a></code>, and (3) depth-slices the result to
+<p><code><a href="../reference/compute_aws.html">compute_aws()</a></code> (1) calls <code><a href="http://ncss-tech.github.io/soilDB/reference/ROSETTA.html" class="external-link">soilDB::ROSETTA()</a></code> -
+a live POST to <code>handbook60.org</code> - to derive van Genuchten
+shape parameters from the texture/bulk-density inputs, (2) Monte
+Carlo-simulates field capacity and permanent wilting point water content
+via <code><a href="../reference/simulate_vg_aws.html">simulate_vg_aws()</a></code>, and (3) depth-slices the result to
 standard intervals via <code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code>:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># The real call this vignette's cached data came from (requires live network access):</span></span>
-<span><span class="va">aws_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calculate_aws_df.html">calculate_aws_df</a></span><span class="op">(</span><span class="va">rosetta_input</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">aws_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compute_aws.html">compute_aws</a></span><span class="op">(</span><span class="va">rosetta_input</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">aws_result</span> <span class="op">&lt;-</span> <span class="va">aws_example</span><span class="op">$</span><span class="va">result</span></span>
 <span><span class="va">aws_result</span></span>
@@ -218,8 +217,8 @@ depth-resolved pattern instead of flattening it away:</p>
 <h2 id="step-3-the-underlying-water-retention-curve">Step 3: The underlying water-retention curve<a class="anchor" aria-label="anchor" href="#step-3-the-underlying-water-retention-curve"></a>
 </h2>
 <p><code><a href="../reference/van_genuchten.html">van_genuchten()</a></code> is the closed-form curve
-<code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code> evaluates internally at field capacity
-(-33 kPa) and permanent wilting point (-1500 kPa) matric potentials. The
+<code><a href="../reference/compute_aws.html">compute_aws()</a></code> evaluates internally at field capacity (-33
+kPa) and permanent wilting point (-1500 kPa) matric potentials. The
 three curves below use illustrative shape parameters only -
 representative of the ranges ROSETTA typically returns for a sandy,
 loamy, and clayey texture respectively - not values derived from this
@@ -270,9 +269,9 @@ vignette’s real data:</p>
 (<code>inst/extdata/aws_rosetta_example.rds</code>) was produced once by
 <code>data-raw/build_vignette_data.R</code>, which builds the ROSETTA
 input from the same real Amador-area SSURGO download as the “Getting
-Started” vignette, then calls <code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code> live
-(requiring network access to <code>handbook60.org</code>). Re-run that
-script to refresh it.</p>
+Started” vignette, then calls <code><a href="../reference/compute_aws.html">compute_aws()</a></code> live (requiring
+network access to <code>handbook60.org</code>). Re-run that script to
+refresh it.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

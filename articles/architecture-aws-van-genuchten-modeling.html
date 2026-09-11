@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -105,8 +105,8 @@ evaluating the closed-form van Genuchten (1980) water-retention curve,
 Monte Carlo-simulating available water holding capacity (AWHC) from
 ROSETTA-derived pedotransfer parameters, and depth-slicing/summarizing
 AWHC per soil component. It is implemented entirely in
-<code>R/aws-simulation.R</code>. The three functions here are
-self-contained and depend on no other part of the package.</p>
+<code>R/model-aws.R</code>. The three functions here are self-contained
+and depend on no other part of the package.</p>
 </div>
 <div class="section level2">
 <h2 id="core-functions">Core Functions<a class="anchor" aria-label="anchor" href="#core-functions"></a>
@@ -161,7 +161,7 @@ layer/component, and columns <code>alpha</code>, <code>sd_alpha</code>,
 <code>sd_theta_r</code>, <code>theta_s</code>, <code>sd_theta_s</code>,
 <code>layerID</code> - exactly the shape produced by
 <code>soilDB::ROSETTA(..., include.sd = TRUE)</code> plus a caller-added
-<code>layerID</code> (see <code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code>).</li>
+<code>layerID</code> (see <code><a href="../reference/compute_aws.html">compute_aws()</a></code>).</li>
 <li>
 <code>n_simulations</code> - Number of Monte Carlo draws per row
 (default <code>100</code>).</li>
@@ -217,7 +217,7 @@ single na.rm mean per slab in a <code>value</code> column.
 <code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code>’s current default <code>slab.fun</code>
 (<code>slab_function(method = "numeric")</code>) returns quantile
 columns instead, which <code><a href="https://tidyr.tidyverse.org/reference/pivot_wider.html" class="external-link">tidyr::pivot_wider()</a></code> in
-<code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code> cannot consume.</p>
+<code><a href="../reference/compute_aws.html">compute_aws()</a></code> cannot consume.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">.aws_slab_mean</span><span class="op">(</span><span class="va">values</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
@@ -233,15 +233,14 @@ passes additional arguments positionally.</li>
 <code>mean(values, na.rm = TRUE)</code>.</p>
 <p><strong>Algorithm/behavior</strong>: One-line pass-through to
 <code>mean(values, na.rm = TRUE)</code>. It exists so
-<code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code>’s call to <code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code>
-yields a single <code>value</code> column that
-<code><a href="https://tidyr.tidyverse.org/reference/pivot_wider.html" class="external-link">tidyr::pivot_wider()</a></code> can consume;
-<code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code>’s current default <code>slab.fun</code> returns
-quantile columns instead.</p>
+<code><a href="../reference/compute_aws.html">compute_aws()</a></code>’s call to <code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code> yields a
+single <code>value</code> column that <code><a href="https://tidyr.tidyverse.org/reference/pivot_wider.html" class="external-link">tidyr::pivot_wider()</a></code>
+can consume; <code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code>’s current default
+<code>slab.fun</code> returns quantile columns instead.</p>
 </div>
 <div class="section level3">
-<h3 id="calculate_aws_df---master-aws-by-depth-interval-function">4. <code>calculate_aws_df()</code> - Master AWS-by-Depth-Interval
-Function<a class="anchor" aria-label="anchor" href="#calculate_aws_df---master-aws-by-depth-interval-function"></a>
+<h3 id="compute_aws---master-aws-by-depth-interval-function">4. <code>compute_aws()</code> - Master AWS-by-Depth-Interval
+Function<a class="anchor" aria-label="anchor" href="#compute_aws---master-aws-by-depth-interval-function"></a>
 </h3>
 <p><strong>Purpose</strong>: Runs <code><a href="http://ncss-tech.github.io/soilDB/reference/ROSETTA.html" class="external-link">soilDB::ROSETTA()</a></code> on soil
 texture/bulk-density/water-retention inputs to derive van Genuchten
@@ -251,7 +250,7 @@ AWHC per component over standard depth intervals via
 <code><a href="https://ncss-tech.github.io/aqp/reference/slab.html" class="external-link">aqp::slab()</a></code>.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/calculate_aws_df.html">calculate_aws_df</a></span><span class="op">(</span><span class="va">sim_data_df</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/compute_aws.html">compute_aws</a></span><span class="op">(</span><span class="va">sim_data_df</span><span class="op">)</span></span></code></pre></div>
 <ul>
 <li>
 <code>sim_data_df</code> - A data frame with one row per horizon,
@@ -315,7 +314,7 @@ before the data frame is returned.</p>
 <div class="section level2">
 <h2 id="internal-connections">Internal Connections<a class="anchor" aria-label="anchor" href="#internal-connections"></a>
 </h2>
-<pre><code>calculate_aws_df(sim_data_df)
+<pre><code>compute_aws(sim_data_df)
 ├── soilDB::ROSETTA(sim_data_df, vars, v = "3", include.sd = TRUE)   [live network call to handbook60.org]
 │   └── (internally uses httr::POST())
 ├── layerID construction (paste(compname, hzdept_r, sep = "_"))
@@ -336,7 +335,7 @@ before the data frame is returned.</p>
 <div class="section level3">
 <h3 id="external-packages">External packages<a class="anchor" aria-label="anchor" href="#external-packages"></a>
 </h3>
-<pre><code>soilSIM (aws-simulation.R)
+<pre><code>soilSIM (model-aws.R)
 ├── soilDB::ROSETTA()   - REQUIRED, live network call (POST to handbook60.org); derives van Genuchten
 │                          pedotransfer parameters (alpha, npar, theta_r, theta_s + SDs) from
 │                          texture/bulk-density/water-retention inputs
@@ -347,7 +346,7 @@ before the data frame is returned.</p>
 ├── tidyr::pivot_wider()- reshapes aqp::slab()'s long output to a value-per-row shape
 └── httr                - Suggests-guarded: not called directly by this file, but required
                            transitively because soilDB::ROSETTA() uses it internally for the
-                           HTTP POST; calculate_aws_df() checks requireNamespace("httr", ...)
+                           HTTP POST; compute_aws() checks requireNamespace("httr", ...)
                            up front and stops with a clear message if it's absent</code></pre>
 </div>
 <div class="section level3">
@@ -359,7 +358,7 @@ texture, bulk-density, and water-retention data produced by SSURGO
 acquisition/property-simulation steps elsewhere in <code>soilSIM</code>
 can be reshaped into the
 <code>sand_total</code>/<code>silt_total</code>/<code>clay_total</code>/<code>bulk_density_third_bar</code>/<code>water_retention_third_bar</code>/<code>water_retention_15_bar</code>/<code>compname</code>/<code>hzdept_r</code>/<code>hzdepb_r</code>/<code>cokey</code>
-shape <code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code> expects, but no such wiring exists
+shape <code><a href="../reference/compute_aws.html">compute_aws()</a></code> expects, but no such wiring exists
 inside this file - the caller is responsible for producing
 <code>sim_data_df</code> in the expected shape.</p>
 </div>
@@ -390,9 +389,8 @@ property tables downstream.</p>
 </h2>
 <ul>
 <li>
-<strong>Live network dependency</strong>:
-<code><a href="../reference/calculate_aws_df.html">calculate_aws_df()</a></code> requires live network access.
-<code><a href="http://ncss-tech.github.io/soilDB/reference/ROSETTA.html" class="external-link">soilDB::ROSETTA()</a></code> POSTs to
+<strong>Live network dependency</strong>: <code><a href="../reference/compute_aws.html">compute_aws()</a></code>
+requires live network access. <code><a href="http://ncss-tech.github.io/soilDB/reference/ROSETTA.html" class="external-link">soilDB::ROSETTA()</a></code> POSTs to
 <code>https://www.handbook60.org/api/v1/rosetta/&lt;version&gt;</code>
 via <code><a href="https://httr.r-lib.org/reference/POST.html" class="external-link">httr::POST()</a></code> rather than computing pedotransfer
 parameters locally. Calling this function without internet connectivity,
@@ -450,7 +448,7 @@ an explicit <code>NA</code> row.</li>
 <span><span class="co"># NOTE: requires live network access - calls soilDB::ROSETTA(), which POSTs</span></span>
 <span><span class="co"># to https://www.handbook60.org via httr::POST(). Will fail if offline or</span></span>
 <span><span class="co"># if handbook60.org is unreachable.</span></span>
-<span><span class="va">aws_by_depth</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calculate_aws_df.html">calculate_aws_df</a></span><span class="op">(</span><span class="va">sim_data_df</span><span class="op">)</span></span>
+<span><span class="va">aws_by_depth</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compute_aws.html">compute_aws</a></span><span class="op">(</span><span class="va">sim_data_df</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># aws_by_depth: long-format data frame with columns cokey, top, bottom, AWHC</span></span>
 <span><span class="co"># - one row per depth slab (0-5, 5-15, 15-30, 30-60, 60-100 cm) actually</span></span>

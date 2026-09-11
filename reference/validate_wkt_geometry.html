@@ -9,7 +9,7 @@ Supports multiple coordinate systems, validation contexts, and customizable thre
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -62,7 +62,7 @@ Supports multiple coordinate systems, validation contexts, and customizable thre
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Validate WKT Geometry (Generic)</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/utils.R" class="external-link"><code>R/utils.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/geometry.R" class="external-link"><code>R/geometry.R</code></a></small>
       <div class="d-none name"><code>validate_wkt_geometry.Rd</code></div>
     </div>
 
@@ -136,7 +136,7 @@ the granular validators below (<code><a href="validate_wkt_string.html">validate
 duplicating their logic inline. <code>validation_context</code>, <code>complexity_limits</code>,
 and <code>strict_mode</code> are all read. The result is the nested
 <code>geometry_stats$complexity_validation$complexity_stats</code> shape that
-<code>ssurgo-acquisition.R</code>'s downstream code expects.</p>
+<code>adapter-ssurgo-acquire.R</code>'s downstream code expects.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

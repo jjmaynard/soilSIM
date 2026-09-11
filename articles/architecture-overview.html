@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -137,8 +137,8 @@ cross-file dependencies, data flow, and known limitations.</p>
                       │  05 GP depth modeling &amp; adjustment        │
                       │  08 Bayesian updating (scalar)            │
                       │  09 Raster fusion core (distribution-     │
-                      │     fitting-raster.R, raster-fusion.R,    │
-                      │     raster-cache.R)                       │
+                      │     fitting-raster.R, core-fusion.R,    │
+                      │     cache.R)                       │
                       └───────────────┬───────────────────────────┘
                                       │ consumed by / feeds
               ┌───────────────────────┼───────────────────────┐
@@ -200,10 +200,10 @@ property-lookup helper).</p>
 │    with_gp                 │
 └───────────────────────────┘
         │
-        ├──► 06 sim_component_comp / simulate_profile_depths_by_mukey
+        ├──► 06 simulate_component_composition / simulate_profile_depths
         │    (component composition + horizon depth/thickness variability)
         │
-        ├──► 07 calculate_aws_df (available water storage via ROSETTA/Van Genuchten)
+        ├──► 07 compute_aws (available water storage via ROSETTA/Van Genuchten)
         │
         ▼
 ┌───────────────────────────┐        ┌───────────────────────────┐
@@ -255,8 +255,9 @@ directly.</p>
 Acquisition &amp; Processing</a></td>
 <td>SSURGO data acquisition, cleaning, infilling</td>
 <td>
-<code>ssurgo-acquisition.R</code>, <code>ssurgo-processing.R</code>,
-<code>data-infilling.R</code>
+<code>adapter-ssurgo-acquire.R</code>,
+<code>adapter-ssurgo-process.R</code>,
+<code>adapter-ssurgo-infill.R</code>
 </td>
 </tr>
 <tr class="even">
@@ -265,8 +266,7 @@ Acquisition &amp; Processing</a></td>
 Diagnostics</a></td>
 <td>Statistical characterization + workflow QA</td>
 <td>
-<code>statistics.R</code>,
-<code>validation-diagnostics.R</code>
+<code>statistics.R</code>, <code>diagnostics.R</code>
 </td>
 </tr>
 <tr class="odd">
@@ -275,8 +275,8 @@ Diagnostics</a></td>
 Fitting &amp; Correlation Matrices</a></td>
 <td>Percentile fitting, ILR transforms, correlation matrices (core)</td>
 <td>
-<code>distributions.R</code>, <code>percentile-sampling.R</code>,
-<code>kssl-reference-correlations.R</code>
+<code>core-distributions.R</code>,
+<code>core-distributions.R</code>, <code>core-correlations.R</code>
 </td>
 </tr>
 <tr class="even">
@@ -284,7 +284,7 @@ Fitting &amp; Correlation Matrices</a></td>
 <td><a href="architecture-monte-carlo-simulation.html">Monte Carlo
 Simulation</a></td>
 <td>Correlated Monte Carlo simulation engine (core)</td>
-<td><code>monte-carlo.R</code></td>
+<td><code>core-montecarlo.R</code></td>
 </tr>
 <tr class="odd">
 <td>05</td>
@@ -292,8 +292,7 @@ Simulation</a></td>
 Depth Modeling &amp; Multivariate Adjustment</a></td>
 <td>GP depth-trend modeling + MC/GP integration (core)</td>
 <td>
-<code>gp-modeling.R</code>,
-<code>multivariate-adjustment.R</code>
+<code>core-gp.R</code>, <code>core-gp.R</code>
 </td>
 </tr>
 <tr class="even">
@@ -302,8 +301,7 @@ Depth Modeling &amp; Multivariate Adjustment</a></td>
 Component &amp; Depth Simulation</a></td>
 <td>Component composition + horizon depth/thickness simulation</td>
 <td>
-<code>property-simulation.R</code>,
-<code>depth-simulation.R</code>
+<code>core-simulation.R</code>, <code>core-simulation.R</code>
 </td>
 </tr>
 <tr class="odd">
@@ -311,14 +309,14 @@ Component &amp; Depth Simulation</a></td>
 <td><a href="architecture-aws-van-genuchten-modeling.html">AWS / Van
 Genuchten Modeling</a></td>
 <td>Available water storage / Van Genuchten modeling</td>
-<td><code>aws-simulation.R</code></td>
+<td><code>model-aws.R</code></td>
 </tr>
 <tr class="even">
 <td>08</td>
 <td><a href="architecture-bayesian-updating.html">Bayesian Updating
 (Scalar)</a></td>
 <td>Scalar Bayesian updating/fusion (core)</td>
-<td><code>bayesian-updating.R</code></td>
+<td><code>core-fusion.R</code></td>
 </tr>
 <tr class="odd">
 <td>09</td>
@@ -326,9 +324,10 @@ Genuchten Modeling</a></td>
 Raster Fusion Pipeline</a></td>
 <td>Raster-native fusion core + SSURGO/SOLUS100 adapters</td>
 <td>
-<code>distribution-fitting-raster.R</code>,
-<code>raster-fusion.R</code>, <code>raster-cache.R</code>,
-<code>ssurgo-simulation.R</code>, <code>solus-simulation.R</code>
+<code>core-distributions-raster.R</code>,
+<code>core-fusion.R</code>, <code>cache.R</code>,
+<code>adapter-ssurgo-simulate.R</code>,
+<code>adapter-solus.R</code>
 </td>
 </tr>
 <tr class="even">

@@ -11,8 +11,8 @@ on Windows and
 elsewhere, explicit
 [`library(soilSIM)`](https://jjmaynard.github.io/soilSIM/) on Windows
 workers, explicit `soil_workflow_log_config` propagation) shared by
-`process_cokeys_parallel()` (`multivariate-adjustment.R`),
+`process_cokeys_parallel()` (`core-gp.R`),
 [`run_parallel_simulation()`](https://jjmaynard.github.io/soilSIM/reference/run_parallel_simulation.md)
-(`monte-carlo.R`), and
+(`core-montecarlo.R`), and
 [`maybe_adjust_soil_data_depth_trend()`](https://jjmaynard.github.io/soilSIM/reference/maybe_adjust_soil_data_depth_trend.md)
-(`ssurgo-simulation.R`).
+(`adapter-ssurgo-simulate.R`).

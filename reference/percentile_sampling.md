@@ -5,7 +5,7 @@ approaches (a piecewise-linear inverse-CDF, a monotonic-spline
 inverse-CDF, a KDE/truncated-normal approach, and beta/normal parametric
 fits) behind a single `method` argument, for arbitrary percentile counts
 (not just SSURGO's low/rep/high triplet). Complements
-`R/distributions.R`'s
+`R/core-distributions.R`'s
 [`fit_percentile_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_percentile_triplet.md)/
 [`quantile_from_fit()`](https://jjmaynard.github.io/soilSIM/reference/quantile_from_fit.md),
 which is the production Monte Carlo engine's fixed 3-point fitter.

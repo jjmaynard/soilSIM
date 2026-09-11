@@ -9,7 +9,7 @@ data via apply_gp_depth_trends()."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -62,7 +62,7 @@ data via apply_gp_depth_trends()."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Apply Local Depth Trends</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/multivariate-adjustment.R" class="external-link"><code>R/multivariate-adjustment.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-gp.R" class="external-link"><code>R/core-gp.R</code></a></small>
       <div class="d-none name"><code>apply_local_depth_trends.Rd</code></div>
     </div>
 
@@ -114,7 +114,7 @@ data via apply_gp_depth_trends().</p>
 <dd><p>Optional config, passed straight through to <code><a href="apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code> - lets
 <code>config$monte_carlo$vertical_correlation_method</code> (<code>"joint_copula"</code> default, or
 <code>"gp_quantile_retrofit"</code>) reach this call site. <code>NULL</code> (default) resolves to <code>"joint_copula"</code>,
-matching <code><a href="get_monte_carlo_defaults.html">get_monte_carlo_defaults()</a></code>.</p></dd>
+matching <code><a href="default_monte_carlo_config.html">default_monte_carlo_config()</a></code>.</p></dd>
 
 
 <dt id="arg-gp-models">gp_models<a class="anchor" aria-label="anchor" href="#arg-gp-models"></a></dt>

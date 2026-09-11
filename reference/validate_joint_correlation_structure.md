@@ -4,7 +4,7 @@ Diagnostic helper for the joint depth x property correlation structure.
 Unlike
 [`validate_correlation_preservation()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_preservation.md),
 which only checks cross-property correlation and (via its caller
-[`adjust_multivariate_depthwise_GP()`](https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.md))
+[`adjust_simulation_depthwise()`](https://jjmaynard.github.io/soilSIM/reference/adjust_simulation_depthwise.md))
 only at the first 5 depths, this reports BOTH halves of the joint
 structure - cross-property correlation at every depth, and depth-lag
 (across-depth, within-property) correlation for every property - against
@@ -32,7 +32,7 @@ validate_joint_correlation_structure(
   A named list of matrices (rows = depths, columns = simulations), the
   same shape consumed/produced by
   [`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md)/
-  [`adjust_multivariate_depthwise_GP()`](https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.md).
+  [`adjust_simulation_depthwise()`](https://jjmaynard.github.io/soilSIM/reference/adjust_simulation_depthwise.md).
 
 - target_property_corr:
 

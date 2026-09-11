@@ -4,13 +4,13 @@ the number of metalog terms, the fit is an EXACTLY-DETERMINED linear
 system (solve(Y, z)), not an optimization - validated (upstream) to
 ~1e-12 against rmetalog::metalog(). This is the fast path rmetalog
 itself takes when its solution is already feasible; see
-check_metalog_feasible()/quantile_metalog_with_fallback() for the
+check_metalog_feasible()/quantile_metalog_linear_fallback() for the
 guard rmetalog's own LP feasibility-correction would otherwise provide."><meta property="og:description" content="When the number of interior percentiles (p strictly in (0,1)) equals
 the number of metalog terms, the fit is an EXACTLY-DETERMINED linear
 system (solve(Y, z)), not an optimization - validated (upstream) to
 ~1e-12 against rmetalog::metalog(). This is the fast path rmetalog
 itself takes when its solution is already feasible; see
-check_metalog_feasible()/quantile_metalog_with_fallback() for the
+check_metalog_feasible()/quantile_metalog_linear_fallback() for the
 guard rmetalog's own LP feasibility-correction would otherwise provide."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
@@ -19,7 +19,7 @@ guard rmetalog's own LP feasibility-correction would otherwise provide."></head>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -72,7 +72,7 @@ guard rmetalog's own LP feasibility-correction would otherwise provide."></head>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Fit a metalog distribution via exact linear solve</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/distributions.R" class="external-link"><code>R/distributions.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-distributions.R" class="external-link"><code>R/core-distributions.R</code></a></small>
       <div class="d-none name"><code>fit_metalog_linear.Rd</code></div>
     </div>
 
@@ -82,7 +82,7 @@ the number of metalog terms, the fit is an EXACTLY-DETERMINED linear
 system (<code>solve(Y, z)</code>), not an optimization - validated (upstream) to
 ~1e-12 against <code>rmetalog::metalog()</code>. This is the fast path <code>rmetalog</code>
 itself takes when its solution is already feasible; see
-<code><a href="check_metalog_feasible.html">check_metalog_feasible()</a></code>/<code><a href="quantile_metalog_with_fallback.html">quantile_metalog_with_fallback()</a></code> for the
+<code><a href="check_metalog_feasible.html">check_metalog_feasible()</a></code>/<code><a href="quantile_metalog_linear_fallback.html">quantile_metalog_linear_fallback()</a></code> for the
 guard <code>rmetalog</code>'s own LP feasibility-correction would otherwise provide.</p>
     </div>
 
@@ -117,6 +117,25 @@ both strictly interior (excluding p=0/p=1 if present).</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p><code>list(a=, term=, bounds=, boundedness=)</code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p>Other distributions:
+<code><a href="classify_genhz.html">classify_genhz()</a></code>,
+<code><a href="compare_percentile_methods.html">compare_percentile_methods()</a></code>,
+<code><a href="ensure_positive_definite_matrix.html">ensure_positive_definite_matrix()</a></code>,
+<code><a href="fit_beta_mle_newton.html">fit_beta_mle_newton()</a></code>,
+<code><a href="fit_normal_triplet.html">fit_normal_triplet()</a></code>,
+<code><a href="fit_percentile_triplet.html">fit_percentile_triplet()</a></code>,
+<code><a href="ilr_forward.html">ilr_forward()</a></code>,
+<code><a href="ilr_inverse.html">ilr_inverse()</a></code>,
+<code><a href="quantile_beta.html">quantile_beta()</a></code>,
+<code><a href="quantile_from_fit.html">quantile_from_fit()</a></code>,
+<code><a href="quantile_linear_cdf.html">quantile_linear_cdf()</a></code>,
+<code><a href="quantile_metalog_linear.html">quantile_metalog_linear()</a></code>,
+<code><a href="quantile_triangular.html">quantile_triangular()</a></code>,
+<code><a href="resolve_property_family.html">resolve_property_family()</a></code>,
+<code><a href="validate_correlation_matrix.html">validate_correlation_matrix()</a></code></p></div>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

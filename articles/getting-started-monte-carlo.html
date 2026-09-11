@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -130,14 +130,13 @@ function-level reference behind each step.</p>
 CA:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">amador_wkt</span> <span class="op">&lt;-</span> <span class="st">"POLYGON((-120.5 38.5, -120.4 38.5, -120.4 38.6, -120.5 38.6, -120.5 38.5))"</span></span></code></pre></div>
-<p><code><a href="../reference/download_and_prepare_ssurgo.html">download_and_prepare_ssurgo()</a></code> queries NRCS Soil Data
-Access live for this AOI, then filters to a maximum depth. That call is
-shown here for reference, but this vignette loads a cached copy of its
-real output so the vignette builds without a live network
-dependency:</p>
+<p><code><a href="../reference/fetch_ssurgo_data.html">fetch_ssurgo_data()</a></code> queries NRCS Soil Data Access live
+for this AOI, then filters to a maximum depth. That call is shown here
+for reference, but this vignette loads a cached copy of its real output
+so the vignette builds without a live network dependency:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># The real call this vignette's cached data came from:</span></span>
-<span><span class="va">ssurgo_amador</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/download_and_prepare_ssurgo.html">download_and_prepare_ssurgo</a></span><span class="op">(</span></span>
+<span><span class="va">ssurgo_amador</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fetch_ssurgo_data.html">fetch_ssurgo_data</a></span><span class="op">(</span></span>
 <span>  aoi_wkt <span class="op">=</span> <span class="va">amador_wkt</span>,</span>
 <span>  properties <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"sandtotal"</span>, <span class="st">"claytotal"</span>, <span class="st">"silttotal"</span>, <span class="st">"dbovendry"</span>, <span class="st">"ph1to1h2o"</span>,</span>
 <span>                 <span class="st">"cec7"</span>, <span class="st">"om"</span>, <span class="st">"wthirdbar"</span>, <span class="st">"wfifteenbar"</span><span class="op">)</span>,</span>
@@ -191,12 +190,12 @@ content in the first suitable horizon:</p>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/quantile_from_fit.html">quantile_from_fit</a></span><span class="op">(</span>u <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.5</span>, <span class="fl">0.95</span><span class="op">)</span>, family <span class="op">=</span> <span class="va">clay_fit</span><span class="op">$</span><span class="va">family</span>, fit <span class="op">=</span> <span class="va">clay_fit</span><span class="op">$</span><span class="va">fit</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1]  5 10 15</span></span></code></pre></div>
-<p><code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code> is the master
-pipeline: it does this fitting for every property/horizon, estimates (or
-falls back to a KSSL reference) correlation structure across properties,
-and draws correlated realizations:</p>
+<p><code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code> is the master pipeline: it does
+this fitting for every property/horizon, estimates (or falls back to a
+KSSL reference) correlation structure across properties, and draws
+correlated realizations:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">mc_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">mc_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo</a></span><span class="op">(</span></span>
 <span>  soil_data <span class="op">=</span> <span class="va">infilled</span>,</span>
 <span>  properties <span class="op">=</span> <span class="va">properties</span>,</span>
 <span>  n_realizations <span class="op">=</span> <span class="fl">200</span>,</span>
@@ -286,9 +285,9 @@ trends<a class="anchor" aria-label="anchor" href="#step-5-toward-depth-aware-sim
 </h2>
 <p>The Monte Carlo simulation above treats every suitable horizon
 independently. soilSIM’s GP modeling group
-(<code><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models()</a></code>) fits depth-trend models per
-soil group, so simulated properties can follow a realistic depth trend
-rather than horizon-by-horizon independence.
+(<code><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models()</a></code>) fits depth-trend models per soil
+group, so simulated properties can follow a realistic depth trend rather
+than horizon-by-horizon independence.
 <code><a href="../reference/prepare_nrcs_training_data.html">prepare_nrcs_training_data()</a></code> automatically selects a
 grouping strategy - for this AOI, it selects grouping by soil
 series:</p>
@@ -299,7 +298,7 @@ series:</p>
 <span><span class="co">#&gt;     Chaix  Cohasset   Holland Josephine  Mariposa  McCarthy     Sites </span></span>
 <span><span class="co">#&gt;        24       118        21        81        50        60        31</span></span></code></pre></div>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">gp_models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">gp_models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models</a></span><span class="op">(</span></span>
 <span>  <span class="va">gp_train</span>,</span>
 <span>  properties <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"clay_pct"</span>, <span class="st">"sand_pct"</span>, <span class="st">"pH"</span>, <span class="st">"organic_matter"</span><span class="op">)</span>,</span>
 <span>  min_profiles_per_group <span class="op">=</span> <span class="fl">3</span>,</span>
@@ -346,7 +345,7 @@ group:</p>
 <span>    y <span class="op">=</span> <span class="st">"Clay content (%)"</span></span>
 <span>  <span class="op">)</span></span></code></pre></div>
 <p><img src="getting-started-monte-carlo_files/figure-html/unnamed-chunk-14-1.png" class="r-plt" alt="" width="576"></p>
-<p>From here, <code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code> (see the “GP
+<p>From here, <code><a href="../reference/apply_depth_gp_to_simulation.html">apply_depth_gp_to_simulation()</a></code> (see the “GP
 Modeling &amp; Multivariate Adjustment” architecture article) combines
 these depth-trend models with a Monte Carlo simulation like
 <code>mc_result</code> above, nudging each realization toward its
@@ -360,8 +359,8 @@ scope.</p>
 <p>The cached data this vignette loads
 (<code>inst/extdata/ssurgo_amador.rds</code>) was produced once by
 <code>data-raw/build_vignette_data.R</code>, which calls
-<code><a href="../reference/download_and_prepare_ssurgo.html">download_and_prepare_ssurgo()</a></code> live against NRCS Soil Data
-Access for the AOI above. Re-run that script to refresh it.</p>
+<code><a href="../reference/fetch_ssurgo_data.html">fetch_ssurgo_data()</a></code> live against NRCS Soil Data Access for
+the AOI above. Re-run that script to refresh it.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

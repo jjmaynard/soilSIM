@@ -1,7 +1,7 @@
 # Zonal (per-mukey) Reduction of a Fused Posterior Raster - Benchmark Baseline
 
 Collapses
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)'s
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)'s
 per-pixel posterior to one distribution per mukey by taking
 [`terra::zonal()`](https://rspatial.github.io/terra/reference/zonal.html)
 means of its percentile layers, in the `low`/`rep`/`high` shape
@@ -26,7 +26,7 @@ zonal_distribution_from_posterior(
 - posterior:
 
   A
-  [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)-style
+  [`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)-style
   `list(percentiles = , ...)`.
 
 - mukey_raster:

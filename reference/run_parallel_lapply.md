@@ -83,8 +83,8 @@ run_parallel_lapply(
   [`on.exit()`](https://rdrr.io/r/base/on.exit.html) still happens
   regardless) - needed for callers whose own contract is "no sequential
   fallback, propagate/ convert the error myself" (e.g.
-  [`simulate_profile_depths_by_collection_parallel()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths_by_collection_parallel.md),
-  which returns `NULL` on error via its own outer
+  `simulate_profile_depths(parallel = TRUE)`, which returns `NULL` on
+  error via its own outer
   [`tryCatch()`](https://rdrr.io/r/base/conditions.html)).
 
 ## Value

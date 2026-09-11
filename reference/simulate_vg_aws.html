@@ -17,7 +17,7 @@ matric potentials."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -70,7 +70,7 @@ matric potentials."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Simulate Available Water Holding Capacity from van Genuchten Parameters</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/aws-simulation.R" class="external-link"><code>R/aws-simulation.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/model-aws.R" class="external-link"><code>R/model-aws.R</code></a></small>
       <div class="d-none name"><code>simulate_vg_aws.Rd</code></div>
     </div>
 
@@ -97,7 +97,7 @@ matric potentials.</p>
 columns <code>alpha</code>, <code>sd_alpha</code>, <code>npar</code>, <code>sd_npar</code>, <code>theta_r</code>, <code>sd_theta_r</code>,
 <code>theta_s</code>, <code>sd_theta_s</code>, <code>layerID</code> - exactly the shape produced by
 <code>soilDB::ROSETTA(..., include.sd = TRUE)</code> plus a caller-added <code>layerID</code>
-(see <code><a href="calculate_aws_df.html">calculate_aws_df()</a></code>).</p></dd>
+(see <code><a href="compute_aws.html">compute_aws()</a></code>).</p></dd>
 
 
 <dt id="arg-n-simulations">n_simulations<a class="anchor" aria-label="anchor" href="#arg-n-simulations"></a></dt>

@@ -1,4 +1,4 @@
-# Cache-hit lookup for a `run_stage1_fusion_group()` result, with shape validation
+# Cache-hit lookup for a `run_fusion_group()` result, with shape validation
 
 The nested-group counterpart to
 [`cache_get_valid_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/cache_get_valid_percentiles.md) -

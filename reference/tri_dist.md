@@ -1,6 +1,6 @@
 # Draw random samples from a triangular distribution
 
-Used by `R/depth-simulation.R`'s profile-depth simulators. Kept as its
+Used by `R/core-simulation.R`'s profile-depth simulators. Kept as its
 own random-draw implementation rather than layered on
 [`quantile_triangular()`](https://jjmaynard.github.io/soilSIM/reference/quantile_triangular.md)
 (a deterministic inverse-CDF evaluator with different degenerate-input

@@ -1,8 +1,8 @@
 # Assess a Single GP Model's Performance
 
 Delegates to the already-real `calculate_model_diagnostics()`
-(`gp-modeling.R`) for training RMSE, and derives an R-squared from that
-RMSE against the training data's own variance.
+(`core-gp.R`) for training RMSE, and derives an R-squared from that RMSE
+against the training data's own variance.
 
 ## Usage
 

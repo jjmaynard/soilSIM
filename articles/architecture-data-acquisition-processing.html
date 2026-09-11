@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -111,12 +111,12 @@ using a hierarchy of pedologically-informed recovery strategies
 (horizon-name matching, depth-weighted averaging, within- and
 cross-component interpolation, related-property estimation, and
 pedotransfer functions such as Saxton-Rawls). The three files covered
-here - <code>ssurgo-acquisition.R</code>,
-<code>ssurgo-processing.R</code>, and <code>data-infilling.R</code> -
-together turn a WKT polygon and a list of property names into a
-complete, gap-free horizon/component data set with
-<code>_l</code>/<code>_r</code>/<code>_h</code> triplet columns, ready
-to be handed to the <a href="architecture-statistics-diagnostics.html">Statistics &amp;
+here - <code>adapter-ssurgo-acquire.R</code>,
+<code>adapter-ssurgo-process.R</code>, and
+<code>adapter-ssurgo-infill.R</code> - together turn a WKT polygon and a
+list of property names into a complete, gap-free horizon/component data
+set with <code>_l</code>/<code>_r</code>/<code>_h</code> triplet
+columns, ready to be handed to the <a href="architecture-statistics-diagnostics.html">Statistics &amp;
 Diagnostics</a> module and the <a href="architecture-monte-carlo-simulation.html">Monte Carlo
 Simulation</a> core.</p>
 </div>
@@ -157,12 +157,11 @@ hit/write status).</p>
 <code>cache_dir</code> is set and not bypassed, checks
 <code><a href="../reference/check_ssurgo_cache.html">check_ssurgo_cache()</a></code> and returns cached data immediately on
 a hit (re-validating if requested). On a cache miss, it builds the
-property lookup table
-(<code><a href="../reference/create_ssurgo_property_lookup_working.html">create_ssurgo_property_lookup_working()</a></code>), resolves the AOI
-to map unit keys (<code><a href="../reference/process_aoi_and_get_mukeys_working.html">process_aoi_and_get_mukeys_working()</a></code>),
-executes the SDA SQL query
-(<code><a href="../reference/execute_ssurgo_query_working.html">execute_ssurgo_query_working()</a></code>), aggregates rock-fragment
-volume if <code>"rfv"</code> was requested
+property lookup table (<code><a href="../reference/build_ssurgo_property_lookup.html">build_ssurgo_property_lookup()</a></code>),
+resolves the AOI to map unit keys
+(<code><a href="../reference/process_aoi_and_get_mukeys_working.html">process_aoi_and_get_mukeys_working()</a></code>), executes the SDA
+SQL query (<code><a href="../reference/execute_ssurgo_query_working.html">execute_ssurgo_query_working()</a></code>), aggregates
+rock-fragment volume if <code>"rfv"</code> was requested
 (<code><a href="../reference/aggregate_rock_fragment_volume_working.html">aggregate_rock_fragment_volume_working()</a></code>), adds
 restriction/unsuitable-horizon indicators
 (<code><a href="../reference/add_restriction_indicators_working.html">add_restriction_indicators_working()</a></code>, or a bare
@@ -173,8 +172,7 @@ assembles timing/quality metadata
 (<code><a href="../reference/create_download_metadata.html">create_download_metadata()</a></code>).</p>
 </div>
 <div class="section level3">
-<h3 id="create_ssurgo_property_lookup_working">2.
-<strong><code>create_ssurgo_property_lookup_working()</code></strong><a class="anchor" aria-label="anchor" href="#create_ssurgo_property_lookup_working"></a>
+<h3 id="build_ssurgo_property_lookup">2. <strong><code>build_ssurgo_property_lookup()</code></strong><a class="anchor" aria-label="anchor" href="#build_ssurgo_property_lookup"></a>
 </h3>
 <p><strong>Purpose</strong>: Builds the property-name lookup table
 mapping the 14 default SSURGO property base names to their
@@ -227,7 +225,7 @@ against Soil Data Access for the requested mukeys and properties.</p>
 <p><strong>Parameters</strong>: <code>mukey_list</code> - integer mukeys
 to filter on; <code>properties</code> - requested property base names;
 <code>ssurgo_lookup</code> - lookup table from
-<code><a href="../reference/create_ssurgo_property_lookup_working.html">create_ssurgo_property_lookup_working()</a></code>;
+<code><a href="../reference/build_ssurgo_property_lookup.html">build_ssurgo_property_lookup()</a></code>;
 <code>include_restrictions</code> - whether to join
 <code>corestrictions</code>/<code>chtexture</code> and select
 restriction fields; <code>verbose</code> - log query submission/result
@@ -315,7 +313,7 @@ organic/restrictive-flag combination if that call errors.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="utility-functions-ssurgo-acquisition-r">Utility Functions (ssurgo-acquisition.R)<a class="anchor" aria-label="anchor" href="#utility-functions-ssurgo-acquisition-r"></a>
+<h2 id="utility-functions-adapter-ssurgo-acquire-r">Utility Functions (adapter-ssurgo-acquire.R)<a class="anchor" aria-label="anchor" href="#utility-functions-adapter-ssurgo-acquire-r"></a>
 </h2>
 <ul>
 <li>
@@ -334,11 +332,11 @@ merging errors/warnings into one result with <code>valid</code>,
 <strong><code>validate_download_inputs_ssurgo_with_config(aoi_wkt, properties, include_restrictions = TRUE, config_file = NULL, log_validation = TRUE)</code></strong>
 - config-file-aware wrapper around the same geometry/property validation
 logic, loading defaults via
-<code><a href="../reference/load_configuration.html">load_configuration()</a></code>/<code>get_default_configuration("validation")</code>
+<code><a href="../reference/load_configuration.html">load_configuration()</a></code>/<code>default_config("validation")</code>
 and optionally generating a report via
-<code><a href="../reference/generate_validation_report_ssurgo.html">generate_validation_report_ssurgo()</a></code>.</li>
+<code><a href="../reference/diagnose_ssurgo_download.html">diagnose_ssurgo_download()</a></code>.</li>
 <li>
-<strong><code>generate_validation_report_ssurgo(validation_results)</code></strong>
+<strong><code>diagnose_ssurgo_download(validation_results)</code></strong>
 - turns a validation-results list into a summary report
 (<code>PASSED</code>/<code>FAILED</code> status, error/warning counts,
 geometry and property summaries), defensively handling missing/malformed
@@ -365,7 +363,7 @@ list, plus a restrictions-flag suffix.</li>
 - assembles the timing, request, spatial-area, and validation-pass/fail
 metadata list returned alongside downloaded data.</li>
 <li>
-<strong><code>download_and_prepare_ssurgo(aoi_wkt, properties = c("clay","sand","silt","db","ph","cec","rfv","w3b","w15b"), max_depth = 250, cache_dir = NULL, verbose = FALSE)</code></strong>
+<strong><code>fetch_ssurgo_data(aoi_wkt, properties = c("clay","sand","silt","db","ph","cec","rfv","w3b","w15b"), max_depth = 250, cache_dir = NULL, verbose = FALSE)</code></strong>
 - convenience wrapper that always downloads with restrictions +
 validation on, then depth-filters <code>ssurgo_data</code> to
 <code>hzdepb_r &lt;= max_depth</code> and attaches a
@@ -386,7 +384,7 @@ component-level, and combined views plus a quality report.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/process_ssurgo_data.html">process_ssurgo_data</a></span><span class="op">(</span></span>
 <span>  <span class="va">raw_data</span>,                    <span class="co"># Raw SSURGO data from download functions.</span></span>
 <span>  processing_options <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>, <span class="co"># Overrides merged over defaults (see below).</span></span>
-<span>  validate_results <span class="op">=</span> <span class="cn">TRUE</span>,     <span class="co"># Logical. Run Statistics &amp; Diagnostics validation (validation-diagnostics.R) on the output.</span></span>
+<span>  validate_results <span class="op">=</span> <span class="cn">TRUE</span>,     <span class="co"># Logical. Run Statistics &amp; Diagnostics validation (diagnostics.R) on the output.</span></span>
 <span>  max_depth <span class="op">=</span> <span class="fl">250</span>,             <span class="co"># Numeric. Maximum depth (cm) retained.</span></span>
 <span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"ssurgo.verbose"</span>, <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -406,19 +404,16 @@ options used, row counts, per-stage stats),
 <p><strong>Algorithm</strong>: Merges user
 <code>processing_options</code> over the defaults via
 <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>, then runs three sub-pipelines in
-sequence: <code><a href="../reference/process_horizon_data_working_compatible.html">process_horizon_data_working_compatible()</a></code> for
-horizon-level cleaning,
-<code><a href="../reference/process_component_data_working_compatible.html">process_component_data_working_compatible()</a></code> for
-component-level extraction, and
-<code><a href="../reference/create_infill_compatible_dataset.html">create_infill_compatible_dataset()</a></code> to build the single
-combined data frame consumed by the infilling functions. If
+sequence: <code><a href="../reference/process_ssurgo_horizons.html">process_ssurgo_horizons()</a></code> for horizon-level
+cleaning, <code><a href="../reference/process_ssurgo_components.html">process_ssurgo_components()</a></code> for component-level
+extraction, and <code><a href="../reference/prepare_ssurgo_for_infill.html">prepare_ssurgo_for_infill()</a></code> to build the
+single combined data frame consumed by the infilling functions. If
 <code>validate_results</code> (or <code>options$validate_logic</code>)
 is true, runs <code><a href="../reference/validate_data_quality.html">validate_data_quality()</a></code> and
 <code><a href="../reference/generate_processing_quality_report.html">generate_processing_quality_report()</a></code> on the result.</p>
 </div>
 <div class="section level3">
-<h3 id="process_horizon_data_working_compatible">8.
-<strong><code>process_horizon_data_working_compatible()</code></strong><a class="anchor" aria-label="anchor" href="#process_horizon_data_working_compatible"></a>
+<h3 id="process_ssurgo_horizons">8. <strong><code>process_ssurgo_horizons()</code></strong><a class="anchor" aria-label="anchor" href="#process_ssurgo_horizons"></a>
 </h3>
 <p><strong>Purpose</strong>: Horizon-level cleaning pipeline:
 standardizes names, flags unsuitable horizons, cleans each known
@@ -426,7 +421,7 @@ soil-property column, drops invalid records, computes derived
 properties, and tracks statistics at each stage.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/process_horizon_data_working_compatible.html">process_horizon_data_working_compatible</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/process_ssurgo_horizons.html">process_ssurgo_horizons</a></span><span class="op">(</span></span>
 <span>  <span class="va">raw_data</span>,</span>
 <span>  detect_unsuitable <span class="op">=</span> <span class="cn">TRUE</span>,   <span class="co"># Flag unsuitable horizons via is_unsuitable().</span></span>
 <span>  advanced_cleaning <span class="op">=</span> <span class="cn">TRUE</span>,   <span class="co"># Run clean_property_data(outlier_policy = "soil_aware") per property.</span></span>
@@ -452,8 +447,8 @@ finishing with
 <code><a href="../reference/calculate_property_completeness_working.html">calculate_property_completeness_working()</a></code>.</p>
 </div>
 <div class="section level3">
-<h3 id="process_component_data_working_compatibleraw_data-standardize_names-true-remove_invalid-true-verbose-false">9.
-<strong><code>process_component_data_working_compatible(raw_data, standardize_names = TRUE, remove_invalid = TRUE, verbose = FALSE)</code></strong><a class="anchor" aria-label="anchor" href="#process_component_data_working_compatibleraw_data-standardize_names-true-remove_invalid-true-verbose-false"></a>
+<h3 id="process_ssurgo_componentsraw_data-standardize_names-true-remove_invalid-true-verbose-false">9.
+<strong><code>process_ssurgo_components(raw_data, standardize_names = TRUE, remove_invalid = TRUE, verbose = FALSE)</code></strong><a class="anchor" aria-label="anchor" href="#process_ssurgo_componentsraw_data-standardize_names-true-remove_invalid-true-verbose-false"></a>
 </h3>
 <p><strong>Purpose</strong>: Extracts and cleans the component-level
 (one-row-per-<code>cokey</code>) subset of the raw data.</p>
@@ -474,8 +469,8 @@ empty result immediately if none of the known component columns are
 present.</p>
 </div>
 <div class="section level3">
-<h3 id="create_infill_compatible_datasetraw_data-horizon_processing-component_processing-options-verbose-false">10.
-<strong><code>create_infill_compatible_dataset(raw_data, horizon_processing, component_processing, options, verbose = FALSE)</code></strong><a class="anchor" aria-label="anchor" href="#create_infill_compatible_datasetraw_data-horizon_processing-component_processing-options-verbose-false"></a>
+<h3 id="prepare_ssurgo_for_infillraw_data-horizon_processing-component_processing-options-verbose-false">10.
+<strong><code>prepare_ssurgo_for_infill(raw_data, horizon_processing, component_processing, options, verbose = FALSE)</code></strong><a class="anchor" aria-label="anchor" href="#prepare_ssurgo_for_infillraw_data-horizon_processing-component_processing-options-verbose-false"></a>
 </h3>
 <p><strong>Purpose</strong>: Builds the single main data frame -
 starting from <code>raw_data</code> rather than the separately-processed
@@ -526,12 +521,12 @@ physically-impossible values for pH/texture/BD, conservative
 <code>detect_outliers(method = "iqr", threshold = 3.0)</code>), or
 <code>"none"</code> - then <code><a href="../reference/apply_basic_range_limits.html">apply_basic_range_limits()</a></code> for
 hardcoded plausibility bounds (always).
-<code><a href="../reference/clean_property_data_ssurgo_compatible.html">clean_property_data_ssurgo_compatible()</a></code> is a deprecated
-shim forwarding here with
-<code>outlier_policy = "aggressive_iqr"</code>.</p>
+<code><a href="../reference/clean_ssurgo_property_data.html">clean_ssurgo_property_data()</a></code> is a deprecated shim
+forwarding here with <code>outlier_policy = "aggressive_iqr"</code>.</p>
 </div>
 <div class="section level3">
-<h3 id="hz_quant_prob_mukeyhz_data">12. <strong><code>hz_quant_prob_mukey(hz_data)</code></strong><a class="anchor" aria-label="anchor" href="#hz_quant_prob_mukeyhz_data"></a>
+<h3 id="compute_mukey_horizon_quantileshz_data">12.
+<strong><code>compute_mukey_horizon_quantiles(hz_data)</code></strong><a class="anchor" aria-label="anchor" href="#compute_mukey_horizon_quantileshz_data"></a>
 </h3>
 <p><strong>Purpose</strong>: Computes per-mukey, per-depth 5th/50th/95th
 percentile statistics and 90% prediction-interval widths
@@ -595,7 +590,7 @@ Good, &gt;=0.7 Acceptable, &gt;=0.6 Needs Improvement, else Poor).</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="utility-functions-ssurgo-processing-r">Utility Functions (ssurgo-processing.R)<a class="anchor" aria-label="anchor" href="#utility-functions-ssurgo-processing-r"></a>
+<h2 id="utility-functions-adapter-ssurgo-process-r">Utility Functions (adapter-ssurgo-process.R)<a class="anchor" aria-label="anchor" href="#utility-functions-adapter-ssurgo-process-r"></a>
 </h2>
 <ul>
 <li>
@@ -646,7 +641,7 @@ both being infilled and being used as sources.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/infill_soil_property.html">infill_soil_property</a></span><span class="op">(</span></span>
 <span>  <span class="va">df</span>,                          <span class="co"># Input soil data frame.</span></span>
 <span>  <span class="va">property_name</span>,               <span class="co"># Single property base name (e.g. "claytotal"); "rfv" is special-cased.</span></span>
-<span>  property_config <span class="op">=</span> <span class="cn">NULL</span>,      <span class="co"># Optional config from get_default_property_config()/create_custom_property_config(); auto-looked-up if NULL.</span></span>
+<span>  property_config <span class="op">=</span> <span class="cn">NULL</span>,      <span class="co"># Optional config from default_property_config()/create_custom_property_config(); auto-looked-up if NULL.</span></span>
 <span>  max_depth <span class="op">=</span> <span class="fl">250</span>,              <span class="co"># Depth (cm) constraint on which rows are eligible for infilling.</span></span>
 <span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"ssurgo.verbose"</span>, <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -662,12 +657,12 @@ columns exist (<code><a href="../reference/ensure_infilling_columns.html">ensure
 property (<code><a href="../reference/clean_property_data.html">clean_property_data()</a></code>), computes
 <code>unsuitable_horizon</code> via <code><a href="../reference/is_unsuitable.html">is_unsuitable()</a></code>,
 resolves <code>property_config</code> via
-<code><a href="../reference/get_default_property_config.html">get_default_property_config()</a></code> if not supplied, and
-identifies “problematic” cells (missing, suitable, within
-<code>max_depth</code>). If nothing is problematic, only applies range
-infilling and returns early. Otherwise groups by <code>cokey</code> (or
-<code>compname</code>, via <code><a href="../reference/determine_grouping_column.html">determine_grouping_column()</a></code>) and
-applies, in order: <strong>Strategy 1-3</strong> inside
+<code><a href="../reference/default_property_config.html">default_property_config()</a></code> if not supplied, and identifies
+“problematic” cells (missing, suitable, within <code>max_depth</code>).
+If nothing is problematic, only applies range infilling and returns
+early. Otherwise groups by <code>cokey</code> (or <code>compname</code>,
+via <code><a href="../reference/determine_grouping_column.html">determine_grouping_column()</a></code>) and applies, in order:
+<strong>Strategy 1-3</strong> inside
 <code><a href="../reference/process_property_group.html">process_property_group()</a></code> →
 <code><a href="../reference/infill_missing_property_data.html">infill_missing_property_data()</a></code> (horizon-name matching, then
 depth-weighted averaging, then within-component interpolation - each
@@ -694,7 +689,7 @@ the single infilling orchestrator<a class="anchor" aria-label="anchor" href="#pr
 <code><a href="../reference/infill_soil_property.html">infill_soil_property()</a></code> (and RFV’s special path) across a
 whole property set in three phases, with optional post-hoc filtering.
 Both the tabular pipeline and the raster-fusion pipeline (via the
-<code><a href="../reference/infill_soil_data.html">infill_soil_data()</a></code> wrapper) route through this.</p>
+<code><a href="../reference/infill_ssurgo_data.html">infill_ssurgo_data()</a></code> wrapper) route through this.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/process_soil_properties_comprehensive.html">process_soil_properties_comprehensive</a></span><span class="op">(</span></span>
@@ -781,15 +776,15 @@ columns to be present (returns <code>df</code> unchanged with a warning
 log otherwise). Computes/reuses <code>unsuitable_horizon</code>, builds
 a suitable+in-depth processing mask, and (unless <code>overwrite</code>)
 restricts to rows where the target <code>_r</code> value is still
-missing. Row by row, calls <code><a href="../reference/calculate_saxton_rawls_single.html">calculate_saxton_rawls_single()</a></code>
-with the row’s texture/bulk-density/RFV(default 0)/OM(default 2%) values
-and writes back <code>field_capacity</code>/<code>wilting_point</code>
-(and their <code>_l</code>/<code>_h</code> spreads if
+missing. Row by row, calls <code><a href="../reference/compute_saxton_rawls.html">compute_saxton_rawls()</a></code> with the
+row’s texture/bulk-density/RFV(default 0)/OM(default 2%) values and
+writes back <code>field_capacity</code>/<code>wilting_point</code> (and
+their <code>_l</code>/<code>_h</code> spreads if
 <code>add_ranges</code>), annotating <code>infill_method</code>.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="utility-functions-data-infilling-r">Utility Functions (data-infilling.R)<a class="anchor" aria-label="anchor" href="#utility-functions-data-infilling-r"></a>
+<h2 id="utility-functions-adapter-ssurgo-infill-r">Utility Functions (adapter-ssurgo-infill.R)<a class="anchor" aria-label="anchor" href="#utility-functions-adapter-ssurgo-infill-r"></a>
 </h2>
 <ul>
 <li>
@@ -798,7 +793,7 @@ and writes back <code>field_capacity</code>/<code>wilting_point</code>
 <code>outlier_policy = "soil_aware"</code>; the same call
 <code><a href="../reference/process_ssurgo_data.html">process_ssurgo_data()</a></code> now makes.</li>
 <li>
-<strong><code>get_default_property_config(property_name)</code></strong>
+<strong><code>default_property_config(property_name)</code></strong>
 - returns a built-in config (<code>type</code>, <code>units</code>,
 <code>typical_range</code>, <code>fallback_range</code>, and
 property-specific flags like
@@ -815,7 +810,7 @@ organic-matter/carbon properties, or a generic fallback.</li>
 well-formed <code>typical_range</code>; stops with an error
 otherwise.</li>
 <li>
-<strong><code>get_rfv_range_category(rfv_value)</code></strong> -
+<strong><code>rfv_range_category(rfv_value)</code></strong> -
 categorizes an RFV percentage into
 <code>"none"</code>/<code>"low"</code>/<code>"moderate"</code>/<code>"high"</code>/<code>"very_high"</code>/<code>"extreme"</code>.</li>
 <li>
@@ -840,7 +835,7 @@ unique horizon names of excluded horizons, logging via
 <strong><code>infill_property_range_values(df, property_name, property_config)</code></strong>
 - fills missing <code>_l</code>/<code>_h</code> from learned
 (<code><a href="../reference/learn_property_ranges.html">learn_property_ranges()</a></code>) and contextual
-(<code><a href="../reference/get_property_contextual_ranges.html">get_property_contextual_ranges()</a></code>) spreads via
+(<code><a href="../reference/property_contextual_ranges.html">property_contextual_ranges()</a></code>) spreads via
 <code><a href="../reference/calculate_property_lower_bound.html">calculate_property_lower_bound()</a></code>/<code><a href="../reference/calculate_property_upper_bound.html">calculate_property_upper_bound()</a></code>,
 then enforces <code>_l &lt;= _r &lt;= _h</code>.</li>
 <li>
@@ -849,7 +844,7 @@ then enforces <code>_l &lt;= _r &lt;= _h</code>.</li>
 complete, suitable-horizon rows, broken out by horizon name, by depth
 zone (surface/subsurface/deep), and overall.</li>
 <li>
-<strong><code>get_property_contextual_ranges(df, property_name, property_config)</code></strong>
+<strong><code>property_contextual_ranges(df, property_name, property_config)</code></strong>
 - hardcoded pedological-knowledge spread tables per property type
 (texture, bulk density by horizon letter, water retention, RFV
 category).</li>
@@ -920,7 +915,7 @@ e.g. <code>A</code>/<code>AP</code>/<code>AE</code> = 0.6, else 0).</li>
 RFV imputation logic used by
 <code><a href="../reference/infill_rfv_property_integrated.html">infill_rfv_property_integrated()</a></code>.</li>
 <li>
-<strong><code>calculate_saxton_rawls_single(sand_pct, clay_pct, silt_pct, bulk_density, rfv_pct = 0, om_pct = 2)</code></strong>
+<strong><code>compute_saxton_rawls(sand_pct, clay_pct, silt_pct, bulk_density, rfv_pct = 0, om_pct = 2)</code></strong>
 - the Saxton-Rawls pedotransfer math itself (clamps inputs, renormalizes
 texture to 100 if off by &gt;5 points, computes saturated water
 content/field-capacity/wilting-point via the published regression
@@ -952,7 +947,7 @@ bulk density).</li>
 (last resort): thickness-weighted (or plain) mean of suitable horizons
 in a group.</li>
 <li>
-<strong><code><a href="../reference/horizon_name_property_infill.html">horizon_name_property_infill()</a></code> /
+<strong><code><a href="../reference/infill_property_by_horizon_name.html">infill_property_by_horizon_name()</a></code> /
 <code><a href="../reference/infill_missing_property_data.html">infill_missing_property_data()</a></code></strong> - Strategy 1
 (horizon-name similarity matching, weighted mean of matches with
 similarity &gt; 0.5) and its orchestration across Strategies 1-3.</li>
@@ -971,7 +966,7 @@ problematic-cell mask locally before delegating to
 <pre><code>download_ssurgo_tabular() [ssurgo-acquisition.R, MASTER]
 ├── validate_download_inputs_ssurgo()
 ├── check_ssurgo_cache()                       [cache hit -&gt; early return]
-├── create_ssurgo_property_lookup_working()
+├── build_ssurgo_property_lookup()
 ├── process_aoi_and_get_mukeys_working()
 ├── execute_ssurgo_query_working()
 ├── aggregate_rock_fragment_volume_working()    [if "rfv" requested]
@@ -982,11 +977,11 @@ problematic-cell mask locally before delegating to
 │   └── generate_ssurgo_cache_key()
 └── create_download_metadata()
 
-download_and_prepare_ssurgo() [ssurgo-acquisition.R, convenience wrapper]
+fetch_ssurgo_data() [ssurgo-acquisition.R, convenience wrapper]
 └── download_ssurgo_tabular()
 
 process_ssurgo_data() [ssurgo-processing.R, MAIN ENTRY]
-├── process_horizon_data_working_compatible()
+├── process_ssurgo_horizons()
 │   ├── standardize_property_names()            [utils.R]
 │   ├── is_unsuitable()                         [utils.R]
 │   ├── identify_soil_property_columns_working()
@@ -998,18 +993,18 @@ process_ssurgo_data() [ssurgo-processing.R, MAIN ENTRY]
 │   ├── remove_invalid_horizons_working_compatible()
 │   ├── calculate_derived_horizon_properties_working()
 │   └── calculate_property_completeness_working()
-├── process_component_data_working_compatible()
+├── process_ssurgo_components()
 │   ├── standardize_property_names()             [utils.R]
 │   ├── remove_invalid_components_working()
 │   └── calculate_component_stats_working()
-├── create_infill_compatible_dataset()
+├── prepare_ssurgo_for_infill()
 │   ├── is_unsuitable()                          [utils.R]
 │   ├── clean_property_data(outlier_policy = "soil_aware")  [per property]
 │   └── ensure_essential_columns_working()
 ├── validate_data_quality()                      [utils.R]
 └── generate_processing_quality_report()
 
-hz_quant_prob_mukey() [ssurgo-processing.R, standalone - downstream/reporting use]
+compute_mukey_horizon_quantiles() [ssurgo-processing.R, standalone - downstream/reporting use]
 
 infill_soil_property() [data-infilling.R, PER-PROPERTY CORE]
 ├── infill_rfv_property_integrated()             [if property_name == "rfv"]
@@ -1020,11 +1015,11 @@ infill_soil_property() [data-infilling.R, PER-PROPERTY CORE]
 │   ├── detect_statistical_outliers_soil_aware()
 │   └── apply_basic_range_limits()
 ├── is_unsuitable()                              [utils.R]
-├── get_default_property_config()                [if property_config = NULL]
+├── default_property_config()                [if property_config = NULL]
 ├── determine_grouping_column()
 ├── process_property_group()                     [Strategies 1-3, per group]
 │   └── infill_missing_property_data()
-│       ├── horizon_name_property_infill()       [Strategy 1]
+│       ├── infill_property_by_horizon_name()       [Strategy 1]
 │       ├── depth_weighted_property_infill()      [Strategy 2]
 │       └── within_component_property_interpolation() [Strategy 3]
 ├── cross_component_property_interpolation()      [Strategy 4, whole dataset]
@@ -1034,7 +1029,7 @@ infill_soil_property() [data-infilling.R, PER-PROPERTY CORE]
 │       └── calculate_depth_weighted_mean()
 └── infill_property_range_values()
     ├── learn_property_ranges()
-    ├── get_property_contextual_ranges()
+    ├── property_contextual_ranges()
     ├── calculate_property_lower_bound()
     │   └── get_contextual_spread()
     └── calculate_property_upper_bound()
@@ -1048,7 +1043,7 @@ process_soil_properties_comprehensive() [data-infilling.R, MULTI-PROPERTY WORKFL
 │   ├── infill_rfv_property_integrated()         [property == "rfv"]
 │   └── infill_soil_property()                   [all other properties]
 ├── infill_water_retention_saxton_rawls_integrated() [Phase 2]
-│   └── calculate_saxton_rawls_single()          [per row]
+│   └── compute_saxton_rawls()          [per row]
 ├── apply_data_filtering()                       [if remove_unsuitable/remove_incomplete]
 └── generate_processing_summary()                [if verbose]</code></pre>
 </div>
@@ -1065,7 +1060,7 @@ current source)</em>, <code><a href="../reference/validate_parameters.html">vali
 <code><a href="../reference/validate_numeric_ranges.html">validate_numeric_ranges()</a></code>, <code><a href="../reference/is_unsuitable.html">is_unsuitable()</a></code>,
 <code><a href="../reference/standardize_property_names.html">standardize_property_names()</a></code>,
 <code><a href="../reference/detect_outliers.html">detect_outliers()</a></code>, <code><a href="../reference/load_configuration.html">load_configuration()</a></code>,
-<code><a href="../reference/get_default_configuration.html">get_default_configuration()</a></code>, <code><a href="../reference/setup_logging.html">setup_logging()</a></code>,
+<code><a href="../reference/default_config.html">default_config()</a></code>, <code><a href="../reference/setup_logging.html">setup_logging()</a></code>,
 <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>, and the <code>%||%</code>
 null-coalescing helper.</p>
 <p><strong>External packages</strong>: <code>soilDB</code>
@@ -1084,8 +1079,8 @@ transformations); <code>stringr</code>
 (cache key hashing); <code>stats</code> (<code>quantile</code>,
 <code>approx</code>, <code>weighted.mean</code>);
 <code>soiltexture</code> (optional, <code>Suggests</code>; USDA texture
-classification in <code><a href="../reference/hz_quant_prob_mukey.html">hz_quant_prob_mukey()</a></code>, guarded by
-<code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace()</a></code>).</p>
+classification in <code><a href="../reference/compute_mukey_horizon_quantiles.html">compute_mukey_horizon_quantiles()</a></code>,
+guarded by <code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace()</a></code>).</p>
 <p><strong>Downstream consumers</strong>: The cleaned/infilled
 horizon+component data frames (with complete <code>_l/_r/_h</code>
 triplet columns) produced by this group feed the <strong><a href="architecture-statistics-diagnostics.html">Statistics &amp;
@@ -1093,11 +1088,12 @@ Diagnostics</a></strong> module (descriptive statistics, correlation
 analysis over the property triplets) and the <strong><a href="architecture-monte-carlo-simulation.html">Monte Carlo
 Simulation</a></strong> core (percentile-triplet distribution fitting
 and correlated sampling consume the <code>sim_*</code>/triplet columns
-this group guarantees are gap-free). <code><a href="../reference/hz_quant_prob_mukey.html">hz_quant_prob_mukey()</a></code>
-runs in the opposite direction - it consumes <em>already-simulated</em>
-horizon data (post Monte Carlo) to produce per-mukey/depth summary
-statistics, so it is better understood as a reporting utility co-located
-here rather than a pure acquisition/processing step.</p>
+this group guarantees are gap-free).
+<code><a href="../reference/compute_mukey_horizon_quantiles.html">compute_mukey_horizon_quantiles()</a></code> runs in the opposite
+direction - it consumes <em>already-simulated</em> horizon data (post
+Monte Carlo) to produce per-mukey/depth summary statistics, so it is
+better understood as a reporting utility co-located here rather than a
+pure acquisition/processing step.</p>
 </div>
 <div class="section level2">
 <h2 id="data-flow-inout">Data Flow In/Out<a class="anchor" aria-label="anchor" href="#data-flow-inout"></a>

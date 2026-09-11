@@ -27,10 +27,10 @@ An object of class `character` of length 14.
 ## Details
 
 `ilr1`/`ilr2` map directly (same names) - valid only because
-`monte-carlo.R`'s `composition_groups$texture$members` default is
+`core-montecarlo.R`'s `composition_groups$texture$members` default is
 `(sandtotal, silttotal, claytotal)`, matching the sequential binary
 partition `compositions::ilr()` uses to build the KSSL matrix (sand vs
-silt+clay, then silt vs clay). See `distributions.R`'s ILR section
+silt+clay, then silt vs clay). See `core-distributions.R`'s ILR section
 header for the positional-role convention this depends on.
 
 `caco3`/`ec`/`ecec`/`gypsum`/`sar` -\> themselves: these 5 chemistry

@@ -1,11 +1,11 @@
-# Default `bayesian_update()` grid resolution used by `fuse_general_kde()` (per-cell KDE fusion route), coarser than `bayesian_update()`'s own standalone default of `0.01`.
+# Default `update_prior()` grid resolution used by `fuse_general_kde()` (per-cell KDE fusion route), coarser than `update_prior()`'s own standalone default of `0.01`.
 
 Default
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)
 grid resolution used by
 [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)
 (per-cell KDE fusion route), coarser than
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)'s
 own standalone default of `0.01`.
 
 ## Usage
@@ -20,7 +20,7 @@ An object of class `numeric` of length 1.
 
 ## Why 0.1, not 0.01
 
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)'s
 [`stats::density()`](https://rdrr.io/r/stats/density.html) calls (kernel
 density estimation over `seq(grid_min, grid_max, by = grid_resolution)`)
 are the dominant cost of
@@ -45,10 +45,10 @@ against). Going coarser (`0.25`+) is where error starts compounding fast
 (variance error reaches double digits to 470% by `2.0`) - `0.1` is the
 sweet spot, not an arbitrary round number.
 
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)'s
 own standalone default is deliberately left at `0.01` - this constant
 only overrides the grid resolution
 [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)
 requests, so any other direct caller of
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)
 is unaffected.

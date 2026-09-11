@@ -29,9 +29,9 @@ A SoilProfileCollection object with perturbed horizon depths.
 This function requires `soil_profile`'s horizons to already carry a
 `sim_comppct` column (it derives the number of simulations to run from
 `unique(horizons(soil_profile)$sim_comppct)`).
-[`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
-(`R/property-simulation.R`) produces this column, but at component
-(`cokey`) grain, not horizon grain - callers must
-`dplyr::left_join(horizon_data, sim_component_comp(component_data), by = "cokey")`
+[`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)
+(`R/core-simulation.R`) produces this column, but at component (`cokey`)
+grain, not horizon grain - callers must
+`dplyr::left_join(horizon_data, simulate_component_composition(component_data), by = "cokey")`
 before calling this function; it will still error with a missing-column
 condition if that join hasn't been done first.

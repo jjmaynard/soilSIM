@@ -27,7 +27,7 @@ match_soils_to_gp_models(
 
 - gp_models:
 
-  Fitted GP models from build_stratified_gp_models()
+  Fitted GP models from fit_depth_gp_models()
 
 - property:
 

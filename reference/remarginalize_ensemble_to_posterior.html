@@ -17,7 +17,7 @@ pixel's posterior."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -70,7 +70,7 @@ pixel's posterior."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Per-Pixel Ensemble Re-Marginalization to a Fused Posterior</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/raster-fusion-bridge.R" class="external-link"><code>R/raster-fusion-bridge.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-fusion.R" class="external-link"><code>R/core-fusion.R</code></a></small>
       <div class="d-none name"><code>remarginalize_ensemble_to_posterior.Rd</code></div>
     </div>
 
@@ -103,7 +103,7 @@ pixel's posterior.</p>
 
 
 <dt id="arg-posterior-by-property-window">posterior_by_property_window<a class="anchor" aria-label="anchor" href="#arg-posterior-by-property-window"></a></dt>
-<dd><p>Named list <code>[[property]][[window]]</code> of <code><a href="run_stage1_fusion.html">run_stage1_fusion()</a></code>
+<dd><p>Named list <code>[[property]][[window]]</code> of <code><a href="run_fusion.html">run_fusion()</a></code>
 posteriors (each <code>list(percentiles = , ...)</code>), on a common grid. Only properties present in
 BOTH this and the ensemble, and windows present in both, are produced.</p></dd>
 
@@ -116,7 +116,7 @@ property/window, so the copula is preserved).</p></dd>
 
 <dt id="arg-summarize">summarize<a class="anchor" aria-label="anchor" href="#arg-summarize"></a></dt>
 <dd><p><code>TRUE</code> (default) returns per-pixel percentile rasters (<code>probs</code>); <code>FALSE</code>
-returns the raw <code>n_kept</code>-layer realization stacks (for downstream use, e.g. <code><a href="remarginalized_awc.html">remarginalized_awc()</a></code>).</p></dd>
+returns the raw <code>n_kept</code>-layer realization stacks (for downstream use, e.g. <code><a href="remarginalize_awc.html">remarginalize_awc()</a></code>).</p></dd>
 
 
 <dt id="arg-probs">probs<a class="anchor" aria-label="anchor" href="#arg-probs"></a></dt>
@@ -145,7 +145,24 @@ the per-pixel bridge" for how this shapes a derived-quantity uncertainty band.</
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="extract_mukey_joint_ensemble.html">extract_mukey_joint_ensemble()</a></code>, <code><a href="zonal_distribution_from_posterior.html">zonal_distribution_from_posterior()</a></code>, <code><a href="remarginalized_awc.html">remarginalized_awc()</a></code></p></div>
+    <div class="dont-index"><p><code><a href="extract_mukey_joint_ensemble.html">extract_mukey_joint_ensemble()</a></code>, <code><a href="zonal_distribution_from_posterior.html">zonal_distribution_from_posterior()</a></code>, <code><a href="remarginalize_awc.html">remarginalize_awc()</a></code></p>
+<p>Other raster-fusion:
+<code><a href="align_percentile_probs.html">align_percentile_probs()</a></code>,
+<code><a href="build_cache_key.html">build_cache_key()</a></code>,
+<code><a href="cache_get.html">cache_get()</a></code>,
+<code><a href="cache_set.html">cache_set()</a></code>,
+<code><a href="check_metalog_feasibility_raster.html">check_metalog_feasibility_raster()</a></code>,
+<code><a href="fit_beta_mle_newton_raster.html">fit_beta_mle_newton_raster()</a></code>,
+<code><a href="fit_beta_mom_raster.html">fit_beta_mom_raster()</a></code>,
+<code><a href="fit_gamma_mom_raster.html">fit_gamma_mom_raster()</a></code>,
+<code><a href="fit_metalog_linear_raster.html">fit_metalog_linear_raster()</a></code>,
+<code><a href="fit_normal_raster.html">fit_normal_raster()</a></code>,
+<code><a href="fuse_adaptive.html">fuse_adaptive()</a></code>,
+<code><a href="percentiles_from_draws.html">percentiles_from_draws()</a></code>,
+<code><a href="quantile_metalog_linear_with_fallback_raster.html">quantile_metalog_linear_with_fallback_raster()</a></code>,
+<code><a href="remarginalize_awc.html">remarginalize_awc()</a></code>,
+<code><a href="resolve_property_dist.html">resolve_property_dist()</a></code>,
+<code><a href="wrap_nested_rasters.html">wrap_nested_rasters()</a></code></p></div>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -1,12 +1,12 @@
 # Fuse one property's prior and likelihood, dispatching to the right family/route automatically from `property_config`.
 
-The raster-native counterpart of `bayesian-updating.R`'s
+The raster-native counterpart of `core-fusion.R`'s
 [`fuse_property()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property.md),
 and this toolkit's top-level entry point for non-compositional
 properties (see
 [`fuse_texture_group()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group.md)
 for the compositional/texture case) - the raster analogue of
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 minus the SSURGO/SOLUS fetch-and-cache wrapper (see this file's
 `@section Deliberately out of scope:` above).
 

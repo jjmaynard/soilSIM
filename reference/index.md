@@ -5,418 +5,171 @@
 The SSURGO adapter’s tabular acquisition, cleaning, and infilling
 pipeline.
 
-- [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
-  : Download SSURGO Tabular Data with Comprehensive Processing
-- [`create_ssurgo_property_lookup_working()`](https://jjmaynard.github.io/soilSIM/reference/create_ssurgo_property_lookup_working.md)
-  : Create SSURGO Property Lookup Table (Working Version)
-- [`validate_download_inputs_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/validate_download_inputs_ssurgo.md)
-  : Validate Download Inputs (SSURGO-specific)
-- [`validate_download_inputs_ssurgo_with_config()`](https://jjmaynard.github.io/soilSIM/reference/validate_download_inputs_ssurgo_with_config.md)
-  : SSURGO Download Input Validation (Wrapper)
-- [`generate_validation_report_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/generate_validation_report_ssurgo.md)
-  : Generate SSURGO Validation Report
-- [`check_ssurgo_cache()`](https://jjmaynard.github.io/soilSIM/reference/check_ssurgo_cache.md)
-  : Check SSURGO Data Cache
-- [`cache_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/cache_ssurgo_data.md)
-  : Cache SSURGO Data
-- [`download_and_prepare_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/download_and_prepare_ssurgo.md)
-  : Download and Prepare SSURGO Data (Workflow Convenience Wrapper)
-- [`process_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_data.md)
-  : Process SSURGO Data (Main Entry Point)
-- [`process_horizon_data_working_compatible()`](https://jjmaynard.github.io/soilSIM/reference/process_horizon_data_working_compatible.md)
-  : Process Horizon Data (Working Compatible)
-- [`process_component_data_working_compatible()`](https://jjmaynard.github.io/soilSIM/reference/process_component_data_working_compatible.md)
-  : Process Component Data (Working Compatible)
-- [`create_infill_compatible_dataset()`](https://jjmaynard.github.io/soilSIM/reference/create_infill_compatible_dataset.md)
-  : Create Infill-Compatible Dataset
-- [`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md)
-  : Clean Property Data (SSURGO Compatible) - deprecated
-- [`hz_quant_prob_mukey()`](https://jjmaynard.github.io/soilSIM/reference/hz_quant_prob_mukey.md)
-  : Calculate Horizon Quantiles and Probabilities by Mukey
-- [`process_soil_properties_comprehensive()`](https://jjmaynard.github.io/soilSIM/reference/process_soil_properties_comprehensive.md)
-  : Comprehensive Soil Property Processing
-- [`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)
-  : Main Soil Property Infilling Function
-- [`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md)
-  : Property Data Cleaning
-- [`get_default_property_config()`](https://jjmaynard.github.io/soilSIM/reference/get_default_property_config.md)
-  : Get Default Property Configuration
-- [`create_custom_property_config()`](https://jjmaynard.github.io/soilSIM/reference/create_custom_property_config.md)
-  : Create Custom Property Configuration
-- [`validate_property_config()`](https://jjmaynard.github.io/soilSIM/reference/validate_property_config.md)
-  : Validate a Property Configuration
-- [`get_rfv_range_category()`](https://jjmaynard.github.io/soilSIM/reference/get_rfv_range_category.md)
-  : Categorize Rock Fragment Volume Values
-- [`apply_property_constraints()`](https://jjmaynard.github.io/soilSIM/reference/apply_property_constraints.md)
-  : Apply Property-Specific Constraints
-- [`create_validation_config()`](https://jjmaynard.github.io/soilSIM/reference/create_validation_config.md)
-  : Create a Validation Configuration
 - [`add_range_rule()`](https://jjmaynard.github.io/soilSIM/reference/add_range_rule.md)
   : Add a Range Validation Rule
 - [`add_relationship_rule()`](https://jjmaynard.github.io/soilSIM/reference/add_relationship_rule.md)
   : Add a Relationship Validation Rule
 - [`apply_validation_rules()`](https://jjmaynard.github.io/soilSIM/reference/apply_validation_rules.md)
   : Apply Validation Rules to Values
-- [`summarize_unsuitable_horizons()`](https://jjmaynard.github.io/soilSIM/reference/summarize_unsuitable_horizons.md)
-  : Summarize Unsuitable Horizons
-- [`infill_property_range_values()`](https://jjmaynard.github.io/soilSIM/reference/infill_property_range_values.md)
-  : Infill Property Range Values
-- [`learn_property_ranges()`](https://jjmaynard.github.io/soilSIM/reference/learn_property_ranges.md)
-  : Learn Property Ranges from Data
-- [`get_property_contextual_ranges()`](https://jjmaynard.github.io/soilSIM/reference/get_property_contextual_ranges.md)
-  : Get Property Contextual Ranges
-- [`infill_missing_property_data()`](https://jjmaynard.github.io/soilSIM/reference/infill_missing_property_data.md)
-  : Infill Missing Property Data
-- [`horizon_name_property_infill()`](https://jjmaynard.github.io/soilSIM/reference/horizon_name_property_infill.md)
-  : Horizon Name Property Infill
-- [`infill_rfv_property_integrated()`](https://jjmaynard.github.io/soilSIM/reference/infill_rfv_property_integrated.md)
-  : Infill Rock Fragment Volume
-- [`infill_water_retention_saxton_rawls_integrated()`](https://jjmaynard.github.io/soilSIM/reference/infill_water_retention_saxton_rawls_integrated.md)
-  : Water Retention Estimation using Saxton-Rawls
+- [`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md)
+  : Property Data Cleaning
+- [`create_custom_property_config()`](https://jjmaynard.github.io/soilSIM/reference/create_custom_property_config.md)
+  : Create Custom Property Configuration
+- [`create_validation_config()`](https://jjmaynard.github.io/soilSIM/reference/create_validation_config.md)
+  : Create a Validation Configuration
+- [`default_property_config()`](https://jjmaynard.github.io/soilSIM/reference/default_property_config.md)
+  : Get Default Property Configuration
 - [`impute_rfv_values()`](https://jjmaynard.github.io/soilSIM/reference/impute_rfv_values.md)
   : Impute Rock Fragment Volume (RFV) Values for One Row
-- [`calculate_saxton_rawls_single()`](https://jjmaynard.github.io/soilSIM/reference/calculate_saxton_rawls_single.md)
-  : Saxton-Rawls Water Retention Pedotransfer Function (Single Horizon)
+- [`infill_missing_property_data()`](https://jjmaynard.github.io/soilSIM/reference/infill_missing_property_data.md)
+  : Infill Missing Property Data
+- [`infill_water_retention_saxton_rawls_integrated()`](https://jjmaynard.github.io/soilSIM/reference/infill_water_retention_saxton_rawls_integrated.md)
+  : Water Retention Estimation using Saxton-Rawls
+- [`learn_property_ranges()`](https://jjmaynard.github.io/soilSIM/reference/learn_property_ranges.md)
+  : Learn Property Ranges from Data
+- [`process_soil_properties_comprehensive()`](https://jjmaynard.github.io/soilSIM/reference/process_soil_properties_comprehensive.md)
+  : Comprehensive Soil Property Processing
+- [`process_ssurgo_components()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_components.md)
+  : Process Component Data (Working Compatible)
+- [`process_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_data.md)
+  : Process SSURGO Data (Main Entry Point)
+- [`process_ssurgo_horizons()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_horizons.md)
+  : Process Horizon Data (Working Compatible)
+- [`property_contextual_ranges()`](https://jjmaynard.github.io/soilSIM/reference/property_contextual_ranges.md)
+  : Get Property Contextual Ranges
+- [`summarize_unsuitable_horizons()`](https://jjmaynard.github.io/soilSIM/reference/summarize_unsuitable_horizons.md)
+  : Summarize Unsuitable Horizons
 
 ## Statistics & Diagnostics
 
 Descriptive statistics, correlation analysis, and end-to-end workflow
 QA.
 
-- [`analyze_soil_statistics()`](https://jjmaynard.github.io/soilSIM/reference/analyze_soil_statistics.md)
-  : Comprehensive Statistical Analysis (Main Entry Point)
-- [`run_comprehensive_correlation_analysis()`](https://jjmaynard.github.io/soilSIM/reference/run_comprehensive_correlation_analysis.md)
-  : Run Comprehensive Correlation Analysis
-- [`compute_stratified_correlations()`](https://jjmaynard.github.io/soilSIM/reference/compute_stratified_correlations.md)
-  : Compute Stratified Correlations
 - [`analyze_property_distributions()`](https://jjmaynard.github.io/soilSIM/reference/analyze_property_distributions.md)
   : Analyze Property Distributions
-- [`fit_property_distributions()`](https://jjmaynard.github.io/soilSIM/reference/fit_property_distributions.md)
-  : Fit Property Distributions
-- [`detect_comprehensive_outliers()`](https://jjmaynard.github.io/soilSIM/reference/detect_comprehensive_outliers.md)
-  : Detect Comprehensive Outliers
-- [`validate_statistical_results()`](https://jjmaynard.github.io/soilSIM/reference/validate_statistical_results.md)
-  : Validate Statistical Results
-- [`generate_statistical_quality_report()`](https://jjmaynard.github.io/soilSIM/reference/generate_statistical_quality_report.md)
-  : Generate Statistical Quality Report
-- [`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md)
-  : Get Statistical Analysis Default Configuration
-- [`validate_statistical_config()`](https://jjmaynard.github.io/soilSIM/reference/validate_statistical_config.md)
-  : Validate Statistical Configuration
-- [`identify_numeric_soil_properties()`](https://jjmaynard.github.io/soilSIM/reference/identify_numeric_soil_properties.md)
-  : Identify Numeric Soil Properties
-- [`compute_property_statistics()`](https://jjmaynard.github.io/soilSIM/reference/compute_property_statistics.md)
-  : Compute Property Statistics
-- [`get_appropriate_distributions()`](https://jjmaynard.github.io/soilSIM/reference/get_appropriate_distributions.md)
-  : Determine candidate distributions to fit for a property
+- [`analyze_soil_statistics()`](https://jjmaynard.github.io/soilSIM/reference/analyze_soil_statistics.md)
+  : Comprehensive Statistical Analysis (Main Entry Point)
 - [`analyze_texture_correlations()`](https://jjmaynard.github.io/soilSIM/reference/analyze_texture_correlations.md)
   : Analyze texture (sand/silt/clay) correlations, in both raw and ILR
   space
-- [`validate_complete_workflow()`](https://jjmaynard.github.io/soilSIM/reference/validate_complete_workflow.md)
+- [`compute_property_statistics()`](https://jjmaynard.github.io/soilSIM/reference/compute_property_statistics.md)
+  : Compute Property Statistics
+- [`compute_stratified_correlations()`](https://jjmaynard.github.io/soilSIM/reference/compute_stratified_correlations.md)
+  : Compute Stratified Correlations
+- [`default_statistics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_statistics_config.md)
+  : Get Statistical Analysis Default Configuration
+- [`detect_comprehensive_outliers()`](https://jjmaynard.github.io/soilSIM/reference/detect_comprehensive_outliers.md)
+  : Detect Comprehensive Outliers
+- [`diagnose_workflow()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_workflow.md)
   : Validate Complete Workflow
-- [`generate_validation_report()`](https://jjmaynard.github.io/soilSIM/reference/generate_validation_report.md)
-  : Generate Validation Report
-- [`assess_workflow_quality()`](https://jjmaynard.github.io/soilSIM/reference/assess_workflow_quality.md)
-  : Assess Workflow Quality
-- [`validate_monte_carlo_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_monte_carlo_quality.md)
-  : Validate Monte Carlo Quality
-- [`assess_simulation_coverage()`](https://jjmaynard.github.io/soilSIM/reference/assess_simulation_coverage.md)
-  : Assess Simulation Coverage
-- [`validate_distribution_fidelity()`](https://jjmaynard.github.io/soilSIM/reference/validate_distribution_fidelity.md)
-  : Validate Distribution Fidelity
-- [`validate_correlation_structures()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_structures.md)
-  : Validate Correlation Structures
-- [`validate_correlation_preservation_diagnostics()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_preservation_diagnostics.md)
-  : Validate Correlation Preservation
-- [`validate_within_depth_correlations()`](https://jjmaynard.github.io/soilSIM/reference/validate_within_depth_correlations.md)
-  : Validate Within Depth Correlations
-- [`assess_cholesky_decomposition()`](https://jjmaynard.github.io/soilSIM/reference/assess_cholesky_decomposition.md)
-  : Assess Cholesky Decomposition
-- [`validate_gp_model_workflow()`](https://jjmaynard.github.io/soilSIM/reference/validate_gp_model_workflow.md)
-  : Validate GP Model Workflow
-- [`validate_gp_model_performance()`](https://jjmaynard.github.io/soilSIM/reference/validate_gp_model_performance.md)
-  : Validate GP Model Performance
-- [`assess_depth_trend_realism()`](https://jjmaynard.github.io/soilSIM/reference/assess_depth_trend_realism.md)
-  : Assess Depth Trend Realism
-- [`validate_gp_predictions()`](https://jjmaynard.github.io/soilSIM/reference/validate_gp_predictions.md)
-  : Validate GP Predictions
-- [`validate_soil_science_realism()`](https://jjmaynard.github.io/soilSIM/reference/validate_soil_science_realism.md)
-  : Validate Soil Science Realism
-- [`assess_property_constraints()`](https://jjmaynard.github.io/soilSIM/reference/assess_property_constraints.md)
-  : Assess Property Constraints
+- [`distributions_for_properties()`](https://jjmaynard.github.io/soilSIM/reference/distributions_for_properties.md)
+  : Determine candidate distributions to fit for a property
+- [`fit_property_distributions()`](https://jjmaynard.github.io/soilSIM/reference/fit_property_distributions.md)
+  : Fit Property Distributions
+- [`generate_statistical_quality_report()`](https://jjmaynard.github.io/soilSIM/reference/generate_statistical_quality_report.md)
+  : Generate Statistical Quality Report
+- [`identify_numeric_soil_properties()`](https://jjmaynard.github.io/soilSIM/reference/identify_numeric_soil_properties.md)
+  : Identify Numeric Soil Properties
+- [`run_comprehensive_correlation_analysis()`](https://jjmaynard.github.io/soilSIM/reference/run_comprehensive_correlation_analysis.md)
+  : Run Comprehensive Correlation Analysis
+- [`validate_statistical_config()`](https://jjmaynard.github.io/soilSIM/reference/validate_statistical_config.md)
+  : Validate Statistical Configuration
+- [`validate_statistical_results()`](https://jjmaynard.github.io/soilSIM/reference/validate_statistical_results.md)
+  : Validate Statistical Results
 
 ## Distribution Fitting & Correlations
 
 Percentile-triplet and arbitrary-percentile fitting, ILR transforms,
 correlation matrices (core).
 
-- [`fit_normal_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_triplet.md)
-  [`quantile_normal()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_triplet.md)
-  : Fit a Normal distribution from three percentiles (exact closed form)
-
-- [`fit_beta_mom()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mom.md)
-  : Method-of-moments Beta fit (closed form; used as the Newton-Raphson
-  seed)
-
-- [`fit_beta_mle_newton()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton.md)
-  [`fit_beta_mle_newton_vec()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton.md)
-  : Vectorized Newton-Raphson Beta MLE from raw-scale percentile values
-
-- [`quantile_beta()`](https://jjmaynard.github.io/soilSIM/reference/quantile_beta.md)
-  : Evaluate a fitted Beta quantile function on \\\[0,1\]\\
-
-- [`quantile_linear_cdf()`](https://jjmaynard.github.io/soilSIM/reference/quantile_linear_cdf.md)
-  : Piecewise-linear inverse-CDF quantile function, exact at the given
-  knots
-
-- [`quantile_triangular()`](https://jjmaynard.github.io/soilSIM/reference/quantile_triangular.md)
-  : Degenerate quantile function for a min/mode/max triangular fit
-
-- [`tri_dist()`](https://jjmaynard.github.io/soilSIM/reference/tri_dist.md)
-  : Draw random samples from a triangular distribution
-
-- [`fit_metalog_linear()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear.md)
-  : Fit a metalog distribution via exact linear solve
-
-- [`quantile_metalog_linear()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear.md)
-  : Evaluate a metalog quantile function
-
-- [`check_metalog_feasible()`](https://jjmaynard.github.io/soilSIM/reference/check_metalog_feasible.md)
-  : Check whether a metalog fit's quantile function is monotonic
-  (feasible)
-
-- [`quantile_metalog_with_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_with_fallback.md)
-  :
-
-  Metalog quantile with automatic fallback to `linear_cdf`
-
-- [`resolve_property_family()`](https://jjmaynard.github.io/soilSIM/reference/resolve_property_family.md)
-  : Resolve a property's distribution family from its own percentile
-  skew
-
-- [`fit_percentile_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_percentile_triplet.md)
-  : Fit a distribution to a low/representative/high percentile triplet
-
-- [`quantile_from_fit()`](https://jjmaynard.github.io/soilSIM/reference/quantile_from_fit.md)
-  : Evaluate the quantile function of a fitted percentile-triplet
-  distribution
-
-- [`validate_fit_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_fit_parameters.md)
-  : Validate a fitted distribution's parameters
-
-- [`ilr_forward()`](https://jjmaynard.github.io/soilSIM/reference/ilr_forward.md)
-  : Forward ILR transform: 2 unconstrained coordinates from a 3-part
-  composition
-
-- [`ilr_inverse()`](https://jjmaynard.github.io/soilSIM/reference/ilr_inverse.md)
-  : Inverse ILR transform: 2 unconstrained coordinates -\> a valid
-  composition
-
-- [`estimate_ilr_moments_mc()`](https://jjmaynard.github.io/soilSIM/reference/estimate_ilr_moments_mc.md)
-  : Estimate one horizon's ILR-space mean/covariance from marginal l/r/h
-  triplets
-
-- [`sample_ilr_posterior()`](https://jjmaynard.github.io/soilSIM/reference/sample_ilr_posterior.md)
-  : Draw posterior composition samples from a fused/fitted ILR-space
-  (mu, Sigma)
-
-- [`ensure_positive_definite_matrix()`](https://jjmaynard.github.io/soilSIM/reference/ensure_positive_definite_matrix.md)
-  : Repair a near-correlation matrix to be positive definite
-
-- [`validate_correlation_matrix()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrix.md)
-  : Validate a correlation matrix's shape and positive-definiteness
-
-- [`estimate_correlation_matrix_robust()`](https://jjmaynard.github.io/soilSIM/reference/estimate_correlation_matrix_robust.md)
-  : Estimate a correlation matrix robustly from data, with grouped and
-  global fallbacks
-
-- [`resolve_composition_groups()`](https://jjmaynard.github.io/soilSIM/reference/resolve_composition_groups.md)
-  : Expand a requested properties vector around active composition
-  groups
-
-- [`restore_composition_properties()`](https://jjmaynard.github.io/soilSIM/reference/restore_composition_properties.md)
-  : Collapse simulated ILR pseudo-properties back to raw composition
-  members
-
-- [`simulate_from_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/simulate_from_percentiles.md)
-  : Simulate values from a distribution reconstructed from summary
-  percentiles
-
-- [`generate_inverse_cdf_distribution()`](https://jjmaynard.github.io/soilSIM/reference/generate_inverse_cdf_distribution.md)
-  : Build a piecewise-linear inverse-CDF sampler from percentile columns
-
-- [`compare_percentile_methods()`](https://jjmaynard.github.io/soilSIM/reference/compare_percentile_methods.md)
-  : Run several percentile-reconstruction methods on the same data and
-  compare them
-
-- [`calculate_summary_statistics()`](https://jjmaynard.github.io/soilSIM/reference/calculate_summary_statistics.md)
-  : Compute summary statistics (mean, SD, CV, percentiles, quartiles)
-  for a numeric vector
-
-- [`validate_percentile_methods_synthetic()`](https://jjmaynard.github.io/soilSIM/reference/validate_percentile_methods_synthetic.md)
-  : Evaluate percentile-reconstruction methods against a known
-  ground-truth distribution
-
 - [`classify_genhz()`](https://jjmaynard.github.io/soilSIM/reference/classify_genhz.md)
   : Classify a horizon name into a generalized master-horizon
   designation
-
-- [`build_kssl_fallback_matrix()`](https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.md)
-  : Build a KSSL-derived fallback correlation matrix for a set of
-  properties
+- [`compare_percentile_methods()`](https://jjmaynard.github.io/soilSIM/reference/compare_percentile_methods.md)
+  : Run several percentile-reconstruction methods on the same data and
+  compare them
+- [`ensure_positive_definite_matrix()`](https://jjmaynard.github.io/soilSIM/reference/ensure_positive_definite_matrix.md)
+  : Repair a near-correlation matrix to be positive definite
+- [`fit_metalog_linear()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear.md)
+  : Fit a metalog distribution via exact linear solve
+- [`fit_normal_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_triplet.md)
+  [`quantile_normal()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_triplet.md)
+  : Fit a Normal distribution from three percentiles (exact closed form)
+- [`fit_percentile_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_percentile_triplet.md)
+  : Fit a distribution to a low/representative/high percentile triplet
+- [`ilr_forward()`](https://jjmaynard.github.io/soilSIM/reference/ilr_forward.md)
+  : Forward ILR transform: 2 unconstrained coordinates from a 3-part
+  composition
+- [`ilr_inverse()`](https://jjmaynard.github.io/soilSIM/reference/ilr_inverse.md)
+  : Inverse ILR transform: 2 unconstrained coordinates -\> a valid
+  composition
+- [`quantile_beta()`](https://jjmaynard.github.io/soilSIM/reference/quantile_beta.md)
+  : Evaluate a fitted Beta quantile function on \\\[0,1\]\\
+- [`quantile_from_fit()`](https://jjmaynard.github.io/soilSIM/reference/quantile_from_fit.md)
+  : Evaluate the quantile function of a fitted percentile-triplet
+  distribution
+- [`quantile_linear_cdf()`](https://jjmaynard.github.io/soilSIM/reference/quantile_linear_cdf.md)
+  : Piecewise-linear inverse-CDF quantile function, exact at the given
+  knots
+- [`quantile_metalog_linear()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear.md)
+  : Evaluate a metalog quantile function
+- [`quantile_triangular()`](https://jjmaynard.github.io/soilSIM/reference/quantile_triangular.md)
+  : Degenerate quantile function for a min/mode/max triangular fit
+- [`resolve_property_family()`](https://jjmaynard.github.io/soilSIM/reference/resolve_property_family.md)
+  : Resolve a property's distribution family from its own percentile
+  skew
+- [`validate_correlation_matrix()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrix.md)
+  : Validate a correlation matrix's shape and positive-definiteness
 
 ## Monte Carlo Simulation
 
 Correlated Monte Carlo simulation engine (core).
 
-- [`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)
-  : Generate Monte Carlo Realizations of Soil Properties
-
-- [`simulate_correlated_properties()`](https://jjmaynard.github.io/soilSIM/reference/simulate_correlated_properties.md)
-  : Simulate Correlated Properties
-
-- [`sim_component_compositions()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_compositions.md)
-  : Simulate Component Compositions
-
-- [`setup_distributions()`](https://jjmaynard.github.io/soilSIM/reference/setup_distributions.md)
-  : Setup Distributions
-
-- [`prepare_simulation_parameters()`](https://jjmaynard.github.io/soilSIM/reference/prepare_simulation_parameters.md)
-  : Prepare Simulation Parameters
-
-- [`fuse_observed_data_into_priors()`](https://jjmaynard.github.io/soilSIM/reference/fuse_observed_data_into_priors.md)
-  : Fuse Observed Field/Lab Data into SSURGO-Derived Priors
-
-- [`configure_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/configure_correlation_structure.md)
-  : Configure Correlation Structure
-
-- [`apply_simulation_constraints()`](https://jjmaynard.github.io/soilSIM/reference/apply_simulation_constraints.md)
-  : Apply Simulation Constraints
-
-- [`validate_monte_carlo_inputs()`](https://jjmaynard.github.io/soilSIM/reference/validate_monte_carlo_inputs.md)
-  : Validate Monte Carlo Inputs
-
-- [`validate_simulation_output()`](https://jjmaynard.github.io/soilSIM/reference/validate_simulation_output.md)
-  : Validate Simulation Output
-
-- [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)
+- [`default_monte_carlo_config()`](https://jjmaynard.github.io/soilSIM/reference/default_monte_carlo_config.md)
   : Get Monte Carlo Default Configuration
-
-- [`normalize_monte_carlo_config()`](https://jjmaynard.github.io/soilSIM/reference/normalize_monte_carlo_config.md)
-  :
-
-  Normalize a Monte Carlo `simulation_config` to be Properly Nested
-
-- [`validate_monte_carlo_config()`](https://jjmaynard.github.io/soilSIM/reference/validate_monte_carlo_config.md)
-  : Validate Monte Carlo Configuration
-
-- [`prepare_simulation_data()`](https://jjmaynard.github.io/soilSIM/reference/prepare_simulation_data.md)
-  : Prepare Simulation Data
-
-- [`extract_property_parameters()`](https://jjmaynard.github.io/soilSIM/reference/extract_property_parameters.md)
-  : Extract Simulation Parameters for One Horizon/Property
-
-- [`estimate_property_correlations()`](https://jjmaynard.github.io/soilSIM/reference/estimate_property_correlations.md)
-  : Estimate a Correlation Matrix from Simulation Parameters
+- [`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md)
+  : Generate Monte Carlo Realizations of Soil Properties
 
 ## GP Depth Modeling & Multivariate Adjustment
 
 Gaussian-process depth-trend modeling and Monte Carlo/GP integration
 (core).
 
+- [`adjust_simulation_depthwise()`](https://jjmaynard.github.io/soilSIM/reference/adjust_simulation_depthwise.md)
+  : Adjust Multiple Soil Properties While Preserving Correlations
+- [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md)
+  : Apply GP Depth Trends with Correlation Preservation
+- [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md)
+  : Apply Local GP Adjustments
+- [`apply_nrcs_trend_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_nrcs_trend_adjustments.md)
+  : Apply NRCS Trend Adjustments
+- [`convert_to_property_matrices()`](https://jjmaynard.github.io/soilSIM/reference/convert_to_property_matrices.md)
+  : Convert to Property Matrices
+- [`extract_depth_length_scale()`](https://jjmaynard.github.io/soilSIM/reference/extract_depth_length_scale.md)
+  : Extract a Real-Units Depth Length-Scale from a Fitted GP Model
+- [`fit_depth_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_depth_gp_models.md)
+  : Build Stratified GP Models
+- [`fit_individual_gp_model()`](https://jjmaynard.github.io/soilSIM/reference/fit_individual_gp_model.md)
+  : Fit Individual GP Model
+- [`fit_local_gp_model_single()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_model_single.md)
+  : Fit a Single Local GP Model
+- [`predict(`*`<soilSIM_gp_models>`*`)`](https://jjmaynard.github.io/soilSIM/reference/predict.soilSIM_gp_models.md)
+  : Predict a fitted GP depth-trend model at new depths
+- [`predict_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/predict_gp_depth_trends.md)
+  : Predict GP Depth Trends
 - [`prepare_nrcs_training_data()`](https://jjmaynard.github.io/soilSIM/reference/prepare_nrcs_training_data.md)
   : Prepare NRCS Training Data for GP Model Building
 - [`select_optimal_grouping()`](https://jjmaynard.github.io/soilSIM/reference/select_optimal_grouping.md)
   : Select Optimal Grouping Strategy
-- [`validate_training_groups()`](https://jjmaynard.github.io/soilSIM/reference/validate_training_groups.md)
-  : Validate Training Groups
-- [`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md)
-  : Build Stratified GP Models
-- [`fit_individual_gp_model()`](https://jjmaynard.github.io/soilSIM/reference/fit_individual_gp_model.md)
-  : Fit Individual GP Model
-- [`adjust_multivariate_depthwise_GP()`](https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.md)
-  : Adjust Multiple Soil Properties While Preserving Correlations
-- [`validate_correlation_preservation()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_preservation.md)
-  : Validate Correlation Preservation
-- [`simulate_soil_properties()`](https://jjmaynard.github.io/soilSIM/reference/simulate_soil_properties.md)
-  : Soil Property Simulation with NRCS GP Models and Cholesky
-  Correlations
-- [`match_soils_to_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/match_soils_to_gp_models.md)
-  : Match Soils to GP Models
-- [`predict_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/predict_gp_depth_trends.md)
-  : Predict GP Depth Trends
 - [`validate_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/validate_gp_models.md)
   : Validate GP Models
-- [`integrate_monte_carlo_with_gp()`](https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.md)
-  : Integrate Monte Carlo Simulations with GP Models
-- [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md)
-  : Apply GP Depth Trends with Correlation Preservation
-- [`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md)
-  : Preserve Correlation Structure During GP Adjustment
-- [`apply_nrcs_trend_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_nrcs_trend_adjustments.md)
-  : Apply NRCS Trend Adjustments
-- [`match_simulations_to_nrcs_models()`](https://jjmaynard.github.io/soilSIM/reference/match_simulations_to_nrcs_models.md)
-  : Match Simulations to NRCS Models
-- [`extract_nrcs_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/extract_nrcs_depth_trends.md)
-  : Extract NRCS Depth Trends
-- [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md)
-  : Apply Local GP Adjustments
-- [`fit_local_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_models.md)
-  : Fit Local GP Models
-- [`fit_local_gp_model_single()`](https://jjmaynard.github.io/soilSIM/reference/fit_local_gp_model_single.md)
-  : Fit a Single Local GP Model
-- [`apply_local_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_depth_trends.md)
-  : Apply Local Depth Trends
-- [`convert_to_property_matrices()`](https://jjmaynard.github.io/soilSIM/reference/convert_to_property_matrices.md)
-  : Convert to Property Matrices
-- [`convert_to_long_format()`](https://jjmaynard.github.io/soilSIM/reference/convert_to_long_format.md)
-  : Convert to Long Format
-- [`validate_integration_results()`](https://jjmaynard.github.io/soilSIM/reference/validate_integration_results.md)
-  : Validate Integration Results
-- [`correct_distribution_shapes()`](https://jjmaynard.github.io/soilSIM/reference/correct_distribution_shapes.md)
-  : Correct Distribution Shapes
 
 ## Profile, Component & Depth Simulation
 
 Component composition and horizon depth/thickness simulation.
 
-- [`remove_organic_layer()`](https://jjmaynard.github.io/soilSIM/reference/remove_organic_layer.md)
-  : Remove Organic Layers and Adjust Depths
-- [`slice_and_aggregate_soil_data()`](https://jjmaynard.github.io/soilSIM/reference/slice_and_aggregate_soil_data.md)
-  : Slice and Aggregate Soil Data at Specified Depth Intervals
-- [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
+- [`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)
   : Simulate Soil Component Composition
-- [`simulate_correlated_triangular()`](https://jjmaynard.github.io/soilSIM/reference/simulate_correlated_triangular.md)
-  : Simulate Correlated Samples from Triangular Distributions
-- [`calculate_mode()`](https://jjmaynard.github.io/soilSIM/reference/calculate_mode.md)
-  : Compute the Mode of a Numeric Vector
-- [`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md)
-  : Simulate Soil Properties for a Specific Cokey (Generalized)
-- [`get_aws_data_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/get_aws_data_by_mukey.md)
-  : Query SSURGO Database for Soil Data by Mukey
-- [`query_osd_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/query_osd_distinctness.md)
-  : Query OSD Data and Convert Horizon Distinctness to Offset
-- [`infill_missing_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/infill_missing_distinctness.md)
-  : Infill Missing Distinctness Values for Horizons
-- [`infill_missing_depth_variability()`](https://jjmaynard.github.io/soilSIM/reference/infill_missing_depth_variability.md)
-  : Infill Missing Depth Variability
-- [`simulate_soil_profile_top_down()`](https://jjmaynard.github.io/soilSIM/reference/simulate_soil_profile_top_down.md)
-  : Top-down Simulation of Soil Profile
-- [`simulate_soil_profile_bottom_up()`](https://jjmaynard.github.io/soilSIM/reference/simulate_soil_profile_bottom_up.md)
-  : Bottom-up Simulation of Soil Profile
-- [`simulate_soil_profile_thickness()`](https://jjmaynard.github.io/soilSIM/reference/simulate_soil_profile_thickness.md)
-  : Simulate Soil Profile Thickness
-- [`simulate_and_perturb_soil_profiles()`](https://jjmaynard.github.io/soilSIM/reference/simulate_and_perturb_soil_profiles.md)
-  : Simulate and Perturb Soil Profiles
-- [`simulate_profile_depths_by_collection()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths_by_collection.md)
-  : Run Soil Profile Depth Simulations for a SoilProfileCollection
-- [`simulate_profile_depths_by_collection_parallel()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths_by_collection_parallel.md)
-  : Run Soil Profile Depth Simulations in Parallel for a
-  SoilProfileCollection
-- [`simulate_profile_depths_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths_by_mukey.md)
-  : Simulate Profile Depths by Mukey
-- [`evaluate_simulated_depths()`](https://jjmaynard.github.io/soilSIM/reference/evaluate_simulated_depths.md)
-  : Evaluate Simulated Profile Depths
 
 ## AWS / Van Genuchten Modeling
 
@@ -424,126 +177,61 @@ Available water storage via ROSETTA pedotransfer parameters.
 
 - [`van_genuchten()`](https://jjmaynard.github.io/soilSIM/reference/van_genuchten.md)
   : Evaluate the van Genuchten Water Retention Curve
-- [`simulate_vg_aws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_vg_aws.md)
-  : Simulate Available Water Holding Capacity from van Genuchten
-  Parameters
-- [`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
-  : Calculate Available Water Storage by Depth Interval
 
 ## Bayesian Updating
 
 Scalar Bayesian updating/fusion of a prior and observed data (core).
 
-- [`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)
-  : Precision-weighted conjugate Normal-Normal posterior
+- [`convert_beta_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/convert_beta_to_moments.md)
+  : Beta's mean/variance as a function of its own (alpha, beta)
 
-- [`normal_to_lognormal_params()`](https://jjmaynard.github.io/soilSIM/reference/normal_to_lognormal_params.md)
-  : Moment-match a raw-space Lognormal's mean/sd onto its underlying
-  Normal's mu/sigma
+- [`convert_gamma_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/convert_gamma_to_moments.md)
+  : Gamma's mean/variance as a function of its own (shape, rate)
 
-- [`lognormal_to_normal_params()`](https://jjmaynard.github.io/soilSIM/reference/lognormal_to_normal_params.md)
+- [`convert_lognormal_to_normal()`](https://jjmaynard.github.io/soilSIM/reference/convert_lognormal_to_normal.md)
   :
 
   Inverse of
-  [`normal_to_lognormal_params()`](https://jjmaynard.github.io/soilSIM/reference/normal_to_lognormal_params.md)
+  [`convert_normal_to_lognormal()`](https://jjmaynard.github.io/soilSIM/reference/convert_normal_to_lognormal.md)
+
+- [`convert_moments_to_beta()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_beta.md)
+  : Method-of-moments Beta fit
+
+- [`convert_moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_gamma.md)
+  : Method-of-moments Gamma fit
+
+- [`convert_normal_to_lognormal()`](https://jjmaynard.github.io/soilSIM/reference/convert_normal_to_lognormal.md)
+  : Moment-match a raw-space Lognormal's mean/sd onto its underlying
+  Normal's mu/sigma
 
 - [`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)
   : Fuse two independent Beta belief distributions via density
   multiplication
 
-- [`fuse_gamma()`](https://jjmaynard.github.io/soilSIM/reference/fuse_gamma.md)
-  : Fuse two independent Gamma (shape/rate) belief distributions
-
-- [`moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_gamma.md)
-  : Method-of-moments Gamma fit
-
-- [`moments_to_beta()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_beta.md)
-  : Method-of-moments Beta fit
-
-- [`beta_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/beta_to_moments.md)
-  : Beta's mean/variance as a function of its own (alpha, beta)
-
-- [`gamma_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/gamma_to_moments.md)
-  : Gamma's mean/variance as a function of its own (shape, rate)
-
-- [`bayes_fuse()`](https://jjmaynard.github.io/soilSIM/reference/bayes_fuse.md)
-  : Fuse a prior and likelihood belief distribution of the same family
-
-- [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
-  : Combine a prior and likelihood distribution into a posterior via
-  grid-based KDE
-
 - [`fuse_bivariate_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_bivariate_normal.md)
   : Fuse two independent bivariate Normal beliefs about the same 2D
   quantity
 
-- [`fuse_texture_group_from_triplets()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_from_triplets.md)
-  : Fuse two full clay/sand/silt low-rep-high triplets jointly via ILR
-  fusion
+- [`fuse_distribution()`](https://jjmaynard.github.io/soilSIM/reference/fuse_distribution.md)
+  : Fuse a prior and likelihood belief distribution of the same family
+
+- [`fuse_gamma()`](https://jjmaynard.github.io/soilSIM/reference/fuse_gamma.md)
+  : Fuse two independent Gamma (shape/rate) belief distributions
+
+- [`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md)
+  : Precision-weighted conjugate Normal-Normal posterior
 
 - [`fuse_property()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property.md)
   : Fuse a prior and likelihood belief distribution, dispatching by
   input shape
 
+- [`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)
+  : Combine a prior and likelihood distribution into a posterior via
+  grid-based KDE
+
 ## Multi-Source Raster Fusion
 
 Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
-
-- [`fit_normal_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_raster.md)
-  [`quantile_normal_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_raster.md)
-  :
-
-  Fit a Normal distribution's mu/sigma rasters from three
-  percentile-value rasters, then evaluate at a fixed target quantile
-  `q` - pure raster arithmetic throughout.
-
-- [`quantile_linear_cdf_raster()`](https://jjmaynard.github.io/soilSIM/reference/quantile_linear_cdf_raster.md)
-  :
-
-  Evaluate the piecewise-linear inverse-CDF at a fixed quantile `q`
-  across a raster. Because the percentile breakpoints (`probs`) are the
-  same at every cell, only the two value-rasters bracketing `q` and a
-  single scalar interpolation weight are needed - no per-cell branching
-  required since the bracket is resolved once, outside the raster
-  arithmetic.
-
-- [`fit_beta_mom_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mom_raster.md)
-  [`quantile_beta_mom_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mom_raster.md)
-  : Method-of-moments Beta fit: alpha/beta rasters are pure arithmetic
-  on mean/variance rasters.
-
-- [`fit_beta_mle_newton_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton_raster.md)
-  [`quantile_beta_mle_newton_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton_raster.md)
-  : Fit a Beta distribution's (alpha, beta) rasters via vectorized
-  Newton-Raphson MLE.
-
-- [`fit_metalog_linear_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear_raster.md)
-  [`quantile_metalog_linear_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear_raster.md)
-  : Fit a metalog distribution via linear solve, vectorized as raster
-  arithmetic.
-
-- [`check_metalog_feasibility_raster()`](https://jjmaynard.github.io/soilSIM/reference/check_metalog_feasibility_raster.md)
-  :
-
-  Vectorized feasibility check: a valid metalog quantile function must
-  be monotonically increasing in y (equivalent to its density staying
-  non-negative everywhere). Probes
-  [`quantile_metalog_linear_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear_raster.md)
-  at a fixed grid of y-values and flags cells where consecutive probe
-  values decrease - a probe, not a proof, but fully vectorized raster
-  arithmetic. Streams one probe raster at a time rather than
-  materializing all of them (avoids an allocation failure at large cell
-  counts).
-
-- [`quantile_metalog_linear_with_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_with_fallback.md)
-  :
-
-  Metalog quantile with automatic fallback to `linear_cdf` for
-  infeasible cells - zero effect on feasible cells, exact `linear_cdf`
-  match on infeasible ones.
-
-- [`fit_gamma_mom_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_gamma_mom_raster.md)
-  : Method-of-moments Gamma fit from a list of percentile-value rasters
 
 - [`align_percentile_probs()`](https://jjmaynard.github.io/soilSIM/reference/align_percentile_probs.md)
   :
@@ -554,62 +242,6 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
   both sides using ONE shared `probs` vector, so passing mismatched
   probabilities through unchanged would silently mis-fit whichever
   side's actual percentiles don't match the assumed labels.
-
-- [`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md)
-  : Fuse a prior and likelihood belief distribution, choosing the fusion
-  route by AOI size rather than requiring the caller to pick.
-
-- [`metalog_moments_raster()`](https://jjmaynard.github.io/soilSIM/reference/metalog_moments_raster.md)
-  :
-
-  Compute a metalog fit's mean/sd via numerical quadrature over its own
-  raw quantile function (`mean = integral of Q(p) dp`,
-  `var = integral of Q(p)^2 dp - mean^2`).
-
-- [`resolve_property_dist()`](https://jjmaynard.github.io/soilSIM/reference/resolve_property_dist.md)
-  :
-
-  Resolve a property's distribution family, refining `dist = "auto"`
-  from the AOI's own percentile skew rather than a fixed per-property
-  label.
-
-- [`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md)
-  :
-
-  Fuse one property's prior and likelihood, dispatching to the right
-  family/route automatically from `property_config`.
-
-- [`group_members()`](https://jjmaynard.github.io/soilSIM/reference/group_members.md)
-  : Look up a compositional group's member property ids, in configured
-  order
-
-- [`fuse_texture_group()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group.md)
-  :
-
-  Fuse a compositional group's members JOINTLY via ILR fusion
-  (`R/distributions.R`'s
-  [`estimate_ilr_moments_mc()`](https://jjmaynard.github.io/soilSIM/reference/estimate_ilr_moments_mc.md)/[`ilr_inverse()`](https://jjmaynard.github.io/soilSIM/reference/ilr_inverse.md),
-  `R/bayesian-updating.R`'s
-  [`fuse_bivariate_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_bivariate_normal.md)),
-  rather than independently via
-  [`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)
-  per member - independent fusion measurably breaks sum-to-100 (up to
-  10.5 percentage points on realistic synthetic data). The raster
-  counterpart of the already-ported scalar
-  [`fuse_texture_group_from_triplets()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_from_triplets.md).
-
-- [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
-  : Run Stage 1 Fusion for One Property/Depth over an AOI
-
-- [`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
-  : Run Stage 1 Fusion for a Whole Compositional Group Jointly
-
-- [`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md)
-  : Run Stage 1 Fusion for Many Properties over an AOI in One Simulation
-  Pass
-
-- [`CACHE_TTL_SECONDS`](https://jjmaynard.github.io/soilSIM/reference/raster_cache.md)
-  : Disk Cache for Raster Fusion Fetch Results
 
 - [`build_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/build_cache_key.md)
   : Build a cache key for one AOI/property/depth-window/kind combination
@@ -624,171 +256,117 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
 
   Store a value in the cache under `key`
 
-- [`wrap_nested_rasters()`](https://jjmaynard.github.io/soilSIM/reference/wrap_nested_rasters.md)
-  [`unwrap_nested_rasters()`](https://jjmaynard.github.io/soilSIM/reference/wrap_nested_rasters.md)
+- [`check_metalog_feasibility_raster()`](https://jjmaynard.github.io/soilSIM/reference/check_metalog_feasibility_raster.md)
   :
 
-  Wrap/unwrap every `SpatRaster` found anywhere inside an
-  arbitrarily-nested list
+  Vectorized feasibility check: a valid metalog quantile function must
+  be monotonically increasing in y (equivalent to its density staying
+  non-negative everywhere). Probes
+  [`quantile_metalog_linear_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear_raster.md)
+  at a fixed grid of y-values and flags cells where consecutive probe
+  values decrease - a probe, not a proof, but fully vectorized raster
+  arithmetic. Streams one probe raster at a time rather than
+  materializing all of them (avoids an allocation failure at large cell
+  counts).
 
-- [`fetch_ssurgo_mukey_raster()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_mukey_raster.md)
-  : Fetch a Raster of SSURGO Map Unit Keys for an AOI
+- [`fit_beta_mle_newton_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton_raster.md)
+  [`quantile_beta_mle_newton_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton_raster.md)
+  : Fit a Beta distribution's (alpha, beta) rasters via vectorized
+  Newton-Raphson MLE.
 
-- [`infill_soil_data()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_data.md)
-  : Infill Missing Soil Property Values (raster-fusion entry point)
+- [`fit_beta_mom_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mom_raster.md)
+  [`quantile_beta_mom_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mom_raster.md)
+  : Method-of-moments Beta fit: alpha/beta rasters are pure arithmetic
+  on mean/variance rasters.
 
-- [`maybe_adjust_soil_data_depth_trend()`](https://jjmaynard.github.io/soilSIM/reference/maybe_adjust_soil_data_depth_trend.md)
+- [`fit_gamma_mom_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_gamma_mom_raster.md)
+  : Method-of-moments Gamma fit from a list of percentile-value rasters
+
+- [`fit_metalog_linear_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear_raster.md)
+  [`quantile_metalog_linear_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear_raster.md)
+  : Fit a metalog distribution via linear solve, vectorized as raster
+  arithmetic.
+
+- [`fit_normal_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_raster.md)
+  [`quantile_normal_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_raster.md)
   :
 
-  Depth-Trend GP Adjustment, Guarded by `GPfit` Availability
+  Fit a Normal distribution's mu/sigma rasters from three
+  percentile-value rasters, then evaluate at a fixed target quantile
+  `q` - pure raster arithmetic throughout.
 
-- [`aggregate_depth_window_by_replicate()`](https://jjmaynard.github.io/soilSIM/reference/aggregate_depth_window_by_replicate.md)
-  : Thickness-Weighted Mean of Simulated Properties over a Depth Window
+- [`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md)
+  : Fuse a prior and likelihood belief distribution, choosing the fusion
+  route by AOI size rather than requiring the caller to pick.
 
-- [`property_to_sim_column()`](https://jjmaynard.github.io/soilSIM/reference/property_to_sim_column.md)
-  : Map a Property Id to its Simulated-Data Column Name
+- [`quantile_metalog_linear_with_fallback_raster()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_with_fallback_raster.md)
+  :
 
-- [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
-  [`SSURGO_SIM_PROPERTY_COLUMNS`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
-  : Monte Carlo-Simulate SSURGO Property Draws for an AOI
+  Metalog quantile with automatic fallback to `linear_cdf` for
+  infeasible cells - zero effect on feasible cells, exact `linear_cdf`
+  match on infeasible ones.
 
-- [`rasterize_mukey_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/rasterize_mukey_percentiles.md)
-  : Merge Per-Mukey Percentile Values onto a Mukey Raster
-
-- [`fetch_ssurgo_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_percentiles.md)
-  : Fetch SSURGO Percentile-Value Rasters for an AOI
-
-- [`percentiles_from_draws()`](https://jjmaynard.github.io/soilSIM/reference/percentiles_from_draws.md)
-  : Compute Per-Mukey Percentile Rasters from Already-Simulated SSURGO
-  Draws
-
-- [`closest_solus_depth_slice()`](https://jjmaynard.github.io/soilSIM/reference/closest_solus_depth_slice.md)
-  : Snap a Depth Window to the Nearest Native SOLUS Depth Slice
-
-- [`solus_depth_window_weights()`](https://jjmaynard.github.io/soilSIM/reference/solus_depth_window_weights.md)
-  : Trapezoidal Depth-Average Weights over Native SOLUS Depth Slices
-
-- [`fetch_solus_low_pred_high()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high.md)
-  : Fetch SOLUS100 Low/Prediction/High Rasters for One Variable and
-  Depth Window
-
-- [`fetch_solus_low_pred_high_multi()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high_multi.md)
-  : Fetch SOLUS100 Low/Prediction/High Rasters for Multiple Variables,
-  One Depth Window (S1)
-
-- [`fetch_solus_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.md)
-  : Fetch SOLUS100 Percentile-Value Rasters for an AOI
-
-- [`fetch_solus_percentiles_multi()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles_multi.md)
-  : Fetch SOLUS100 Percentile-Value Rasters for Multiple Variables, One
-  Depth Window (S1)
-
-- [`fetch_solus_restriction_depth()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_restriction_depth.md)
-  : Fetch a SOLUS100 Restriction-Depth Raster, Right-Censoring-Guarded
-  (S2)
-
-- [`fetch_solus_site_level()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_site_level.md)
-  : Fetch SOLUS100 Rasters for a Site-Level (Depth-Independent) Variable
-  (S2)
-
-- [`extract_mukey_joint_ensemble()`](https://jjmaynard.github.io/soilSIM/reference/extract_mukey_joint_ensemble.md)
-  : Per-Mukey Joint Multivariate Profile Ensemble at Several Depth
-  Windows
+- [`remarginalize_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_awc.md)
+  : Per-Pixel Available Water Capacity from a Re-Marginalized Ensemble
 
 - [`remarginalize_ensemble_to_posterior()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_ensemble_to_posterior.md)
   : Per-Pixel Ensemble Re-Marginalization to a Fused Posterior
 
-- [`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)
-  : Per-Pixel Available Water Capacity from a Re-Marginalized Ensemble
+- [`resolve_property_dist()`](https://jjmaynard.github.io/soilSIM/reference/resolve_property_dist.md)
+  :
+
+  Resolve a property's distribution family, refining `dist = "auto"`
+  from the AOI's own percentile skew rather than a fixed per-property
+  label.
+
+## S3 Result Classes
+
+Constructors for the classed objects soilSIM’s engines return -
+print()/summary() methods, `$`-access unchanged.
+
+- [`new_soilSIM_simulation()`](https://jjmaynard.github.io/soilSIM/reference/new_soilSIM_simulation.md)
+  : Monte Carlo simulation result
+
+- [`new_soilSIM_statistics()`](https://jjmaynard.github.io/soilSIM/reference/new_soilSIM_statistics.md)
+  : Descriptive-statistics result
+
+- [`new_soilSIM_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/new_soilSIM_gp_models.md)
+  : Stratified GP depth-model set
+
+- [`new_soilSIM_fusion()`](https://jjmaynard.github.io/soilSIM/reference/new_soilSIM_fusion.md)
+  : Multi-source raster fusion result
+
+- [`new_soilSIM_diagnostics()`](https://jjmaynard.github.io/soilSIM/reference/new_soilSIM_diagnostics.md)
+  : Diagnostic report
+
+- [`new_soilSIM_property_config()`](https://jjmaynard.github.io/soilSIM/reference/new_soilSIM_property_config.md)
+  : Property configuration object
+
+- [`new_percentile_rasters()`](https://jjmaynard.github.io/soilSIM/reference/new_percentile_rasters.md)
+  :
+
+  Tag a list of percentile-value rasters for
+  [`fuse_property()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property.md)'s
+  raster method
 
 ## Utilities
 
 Shared validation, logging, configuration, and I/O helpers.
 
+- [`available_properties()`](https://jjmaynard.github.io/soilSIM/reference/available_properties.md)
+  : Get Available Properties from Various Sources
+- [`default_config()`](https://jjmaynard.github.io/soilSIM/reference/default_config.md)
+  : Get Default Configuration
+- [`default_diagnostics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_diagnostics_config.md)
+  : Get Validation Defaults by Context
+- [`default_property_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/default_property_synonyms.md)
+  : Get Default Synonyms for Property Sources
 - [`is_unsuitable()`](https://jjmaynard.github.io/soilSIM/reference/is_unsuitable.md)
   : Identify Unsuitable Horizons
+- [`predefined_properties()`](https://jjmaynard.github.io/soilSIM/reference/predefined_properties.md)
+  : Get Predefined Property Sets
 - [`validate_data_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_data_quality.md)
   : Validate Data Quality
-- [`check_required_columns()`](https://jjmaynard.github.io/soilSIM/reference/check_required_columns.md)
-  : Check Required Columns
-- [`validate_numeric_ranges()`](https://jjmaynard.github.io/soilSIM/reference/validate_numeric_ranges.md)
-  : Validate Numeric Ranges
-- [`standardize_property_names()`](https://jjmaynard.github.io/soilSIM/reference/standardize_property_names.md)
-  : Standardize Property Names
-- [`convert_depth_units()`](https://jjmaynard.github.io/soilSIM/reference/convert_depth_units.md)
-  : Convert Depth Units
-- [`safe_coalesce()`](https://jjmaynard.github.io/soilSIM/reference/safe_coalesce.md)
-  : Safe Coalesce
-- [`handle_missing_values()`](https://jjmaynard.github.io/soilSIM/reference/handle_missing_values.md)
-  : Handle Missing Values
-- [`read_soil_data()`](https://jjmaynard.github.io/soilSIM/reference/read_soil_data.md)
-  : Read Soil Data
-- [`write_soil_data()`](https://jjmaynard.github.io/soilSIM/reference/write_soil_data.md)
-  : Write Soil Data
-- [`backup_data()`](https://jjmaynard.github.io/soilSIM/reference/backup_data.md)
-  : Backup Data
-- [`load_configuration()`](https://jjmaynard.github.io/soilSIM/reference/load_configuration.md)
-  : Load Configuration
-- [`safe_correlation()`](https://jjmaynard.github.io/soilSIM/reference/safe_correlation.md)
-  : Safe Correlation
-- [`calculate_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/calculate_confidence_intervals.md)
-  : Calculate Confidence Intervals
-- [`normalize_values()`](https://jjmaynard.github.io/soilSIM/reference/normalize_values.md)
-  : Normalize Values
-- [`detect_outliers()`](https://jjmaynard.github.io/soilSIM/reference/detect_outliers.md)
-  : Detect Outliers
-- [`setup_logging()`](https://jjmaynard.github.io/soilSIM/reference/setup_logging.md)
-  : Setup Logging
-- [`log_message()`](https://jjmaynard.github.io/soilSIM/reference/log_message.md)
-  : Log Message
-- [`handle_workflow_error()`](https://jjmaynard.github.io/soilSIM/reference/handle_workflow_error.md)
-  : Handle Workflow Error
-- [`track_progress()`](https://jjmaynard.github.io/soilSIM/reference/track_progress.md)
-  : Track Progress
-- [`get_default_configuration()`](https://jjmaynard.github.io/soilSIM/reference/get_default_configuration.md)
-  : Get Default Configuration
-- [`validate_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_parameters.md)
-  : Validate Parameters
-- [`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md)
-  : Merge Configurations
-- [`export_workflow_metadata()`](https://jjmaynard.github.io/soilSIM/reference/export_workflow_metadata.md)
-  : Export Workflow Metadata
-- [`validate_properties()`](https://jjmaynard.github.io/soilSIM/reference/validate_properties.md)
-  : Validate Soil Properties (Simple Generic Version)
-- [`get_available_properties()`](https://jjmaynard.github.io/soilSIM/reference/get_available_properties.md)
-  : Get Available Properties from Various Sources
-- [`get_predefined_properties()`](https://jjmaynard.github.io/soilSIM/reference/get_predefined_properties.md)
-  : Get Predefined Property Sets
-- [`extract_properties_from_dataframe()`](https://jjmaynard.github.io/soilSIM/reference/extract_properties_from_dataframe.md)
-  : Extract Properties from Data Frame
-- [`validate_properties_with_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/validate_properties_with_synonyms.md)
-  : Validate Properties with Synonyms
-- [`get_default_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/get_default_synonyms.md)
-  : Get Default Synonyms for Property Sources
-- [`create_property_lookup()`](https://jjmaynard.github.io/soilSIM/reference/create_property_lookup.md)
-  : Simple Property Lookup Creator
-- [`validate_wkt_geometry()`](https://jjmaynard.github.io/soilSIM/reference/validate_wkt_geometry.md)
-  : Validate WKT Geometry (Generic)
-- [`validate_wkt_string()`](https://jjmaynard.github.io/soilSIM/reference/validate_wkt_string.md)
-  : Validate WKT String Format
-- [`parse_wkt_geometry()`](https://jjmaynard.github.io/soilSIM/reference/parse_wkt_geometry.md)
-  : Parse WKT Geometry
-- [`validate_geometry_validity()`](https://jjmaynard.github.io/soilSIM/reference/validate_geometry_validity.md)
-  : Validate Geometry Validity
-- [`validate_geometry_area()`](https://jjmaynard.github.io/soilSIM/reference/validate_geometry_area.md)
-  : Validate Geometry Area
-- [`validate_geometry_complexity()`](https://jjmaynard.github.io/soilSIM/reference/validate_geometry_complexity.md)
-  : Validate Geometry Complexity
-- [`validate_coordinate_bounds()`](https://jjmaynard.github.io/soilSIM/reference/validate_coordinate_bounds.md)
-  : Validate Coordinate Bounds
-- [`get_validation_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_validation_defaults.md)
-  : Get Validation Defaults by Context
-- [`calculate_complexity_score()`](https://jjmaynard.github.io/soilSIM/reference/calculate_complexity_score.md)
-  : Calculate Complexity Score
-- [`validate_geographic_context()`](https://jjmaynard.github.io/soilSIM/reference/validate_geographic_context.md)
-  : Validate Geographic Context
-- [`validate_projected_context()`](https://jjmaynard.github.io/soilSIM/reference/validate_projected_context.md)
-  : Validate Projected Context
 
 ## Internal Implementation Details
 
@@ -1036,7 +614,7 @@ if you’re reading soilSIM’s source.
   [`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md):
   per cell, draw samples from both sides' percentiles (via
   `simulate_from_percentiles(method= "linear_cdf")`), fuse via
-  [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md),
+  [`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md),
   and moment-match the posterior samples back into the requested family
   so the output contract matches the closed-form route.
 
@@ -1322,39 +900,9 @@ if you’re reading soilSIM’s source.
   [`cache_set()`](https://jjmaynard.github.io/soilSIM/reference/cache_set.md)'s
   `@section Known limitation:`.
 
-- [`apply_copula_to_marginals()`](https://jjmaynard.github.io/soilSIM/reference/apply_copula_to_marginals.md)
-  : Map a Joint Copula Sample onto Existing Per-Depth Marginal
-  Distributions
-
-- [`attach_osd_boundary_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/attach_osd_boundary_distinctness.md)
-  :
-
-  Attach OSD-Derived Boundary Distinctness to Horizon Data (per-genhz
-  `bound_sd`)
-
-- [`build_depth_correlation_kernel()`](https://jjmaynard.github.io/soilSIM/reference/build_depth_correlation_kernel.md)
-  : Build a Depth Correlation Kernel Matrix
-
-- [`extract_depth_length_scale()`](https://jjmaynard.github.io/soilSIM/reference/extract_depth_length_scale.md)
-  : Extract a Real-Units Depth Length-Scale from a Fitted GP Model
-
-- [`mukey_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md)
-  : Raw Per-Mukey Monte Carlo Draws, Keyed by Mukey (Not Collapsed to
-  Percentiles)
-
-- [`mukey_texture_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_texture_draws_lookup.md)
-  : Raw Per-Mukey JOINT Texture Draws, Keyed by Mukey (clay/sand/silt
-  Row-Aligned)
-
-- [`preserve_correlation_structure_joint()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure_joint.md)
-  : Preserve Correlation Structure via a Joint Depth x Property Copula
-
 - [`raster_fusion_bridge`](https://jjmaynard.github.io/soilSIM/reference/raster_fusion_bridge.md)
   : Per-Pixel Ensemble Re-Marginalization (raster-fusion \<-\> tabular
   MC bridge)
-
-- [`sample_joint_depth_property_copula()`](https://jjmaynard.github.io/soilSIM/reference/sample_joint_depth_property_copula.md)
-  : Draw a Joint Depth x Property Gaussian Copula Sample
 
 - [`validate_joint_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/validate_joint_correlation_structure.md)
   : Validate Joint Depth x Property Correlation Structure

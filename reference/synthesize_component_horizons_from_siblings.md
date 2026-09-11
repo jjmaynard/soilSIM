@@ -51,7 +51,7 @@ fallback exists anywhere in soilSIM.
 [`classify_genhz()`](https://jjmaynard.github.io/soilSIM/reference/classify_genhz.md)
 is the package's single hzname-to-generalized-horizon mapper (used here,
 in the SSURGO simulation path, and in the OSD boundary-distinctness
-lookup in `R/depth-simulation.R`).
+lookup in `R/core-simulation.R`).
 
 ## Averaging rule per genhz group
 

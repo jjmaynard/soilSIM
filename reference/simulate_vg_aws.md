@@ -23,7 +23,7 @@ simulate_vg_aws(data, n_simulations = 100)
   `theta_s`, `sd_theta_s`, `layerID` - exactly the shape produced by
   `soilDB::ROSETTA(..., include.sd = TRUE)` plus a caller-added
   `layerID` (see
-  [`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)).
+  [`compute_aws()`](https://jjmaynard.github.io/soilSIM/reference/compute_aws.md)).
 
 - n_simulations:
 

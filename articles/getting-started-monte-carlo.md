@@ -37,7 +37,7 @@ The AOI is a small polygon (about 1 km x 1 km) near Amador County, CA:
 amador_wkt <- "POLYGON((-120.5 38.5, -120.4 38.5, -120.4 38.6, -120.5 38.6, -120.5 38.5))"
 ```
 
-[`download_and_prepare_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/download_and_prepare_ssurgo.md)
+[`fetch_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_data.md)
 queries NRCS Soil Data Access live for this AOI, then filters to a
 maximum depth. That call is shown here for reference, but this vignette
 loads a cached copy of its real output so the vignette builds without a
@@ -46,7 +46,7 @@ live network dependency:
 ``` r
 
 # The real call this vignette's cached data came from:
-ssurgo_amador <- download_and_prepare_ssurgo(
+ssurgo_amador <- fetch_ssurgo_data(
   aoi_wkt = amador_wkt,
   properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
                  "cec7", "om", "wthirdbar", "wfifteenbar"),
@@ -114,14 +114,14 @@ quantile_from_fit(u = c(0.05, 0.5, 0.95), family = clay_fit$family, fit = clay_f
 #> [1]  5 10 15
 ```
 
-[`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)
+[`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md)
 is the master pipeline: it does this fitting for every property/horizon,
 estimates (or falls back to a KSSL reference) correlation structure
 across properties, and draws correlated realizations:
 
 ``` r
 
-mc_result <- generate_monte_carlo_realizations(
+mc_result <- simulate_monte_carlo(
   soil_data = infilled,
   properties = properties,
   n_realizations = 200,
@@ -221,7 +221,7 @@ stats_result$analysis_metadata$properties_analyzed
 
 The Monte Carlo simulation above treats every suitable horizon
 independently. soilSIM’s GP modeling group
-([`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md))
+([`fit_depth_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_depth_gp_models.md))
 fits depth-trend models per soil group, so simulated properties can
 follow a realistic depth trend rather than horizon-by-horizon
 independence.
@@ -240,7 +240,7 @@ table(gp_train$soil_group)
 
 ``` r
 
-gp_models <- build_stratified_gp_models(
+gp_models <- fit_depth_gp_models(
   gp_train,
   properties = c("clay_pct", "sand_pct", "pH", "organic_matter"),
   min_profiles_per_group = 3,
@@ -295,7 +295,7 @@ ggplot(gp_depth_trend, aes(x = depth, y = mean)) +
 ![](getting-started-monte-carlo_files/figure-html/unnamed-chunk-14-1.png)
 
 From here,
-[`integrate_monte_carlo_with_gp()`](https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.md)
+[`apply_depth_gp_to_simulation()`](https://jjmaynard.github.io/soilSIM/reference/apply_depth_gp_to_simulation.md)
 (see the “GP Modeling & Multivariate Adjustment” architecture article)
 combines these depth-trend models with a Monte Carlo simulation like
 `mc_result` above, nudging each realization toward its group’s fitted
@@ -306,6 +306,6 @@ the natural next step beyond this vignette’s scope.
 
 The cached data this vignette loads (`inst/extdata/ssurgo_amador.rds`)
 was produced once by `data-raw/build_vignette_data.R`, which calls
-[`download_and_prepare_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/download_and_prepare_ssurgo.md)
+[`fetch_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_data.md)
 live against NRCS Soil Data Access for the AOI above. Re-run that script
 to refresh it.

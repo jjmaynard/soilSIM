@@ -12,14 +12,14 @@ each function actually does to the data and why each parameter exists:
 1.  Acquisition:
     [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
     vs. the
-    [`download_and_prepare_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/download_and_prepare_ssurgo.md)
+    [`fetch_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_data.md)
     convenience wrapper built on top of it
 2.  Processing:
     [`process_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_data.md)’s
     two sub-pipelines,
-    [`process_horizon_data_working_compatible()`](https://jjmaynard.github.io/soilSIM/reference/process_horizon_data_working_compatible.md)
+    [`process_ssurgo_horizons()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_horizons.md)
     and
-    [`process_component_data_working_compatible()`](https://jjmaynard.github.io/soilSIM/reference/process_component_data_working_compatible.md)
+    [`process_ssurgo_components()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_components.md)
 3.  Per-property cleaning:
     [`clean_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data.md)
     (the single cleaner, used both during processing and during
@@ -27,12 +27,12 @@ each function actually does to the data and why each parameter exists:
 4.  The infilling family:
     [`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)’s
     six-strategy recovery hierarchy, the individual strategy functions
-    ([`horizon_name_property_infill()`](https://jjmaynard.github.io/soilSIM/reference/horizon_name_property_infill.md),
+    ([`infill_property_by_horizon_name()`](https://jjmaynard.github.io/soilSIM/reference/infill_property_by_horizon_name.md),
     [`infill_missing_property_data()`](https://jjmaynard.github.io/soilSIM/reference/infill_missing_property_data.md),
     group fallback), range infilling
     ([`infill_property_range_values()`](https://jjmaynard.github.io/soilSIM/reference/infill_property_range_values.md),
     [`learn_property_ranges()`](https://jjmaynard.github.io/soilSIM/reference/learn_property_ranges.md),
-    [`get_property_contextual_ranges()`](https://jjmaynard.github.io/soilSIM/reference/get_property_contextual_ranges.md)),
+    [`property_contextual_ranges()`](https://jjmaynard.github.io/soilSIM/reference/property_contextual_ranges.md)),
     the Saxton-Rawls water-retention pedotransfer function
     ([`infill_water_retention_saxton_rawls_integrated()`](https://jjmaynard.github.io/soilSIM/reference/infill_water_retention_saxton_rawls_integrated.md)),
     and RFV-specific imputation
@@ -54,7 +54,7 @@ library(soilSIM)
 library(ggplot2)
 ```
 
-## Step 1: Acquisition - `download_ssurgo_tabular()` vs. `download_and_prepare_ssurgo()`
+## Step 1: Acquisition - `download_ssurgo_tabular()` vs. `fetch_ssurgo_data()`
 
 [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
 is the master download function. Its parameters control every stage of
@@ -91,7 +91,7 @@ dl <- download_ssurgo_tabular(
 names(dl)
 ```
 
-[`download_and_prepare_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/download_and_prepare_ssurgo.md)
+[`fetch_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_data.md)
 is a thin convenience wrapper around
 [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md).
 It does not add new acquisition logic - it just fixes two arguments and
@@ -106,7 +106,7 @@ glance that the result is ready for
 
 ``` r
 
-ssurgo_amador <- download_and_prepare_ssurgo(
+ssurgo_amador <- fetch_ssurgo_data(
   aoi_wkt = "POLYGON((-120.5 38.5, -120.4 38.5, -120.4 38.6, -120.5 38.6, -120.5 38.5))",
   properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
                  "cec7", "om", "wthirdbar", "wfifteenbar"),
@@ -132,7 +132,7 @@ length(unique(raw_data$cokey))
 [`add_restriction_indicators_working()`](https://jjmaynard.github.io/soilSIM/reference/add_restriction_indicators_working.md)
 adds (`is_cemented`, `organic_horizon`, `is_potentially_restrictive`,
 `unsuitable_horizon`, …) - these exist because
-[`download_and_prepare_ssurgo()`](https://jjmaynard.github.io/soilSIM/reference/download_and_prepare_ssurgo.md)
+[`fetch_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_data.md)
 always requests restrictions:
 
 ``` r
@@ -156,10 +156,10 @@ controls seven independently-togglable steps (`detect_unsuitable`,
 `calculate_derived`, `validate_logic`, `preserve_compatibility`), all
 `TRUE` by default. Internally it runs three sub-pipelines and stitches
 their outputs together:
-[`process_horizon_data_working_compatible()`](https://jjmaynard.github.io/soilSIM/reference/process_horizon_data_working_compatible.md),
-[`process_component_data_working_compatible()`](https://jjmaynard.github.io/soilSIM/reference/process_component_data_working_compatible.md),
+[`process_ssurgo_horizons()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_horizons.md),
+[`process_ssurgo_components()`](https://jjmaynard.github.io/soilSIM/reference/process_ssurgo_components.md),
 and
-[`create_infill_compatible_dataset()`](https://jjmaynard.github.io/soilSIM/reference/create_infill_compatible_dataset.md)
+[`prepare_ssurgo_for_infill()`](https://jjmaynard.github.io/soilSIM/reference/prepare_ssurgo_for_infill.md)
 (which rebuilds the combined dataset from `raw_data` directly, rather
 than reusing the other two outputs, which exist mainly for their
 statistics).
@@ -174,7 +174,7 @@ dim(processed$processed_data)
 #> [1] 575  67
 ```
 
-### `process_horizon_data_working_compatible()` on its own
+### `process_ssurgo_horizons()` on its own
 
 Calling the horizon sub-pipeline directly shows what each of its steps
 contributes. With `advanced_cleaning = TRUE` (the default), every
@@ -186,10 +186,10 @@ missingness even before any infilling happens:
 
 ``` r
 
-horizon_cleaned <- process_horizon_data_working_compatible(
+horizon_cleaned <- process_ssurgo_horizons(
   raw_data, advanced_cleaning = TRUE, max_depth = 150, verbose = FALSE
 )
-horizon_uncleaned <- process_horizon_data_working_compatible(
+horizon_uncleaned <- process_ssurgo_horizons(
   raw_data, advanced_cleaning = FALSE, max_depth = 150, verbose = FALSE
 )
 
@@ -221,7 +221,7 @@ unlist(horizon_cleaned$processing_stats$property_completeness)
 #>   0.8521739   0.8921739   0.8921739   0.8921739
 ```
 
-### `process_component_data_working_compatible()` on its own
+### `process_ssurgo_components()` on its own
 
 This is a separate, much smaller sub-pipeline: it selects the distinct
 component-level (one row per `cokey`) columns out of `raw_data`, drops
@@ -232,7 +232,7 @@ and adds a couple of derived flags
 
 ``` r
 
-component_result <- process_component_data_working_compatible(raw_data, verbose = FALSE)
+component_result <- process_ssurgo_components(raw_data, verbose = FALSE)
 dim(component_result$processed_data)
 #> [1] 116   5
 names(component_result$processed_data)
@@ -305,7 +305,7 @@ The `outlier_policy` argument controls the middle step:
   signal, not noise.
 - `"aggressive_iqr"` - a single generic `IQR x 3` rule applied to every
   property alike (the former
-  [`clean_property_data_ssurgo_compatible()`](https://jjmaynard.github.io/soilSIM/reference/clean_property_data_ssurgo_compatible.md)
+  [`clean_ssurgo_property_data()`](https://jjmaynard.github.io/soilSIM/reference/clean_ssurgo_property_data.md)
   behavior, kept as an opt-in).
 - `"none"` - skip outlier flagging entirely; still parse, null
   non-finite, and clamp.
@@ -370,7 +370,7 @@ six strategies, tried in order, only ever using *suitable* horizons as
 sources:
 
 1.  **Horizon-name matching**
-    ([`horizon_name_property_infill()`](https://jjmaynard.github.io/soilSIM/reference/horizon_name_property_infill.md)) -
+    ([`infill_property_by_horizon_name()`](https://jjmaynard.github.io/soilSIM/reference/infill_property_by_horizon_name.md)) -
     within the same group (component), average the property from
     horizons whose standardized name is similar (similarity \> 0.5) to
     the target horizon’s name.
@@ -409,7 +409,7 @@ key parameters:
   [`infill_rfv_property_integrated()`](https://jjmaynard.github.io/soilSIM/reference/infill_rfv_property_integrated.md)
   instead of this hierarchy)
 - `property_config` - optional config from
-  [`get_default_property_config()`](https://jjmaynard.github.io/soilSIM/reference/get_default_property_config.md);
+  [`default_property_config()`](https://jjmaynard.github.io/soilSIM/reference/default_property_config.md);
   auto-looked-up if `NULL`
 - `max_depth` - horizons below this depth are excluded from being
   infilled (but can still act as interpolation/averaging sources for
@@ -459,7 +459,7 @@ example_group[, c("hzname", "hzdept_r", "hzdepb_r", "cec7_r", "unsuitable_horizo
 problematic_mask <- is.na(example_group$cec7_r) & !example_group$unsuitable_horizon
 infilled_group <- infill_missing_property_data(
   example_group, "cec7", problematic_mask,
-  property_config = get_default_property_config("cec7")
+  property_config = default_property_config("cec7")
 )
 infilled_group[, c("hzname", "hzdept_r", "hzdepb_r", "cec7_r", "infill_method")]
 #>    hzname hzdept_r hzdepb_r cec7_r         infill_method
@@ -526,7 +526,7 @@ that group - typically components made up of a single unsuitable
 horizon, or components with no other members reporting that property at
 all.
 
-### Range infilling: `infill_property_range_values()`, `learn_property_ranges()`, `get_property_contextual_ranges()`
+### Range infilling: `infill_property_range_values()`, `learn_property_ranges()`, `property_contextual_ranges()`
 
 Filling `_r` is only half the job -
 [`infill_property_range_values()`](https://jjmaynard.github.io/soilSIM/reference/infill_property_range_values.md)
@@ -539,14 +539,14 @@ contextual -\> fallback):
   learns the *median* `_r - _l` / `_h - _r` spread from this dataset’s
   own complete, suitable-horizon rows, broken out by horizon name and by
   depth zone (surface/subsurface/deep).
-- [`get_property_contextual_ranges()`](https://jjmaynard.github.io/soilSIM/reference/get_property_contextual_ranges.md) -
+- [`property_contextual_ranges()`](https://jjmaynard.github.io/soilSIM/reference/property_contextual_ranges.md) -
   hardcoded pedological-knowledge spread tables used when there isn’t
   enough data to learn from (e.g. fewer than 3 rows for a given horizon
   name or zone).
 
 ``` r
 
-clay_config <- get_default_property_config("claytotal")
+clay_config <- default_property_config("claytotal")
 learned <- learn_property_ranges(horizon_data, "claytotal", clay_config)
 learned$overall
 #> $lower_spread_median
@@ -561,7 +561,7 @@ learned$overall
 
 ``` r
 
-context_ranges <- get_property_contextual_ranges(horizon_data, "claytotal", clay_config)
+context_ranges <- property_contextual_ranges(horizon_data, "claytotal", clay_config)
 context_ranges
 #> $claytotal
 #> $claytotal$typical_spread
@@ -584,7 +584,7 @@ of information reinforce rather than override each other.
 Field capacity (`wthirdbar`) and wilting point (`wfifteenbar`) are
 estimated from texture, bulk density, rock fragments, and organic matter
 via the Saxton-Rawls pedotransfer function
-([`calculate_saxton_rawls_single()`](https://jjmaynard.github.io/soilSIM/reference/calculate_saxton_rawls_single.md)),
+([`compute_saxton_rawls()`](https://jjmaynard.github.io/soilSIM/reference/compute_saxton_rawls.md)),
 rather than any of the six general strategies above - texture alone is a
 strong physical predictor of water retention, so this is a dedicated
 pedotransfer function instead. Its own parameters:

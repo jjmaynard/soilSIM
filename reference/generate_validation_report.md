@@ -18,7 +18,7 @@ generate_validation_report(
 
 - validation_results:
 
-  Results from validate_complete_workflow()
+  Results from diagnose_workflow()
 
 - output_format:
 

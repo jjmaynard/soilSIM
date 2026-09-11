@@ -19,7 +19,7 @@ functions:
 |----|----|
 | [`extract_mukey_joint_ensemble()`](https://jjmaynard.github.io/soilSIM/reference/extract_mukey_joint_ensemble.md) | one joint SSURGO Monte Carlo, retained per map unit, row-aligned across depth windows |
 | [`remarginalize_ensemble_to_posterior()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_ensemble_to_posterior.md) | transform each realization’s marginals to the SOLUS-fused posterior, per pixel, keeping the ensemble’s rank copula |
-| [`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md) | AWC per realization from the re-marginalized inputs, then per-pixel percentiles |
+| [`remarginalize_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_awc.md) | AWC per realization from the re-marginalized inputs, then per-pixel percentiles |
 
 AWC needs special handling: **SOLUS100 publishes no water-retention
 variable**, so field capacity and wilting point cannot be fused
@@ -113,12 +113,12 @@ vapply(ens$window_names,
 
 ## Step 2: fuse every Saxton-Rawls input against SOLUS in one pass
 
-[`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md)
+[`run_fusion_multiproperty()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_multiproperty.md)
 produces a per-cell SSURGO x SOLUS posterior for **many** properties
 across **many** depth windows, running the (expensive) SSURGO Monte
 Carlo simulation just once and reusing that one draw set for every
 property/window. Calling the single-property
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 in a loop instead would re-run the full simulation for each of the
 `5 inputs x 3 windows = 15` combinations, each discarding all but one of
 the ~9 jointly simulated properties. `dist = "auto"` lets the fusion
@@ -142,7 +142,7 @@ property_configs <- setNames(
   lapply(names(sr_inputs), function(nm) cfg(nm, sr_inputs[[nm]])),
   names(sr_inputs)
 )
-post <- run_stage1_fusion_multi(aoi, property_configs, windows, simplify = TRUE)
+post <- run_fusion_multiproperty(aoi, property_configs, windows, simplify = TRUE)
 ```
 
 ``` r
@@ -235,7 +235,7 @@ clamped flat).
 
 ## Step 4: per-pixel available water capacity
 
-[`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)
+[`remarginalize_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_awc.md)
 (default `method = "saxton_rawls"`) takes, for each realization / pixel
 / window, the jointly-consistent `(sand, clay, silt, db, om)` values,
 derives field capacity and wilting point via
@@ -248,7 +248,7 @@ distribution.
 
 ``` r
 
-awc <- remarginalized_awc(ens, post, n_out = 150)
+awc <- remarginalize_awc(ens, post, n_out = 150)
 awc$n_kept
 #> [1] 150
 awc$windows_used
@@ -285,7 +285,7 @@ SOLUS100 predicts every property at every depth even where bedrock is
 shallower - nothing above truncates the 30 cm profile at an actual
 restriction, so a shallow-soil pixel can be credited with water storage
 below bedrock.
-[`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)’s
+[`remarginalize_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_awc.md)’s
 optional `restriction_depth` argument fixes this: pass a
 restriction-depth raster (typically
 [`fetch_solus_restriction_depth()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_restriction_depth.md),
@@ -303,7 +303,7 @@ above exactly):
 ``` r
 
 restriction_depth <- fetch_solus_restriction_depth(aoi)  # default variable = "anylithicdpt"
-awc_truncated <- remarginalized_awc(ens, post, n_out = 150, restriction_depth = restriction_depth)
+awc_truncated <- remarginalize_awc(ens, post, n_out = 150, restriction_depth = restriction_depth)
 terra::plot(awc_truncated$awc_cm$P50,
             main = "Median AWC, 0-30 cm, truncated at bedrock (cm)",
             col = grDevices::hcl.colors(50, "Blues 3", rev = TRUE))
@@ -362,7 +362,7 @@ The cached objects this vignette loads
 `data-raw/build_vignette_data.R`, which runs
 [`extract_mukey_joint_ensemble()`](https://jjmaynard.github.io/soilSIM/reference/extract_mukey_joint_ensemble.md)
 and
-[`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md)
+[`run_fusion_multiproperty()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_multiproperty.md)
 live against NRCS Soil Data Access and SOLUS100 for the AOI above, trims
 each map unit’s ensemble to 250 realizations, wraps the rasters via
 [`terra::wrap()`](https://rspatial.github.io/terra/reference/wrap.html)

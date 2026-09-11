@@ -1,6 +1,6 @@
 # Fetch SOLUS100 Percentile-Value Rasters for an AOI
 
-The top-level SOLUS "likelihood" entry point for `R/raster-fusion.R`'s
+The top-level SOLUS "likelihood" entry point for `R/core-fusion.R`'s
 [`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md).
 
 ## Usage

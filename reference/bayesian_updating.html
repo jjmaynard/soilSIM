@@ -3,50 +3,50 @@
 distribution with a likelihood (e.g. an SSURGO-derived prior against
 field-measured data).
 These are standalone building blocks. The raster fusion pipeline in
-raster-fusion.R supplies the equivalent primitives used in the
+core-fusion.R supplies the equivalent primitives used in the
 production SSURGO x SOLUS100 workflow; the tabular Monte Carlo pipeline
-in monte-carlo.R does not call these functions directly.
+in core-montecarlo.R does not call these functions directly.
 Three tiers, in increasing order of generality/cost:
-bayes_update_normal_normal() - exact, closed-form, Normal-only.
+fuse_normal_normal() - exact, closed-form, Normal-only.
 fuse_beta()/fuse_gamma() - exact, closed-form, same-family-only
 (each family's kernel parameters simply ADD - the same principle
-bayes_update_normal_normal() uses for Normal's natural parameters,
+fuse_normal_normal() uses for Normal's natural parameters,
 applied to Beta/Gamma), with a feasible flag and a documented
 moment-based fallback route when infeasible.
-bayesian_update() - fully general grid-KDE Bayes' rule (any shape,
+update_prior() - fully general grid-KDE Bayes' rule (any shape,
 any family, even mismatched sides), at the cost of needing raw
 samples (not distributional parameters) on both sides.
 
 
 fuse_bivariate_normal()/fuse_texture_group_from_triplets() extend
 tier 1 to the joint 3-part-composition ILR case (clay/sand/silt texture,
-in whichever role order monte-carlo.R's composition_groups$texture$members
-configures - see distributions.R's ILR section header), since
+in whichever role order core-montecarlo.R's composition_groups$texture$members
+configures - see core-distributions.R's ILR section header), since
 independent per-fraction fusion (e.g. three separate fuse_beta()
 calls) measurably breaks sum-to-100 (up to about 10 percentage points on
 realistic synthetic data)."><meta property="og:description" content="Scalar (plain-vector) toolkit for fusing a prior belief
 distribution with a likelihood (e.g. an SSURGO-derived prior against
 field-measured data).
 These are standalone building blocks. The raster fusion pipeline in
-raster-fusion.R supplies the equivalent primitives used in the
+core-fusion.R supplies the equivalent primitives used in the
 production SSURGO x SOLUS100 workflow; the tabular Monte Carlo pipeline
-in monte-carlo.R does not call these functions directly.
+in core-montecarlo.R does not call these functions directly.
 Three tiers, in increasing order of generality/cost:
-bayes_update_normal_normal() - exact, closed-form, Normal-only.
+fuse_normal_normal() - exact, closed-form, Normal-only.
 fuse_beta()/fuse_gamma() - exact, closed-form, same-family-only
 (each family's kernel parameters simply ADD - the same principle
-bayes_update_normal_normal() uses for Normal's natural parameters,
+fuse_normal_normal() uses for Normal's natural parameters,
 applied to Beta/Gamma), with a feasible flag and a documented
 moment-based fallback route when infeasible.
-bayesian_update() - fully general grid-KDE Bayes' rule (any shape,
+update_prior() - fully general grid-KDE Bayes' rule (any shape,
 any family, even mismatched sides), at the cost of needing raw
 samples (not distributional parameters) on both sides.
 
 
 fuse_bivariate_normal()/fuse_texture_group_from_triplets() extend
 tier 1 to the joint 3-part-composition ILR case (clay/sand/silt texture,
-in whichever role order monte-carlo.R's composition_groups$texture$members
-configures - see distributions.R's ILR section header), since
+in whichever role order core-montecarlo.R's composition_groups$texture$members
+configures - see core-distributions.R's ILR section header), since
 independent per-fraction fusion (e.g. three separate fuse_beta()
 calls) measurably breaks sum-to-100 (up to about 10 percentage points on
 realistic synthetic data)."></head><body>
@@ -57,7 +57,7 @@ realistic synthetic data)."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -110,7 +110,7 @@ realistic synthetic data)."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Bayesian Updating: Conjugate Fusion and General Grid-KDE Fusion</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/bayesian-updating.R" class="external-link"><code>R/bayesian-updating.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-fusion.R" class="external-link"><code>R/core-fusion.R</code></a></small>
       <div class="d-none name"><code>bayesian_updating.Rd</code></div>
     </div>
 
@@ -119,22 +119,22 @@ realistic synthetic data)."></head><body>
 distribution with a likelihood (e.g. an SSURGO-derived prior against
 field-measured data).</p>
 <p>These are standalone building blocks. The raster fusion pipeline in
-<code>raster-fusion.R</code> supplies the equivalent primitives used in the
+<code>core-fusion.R</code> supplies the equivalent primitives used in the
 production SSURGO x SOLUS100 workflow; the tabular Monte Carlo pipeline
-in <code>monte-carlo.R</code> does not call these functions directly.</p>
-<p>Three tiers, in increasing order of generality/cost:</p><ol><li><p><code><a href="bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code> - exact, closed-form, Normal-only.</p></li>
+in <code>core-montecarlo.R</code> does not call these functions directly.</p>
+<p>Three tiers, in increasing order of generality/cost:</p><ol><li><p><code><a href="fuse_normal_normal.html">fuse_normal_normal()</a></code> - exact, closed-form, Normal-only.</p></li>
 <li><p><code><a href="fuse_beta.html">fuse_beta()</a></code>/<code><a href="fuse_gamma.html">fuse_gamma()</a></code> - exact, closed-form, same-family-only
 (each family's kernel parameters simply ADD - the same principle
-<code><a href="bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code> uses for Normal's natural parameters,
+<code><a href="fuse_normal_normal.html">fuse_normal_normal()</a></code> uses for Normal's natural parameters,
 applied to Beta/Gamma), with a <code>feasible</code> flag and a documented
 moment-based fallback route when infeasible.</p></li>
-<li><p><code><a href="bayesian_update.html">bayesian_update()</a></code> - fully general grid-KDE Bayes' rule (any shape,
+<li><p><code><a href="update_prior.html">update_prior()</a></code> - fully general grid-KDE Bayes' rule (any shape,
 any family, even mismatched sides), at the cost of needing raw
 samples (not distributional parameters) on both sides.</p></li>
 </ol><p><code><a href="fuse_bivariate_normal.html">fuse_bivariate_normal()</a></code>/<code><a href="fuse_texture_group_from_triplets.html">fuse_texture_group_from_triplets()</a></code> extend
 tier 1 to the joint 3-part-composition ILR case (clay/sand/silt texture,
-in whichever role order <code>monte-carlo.R</code>'s <code>composition_groups$texture$members</code>
-configures - see <code>distributions.R</code>'s ILR section header), since
+in whichever role order <code>core-montecarlo.R</code>'s <code>composition_groups$texture$members</code>
+configures - see <code>core-distributions.R</code>'s ILR section header), since
 independent per-fraction fusion (e.g. three separate <code><a href="fuse_beta.html">fuse_beta()</a></code>
 calls) measurably breaks sum-to-100 (up to about 10 percentage points on
 realistic synthetic data).</p>

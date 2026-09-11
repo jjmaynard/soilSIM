@@ -78,4 +78,4 @@ two `kssl_*`-named values are generic outcomes of any
 `group_fallback_matrices` use, not KSSL-specific logic in this function
 
 - named for the fallback source this function was built to support
-  (`kssl-reference-correlations.R`).
+  (`core-correlations.R`).

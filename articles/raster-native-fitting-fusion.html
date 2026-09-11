@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -102,15 +102,14 @@
 </h2>
 <p><code>raster-fusion-ssurgo-solus.Rmd</code> shows the
 <em>pipeline</em> view of soilSIM’s multi-source raster fusion: call
-<code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>/<code><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code>
-and get back a fused posterior. This vignette opens the hood.
-<code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code> is a thin fetch-and-cache wrapper
-around a handful of small, composable, raster-native building blocks -
-distribution fitting functions
-(<code>R/distribution-fitting-raster.R</code>), a fusion core
-(<code>R/raster-fusion.R</code>), and a disk cache
-(<code>R/raster-cache.R</code>) - each of which does exactly one thing
-to a <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code> (or list of them) and can be called
+<code><a href="../reference/run_fusion.html">run_fusion()</a></code>/<code><a href="../reference/run_fusion_group.html">run_fusion_group()</a></code> and get back a
+fused posterior. This vignette opens the hood. <code><a href="../reference/run_fusion.html">run_fusion()</a></code>
+is a thin fetch-and-cache wrapper around a handful of small, composable,
+raster-native building blocks - distribution fitting functions
+(<code>R/core-distributions-raster.R</code>), a fusion core
+(<code>R/core-fusion.R</code>), and a disk cache
+(<code>R/cache.R</code>) - each of which does exactly one thing to a
+<code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code> (or list of them) and can be called
 directly. Understanding these individually is what makes the pipeline’s
 behavior (which route it took, why a family was resolved a certain way,
 why two sources’ percentiles had to be realigned before fusing) legible
@@ -138,7 +137,7 @@ here:</p>
 <span><span class="va">salinas_wkt</span> <span class="op">&lt;-</span> <span class="st">"POLYGON((-121.66 36.60, -121.64 36.60, -121.64 36.62, -121.66 36.62, -121.66 36.60))"</span></span>
 <span><span class="va">aoi</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/project.html" class="external-link">project</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/vect.html" class="external-link">vect</a></span><span class="op">(</span><span class="va">salinas_wkt</span>, crs <span class="op">=</span> <span class="st">"epsg:4326"</span><span class="op">)</span>, <span class="st">"epsg:5070"</span><span class="op">)</span></span>
 <span><span class="va">property_config</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"clay"</span>, solus_variable <span class="op">=</span> <span class="st">"claytotal"</span>, dist <span class="op">=</span> <span class="st">"normal"</span><span class="op">)</span></span>
-<span><span class="va">fusion_clay</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_stage1_fusion.html">run_stage1_fusion</a></span><span class="op">(</span><span class="va">aoi</span>, <span class="va">property_config</span>, top_depth <span class="op">=</span> <span class="fl">0</span>, bottom_depth <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">fusion_clay</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_fusion.html">run_fusion</a></span><span class="op">(</span><span class="va">aoi</span>, <span class="va">property_config</span>, top_depth <span class="op">=</span> <span class="fl">0</span>, bottom_depth <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fusion_clay</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/wrap_nested_rasters.html">unwrap_nested_rasters</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"fusion_clay_salinas.rds"</span>, package <span class="op">=</span> <span class="st">"soilSIM"</span><span class="op">)</span><span class="op">)</span></span>
@@ -313,8 +312,8 @@ decrease:</p>
 <p>A substantial fraction of cells are infeasible here - not a bug, just
 a real consequence of fitting only 4 of the 5 available percentiles to a
 family with no correction step of its own.
-<code><a href="../reference/quantile_metalog_linear_with_fallback.html">quantile_metalog_linear_with_fallback()</a></code> is the function
-every real caller should use instead of
+<code><a href="../reference/quantile_metalog_linear_with_fallback_raster.html">quantile_metalog_linear_with_fallback_raster()</a></code> is the
+function every real caller should use instead of
 <code><a href="../reference/fit_metalog_linear_raster.html">quantile_metalog_linear_raster()</a></code> directly: it evaluates the
 raw metalog quantile function, and for whichever cells
 <code><a href="../reference/check_metalog_feasibility_raster.html">check_metalog_feasibility_raster()</a></code> flagged, blends in
@@ -322,7 +321,7 @@ raw metalog quantile function, and for whichever cells
 (evaluated against the <em>full</em> percentile set, not just the
 interior ones used to fit the metalog) instead:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fallback_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/quantile_metalog_linear_with_fallback.html">quantile_metalog_linear_with_fallback</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">fallback_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/quantile_metalog_linear_with_fallback_raster.html">quantile_metalog_linear_with_fallback_raster</a></span><span class="op">(</span></span>
 <span>  <span class="va">fit_ml</span>, <span class="va">infeasible</span>, full_value_rasters <span class="op">=</span> <span class="va">prior_values</span>, full_probs <span class="op">=</span> <span class="va">prior_probs</span>,</span>
 <span>  q <span class="op">=</span> <span class="fl">0.5</span>, bounds <span class="op">=</span> <span class="va">bounds</span>, boundedness <span class="op">=</span> <span class="st">"b"</span></span>
 <span><span class="op">)</span></span>
@@ -340,10 +339,10 @@ interior ones used to fit the metalog) instead:</p>
 computes mean/variance rasters across a list of percentile-value rasters
 (the only genuinely raster-specific step, via
 <code>Reduce(+, ...)</code>), then delegates to
-<code>R/bayesian-updating.R</code>’s existing scalar
-<code><a href="../reference/moments_to_gamma.html">moments_to_gamma()</a></code>, which is pure elementwise arithmetic
-and therefore already works unchanged on <code>SpatRaster</code>
-inputs:</p>
+<code>R/core-fusion.R</code>’s existing scalar
+<code><a href="../reference/convert_moments_to_gamma.html">convert_moments_to_gamma()</a></code>, which is pure elementwise
+arithmetic and therefore already works unchanged on
+<code>SpatRaster</code> inputs:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_gamma</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_gamma_mom_raster.html">fit_gamma_mom_raster</a></span><span class="op">(</span><span class="va">prior_values</span><span class="op">)</span></span>
 <span><span class="va">gamma_stack</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">fit_gamma</span><span class="op">$</span><span class="va">shape</span>, <span class="va">fit_gamma</span><span class="op">$</span><span class="va">rate</span><span class="op">)</span></span>
@@ -443,16 +442,15 @@ explicit <code>dist</code> is always honored untouched:</p>
 </h2>
 <p><code><a href="../reference/fuse_adaptive.html">fuse_adaptive()</a></code> is the size-adaptive engine
 <code><a href="../reference/fuse_property_adaptive.html">fuse_property_adaptive()</a></code> (and therefore
-<code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>) delegates to for
+<code><a href="../reference/run_fusion.html">run_fusion()</a></code>) delegates to for
 <code>"normal"</code>/<code>"beta"</code>/<code>"gamma"</code> families.
 It picks the fusion <em>route</em> from the AOI’s own cell count rather
 than requiring the caller to choose: at or below
 <code>threshold_cells</code> (default 80,000), it uses a fully general
-per-cell KDE route (<code><a href="../reference/bayesian_update.html">bayesian_update()</a></code> on samples drawn from
+per-cell KDE route (<code><a href="../reference/update_prior.html">update_prior()</a></code> on samples drawn from
 each side’s percentiles); above it, a much faster closed-form route
 built directly on the fitting functions from Sections 1-4 above (e.g.
-<code><a href="../reference/fit_normal_raster.html">fit_normal_raster()</a></code> +
-<code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code> for
+<code><a href="../reference/fit_normal_raster.html">fit_normal_raster()</a></code> + <code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code> for
 <code>family = "normal"</code>).</p>
 <p>This AOI is small (598 cells), so it naturally takes the general
 route. Forcing <code>threshold_cells = 0</code> shows the alternate
@@ -482,8 +480,8 @@ contract, but they reach it differently: the general route makes no
 distributional assumption about the <em>fusion</em> step itself (only
 about the requested output family), while the closed-form route fits
 both sides Normal first (Section 1) and fuses via the closed-form
-<code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code> update - much cheaper per
-cell, at the cost of that Normal assumption.</p>
+<code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code> update - much cheaper per cell, at the
+cost of that Normal assumption.</p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">route_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">fused_general</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">mu</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
@@ -512,9 +510,9 @@ SOLUS100 likelihood, sharpened by combining them?
 <code>fusion_clay</code> (loaded back in “Reusing real data instead of
 fetching”) already holds the real, full-pipeline answer for this AOI -
 its <code>prior</code>/<code>likelihood</code>/<code>posterior</code>
-are the actual objects <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code> produced, not
-the toy <code>aligned</code>/<code><a href="../reference/fuse_adaptive.html">fuse_adaptive()</a></code> example from
-Section 7:</p>
+are the actual objects <code><a href="../reference/run_fusion.html">run_fusion()</a></code> produced, not the toy
+<code>aligned</code>/<code><a href="../reference/fuse_adaptive.html">fuse_adaptive()</a></code> example from Section
+7:</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">dist_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
@@ -589,13 +587,13 @@ roughly 4x wider than SSURGO’s 5th-95th percentile spread for this AOI -
 a real, known characteristic of SOLUS100’s output (its stated prediction
 intervals are often wide), not an artifact of this pipeline. Since
 fusion weights each side by <em>precision</em> (<code>1/sigma^2</code>,
-see <code>bayesian-updating.Rmd</code>’s worked scalar examples of this
-exact tug-of-war), a 4x wider sigma means roughly a 18x lower precision
-- so the posterior mean above (14.08) landing close to the prior’s mean
+see <code>core-fusion.Rmd</code>’s worked scalar examples of this exact
+tug-of-war), a 4x wider sigma means roughly a 18x lower precision - so
+the posterior mean above (14.08) landing close to the prior’s mean
 (13.75) rather than the likelihood’s (21.28) is the fusion math doing
 exactly what it should with these particular inputs, confirmed by
-manually recomputing <code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code> on these
-two independently-fit sides and getting (within floating-point/per-cell
+manually recomputing <code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code> on these two
+independently-fit sides and getting (within floating-point/per-cell
 alignment differences) the same answer the pipeline’s own route
 produced. A different AOI/property where the two sources agree more
 closely on their own uncertainty would show the posterior pulled further
@@ -719,8 +717,8 @@ pixels where the likelihood dominates instead.</p>
 <div class="section level2">
 <h2 id="caching-internals">10. Caching internals<a class="anchor" aria-label="anchor" href="#caching-internals"></a>
 </h2>
-<p><code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>/<code><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code>
-disk-cache every fetch step under
+<p><code><a href="../reference/run_fusion.html">run_fusion()</a></code>/<code><a href="../reference/run_fusion_group.html">run_fusion_group()</a></code> disk-cache
+every fetch step under
 <code>tools::R_user_dir("soilSIM", "cache")</code>, keyed by AOI +
 property/group id + depth window + kind.</p>
 <p><code><a href="../reference/build_cache_key.html">build_cache_key()</a></code> builds a deterministic, filename-safe
@@ -1406,8 +1404,8 @@ return.</li>
 <li>
 <code><a href="../reference/wrap_nested_rasters.html">wrap_nested_rasters()</a></code>/<code><a href="../reference/wrap_nested_rasters.html">unwrap_nested_rasters()</a></code>
 - a fully generic version for result structures whose shape isn’t that
-fixed form, e.g. <code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>’s own return value,
-which nests <code>SpatRaster</code>s at <code>prior$values</code>,
+fixed form, e.g. <code><a href="../reference/run_fusion.html">run_fusion()</a></code>’s own return value, which
+nests <code>SpatRaster</code>s at <code>prior$values</code>,
 <code>likelihood$values</code>, and inside <code>posterior</code> (whose
 shape varies by <code>dist</code>). It recurses into every list element,
 replacing each <code>SpatRaster</code> it finds with its

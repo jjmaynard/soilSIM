@@ -5,15 +5,15 @@ Unix), replacing the hand-rolled base-parallel:: boilerplate (OS branching betwe
 parallel::makeCluster()/parLapply() on Windows and parallel::mclapply() elsewhere,
 explicit library(soilSIM) on Windows workers, explicit soil_workflow_log_config
 propagation) shared by process_cokeys_parallel()
-(multivariate-adjustment.R), run_parallel_simulation() (monte-carlo.R), and
-maybe_adjust_soil_data_depth_trend() (ssurgo-simulation.R)."><meta property="og:description" content="A single internal helper standardizing this package's parallel processing on
+(core-gp.R), run_parallel_simulation() (core-montecarlo.R), and
+maybe_adjust_soil_data_depth_trend() (adapter-ssurgo-simulate.R)."><meta property="og:description" content="A single internal helper standardizing this package's parallel processing on
 future/future.apply (future::multisession, which behaves identically on Windows and
 Unix), replacing the hand-rolled base-parallel:: boilerplate (OS branching between
 parallel::makeCluster()/parLapply() on Windows and parallel::mclapply() elsewhere,
 explicit library(soilSIM) on Windows workers, explicit soil_workflow_log_config
 propagation) shared by process_cokeys_parallel()
-(multivariate-adjustment.R), run_parallel_simulation() (monte-carlo.R), and
-maybe_adjust_soil_data_depth_trend() (ssurgo-simulation.R)."></head><body>
+(core-gp.R), run_parallel_simulation() (core-montecarlo.R), and
+maybe_adjust_soil_data_depth_trend() (adapter-ssurgo-simulate.R)."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -21,7 +21,7 @@ maybe_adjust_soil_data_depth_trend() (ssurgo-simulation.R)."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -74,7 +74,7 @@ maybe_adjust_soil_data_depth_trend() (ssurgo-simulation.R)."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Shared <code>future</code>/<code>future.apply</code> Parallel Dispatch Helper</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/parallel-utils.R" class="external-link"><code>R/parallel-utils.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/parallel.R" class="external-link"><code>R/parallel.R</code></a></small>
       <div class="d-none name"><code>parallel_utils.Rd</code></div>
     </div>
 
@@ -85,8 +85,8 @@ Unix), replacing the hand-rolled base-<code>parallel::</code> boilerplate (OS br
 <code><a href="https://rdrr.io/r/parallel/makeCluster.html" class="external-link">parallel::makeCluster()</a></code>/<code>parLapply()</code> on Windows and <code><a href="https://rdrr.io/r/parallel/mclapply.html" class="external-link">parallel::mclapply()</a></code> elsewhere,
 explicit <code><a href="https://jjmaynard.github.io/soilSIM/">library(soilSIM)</a></code> on Windows workers, explicit <code>soil_workflow_log_config</code>
 propagation) shared by <code>process_cokeys_parallel()</code>
-(<code>multivariate-adjustment.R</code>), <code><a href="run_parallel_simulation.html">run_parallel_simulation()</a></code> (<code>monte-carlo.R</code>), and
-<code><a href="maybe_adjust_soil_data_depth_trend.html">maybe_adjust_soil_data_depth_trend()</a></code> (<code>ssurgo-simulation.R</code>).</p>
+(<code>core-gp.R</code>), <code><a href="run_parallel_simulation.html">run_parallel_simulation()</a></code> (<code>core-montecarlo.R</code>), and
+<code><a href="maybe_adjust_soil_data_depth_trend.html">maybe_adjust_soil_data_depth_trend()</a></code> (<code>adapter-ssurgo-simulate.R</code>).</p>
     </div>
 
 

@@ -22,7 +22,7 @@ controls:
 3.  Distribution shape analysis -
     [`analyze_property_distributions()`](https://jjmaynard.github.io/soilSIM/reference/analyze_property_distributions.md),
     [`fit_property_distributions()`](https://jjmaynard.github.io/soilSIM/reference/fit_property_distributions.md),
-    [`get_appropriate_distributions()`](https://jjmaynard.github.io/soilSIM/reference/get_appropriate_distributions.md)
+    [`distributions_for_properties()`](https://jjmaynard.github.io/soilSIM/reference/distributions_for_properties.md)
 4.  Outlier detection -
     [`detect_comprehensive_outliers()`](https://jjmaynard.github.io/soilSIM/reference/detect_comprehensive_outliers.md)
 5.  Texture-specific correlation handling -
@@ -30,7 +30,7 @@ controls:
 6.  The QA/reporting layer -
     [`validate_statistical_results()`](https://jjmaynard.github.io/soilSIM/reference/validate_statistical_results.md),
     [`generate_statistical_quality_report()`](https://jjmaynard.github.io/soilSIM/reference/generate_statistical_quality_report.md),
-    [`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md),
+    [`default_statistics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_statistics_config.md),
     [`validate_statistical_config()`](https://jjmaynard.github.io/soilSIM/reference/validate_statistical_config.md)
 
 See the “Statistics & Diagnostics” architecture article for the full
@@ -42,9 +42,9 @@ built with a **known** correlation structure and a handful of **known**
 outliers, so the effect of each parameter can be isolated from real-data
 messiness. None of the numbers below describe an actual soil - see “The
 synthetic dataset” for exactly how it was built. (soilSIM’s
-percentile-triplet distribution-fitting *core*, `R/distributions.R`, is
-covered in a sibling vignette; this one stays focused on how the
-statistics layer *uses* distribution fitting.)
+percentile-triplet distribution-fitting *core*,
+`R/core-distributions.R`, is covered in a sibling vignette; this one
+stays focused on how the statistics layer *uses* distribution fitting.)
 
 ``` r
 
@@ -147,7 +147,7 @@ flat_config <- list(
 ```
 
 Note that this is *not* the same shape as
-[`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md)’s
+[`default_statistics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_statistics_config.md)’s
 return value (see section 6) - that function nests these same keys under
 a `$statistical_analysis` element for
 [`analyze_soil_statistics()`](https://jjmaynard.github.io/soilSIM/reference/analyze_soil_statistics.md)’s
@@ -193,7 +193,7 @@ is.null(stats_no_outliers$outlier_analysis)
 ```
 
 `analysis_config` is merged on top of
-[`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md)
+[`default_statistics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_statistics_config.md)
 via
 [`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md);
 `correlation_methods` controls which correlation methods Step 4
@@ -408,9 +408,9 @@ length(stratified_strict)
 
 ## 3. Distribution shape analysis
 
-### `get_appropriate_distributions()` - candidate family selection
+### `distributions_for_properties()` - candidate family selection
 
-`get_appropriate_distributions(property_name, values, config)` picks
+`distributions_for_properties(property_name, values, config)` picks
 candidate distribution families using a type-based heuristic keyed off
 the property *name*: `c("beta", "normal")` for the three texture
 fractions, `c("normal", "gamma")` for `ph1to1h2o_r`, and
@@ -420,11 +420,11 @@ symmetry).
 
 ``` r
 
-get_appropriate_distributions("claytotal_r", soil_synth$claytotal_r)
+distributions_for_properties("claytotal_r", soil_synth$claytotal_r)
 #> [1] "beta"   "normal"
-get_appropriate_distributions("ph1to1h2o_r", soil_synth$ph1to1h2o_r)
+distributions_for_properties("ph1to1h2o_r", soil_synth$ph1to1h2o_r)
 #> [1] "normal" "gamma"
-get_appropriate_distributions("om_r", soil_synth$om_r)
+distributions_for_properties("om_r", soil_synth$om_r)
 #> [1] "normal"    "lognormal" "gamma"     "weibull"
 ```
 
@@ -434,7 +434,7 @@ silent override:
 
 ``` r
 
-get_appropriate_distributions("claytotal_r", soil_synth$claytotal_r,
+distributions_for_properties("claytotal_r", soil_synth$claytotal_r,
                                config = list(distribution_methods = c("normal", "gamma")))
 #> [1] "normal"
 ```
@@ -446,7 +446,7 @@ warning:
 
 ``` r
 
-get_appropriate_distributions("claytotal_r", soil_synth$claytotal_r,
+distributions_for_properties("claytotal_r", soil_synth$claytotal_r,
                                config = list(distribution_methods = "weibull"))
 #> [1] "weibull"
 ```
@@ -455,7 +455,7 @@ get_appropriate_distributions("claytotal_r", soil_synth$claytotal_r,
 
 `fit_property_distributions(values, property_name, config)` fits every
 candidate from
-[`get_appropriate_distributions()`](https://jjmaynard.github.io/soilSIM/reference/get_appropriate_distributions.md)
+[`distributions_for_properties()`](https://jjmaynard.github.io/soilSIM/reference/distributions_for_properties.md)
 via
 [`fitdistrplus::fitdist()`](https://lbbe-software.github.io/fitdistrplus/reference/fitdist.html),
 skips any that fail to converge, and ranks the survivors best-first by
@@ -508,7 +508,7 @@ This is distinct from the *statistics-layer* usage above only in scope -
 the underlying percentile-triplet distribution-fitting machinery that
 turns each SSURGO horizon’s low/representative/ high values into a
 single fitted distribution for Monte Carlo simulation lives in
-`R/distributions.R` and is covered in its own sibling vignette.
+`R/core-distributions.R` and is covered in its own sibling vignette.
 
 ## 4. Outlier detection
 
@@ -638,17 +638,17 @@ with more than 4 complete rows; otherwise it stays `NULL` and only
 
 ## 6. The QA/reporting layer
 
-### `get_statistical_analysis_defaults()` and `validate_statistical_config()`
+### `default_statistics_config()` and `validate_statistical_config()`
 
-[`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md)
-takes `get_default_configuration("full")` and merges in a
-`statistical_analysis` block covering stratification flags,
-missing-value strategy, correlation defaults, distribution-fitting
-families, outlier defaults, and quality thresholds:
+[`default_statistics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_statistics_config.md)
+takes `default_config("full")` and merges in a `statistical_analysis`
+block covering stratification flags, missing-value strategy, correlation
+defaults, distribution-fitting families, outlier defaults, and quality
+thresholds:
 
 ``` r
 
-default_config <- get_statistical_analysis_defaults()
+default_config <- default_statistics_config()
 names(default_config$statistical_analysis)
 #>  [1] "stratify_by_horizon"          "stratify_by_taxonomy"        
 #>  [3] "include_texture_analysis"     "missing_value_strategy"      
@@ -676,7 +676,7 @@ config against a fixed parameter specification (types, allowed choices,
 numeric ranges) using `strict_mode = FALSE`, so most violations become
 warnings rather than hard errors. It transparently unwraps a nested
 `$statistical_analysis` block, so it accepts
-[`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md)’s
+[`default_statistics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_statistics_config.md)’s
 output directly:
 
 ``` r
@@ -712,8 +712,8 @@ bad_check$warnings
 takes the outputs assembled in the sections above and rolls them into
 one validity assessment - real per-matrix checks for correlation (via
 [`validate_correlation_matrix()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrix.md)
-in `R/distributions.R`), plus a validation score penalizing errors and
-warnings:
+in `R/core-distributions.R`), plus a validation score penalizing errors
+and warnings:
 
 ``` r
 

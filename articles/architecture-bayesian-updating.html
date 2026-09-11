@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -102,19 +102,18 @@
 </h2>
 <p>This functional area is a standalone toolkit for fusing a prior
 belief distribution with observed/likelihood data via Bayesian updating,
-implemented entirely in <code>R/bayesian-updating.R</code>. It offers
-both exact closed-form fusion (for Normal, Beta, and Gamma families,
-plus a joint bivariate-Normal/ILR route for clay/sand/silt texture) and
-a fully general grid-based kernel density estimation (KDE) route that
-works for arbitrary distribution shapes given raw samples on both sides.
-It is the scalar/plain-vector counterpart of
-<code>R/raster-fusion.R</code>’s raster-native fusion - the same
-underlying arithmetic, reused directly by that file rather than
-duplicated - and is part of <code>soilSIM</code>’s generic,
-data-source-agnostic core: nothing in this file assumes SSURGO, SOLUS,
-or any other specific data source, only that a caller has a prior and a
-likelihood expressed either as distributional parameters or as raw
-samples.</p>
+implemented entirely in <code>R/core-fusion.R</code>. It offers both
+exact closed-form fusion (for Normal, Beta, and Gamma families, plus a
+joint bivariate-Normal/ILR route for clay/sand/silt texture) and a fully
+general grid-based kernel density estimation (KDE) route that works for
+arbitrary distribution shapes given raw samples on both sides. It is the
+scalar/plain-vector counterpart of <code>R/core-fusion.R</code>’s
+raster-native fusion - the same underlying arithmetic, reused directly
+by that file rather than duplicated - and is part of
+<code>soilSIM</code>’s generic, data-source-agnostic core: nothing in
+this file assumes SSURGO, SOLUS, or any other specific data source, only
+that a caller has a prior and a likelihood expressed either as
+distributional parameters or as raw samples.</p>
 </div>
 <div class="section level2">
 <h2 id="core-functions">Core Functions<a class="anchor" aria-label="anchor" href="#core-functions"></a>
@@ -123,15 +122,15 @@ samples.</p>
 <h3 id="tier-1-exact-closed-form-normal-normal-fusion">Tier 1: Exact closed-form Normal-Normal fusion<a class="anchor" aria-label="anchor" href="#tier-1-exact-closed-form-normal-normal-fusion"></a>
 </h3>
 <div class="section level4">
-<h4 id="bayes_update_normal_normal---precision-weighted-conjugate-normal-normal-posterior">1. <code>bayes_update_normal_normal()</code> - Precision-Weighted
-Conjugate Normal-Normal Posterior<a class="anchor" aria-label="anchor" href="#bayes_update_normal_normal---precision-weighted-conjugate-normal-normal-posterior"></a>
+<h4 id="fuse_normal_normal---precision-weighted-conjugate-normal-normal-posterior">1. <code>fuse_normal_normal()</code> - Precision-Weighted Conjugate
+Normal-Normal Posterior<a class="anchor" aria-label="anchor" href="#fuse_normal_normal---precision-weighted-conjugate-normal-normal-posterior"></a>
 </h4>
 <p><strong>Purpose</strong>: Exact, closed-form Bayesian fusion of two
 Normal distributions (a prior and a likelihood) into a posterior Normal,
 via precision-weighted averaging.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal</a></span><span class="op">(</span><span class="va">prior_mu</span>, <span class="va">prior_sigma</span>, <span class="va">lik_mu</span>, <span class="va">lik_sigma</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/fuse_normal_normal.html">fuse_normal_normal</a></span><span class="op">(</span><span class="va">prior_mu</span>, <span class="va">prior_sigma</span>, <span class="va">lik_mu</span>, <span class="va">lik_sigma</span><span class="op">)</span></span></code></pre></div>
 <ul>
 <li>
 <code>prior_mu</code>, <code>prior_sigma</code> - Prior mean/sd
@@ -161,23 +160,23 @@ the function is symmetric under swapping
 math doesn’t care which side is which). It is fully vectorized, so
 <code>prior_mu</code>/<code>prior_sigma</code>/<code>lik_mu</code>/<code>lik_sigma</code>
 can all be equal-length vectors for elementwise fusion of many
-quantities/cells at once - the property <code>R/raster-fusion.R</code>
+quantities/cells at once - the property <code>R/core-fusion.R</code>
 relies on to apply this function unchanged to <code>SpatRaster</code>
 cell values.</p>
 </div>
 <div class="section level4">
-<h4 id="normal_to_lognormal_params---raw-space-to-log-space-moment-conversion">2. <code>normal_to_lognormal_params()</code> - Raw-Space to
-Log-Space Moment Conversion<a class="anchor" aria-label="anchor" href="#normal_to_lognormal_params---raw-space-to-log-space-moment-conversion"></a>
+<h4 id="convert_normal_to_lognormal---raw-space-to-log-space-moment-conversion">2. <code>convert_normal_to_lognormal()</code> - Raw-Space to
+Log-Space Moment Conversion<a class="anchor" aria-label="anchor" href="#convert_normal_to_lognormal---raw-space-to-log-space-moment-conversion"></a>
 </h4>
 <p><strong>Purpose</strong>: Moment-matches a raw-space Lognormal
 distribution’s mean/sd onto the mu/sigma of its underlying (log-space)
-Normal, so that <code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code> can be reused
-in log-space for strictly-positive, right-skewed properties (e.g. SOC,
-CEC) where fusing raw mean/sd as if Normal would let the posterior place
+Normal, so that <code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code> can be reused in
+log-space for strictly-positive, right-skewed properties (e.g. SOC, CEC)
+where fusing raw mean/sd as if Normal would let the posterior place
 probability mass below zero.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/normal_to_lognormal_params.html">normal_to_lognormal_params</a></span><span class="op">(</span><span class="va">mu</span>, <span class="va">sigma</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/convert_normal_to_lognormal.html">convert_normal_to_lognormal</a></span><span class="op">(</span><span class="va">mu</span>, <span class="va">sigma</span><span class="op">)</span></span></code></pre></div>
 <ul>
 <li>
 <code>mu</code>, <code>sigma</code> - Raw-space mean/sd.</li>
@@ -190,21 +189,21 @@ probability mass below zero.</p>
 closed-form moment-matching formulas relating a Lognormal’s raw-space
 mean/sd to its underlying Normal’s mu/sigma. The caller is expected to
 fuse in log-space via
-<code>bayes_update_normal_normal(mu_log_prior, sigma_log_prior, mu_log_lik, sigma_log_lik)</code>
+<code>fuse_normal_normal(mu_log_prior, sigma_log_prior, mu_log_lik, sigma_log_lik)</code>
 and then convert the result back with
-<code><a href="../reference/lognormal_to_normal_params.html">lognormal_to_normal_params()</a></code>.</p>
+<code><a href="../reference/convert_lognormal_to_normal.html">convert_lognormal_to_normal()</a></code>.</p>
 </div>
 <div class="section level4">
-<h4 id="lognormal_to_normal_params---log-space-to-raw-space-moment-conversion">3. <code>lognormal_to_normal_params()</code> - Log-Space to
-Raw-Space Moment Conversion<a class="anchor" aria-label="anchor" href="#lognormal_to_normal_params---log-space-to-raw-space-moment-conversion"></a>
+<h4 id="convert_lognormal_to_normal---log-space-to-raw-space-moment-conversion">3. <code>convert_lognormal_to_normal()</code> - Log-Space to
+Raw-Space Moment Conversion<a class="anchor" aria-label="anchor" href="#convert_lognormal_to_normal---log-space-to-raw-space-moment-conversion"></a>
 </h4>
 <p><strong>Purpose</strong>: Inverse of
-<code><a href="../reference/normal_to_lognormal_params.html">normal_to_lognormal_params()</a></code> - converts log-space
+<code><a href="../reference/convert_normal_to_lognormal.html">convert_normal_to_lognormal()</a></code> - converts log-space
 Normal(mu, sigma) parameters (e.g. a posterior produced by fusing in
 log-space) back to the raw-space Lognormal’s mean/sd.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/lognormal_to_normal_params.html">lognormal_to_normal_params</a></span><span class="op">(</span><span class="va">mu_log</span>, <span class="va">sigma_log</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/convert_lognormal_to_normal.html">convert_lognormal_to_normal</a></span><span class="op">(</span><span class="va">mu_log</span>, <span class="va">sigma_log</span><span class="op">)</span></span></code></pre></div>
 <ul>
 <li>
 <code>mu_log</code>, <code>sigma_log</code> - Log-space
@@ -216,7 +215,7 @@ mean/sd.</li>
 <code>mu &lt;- exp(mu_log + sigma_log^2 / 2)</code> and
 <code>sigma &lt;- sqrt((exp(sigma_log^2) - 1) * exp(2 * mu_log + sigma_log^2))</code>
 - the standard closed-form Lognormal moment formulas, the exact
-algebraic inverse of <code><a href="../reference/normal_to_lognormal_params.html">normal_to_lognormal_params()</a></code>.</p>
+algebraic inverse of <code><a href="../reference/convert_normal_to_lognormal.html">convert_normal_to_lognormal()</a></code>.</p>
 </div>
 </div>
 <div class="section level3">
@@ -256,9 +255,9 @@ flag:
 <code>(prior_alpha + lik_alpha &gt; 1) &amp; (prior_beta + lik_beta &gt; 1)</code>.
 Where <code>feasible</code> is <code>FALSE</code>, the documented
 fallback route is to re-express both input Betas as Normal moments via
-<code><a href="../reference/beta_to_moments.html">beta_to_moments()</a></code>, fuse those moments with
-<code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code>, and convert the result back
-with <code><a href="../reference/moments_to_beta.html">moments_to_beta()</a></code>.</p>
+<code><a href="../reference/convert_beta_to_moments.html">convert_beta_to_moments()</a></code>, fuse those moments with
+<code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code>, and convert the result back with
+<code><a href="../reference/convert_moments_to_beta.html">convert_moments_to_beta()</a></code>.</p>
 </div>
 <div class="section level4">
 <h4 id="fuse_gamma---gamma-gamma-conjugate-fusion-via-density-multiplication">5. <code>fuse_gamma()</code> - Gamma-Gamma Conjugate Fusion via
@@ -290,20 +289,20 @@ to stay positive, so
 <code>feasible &lt;- (prior_shape + lik_shape &gt; 1)</code> is returned
 alongside. As with <code><a href="../reference/fuse_beta.html">fuse_beta()</a></code>, the documented
 infeasible-cell fallback is to re-express both sides as Normal moments
-via <code><a href="../reference/gamma_to_moments.html">gamma_to_moments()</a></code>, fuse with
-<code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code>, and convert back with
-<code><a href="../reference/moments_to_gamma.html">moments_to_gamma()</a></code>.</p>
+via <code><a href="../reference/convert_gamma_to_moments.html">convert_gamma_to_moments()</a></code>, fuse with
+<code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code>, and convert back with
+<code><a href="../reference/convert_moments_to_gamma.html">convert_moments_to_gamma()</a></code>.</p>
 </div>
 <div class="section level4">
-<h4 id="moments_to_gamma---method-of-moments-gamma-fit">6. <code>moments_to_gamma()</code> - Method-of-Moments Gamma
-Fit<a class="anchor" aria-label="anchor" href="#moments_to_gamma---method-of-moments-gamma-fit"></a>
+<h4 id="convert_moments_to_gamma---method-of-moments-gamma-fit">6. <code>convert_moments_to_gamma()</code> - Method-of-Moments Gamma
+Fit<a class="anchor" aria-label="anchor" href="#convert_moments_to_gamma---method-of-moments-gamma-fit"></a>
 </h4>
 <p><strong>Purpose</strong>: Converts a mean/variance pair into Gamma
 shape/rate parameters; used by the closed-form same-family route’s
 infeasible-cell fallback.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/moments_to_gamma.html">moments_to_gamma</a></span><span class="op">(</span><span class="va">mean</span>, <span class="va">var</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/convert_moments_to_gamma.html">convert_moments_to_gamma</a></span><span class="op">(</span><span class="va">mean</span>, <span class="va">var</span><span class="op">)</span></span></code></pre></div>
 <ul>
 <li>
 <code>mean</code>, <code>var</code> - Mean/variance to convert.</li>
@@ -316,14 +315,15 @@ standard Gamma method-of-moments formulas
 one-line closed-form conversion, no iteration.</p>
 </div>
 <div class="section level4">
-<h4 id="moments_to_beta---method-of-moments-beta-fit">7. <code>moments_to_beta()</code> - Method-of-Moments Beta Fit<a class="anchor" aria-label="anchor" href="#moments_to_beta---method-of-moments-beta-fit"></a>
+<h4 id="convert_moments_to_beta---method-of-moments-beta-fit">7. <code>convert_moments_to_beta()</code> - Method-of-Moments Beta
+Fit<a class="anchor" aria-label="anchor" href="#convert_moments_to_beta---method-of-moments-beta-fit"></a>
 </h4>
 <p><strong>Purpose</strong>: Converts a mean/variance pair into Beta
 alpha/beta parameters; used by the closed-form same-family route’s
 infeasible-cell fallback.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/moments_to_beta.html">moments_to_beta</a></span><span class="op">(</span><span class="va">mean</span>, <span class="va">var</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/convert_moments_to_beta.html">convert_moments_to_beta</a></span><span class="op">(</span><span class="va">mean</span>, <span class="va">var</span><span class="op">)</span></span></code></pre></div>
 <ul>
 <li>
 <code>mean</code>, <code>var</code> - Mean/variance to convert.</li>
@@ -336,17 +336,17 @@ infeasible-cell fallback.</p>
 method-of-moments formulas.</p>
 </div>
 <div class="section level4">
-<h4 id="beta_to_moments---betas-own-meanvariance">8. <code>beta_to_moments()</code> - Beta’s Own Mean/Variance<a class="anchor" aria-label="anchor" href="#beta_to_moments---betas-own-meanvariance"></a>
+<h4 id="convert_beta_to_moments---betas-own-meanvariance">8. <code>convert_beta_to_moments()</code> - Beta’s Own
+Mean/Variance<a class="anchor" aria-label="anchor" href="#convert_beta_to_moments---betas-own-meanvariance"></a>
 </h4>
 <p><strong>Purpose</strong>: The inverse direction of
-<code><a href="../reference/moments_to_beta.html">moments_to_beta()</a></code> - computes a Beta distribution’s
+<code><a href="../reference/convert_moments_to_beta.html">convert_moments_to_beta()</a></code> - computes a Beta distribution’s
 mean/variance from its own <code>(alpha, beta)</code> parameters, used
 to re-express an infeasible same-family fusion’s inputs as Normal
-moments before falling back to
-<code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code>.</p>
+moments before falling back to <code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code>.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/beta_to_moments.html">beta_to_moments</a></span><span class="op">(</span><span class="va">alpha</span>, <span class="va">beta</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/convert_beta_to_moments.html">convert_beta_to_moments</a></span><span class="op">(</span><span class="va">alpha</span>, <span class="va">beta</span><span class="op">)</span></span></code></pre></div>
 <ul>
 <li>
 <code>alpha</code>, <code>beta</code> - Beta shape parameters.</li>
@@ -357,16 +357,17 @@ moments before falling back to
 standard closed-form Beta mean/variance formulas.</p>
 </div>
 <div class="section level4">
-<h4 id="gamma_to_moments---gammas-own-meanvariance">9. <code>gamma_to_moments()</code> - Gamma’s Own Mean/Variance<a class="anchor" aria-label="anchor" href="#gamma_to_moments---gammas-own-meanvariance"></a>
+<h4 id="convert_gamma_to_moments---gammas-own-meanvariance">9. <code>convert_gamma_to_moments()</code> - Gamma’s Own
+Mean/Variance<a class="anchor" aria-label="anchor" href="#convert_gamma_to_moments---gammas-own-meanvariance"></a>
 </h4>
 <p><strong>Purpose</strong>: The inverse direction of
-<code><a href="../reference/moments_to_gamma.html">moments_to_gamma()</a></code> - computes a Gamma distribution’s
-mean/variance from its own <code>(shape, rate)</code> parameters, used
-the same way as <code><a href="../reference/beta_to_moments.html">beta_to_moments()</a></code> in the infeasible-cell
-fallback.</p>
+<code><a href="../reference/convert_moments_to_gamma.html">convert_moments_to_gamma()</a></code> - computes a Gamma
+distribution’s mean/variance from its own <code>(shape, rate)</code>
+parameters, used the same way as <code><a href="../reference/convert_beta_to_moments.html">convert_beta_to_moments()</a></code>
+in the infeasible-cell fallback.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/gamma_to_moments.html">gamma_to_moments</a></span><span class="op">(</span><span class="va">shape</span>, <span class="va">rate</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/convert_gamma_to_moments.html">convert_gamma_to_moments</a></span><span class="op">(</span><span class="va">shape</span>, <span class="va">rate</span><span class="op">)</span></span></code></pre></div>
 <ul>
 <li>
 <code>shape</code>, <code>rate</code> - Gamma shape/rate
@@ -378,14 +379,14 @@ parameters.</li>
 standard closed-form Gamma mean/variance formulas.</p>
 </div>
 <div class="section level4">
-<h4 id="bayes_fuse---same-family-dispatcher">10. <code>bayes_fuse()</code> - Same-Family Dispatcher<a class="anchor" aria-label="anchor" href="#bayes_fuse---same-family-dispatcher"></a>
+<h4 id="fuse_distribution---same-family-dispatcher">10. <code>fuse_distribution()</code> - Same-Family Dispatcher<a class="anchor" aria-label="anchor" href="#fuse_distribution---same-family-dispatcher"></a>
 </h4>
 <p><strong>Purpose</strong>: Dispatches to the correct closed-form
 fusion function (Tier 1 or Tier 2) based on a <code>family</code>
 argument, given both sides’ parameters as named lists.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/bayes_fuse.html">bayes_fuse</a></span><span class="op">(</span><span class="va">prior_params</span>, <span class="va">lik_params</span>, family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"normal"</span>, <span class="st">"beta"</span>, <span class="st">"gamma"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/fuse_distribution.html">fuse_distribution</a></span><span class="op">(</span><span class="va">prior_params</span>, <span class="va">lik_params</span>, family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"normal"</span>, <span class="st">"beta"</span>, <span class="st">"gamma"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <ul>
 <li>
 <code>prior_params</code>, <code>lik_params</code> - Named lists of
@@ -398,18 +399,17 @@ that family’s parameters: <code>list(mu=, sigma=)</code> for
 <code>"beta"</code>, <code>"gamma"</code> (matched via
 <code><a href="https://rdrr.io/r/base/match.arg.html" class="external-link">match.arg()</a></code>). Both sides must already be fit in this same
 family - there is no closed form for fusing mismatched families;
-<code><a href="../reference/bayesian_update.html">bayesian_update()</a></code> (Tier 3) is required for that.</li>
+<code><a href="../reference/update_prior.html">update_prior()</a></code> (Tier 3) is required for that.</li>
 </ul>
 <p><strong>Returns</strong>: The matching <code>fuse_*()</code>
-function’s return value
-(i.e. <code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code>’s,
+function’s return value (i.e. <code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code>’s,
 <code><a href="../reference/fuse_beta.html">fuse_beta()</a></code>’s, or <code><a href="../reference/fuse_gamma.html">fuse_gamma()</a></code>’s return shape,
 depending on <code>family</code>).</p>
 <p><strong>Algorithm/behavior</strong>: A plain <code><a href="https://rdrr.io/r/base/switch.html" class="external-link">switch()</a></code> on
 <code>family</code> (after <code><a href="https://rdrr.io/r/base/match.arg.html" class="external-link">match.arg()</a></code> validates/defaults
 it) that unpacks <code>prior_params</code>/<code>lik_params</code>’s
 named elements and forwards them positionally to
-<code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code>, <code><a href="../reference/fuse_beta.html">fuse_beta()</a></code>, or
+<code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code>, <code><a href="../reference/fuse_beta.html">fuse_beta()</a></code>, or
 <code><a href="../reference/fuse_gamma.html">fuse_gamma()</a></code>. No logic of its own beyond argument
 routing.</p>
 </div>
@@ -418,8 +418,8 @@ routing.</p>
 <h3 id="tier-3-fully-general-grid-kde-fusion">Tier 3: Fully general grid-KDE fusion<a class="anchor" aria-label="anchor" href="#tier-3-fully-general-grid-kde-fusion"></a>
 </h3>
 <div class="section level4">
-<h4 id="bayesian_update---grid-based-kde-bayesian-update">11. <code>bayesian_update()</code> - Grid-Based KDE Bayesian
-Update<a class="anchor" aria-label="anchor" href="#bayesian_update---grid-based-kde-bayesian-update"></a>
+<h4 id="update_prior---grid-based-kde-bayesian-update">11. <code>update_prior()</code> - Grid-Based KDE Bayesian
+Update<a class="anchor" aria-label="anchor" href="#update_prior---grid-based-kde-bayesian-update"></a>
 </h4>
 <p><strong>Purpose</strong>: Fully general Bayesian fusion of a prior
 and likelihood distribution, given only raw samples on both sides - no
@@ -429,7 +429,7 @@ density estimation (KDE), multiplying them per Bayes’ rule, normalizing,
 and resampling from the resulting posterior.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/bayesian_update.html">bayesian_update</a></span><span class="op">(</span><span class="va">prior_distribution</span>, <span class="va">likelihood_distribution</span>, grid_range <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/update_prior.html">update_prior</a></span><span class="op">(</span><span class="va">prior_distribution</span>, <span class="va">likelihood_distribution</span>, grid_range <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>                 grid_resolution <span class="op">=</span> <span class="fl">0.01</span>, n <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span></code></pre></div>
 <ul>
 <li>
@@ -484,9 +484,8 @@ for 2D Normal Beliefs<a class="anchor" aria-label="anchor" href="#fuse_bivariate
 <p><strong>Purpose</strong>: Fuses two independent bivariate Normal
 beliefs about the same 2D quantity (used here for ILR-transformed
 clay/sand/silt texture coordinates), the direct multivariate
-generalization of <code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code>’s
-scalar-precision addition: precision MATRICES add instead of scalar
-precisions.</p>
+generalization of <code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code>’s scalar-precision
+addition: precision MATRICES add instead of scalar precisions.</p>
 <p><strong>Parameters</strong>:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fuse_bivariate_normal.html">fuse_bivariate_normal</a></span><span class="op">(</span><span class="va">mu1</span>, <span class="va">Sigma1</span>, <span class="va">mu2</span>, <span class="va">Sigma2</span><span class="op">)</span></span></code></pre></div>
@@ -532,11 +531,12 @@ composition.</p>
 with elements <code>clay</code>, <code>sand</code>, <code>silt</code>,
 each a length-3 numeric vector <code>c(low, rep, high)</code>. These
 keys are positional-role placeholders matching
-<code>distributions.R</code>’s <code><a href="../reference/estimate_ilr_moments_mc.html">estimate_ilr_moments_mc()</a></code>
-parameter naming
+<code>core-distributions.R</code>’s
+<code><a href="../reference/estimate_ilr_moments_mc.html">estimate_ilr_moments_mc()</a></code> parameter naming
 (<code>low_clay</code>/<code>low_sand</code>/<code>low_silt</code>,
 i.e. position 1/2/3 of the ILR sequential binary partition), not an
-identity requirement - callers (e.g. a future <code>monte-carlo.R</code>
+identity requirement - callers (e.g. a future
+<code>core-montecarlo.R</code>
 <code><a href="../reference/fuse_observed_data_into_priors.html">fuse_observed_data_into_priors()</a></code>) build them from
 <code>composition_groups$texture$members</code> in whatever order that
 configuration specifies.</li>
@@ -557,8 +557,9 @@ draw (default <code>1000</code>).</li>
 <p><strong>Returns</strong>:
 <code>list(posterior_samples = &lt;n_samples x 3 matrix, columns clay/sand/silt, guaranteed sum-to-</code>total<code>by construction&gt;, ilr_mu = , ilr_Sigma = )</code>.</p>
 <p><strong>Algorithm/behavior</strong>: Calls
-<code>distributions.R</code>’s <code><a href="../reference/estimate_ilr_moments_mc.html">estimate_ilr_moments_mc()</a></code>
-once per side (prior and likelihood), each time unpacking that side’s
+<code>core-distributions.R</code>’s
+<code><a href="../reference/estimate_ilr_moments_mc.html">estimate_ilr_moments_mc()</a></code> once per side (prior and
+likelihood), each time unpacking that side’s
 <code>clay</code>/<code>sand</code>/<code>silt</code> triplets into the
 <code>low_*</code>/<code>rep_*</code>/<code>high_*</code> arguments that
 function expects, along with that side’s own <code>z</code> quantile and
@@ -566,7 +567,7 @@ the shared <code>n_mc</code>. Each call returns an ILR-space
 <code>(mu, Sigma)</code> pair summarizing that side’s belief about the
 2D ILR-transformed composition. The two <code>(mu, Sigma)</code> pairs
 are then fused with <code><a href="../reference/fuse_bivariate_normal.html">fuse_bivariate_normal()</a></code> (precision
-matrices add). Finally, <code>distributions.R</code>’s
+matrices add). Finally, <code>core-distributions.R</code>’s
 <code>sample_ilr_posterior(fused$mu, fused$Sigma, n = n_samples, total = total)</code>
 draws <code>n_samples</code> posterior composition samples in raw
 clay/sand/silt space, guaranteed by construction (via
@@ -589,7 +590,7 @@ closed-form (Tiers 1/2) routes based on the SHAPE of the
 <code>prior</code>/<code>likelihood</code> arguments, rather than on a
 caller-supplied or heuristically-guessed method flag. Contrasted
 explicitly (in its own doc comment) with the raster-native reference
-<code><a href="../reference/fuse_adaptive.html">fuse_adaptive()</a></code> in <code>R/raster-fusion.R</code>, which
+<code><a href="../reference/fuse_adaptive.html">fuse_adaptive()</a></code> in <code>R/core-fusion.R</code>, which
 instead dispatches between routes by AOI cell count - a concept with no
 tabular analogue.</p>
 <p><strong>Parameters</strong>:</p>
@@ -619,15 +620,15 @@ errors if this doesn’t match what the input shape implies, rather than
 silently overriding the shape-implied route.</li>
 <li>
 <code>n_samples</code>, <code>grid_resolution</code> - Passed
-through to <code><a href="../reference/bayesian_update.html">bayesian_update()</a></code> for the general route.</li>
+through to <code><a href="../reference/update_prior.html">update_prior()</a></code> for the general route.</li>
 </ul>
 <p><strong>Returns</strong>: For the general route, a numeric vector of
-posterior samples (<code><a href="../reference/bayesian_update.html">bayesian_update()</a></code>’s native output). For
-the closed-form route, the family-native posterior parameter list
-(<code><a href="../reference/bayes_fuse.html">bayes_fuse()</a></code>’s native output). These two return shapes are
-deliberately NOT unified into a fake-common contract - documented
-explicitly in the source, since the caller already knows which shape it
-passed in and therefore which shape it gets back.</p>
+posterior samples (<code><a href="../reference/update_prior.html">update_prior()</a></code>’s native output). For the
+closed-form route, the family-native posterior parameter list
+(<code><a href="../reference/fuse_distribution.html">fuse_distribution()</a></code>’s native output). These two return
+shapes are deliberately NOT unified into a fake-common contract -
+documented explicitly in the source, since the caller already knows
+which shape it passed in and therefore which shape it gets back.</p>
 <p><strong>Algorithm/behavior</strong>: Determines
 <code>prior_is_vector</code>/<code>lik_is_vector</code> via
 <code>is.atomic(x) &amp;&amp; is.numeric(x)</code> for each side, and
@@ -639,10 +640,10 @@ supplied <code>method</code> and it doesn’t
 function errors with a message naming both the requested and
 shape-implied methods, rather than silently picking one. For the general
 route, it forwards straight to
-<code>bayesian_update(prior, likelihood, grid_resolution = grid_resolution, n = n_samples)</code>.
+<code>update_prior(prior, likelihood, grid_resolution = grid_resolution, n = n_samples)</code>.
 For the closed-form route, it requires <code>family</code> to be
 non-<code>NULL</code> (erroring otherwise) and forwards to
-<code>bayes_fuse(prior, likelihood, family = family)</code>.</p>
+<code>fuse_distribution(prior, likelihood, family = family)</code>.</p>
 </div>
 </div>
 </div>
@@ -654,40 +655,40 @@ non-<code>NULL</code> (erroring otherwise) and forwards to
 ├── shape check: is.atomic(prior) &amp;&amp; is.numeric(prior)  (and same for likelihood)
 │
 ├── [prior/likelihood are raw-sample vectors] -&gt; resolved_method = "general"
-│   └── bayesian_update(prior, likelihood, grid_range = NULL,
+│   └── update_prior(prior, likelihood, grid_range = NULL,
 │                        grid_resolution, n = n_samples)
 │       ├── stats::density() x2 (prior_distribution, likelihood_distribution)
 │       ├── stats::approxfun() x2 -&gt; interpolate onto shared value_grid
 │       └── sample(value_grid, prob = posterior_prob, replace = TRUE)
 │
 └── [prior/likelihood are named parameter lists] -&gt; resolved_method = "closed_form"
-    └── bayes_fuse(prior_params, lik_params, family)
-        ├── family == "normal" -&gt; bayes_update_normal_normal(prior_mu, prior_sigma, lik_mu, lik_sigma)
+    └── fuse_distribution(prior_params, lik_params, family)
+        ├── family == "normal" -&gt; fuse_normal_normal(prior_mu, prior_sigma, lik_mu, lik_sigma)
         ├── family == "beta"   -&gt; fuse_beta(prior_alpha, prior_beta, lik_alpha, lik_beta)
-        │                          [infeasible fallback, not automatic: beta_to_moments() -&gt;
-        │                           bayes_update_normal_normal() -&gt; moments_to_beta()]
+        │                          [infeasible fallback, not automatic: convert_beta_to_moments() -&gt;
+        │                           fuse_normal_normal() -&gt; convert_moments_to_beta()]
         └── family == "gamma"  -&gt; fuse_gamma(prior_shape, prior_rate, lik_shape, lik_rate)
-                                    [infeasible fallback, not automatic: gamma_to_moments() -&gt;
-                                     bayes_update_normal_normal() -&gt; moments_to_gamma()]
+                                    [infeasible fallback, not automatic: convert_gamma_to_moments() -&gt;
+                                     fuse_normal_normal() -&gt; convert_moments_to_gamma()]
 
-Separately (not reachable through fuse_property()/bayes_fuse()):
+Separately (not reachable through fuse_property()/fuse_distribution()):
 
 fuse_texture_group_from_triplets(prior_triplets, lik_triplets, z_prior, z_lik, n_mc, n_samples, total)
-├── distributions.R::estimate_ilr_moments_mc()   [once for prior_triplets]
-├── distributions.R::estimate_ilr_moments_mc()   [once for lik_triplets]
+├── core-distributions.R::estimate_ilr_moments_mc()   [once for prior_triplets]
+├── core-distributions.R::estimate_ilr_moments_mc()   [once for lik_triplets]
 ├── fuse_bivariate_normal(prior_moments$mu, prior_moments$Sigma,
 │                         lik_moments$mu, lik_moments$Sigma)
-└── distributions.R::sample_ilr_posterior(fused$mu, fused$Sigma, n_samples, total)
+└── core-distributions.R::sample_ilr_posterior(fused$mu, fused$Sigma, n_samples, total)
 
-normal_to_lognormal_params() / lognormal_to_normal_params()
+convert_normal_to_lognormal() / convert_lognormal_to_normal()
   - not called by any other function in this file; documented helpers a caller
-    uses around its own bayes_update_normal_normal() call to fuse strictly-
+    uses around its own fuse_normal_normal() call to fuse strictly-
     positive, right-skewed (Lognormal) properties in log-space.</code></pre>
 <p>Note that <code><a href="../reference/fuse_bivariate_normal.html">fuse_bivariate_normal()</a></code> and the
 infeasible-cell fallback routes for
 <code><a href="../reference/fuse_beta.html">fuse_beta()</a></code>/<code><a href="../reference/fuse_gamma.html">fuse_gamma()</a></code> are documented
 conventions, not automatic behavior wired into
-<code><a href="../reference/bayes_fuse.html">bayes_fuse()</a></code>/<code><a href="../reference/fuse_property.html">fuse_property()</a></code> - a caller
+<code><a href="../reference/fuse_distribution.html">fuse_distribution()</a></code>/<code><a href="../reference/fuse_property.html">fuse_property()</a></code> - a caller
 hitting an infeasible cell (<code>feasible == FALSE</code>) must invoke
 the <code>*_to_moments()</code>/<code>moments_to_*()</code> fallback
 chain itself.</p>
@@ -698,18 +699,18 @@ chain itself.</p>
 <div class="section level3">
 <h3 id="external-packages">External packages<a class="anchor" aria-label="anchor" href="#external-packages"></a>
 </h3>
-<pre><code>soilSIM (bayesian-updating.R)
-├── stats::density()    - kernel density estimation (bw = "nrd0"), used by bayesian_update()
+<pre><code>soilSIM (core-fusion.R)
+├── stats::density()    - kernel density estimation (bw = "nrd0"), used by update_prior()
 ├── stats::approxfun()  - linear interpolation of KDE output onto the shared value grid
-├── base::sample()      - posterior resampling in bayesian_update()
+├── base::sample()      - posterior resampling in update_prior()
 ├── base::solve()       - covariance &lt;-&gt; precision matrix inversion in fuse_bivariate_normal()
-└── base::switch()/match.arg() - family dispatch in bayes_fuse()</code></pre>
+└── base::switch()/match.arg() - family dispatch in fuse_distribution()</code></pre>
 </div>
 <div class="section level3">
 <h3 id="soilsim-dependencies">soilSIM dependencies<a class="anchor" aria-label="anchor" href="#soilsim-dependencies"></a>
 </h3>
-<pre><code>bayesian-updating.R
-└── distributions.R
+<pre><code>core-fusion.R
+└── core-distributions.R
     ├── estimate_ilr_moments_mc()  - used by fuse_texture_group_from_triplets()
     └── sample_ilr_posterior()     - used by fuse_texture_group_from_triplets()</code></pre>
 </div>
@@ -717,22 +718,21 @@ chain itself.</p>
 <h3 id="integration-status">Integration status<a class="anchor" aria-label="anchor" href="#integration-status"></a>
 </h3>
 <p>The functions in this file are standalone building blocks; the
-tabular Monte Carlo pipeline in <code>monte-carlo.R</code> does not call
-them directly.</p>
-<p><code>R/raster-fusion.R</code> uses these same functions
-(<code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code>, <code><a href="../reference/fuse_beta.html">fuse_beta()</a></code>,
+tabular Monte Carlo pipeline in <code>core-montecarlo.R</code> does not
+call them directly.</p>
+<p><code>R/core-fusion.R</code> uses these same functions
+(<code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code>, <code><a href="../reference/fuse_beta.html">fuse_beta()</a></code>,
 <code><a href="../reference/fuse_gamma.html">fuse_gamma()</a></code>, the
 <code>*_to_moments()</code>/<code>moments_to_*()</code> helpers,
-<code><a href="../reference/normal_to_lognormal_params.html">normal_to_lognormal_params()</a></code>/<code><a href="../reference/lognormal_to_normal_params.html">lognormal_to_normal_params()</a></code>,
-<code><a href="../reference/bayesian_update.html">bayesian_update()</a></code>, and
-<code><a href="../reference/fuse_bivariate_normal.html">fuse_bivariate_normal()</a></code>) as the computational core of an
-adaptive, per-cell fusion pipeline
+<code><a href="../reference/convert_normal_to_lognormal.html">convert_normal_to_lognormal()</a></code>/<code><a href="../reference/convert_lognormal_to_normal.html">convert_lognormal_to_normal()</a></code>,
+<code><a href="../reference/update_prior.html">update_prior()</a></code>, and <code><a href="../reference/fuse_bivariate_normal.html">fuse_bivariate_normal()</a></code>)
+as the computational core of an adaptive, per-cell fusion pipeline
 (<code><a href="../reference/fuse_adaptive.html">fuse_adaptive()</a></code>/<code><a href="../reference/fuse_property_adaptive.html">fuse_property_adaptive()</a></code>)
 that routes between the closed-form and general tiers by AOI cell count
 and includes Lognormal/metalog adapters and infeasible-cell fallback
-handling. In other words: <code>bayesian-updating.R</code> supplies the
-scalar primitives, and <code>raster-fusion.R</code> assembles the
-raster-native equivalents into a complete pipeline.</p>
+handling. In other words: <code>core-fusion.R</code> supplies the scalar
+primitives, and <code>core-fusion.R</code> assembles the raster-native
+equivalents into a complete pipeline.</p>
 </div>
 </div>
 <div class="section level2">
@@ -764,7 +764,7 @@ plus the fused ILR-space <code>mu</code>/<code>Sigma</code>.</p>
 current integration status, not a defect - the file is intentionally a
 standalone toolkit (per its own header comment) for a not-yet-built
 “fuse observed/field data into an SSURGO-derived prior” feature. Nothing
-in <code>monte-carlo.R</code> calls into this file today.</li>
+in <code>core-montecarlo.R</code> calls into this file today.</li>
 <li>
 <strong><code><a href="../reference/fuse_beta.html">fuse_beta()</a></code>/<code><a href="../reference/fuse_gamma.html">fuse_gamma()</a></code>
 feasibility constraints</strong>: the closed-form Beta-Beta and
@@ -774,11 +774,10 @@ positive (<code>prior_alpha + lik_alpha &gt; 1</code> and
 <code>prior_shape + lik_shape &gt; 1</code> for Gamma). Both functions
 return a <code>feasible</code> flag rather than erroring, but applying
 the documented moment-based fallback (<code>*_to_moments()</code> -&gt;
-<code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code> -&gt;
-<code>moments_to_*()</code>) on infeasible cells is left to the caller -
-it is not automatic.</li>
+<code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code> -&gt; <code>moments_to_*()</code>) on
+infeasible cells is left to the caller - it is not automatic.</li>
 <li>
-<strong><code><a href="../reference/bayesian_update.html">bayesian_update()</a></code> requires raw samples, not
+<strong><code><a href="../reference/update_prior.html">update_prior()</a></code> requires raw samples, not
 parameters</strong>, and is considerably more expensive than the
 closed-form tiers (density estimation plus grid evaluation on both
 sides, for every call) - it is the fully general fallback, not the
@@ -821,7 +820,7 @@ per-fraction approach that this file’s joint route exists to avoid.</li>
 <span><span class="co"># Likelihood: field-measured pH at a set of sample points:</span></span>
 <span><span class="va">field_ph</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>mu <span class="op">=</span> <span class="fl">6.5</span>, sigma <span class="op">=</span> <span class="fl">0.2</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">posterior_ph</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal</a></span><span class="op">(</span></span>
+<span><span class="va">posterior_ph</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fuse_normal_normal.html">fuse_normal_normal</a></span><span class="op">(</span></span>
 <span>  prior_mu <span class="op">=</span> <span class="va">prior_ph</span><span class="op">$</span><span class="va">mu</span>, prior_sigma <span class="op">=</span> <span class="va">prior_ph</span><span class="op">$</span><span class="va">sigma</span>,</span>
 <span>  lik_mu <span class="op">=</span> <span class="va">field_ph</span><span class="op">$</span><span class="va">mu</span>, lik_sigma <span class="op">=</span> <span class="va">field_ph</span><span class="op">$</span><span class="va">sigma</span></span>
 <span><span class="op">)</span></span>
@@ -833,7 +832,7 @@ per-fraction approach that this file’s joint route exists to avoid.</li>
 <span><span class="va">prior_samples</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">500</span>, mean <span class="op">=</span> <span class="fl">6.2</span>, sd <span class="op">=</span> <span class="fl">0.4</span><span class="op">)</span>      <span class="co"># SSURGO-derived prior draws</span></span>
 <span><span class="va">field_samples</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">30</span>, mean <span class="op">=</span> <span class="fl">6.5</span>, sd <span class="op">=</span> <span class="fl">0.2</span><span class="op">)</span>       <span class="co"># observed field measurements</span></span>
 <span></span>
-<span><span class="va">posterior_samples</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bayesian_update.html">bayesian_update</a></span><span class="op">(</span></span>
+<span><span class="va">posterior_samples</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/update_prior.html">update_prior</a></span><span class="op">(</span></span>
 <span>  prior_distribution <span class="op">=</span> <span class="va">prior_samples</span>,</span>
 <span>  likelihood_distribution <span class="op">=</span> <span class="va">field_samples</span>,</span>
 <span>  grid_resolution <span class="op">=</span> <span class="fl">0.01</span>,</span>

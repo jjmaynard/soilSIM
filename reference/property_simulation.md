@@ -1,7 +1,7 @@
 # Component-Composition and Correlated-Triangular Property Simulation
 
 Component-composition simulation
-([`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)),
+([`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)),
 correlated triangular-distribution sampling
 ([`simulate_correlated_triangular()`](https://jjmaynard.github.io/soilSIM/reference/simulate_correlated_triangular.md)),
 and per-cokey flexible-property simulation
@@ -15,6 +15,6 @@ draws uncorrelated normals with
 [`stats::rnorm()`](https://rdrr.io/r/stats/Normal.html) (no `MASS`
 dependency), and
 [`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md)'s
-texture step uses `R/distributions.R`'s
+texture step uses `R/core-distributions.R`'s
 [`ilr_forward()`](https://jjmaynard.github.io/soilSIM/reference/ilr_forward.md)/[`ilr_inverse()`](https://jjmaynard.github.io/soilSIM/reference/ilr_inverse.md)
 (no `compositions` dependency).

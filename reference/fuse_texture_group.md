@@ -1,9 +1,9 @@
-# Fuse a compositional group's members JOINTLY via ILR fusion (`R/distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`, `R/bayesian-updating.R`'s `fuse_bivariate_normal()`), rather than independently via `fuse_beta()` per member - independent fusion measurably breaks sum-to-100 (up to 10.5 percentage points on realistic synthetic data). The raster counterpart of the already-ported scalar `fuse_texture_group_from_triplets()`.
+# Fuse a compositional group's members JOINTLY via ILR fusion (`R/core-distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`, `R/core-fusion.R`'s `fuse_bivariate_normal()`), rather than independently via `fuse_beta()` per member - independent fusion measurably breaks sum-to-100 (up to 10.5 percentage points on realistic synthetic data). The raster counterpart of the already-ported scalar `fuse_texture_group_from_triplets()`.
 
 Fuse a compositional group's members JOINTLY via ILR fusion
-(`R/distributions.R`'s
+(`R/core-distributions.R`'s
 [`estimate_ilr_moments_mc()`](https://jjmaynard.github.io/soilSIM/reference/estimate_ilr_moments_mc.md)/[`ilr_inverse()`](https://jjmaynard.github.io/soilSIM/reference/ilr_inverse.md),
-`R/bayesian-updating.R`'s
+`R/core-fusion.R`'s
 [`fuse_bivariate_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_bivariate_normal.md)),
 rather than independently via
 [`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)
@@ -40,7 +40,7 @@ fuse_texture_group(
   docs). `mukey_raster` must already be aligned to the same grid as
   `fetched`'s percentile rasters (nearest-neighbor resampled - it's
   categorical). `mukey_texture_draws` is a
-  [`mukey_texture_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_texture_draws_lookup.md)
+  [`lookup_mukey_texture_draws()`](https://jjmaynard.github.io/soilSIM/reference/lookup_mukey_texture_draws.md)
   result. `NULL` (default) for either uses the percentile-reconstruction
   path.
 

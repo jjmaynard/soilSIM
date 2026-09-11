@@ -2,7 +2,7 @@
 
 Validates each matrix with the shared
 [`validate_correlation_matrix()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrix.md)
-(`distributions.R`).
+(`core-distributions.R`).
 
 ## Usage
 

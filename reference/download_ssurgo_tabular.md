@@ -33,7 +33,7 @@ download_ssurgo_tabular(
   "claytotal", "silttotal", "dbovendry", "ph1to1h2o", "cec7", "om",
   "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar").
   Each needs a matching row in
-  [`create_ssurgo_property_lookup_working()`](https://jjmaynard.github.io/soilSIM/reference/create_ssurgo_property_lookup_working.md)
+  [`build_ssurgo_property_lookup()`](https://jjmaynard.github.io/soilSIM/reference/build_ssurgo_property_lookup.md)
   to reach the SQL query.
 
 - include_restrictions:

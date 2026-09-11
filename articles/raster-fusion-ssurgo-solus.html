@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -103,15 +103,14 @@
 <p>This vignette is the clearest example of soilSIM’s core architecture:
 a generic, data-source-agnostic raster fusion <strong>core</strong>
 (<code><a href="../reference/fuse_property_adaptive.html">fuse_property_adaptive()</a></code>, built on the same
-Bayesian-updating primitives as the scalar
-<code>bayesian-updating.R</code> toolkit) combined with two concrete
-data-source <strong>adapters</strong> - SSURGO (supplying the prior) and
-SOLUS100 (supplying the likelihood) - over a shared, real area of
-interest (AOI). The architecture is designed so future data sources
-(e.g. HWSD, SoilGrids) could plug in as new adapters supplying either
-side, without changing the fusion core. See the “Multi-Source Raster
-Fusion Pipeline” architecture article for the full function-level
-reference.</p>
+Bayesian-updating primitives as the scalar <code>core-fusion.R</code>
+toolkit) combined with two concrete data-source
+<strong>adapters</strong> - SSURGO (supplying the prior) and SOLUS100
+(supplying the likelihood) - over a shared, real area of interest (AOI).
+The architecture is designed so future data sources (e.g. HWSD,
+SoilGrids) could plug in as new adapters supplying either side, without
+changing the fusion core. See the “Multi-Source Raster Fusion Pipeline”
+architecture article for the full function-level reference.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://jjmaynard.github.io/soilSIM/">soilSIM</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span> <span class="co"># only for the non-spatial prior/likelihood/posterior comparison chart below</span></span></code></pre></div>
@@ -129,17 +128,17 @@ chosen because it has confirmed real SOLUS100 coverage:</p>
 <div class="section level2">
 <h2 id="step-1-fuse-a-single-property-clay-content">Step 1: Fuse a single property (clay content)<a class="anchor" aria-label="anchor" href="#step-1-fuse-a-single-property-clay-content"></a>
 </h2>
-<p><code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code> is the top-level orchestrator: it
-fetches (and disk-caches) SSURGO percentile rasters as the prior,
-SOLUS100 percentile rasters as the likelihood, resamples the SSURGO
-prior onto SOLUS100’s coarser grid, and fuses them via
+<p><code><a href="../reference/run_fusion.html">run_fusion()</a></code> is the top-level orchestrator: it fetches
+(and disk-caches) SSURGO percentile rasters as the prior, SOLUS100
+percentile rasters as the likelihood, resamples the SSURGO prior onto
+SOLUS100’s coarser grid, and fuses them via
 <code><a href="../reference/fuse_property_adaptive.html">fuse_property_adaptive()</a></code>, which adaptively routes to a
 closed-form or general grid-KDE fusion depending on the property’s
 distributional shape:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># The real call this vignette's cached data came from:</span></span>
 <span><span class="va">property_config</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"clay"</span>, solus_variable <span class="op">=</span> <span class="st">"claytotal"</span>, dist <span class="op">=</span> <span class="st">"normal"</span><span class="op">)</span></span>
-<span><span class="va">fusion_clay</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_stage1_fusion.html">run_stage1_fusion</a></span><span class="op">(</span><span class="va">aoi</span>, <span class="va">property_config</span>, top_depth <span class="op">=</span> <span class="fl">0</span>, bottom_depth <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">fusion_clay</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_fusion.html">run_fusion</a></span><span class="op">(</span><span class="va">aoi</span>, <span class="va">property_config</span>, top_depth <span class="op">=</span> <span class="fl">0</span>, bottom_depth <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fusion_clay</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/wrap_nested_rasters.html">unwrap_nested_rasters</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"fusion_clay_salinas.rds"</span>, package <span class="op">=</span> <span class="st">"soilSIM"</span><span class="op">)</span><span class="op">)</span></span>
@@ -190,8 +189,8 @@ representative value:</p>
 <span><span class="va">prior_r</span> <span class="op">&lt;-</span> <span class="va">fusion_clay</span><span class="op">$</span><span class="va">prior</span><span class="op">$</span><span class="va">values</span><span class="op">[[</span><span class="st">"P50"</span><span class="op">]</span><span class="op">]</span></span>
 <span><span class="va">likelihood_r</span> <span class="op">&lt;-</span> <span class="va">fusion_clay</span><span class="op">$</span><span class="va">likelihood</span><span class="op">$</span><span class="va">values</span><span class="op">[[</span><span class="st">"P50"</span><span class="op">]</span><span class="op">]</span></span>
 <span><span class="va">posterior_r</span> <span class="op">&lt;-</span> <span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">mu</span></span></code></pre></div>
-<p><code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code> already resampled the SSURGO prior
-onto SOLUS100’s grid before fusing, so all three rasters share the same
+<p><code><a href="../reference/run_fusion.html">run_fusion()</a></code> already resampled the SSURGO prior onto
+SOLUS100’s grid before fusing, so all three rasters share the same
 extent/resolution and combine directly with <code><a href="https://rdrr.io/r/base/c.html" class="external-link">c()</a></code> - no
 separate <code>par(mfrow = ...)</code> panels needed. We use one shared
 color scale (<code>range</code>) across all three panels so that color
@@ -332,7 +331,7 @@ it rather than replacing it.</p>
 </h2>
 <p>Fusing clay/sand/silt independently can break the sum-to-100
 constraint texture fractions must satisfy.
-<code><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code> fuses a whole compositional group
+<code><a href="../reference/run_fusion_group.html">run_fusion_group()</a></code> fuses a whole compositional group
 jointly, in isometric log-ratio (ILR) space, guaranteeing every cell’s
 fused clay + sand + silt sums to 100:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
@@ -343,7 +342,7 @@ fused clay + sand + silt sums to 100:</p>
 <span>  sand <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"sand"</span>, solus_variable <span class="op">=</span> <span class="st">"sandtotal"</span>, composition_group <span class="op">=</span> <span class="st">"texture"</span><span class="op">)</span>,</span>
 <span>  silt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"silt"</span>, solus_variable <span class="op">=</span> <span class="st">"silttotal"</span>, composition_group <span class="op">=</span> <span class="st">"texture"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">fusion_texture</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group</a></span><span class="op">(</span></span>
+<span><span class="va">fusion_texture</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_fusion_group.html">run_fusion_group</a></span><span class="op">(</span></span>
 <span>  <span class="va">aoi</span>, <span class="st">"texture"</span>, <span class="va">composition_groups</span>, <span class="va">property_configs</span>, top_depth <span class="op">=</span> <span class="fl">0</span>, bottom_depth <span class="op">=</span> <span class="fl">5</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
@@ -398,13 +397,13 @@ not as a second composition that should also sum to 100.</p>
 <h2 id="under-the-hood-scalar-bayesian-updating">Under the hood: scalar Bayesian updating<a class="anchor" aria-label="anchor" href="#under-the-hood-scalar-bayesian-updating"></a>
 </h2>
 <p>Both fusion routes above ultimately reduce to elementwise arithmetic
-on <code>bayesian-updating.R</code>’s scalar fusion functions
-(<code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code>,
+on <code>core-fusion.R</code>’s scalar fusion functions
+(<code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code>,
 <code><a href="../reference/fuse_beta.html">fuse_beta()</a></code>/<code><a href="../reference/fuse_gamma.html">fuse_gamma()</a></code>,
-<code><a href="../reference/bayesian_update.html">bayesian_update()</a></code>’s general grid-KDE fusion) - they already
+<code><a href="../reference/update_prior.html">update_prior()</a></code>’s general grid-KDE fusion) - they already
 work unchanged on <code>SpatRaster</code> inputs via
 <code>terra</code>’s operator overloading, so the raster-native code in
-<code>raster-fusion.R</code> reuses them directly rather than
+<code>core-fusion.R</code> reuses them directly rather than
 reimplementing the same math per-cell. See the “Bayesian Updating”
 architecture article for these building blocks used directly on scalar
 prior/likelihood pairs, independent of any raster or AOI.</p>
@@ -416,14 +415,14 @@ prior/likelihood pairs, independent of any raster or AOI.</p>
 (<code>inst/extdata/fusion_clay_salinas.rds</code>,
 <code>inst/extdata/fusion_texture_salinas.rds</code>) was produced once
 by <code>data-raw/build_vignette_data.R</code>, which calls
-<code><a href="../reference/run_stage1_fusion.html">run_stage1_fusion()</a></code>/<code><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code>
-live against NRCS Soil Data Access (SSURGO) and
-<code><a href="http://ncss-tech.github.io/soilDB/reference/fetchSOLUS.html" class="external-link">soilDB::fetchSOLUS()</a></code> (SOLUS100) for the AOI above. Re-run
-that script to refresh it. Producing this vignette’s data surfaced and
-fixed a real caching bug in <code><a href="../reference/run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code> (it
-wasn’t wrapping/unwrapping <code>SpatRaster</code>s around its disk
-cache, silently corrupting the cached texture-group result on a second
-read) - fixed in <code>R/raster-fusion.R</code>.</p>
+<code><a href="../reference/run_fusion.html">run_fusion()</a></code>/<code><a href="../reference/run_fusion_group.html">run_fusion_group()</a></code> live against
+NRCS Soil Data Access (SSURGO) and <code><a href="http://ncss-tech.github.io/soilDB/reference/fetchSOLUS.html" class="external-link">soilDB::fetchSOLUS()</a></code>
+(SOLUS100) for the AOI above. Re-run that script to refresh it.
+Producing this vignette’s data surfaced and fixed a real caching bug in
+<code><a href="../reference/run_fusion_group.html">run_fusion_group()</a></code> (it wasn’t wrapping/unwrapping
+<code>SpatRaster</code>s around its disk cache, silently corrupting the
+cached texture-group result on a second read) - fixed in
+<code>R/core-fusion.R</code>.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

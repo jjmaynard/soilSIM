@@ -1,9 +1,9 @@
 # Per-Mukey Joint Multivariate Profile Ensemble at Several Depth Windows
 
 The multi-property, multi-depth-window analogue of
-[`mukey_draws_lookup`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md)
+[`lookup_mukey_draws`](https://jjmaynard.github.io/soilSIM/reference/lookup_mukey_draws.md)
 /
-[`mukey_texture_draws_lookup`](https://jjmaynard.github.io/soilSIM/reference/mukey_texture_draws_lookup.md):
+[`lookup_mukey_texture_draws`](https://jjmaynard.github.io/soilSIM/reference/lookup_mukey_texture_draws.md):
 runs the (expensive) SSURGO Monte Carlo once via
 [`simulate_ssurgo_mapunit_draws`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
 and returns, per mukey, the **retained bag of joint realizations** -
@@ -11,8 +11,8 @@ every simulated property together, row-aligned across depth windows, so
 the KSSL cross-property and cross-depth rank structure is preserved.
 This is the input to
 [`remarginalize_ensemble_to_posterior()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_ensemble_to_posterior.md)
-(`R/raster-fusion-bridge.R`), which transforms each pixel's marginals to
-a fused posterior while keeping this ensemble's empirical copula.
+(`R/core-fusion.R`), which transforms each pixel's marginals to a fused
+posterior while keeping this ensemble's empirical copula.
 
 ## Usage
 
@@ -100,4 +100,4 @@ window's matrix the same number of rows.
 ## See also
 
 [`remarginalize_ensemble_to_posterior()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_ensemble_to_posterior.md),
-[`mukey_draws_lookup`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md)
+[`lookup_mukey_draws`](https://jjmaynard.github.io/soilSIM/reference/lookup_mukey_draws.md)

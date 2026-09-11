@@ -3,25 +3,25 @@
 ## Overview
 
 This functional group covers two files — `R/statistics.R` and
-`R/validation-diagnostics.R` — that together provide the package’s
-analytical and quality-assurance layer. `statistics.R` performs
-statistical characterization of processed SSURGO soil property data:
-correlation analysis (including compositional/ILR-aware texture
-correlations), distribution fitting via `fitdistrplus`, outlier
-detection (univariate IQR/Z-score and multivariate Mahalanobis), and
-descriptive property statistics with confidence intervals.
-`validation-diagnostics.R` performs end-to-end quality assurance across
-the *entire* simulation workflow, not just this group’s own output: it
-checks Monte Carlo convergence and coverage, correlation-structure
-preservation through the simulation pipeline, Gaussian-process (GP)
-depth-trend model performance, and soil-science plausibility of final
-simulated values, then rolls all of that into a single weighted quality
-score, grade, and optional diagnostic report/plots. In the overall
-soilSIM pipeline this group sits downstream of data acquisition and
-processing: it consumes cleaned/infilled SSURGO data for its own
-statistical analysis, and separately consumes the *outputs* of the Monte
-Carlo, GP-modeling, and multivariate-adjustment (correlation) groups to
-validate the workflow as a whole.
+`R/diagnostics.R` — that together provide the package’s analytical and
+quality-assurance layer. `statistics.R` performs statistical
+characterization of processed SSURGO soil property data: correlation
+analysis (including compositional/ILR-aware texture correlations),
+distribution fitting via `fitdistrplus`, outlier detection (univariate
+IQR/Z-score and multivariate Mahalanobis), and descriptive property
+statistics with confidence intervals. `diagnostics.R` performs
+end-to-end quality assurance across the *entire* simulation workflow,
+not just this group’s own output: it checks Monte Carlo convergence and
+coverage, correlation-structure preservation through the simulation
+pipeline, Gaussian-process (GP) depth-trend model performance, and
+soil-science plausibility of final simulated values, then rolls all of
+that into a single weighted quality score, grade, and optional
+diagnostic report/plots. In the overall soilSIM pipeline this group sits
+downstream of data acquisition and processing: it consumes
+cleaned/infilled SSURGO data for its own statistical analysis, and
+separately consumes the *outputs* of the Monte Carlo, GP-modeling, and
+multivariate-adjustment (correlation) groups to validate the workflow as
+a whole.
 
 ## Core Functions
 
@@ -56,7 +56,7 @@ numeric `_r` property columns. - `analysis_config` — list of overrides
 merged (via
 [`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md))
 on top of
-[`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md). -
+[`default_statistics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_statistics_config.md). -
 `correlation_methods` — character vector of correlation methods to
 compute (`"pearson"`, `"spearman"`, and/or `"kendall"`). -
 `distribution_fitting` — whether to run Step 5 (distribution
@@ -117,7 +117,7 @@ internal helper `.stat_cfg(config, key, default)` =
 `config$statistical_analysis[[key]] %||% config[[key]] %||% default`, so
 they accept parameters both flat off `config$X` and nested under
 `config$statistical_analysis$X` (the shape
-[`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md)
+[`default_statistics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_statistics_config.md)
 produces).
 
 #### 2. `run_comprehensive_correlation_analysis()` — Enhanced Correlation Analysis
@@ -194,7 +194,7 @@ fitting.
 `fit_property_distributions(values, property_name, config)`
 
 **Purpose/Behavior**: Determines candidate distribution families via
-[`get_appropriate_distributions()`](https://jjmaynard.github.io/soilSIM/reference/get_appropriate_distributions.md),
+[`distributions_for_properties()`](https://jjmaynard.github.io/soilSIM/reference/distributions_for_properties.md),
 fits each with
 [`fit_single_distribution()`](https://jjmaynard.github.io/soilSIM/reference/fit_single_distribution.md)
 (skipping failures), and ranks the successful fits best-first by AIC via
@@ -202,10 +202,10 @@ fits each with
 **Returns** a named list of fit results (one per successfully-fit
 distribution family).
 
-#### 6. `get_appropriate_distributions()`
+#### 6. `distributions_for_properties()`
 
 **Signature**:
-`get_appropriate_distributions(property_name, values, config = NULL)`
+`distributions_for_properties(property_name, values, config = NULL)`
 
 **Purpose**: Chooses candidate distribution families for a property
 using a type-based heuristic — `c("beta", "normal")` for texture
@@ -248,7 +248,7 @@ via
 
 **Purpose/Behavior**: Validates correlation matrices via
 [`validate_correlation_matrices()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrices.md)
-(real check, delegates to `distributions.R`’s
+(real check, delegates to `core-distributions.R`’s
 [`validate_correlation_matrix()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrix.md)),
 plus pass-through stubs
 [`validate_distribution_analysis()`](https://jjmaynard.github.io/soilSIM/reference/validate_distribution_analysis.md)
@@ -282,15 +282,15 @@ per-component quality assessments are available), `data_quality`
 `generate_analysis_recommendations()`, currently two hardcoded checks:
 data-quality-below-0.8 and presence of correlation warnings).
 
-#### 10. `get_statistical_analysis_defaults()`
+#### 10. `default_statistics_config()`
 
 **Signature**:
-[`get_statistical_analysis_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_statistical_analysis_defaults.md)
+[`default_statistics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_statistics_config.md)
 (no arguments)
 
 **Purpose/Behavior**: Builds the default statistical-analysis
-configuration by taking `get_default_configuration("full")` and merging
-in a `statistical_analysis` block covering stratification flags,
+configuration by taking `default_config("full")` and merging in a
+`statistical_analysis` block covering stratification flags,
 missing-value strategy, correlation method/threshold defaults,
 distribution-fitting families, outlier method/threshold defaults, and
 quality-control thresholds. **Returns** the merged configuration list
@@ -331,7 +331,7 @@ character vector of column names.
 **Purpose/Behavior**: For each property, computes
 n/missing-rate/mean/sd/min/max/range/CV/median/quartiles/IQR on finite
 values, adds a 95% t-based confidence interval via
-[`calculate_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/calculate_confidence_intervals.md),
+[`compute_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/compute_confidence_intervals.md),
 and adds skewness/kurtosis
 (`calculate_skewness()`/`calculate_kurtosis()`, both hand-rolled
 moment-based implementations) plus a Shapiro-Wilk normality p-value
@@ -350,8 +350,8 @@ available texture properties (`raw_correlations`), which are known to be
 spuriously negative for compositional (simplex-constrained, sum-to-100)
 data. When all three of `claytotal_r`/`sandtotal_r`/`silttotal_r` are
 present with \>4 complete rows, additionally computes the same
-correlations in isometric-log-ratio (ILR) space via `distributions.R`’s
-dependency-free
+correlations in isometric-log-ratio (ILR) space via
+`core-distributions.R`’s dependency-free
 [`ilr_forward()`](https://jjmaynard.github.io/soilSIM/reference/ilr_forward.md),
 exposed as `ilr_correlations` — the statistically defensible view for
 compositional data. **Returns**
@@ -373,9 +373,9 @@ into
 Small numeric utilities `calculate_condition_number()`,
 `calculate_skewness()`, `calculate_kurtosis()` are also non-exported.
 
-### Workflow Validation & Diagnostics (`validation-diagnostics.R`)
+### Workflow Validation & Diagnostics (`diagnostics.R`)
 
-#### 1. `validate_complete_workflow()` — Master Validation Entry Point
+#### 1. `diagnose_workflow()` — Master Validation Entry Point
 
 **Purpose**: Top-level driver that assesses an entire soil-simulation
 workflow’s output (Monte Carlo, correlation, GP models, soil-science
@@ -385,7 +385,7 @@ realism) and rolls it up into one overall quality assessment.
 
 ``` r
 
-validate_complete_workflow(
+diagnose_workflow(
   workflow_results,
   original_data = NULL,
   validation_config = NULL,
@@ -399,11 +399,11 @@ expected to optionally contain `simulation_data`, `integrated_data`,
 `gp_models`, `correlation_matrices`, `training_data` keys. -
 `original_data` — original SSURGO/NRCS data, used as a comparison
 baseline for coverage and depth-trend checks. - `validation_config` —
-validation configuration; defaults to
-`get_default_configuration("validation")`. - `generate_plots` — whether
-to generate diagnostic plots (Step 7 of the pipeline). - `output_dir` —
-directory to save diagnostic plot files into (plots are still returned
-as objects/paths even if `NULL`, just not written to disk).
+validation configuration; defaults to `default_config("validation")`. -
+`generate_plots` — whether to generate diagnostic plots (Step 7 of the
+pipeline). - `output_dir` — directory to save diagnostic plot files into
+(plots are still returned as objects/paths even if `NULL`, just not
+written to disk).
 
 **Returns**: A list with `workflow_summary`, `monte_carlo_validation`,
 `correlation_validation`, `gp_model_validation`,
@@ -417,11 +417,11 @@ whichever of
 `simulation_data`/`gp_models`/`correlation_matrices`/`training_data` are
 present via `extract_and_validate_components()`; (3) runs
 `execute_validation_pipeline()`, which in turn conditionally calls
-[`validate_monte_carlo_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_monte_carlo_quality.md),
-[`validate_correlation_structures()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_structures.md),
-[`validate_gp_model_workflow()`](https://jjmaynard.github.io/soilSIM/reference/validate_gp_model_workflow.md),
+[`diagnose_simulation()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_simulation.md),
+[`diagnose_correlation_structures()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_correlation_structures.md),
+[`diagnose_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_gp_models.md),
 and
-[`validate_soil_science_realism()`](https://jjmaynard.github.io/soilSIM/reference/validate_soil_science_realism.md)
+[`diagnose_soil_science_realism()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_soil_science_realism.md)
 — each skipped (not failed) if its required component wasn’t found —
 then computes
 [`calculate_workflow_performance()`](https://jjmaynard.github.io/soilSIM/reference/calculate_workflow_performance.md),
@@ -449,7 +449,7 @@ generate_validation_report(
 ```
 
 **Parameters**: `validation_results` (output of
-[`validate_complete_workflow()`](https://jjmaynard.github.io/soilSIM/reference/validate_complete_workflow.md)),
+[`diagnose_workflow()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_workflow.md)),
 `output_format` (`"html"`, `"pdf"`, or `"markdown"`), `output_file`
 (defaults to a timestamped filename in the current directory),
 `include_plots` (whether to embed
@@ -496,10 +496,10 @@ failures, sub-0.6 overall score, data-quality failures). **Returns** a
 `calculate_confidence_level()`, which rewards a high mean score with low
 cross-component variance), and `assessment_metadata`.
 
-#### 4. `validate_monte_carlo_quality()`
+#### 4. `diagnose_simulation()`
 
 **Signature**:
-`validate_monte_carlo_quality(monte_carlo_results, original_data = NULL, config = NULL)`
+`diagnose_simulation(monte_carlo_results, original_data = NULL, config = NULL)`
 
 **Purpose/Behavior**: Validates `monte_carlo_results$simulation_data`
 via
@@ -512,11 +512,11 @@ sequence with progress tracking
 sequential batches — default 5 — and checks whether each numeric
 property’s batch mean has stabilized within `tolerance`, default 0.05
 relative change),
-[`assess_simulation_coverage()`](https://jjmaynard.github.io/soilSIM/reference/assess_simulation_coverage.md),
-[`validate_distribution_fidelity()`](https://jjmaynard.github.io/soilSIM/reference/validate_distribution_fidelity.md),
+[`diagnose_simulation_coverage()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_simulation_coverage.md),
+[`diagnose_distribution_fidelity()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_distribution_fidelity.md),
 and a `"diagnostics"` step that calls
 [`generate_simulation_diagnostics()`](https://jjmaynard.github.io/soilSIM/reference/generate_simulation_diagnostics.md)
-(defined in `monte-carlo.R`) with all 5 arguments
+(defined in `core-montecarlo.R`) with all 5 arguments
 (`original_data, simulation_results, properties, correlation_config, config`)
 by name, sourced from this function’s own `original_data` parameter, the
 `simulation_data` local (the constrained
@@ -525,10 +525,10 @@ by name, sourced from this function’s own `original_data` parameter, the
 **Returns**
 `list(convergence_assessment=, coverage_assessment=, distribution_fidelity=, simulation_diagnostics=, data_quality=)`.
 
-#### 5. `assess_simulation_coverage()`
+#### 5. `diagnose_simulation_coverage()`
 
 **Signature**:
-`assess_simulation_coverage(simulation_data, original_data, criteria = NULL)`
+`diagnose_simulation_coverage(simulation_data, original_data, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria
 `list(min_coverage_percentile = 0.95, max_extrapolation_factor = 1.2, min_samples_per_group = 10)`.
@@ -547,16 +547,16 @@ full range). If `cokey` is present, also computes
 **Returns**
 `list(parameter_space_coverage=, distributional_coverage=, group_representation=)`.
 
-#### 6. `validate_distribution_fidelity()`
+#### 6. `diagnose_distribution_fidelity()`
 
 **Signature**:
-`validate_distribution_fidelity(simulation_data, simulation_metadata, criteria = NULL)`
+`diagnose_distribution_fidelity(simulation_data, simulation_metadata, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria
 `list(ks_test_alpha = 0.05, moment_tolerance = 0.1, quantile_tolerance = 0.05)`.
 For each property named in
 `simulation_metadata$distribution_parameters`, draws a reference sample
-from the fitted distribution via `distributions.R`’s
+from the fitted distribution via `core-distributions.R`’s
 [`quantile_from_fit()`](https://jjmaynard.github.io/soilSIM/reference/quantile_from_fit.md)
 and compares it against the simulated values three ways:
 [`test_distribution_fidelity()`](https://jjmaynard.github.io/soilSIM/reference/test_distribution_fidelity.md)
@@ -570,10 +570,10 @@ IQR-based
 per property. **Returns**
 `list(distribution_tests=, moment_comparisons=, quantile_comparisons=, outlier_assessment=)`.
 
-#### 7. `validate_correlation_structures()`
+#### 7. `diagnose_correlation_structures()`
 
 **Signature**:
-`validate_correlation_structures(correlation_matrices, simulation_data, config = NULL)`
+`diagnose_correlation_structures(correlation_matrices, simulation_data, config = NULL)`
 
 **Purpose/Behavior**: Validates `simulation_data` via
 [`validate_data_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_data_quality.md),
@@ -581,16 +581,16 @@ then runs four steps with progress tracking:
 [`validate_correlation_matrix_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrix_quality.md)
 (positive-definiteness + condition number per matrix, via
 [`assess_correlation_matrix_properties()`](https://jjmaynard.github.io/soilSIM/reference/assess_correlation_matrix_properties.md)),
-[`validate_correlation_preservation_diagnostics()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_preservation_diagnostics.md),
-[`validate_within_depth_correlations()`](https://jjmaynard.github.io/soilSIM/reference/validate_within_depth_correlations.md),
-[`assess_cholesky_decomposition()`](https://jjmaynard.github.io/soilSIM/reference/assess_cholesky_decomposition.md).
+[`diagnose_correlation_preservation()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_correlation_preservation.md),
+[`diagnose_within_depth_correlations()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_within_depth_correlations.md),
+[`diagnose_cholesky()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_cholesky.md).
 **Returns**
 `list(matrix_quality=, preservation_assessment=, depth_specific_validation=, cholesky_validation=, data_quality=)`.
 
-#### 8. `validate_correlation_preservation_diagnostics()`
+#### 8. `diagnose_correlation_preservation()`
 
 **Signature**:
-`validate_correlation_preservation_diagnostics(original_correlations, simulation_data, criteria = NULL)`
+`diagnose_correlation_preservation(original_correlations, simulation_data, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria
 `list(max_correlation_difference = 0.1, correlation_rmse_threshold = 0.05, min_samples_for_validation = 30)`.
@@ -608,10 +608,10 @@ requiring ≥ `min_samples_for_validation` rows) and compares each via
 `list(overall_preservation=, depth_specific_preservation=, property_specific_preservation=)`
 (the last is currently never populated).
 
-#### 9. `validate_within_depth_correlations()`
+#### 9. `diagnose_within_depth_correlations()`
 
 **Signature**:
-`validate_within_depth_correlations(simulation_data, criteria = NULL)`
+`diagnose_within_depth_correlations(simulation_data, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria includes
 `depth_bins = c(0, 15, 30, 60, 100, 200)` and
@@ -629,10 +629,10 @@ per bin. Also computes
 `list(depth_bin_correlations=, correlation_stability=, depth_trend_correlations=)`
 (the last is currently never populated).
 
-#### 10. `assess_cholesky_decomposition()`
+#### 10. `diagnose_cholesky()`
 
 **Signature**:
-`assess_cholesky_decomposition(correlation_matrices, criteria = NULL)`
+`diagnose_cholesky(correlation_matrices, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria
 `list(reconstruction_tolerance = 1e-10, condition_number_threshold = 1e12, eigenvalue_threshold = 1e-8)`.
@@ -645,53 +645,53 @@ graded `"excellent"`/`"good"`/`"poor"` by tolerance. **Returns**
 (the latter two sub-lists are not populated beyond
 `decomposition_quality`).
 
-#### 11. `validate_gp_model_workflow()`
+#### 11. `diagnose_gp_models()`
 
 **Signature**:
-`validate_gp_model_workflow(gp_models, training_data, config = NULL)`
+`diagnose_gp_models(gp_models, training_data, config = NULL)`
 
 **Purpose/Behavior**: Validates `training_data` (if supplied) via
 [`validate_data_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_data_quality.md),
 then runs four GP-focused steps with progress tracking:
-[`validate_gp_model_performance()`](https://jjmaynard.github.io/soilSIM/reference/validate_gp_model_performance.md),
-[`validate_gp_predictions()`](https://jjmaynard.github.io/soilSIM/reference/validate_gp_predictions.md),
-[`assess_depth_trend_realism()`](https://jjmaynard.github.io/soilSIM/reference/assess_depth_trend_realism.md),
+[`diagnose_gp_performance()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_gp_performance.md),
+[`diagnose_gp_predictions()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_gp_predictions.md),
+[`diagnose_depth_trend_realism()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_depth_trend_realism.md),
 [`perform_gp_cross_validation()`](https://jjmaynard.github.io/soilSIM/reference/perform_gp_cross_validation.md).
 **Returns**
 `list(model_performance=, prediction_quality=, depth_trend_realism=, cross_validation=, training_data_quality=)`.
 
-#### 12. `validate_gp_model_performance()`
+#### 12. `diagnose_gp_performance()`
 
 **Signature**:
-`validate_gp_model_performance(gp_models, training_data, criteria = NULL)`
+`diagnose_gp_performance(gp_models, training_data, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria
 `list(max_training_rmse = 0.5, min_r_squared = 0.6, max_condition_number = 1e12)`.
 For every property/group combination in `gp_models` whose type is
 `"stratified_grouped"`, calls
 [`assess_single_gp_performance()`](https://jjmaynard.github.io/soilSIM/reference/assess_single_gp_performance.md),
-which delegates training RMSE to `gp-modeling.R`’s
+which delegates training RMSE to `core-gp.R`’s
 `calculate_model_diagnostics()` and derives R² from that RMSE against
 the training data’s own variance. Aggregates via
 [`calculate_overall_gp_performance()`](https://jjmaynard.github.io/soilSIM/reference/calculate_overall_gp_performance.md)
 (mean R²/RMSE across all models). **Returns**
 `list(individual_model_performance=, overall_performance=)`.
 
-#### 13. `assess_depth_trend_realism()`
+#### 13. `diagnose_depth_trend_realism()`
 
-**Signature**: `assess_depth_trend_realism(gp_models, criteria = NULL)`
+**Signature**:
+`diagnose_depth_trend_realism(gp_models, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria includes
 `test_depths = seq(0, 200, by = 5)`,
 `realistic_ranges = get_realistic_property_ranges()`,
 `monotonicity_tolerance = 0.3`,
 `gradient_limits = get_realistic_gradients()`. For each
-stratified-grouped GP model, predicts a depth trend via
-`gp-modeling.R`’s
+stratified-grouped GP model, predicts a depth trend via `core-gp.R`’s
 [`predict_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/predict_gp_depth_trends.md),
 then judges realism via
 [`assess_trend_realism()`](https://jjmaynard.github.io/soilSIM/reference/assess_trend_realism.md)
-— which reuses `gp-modeling.R`’s `assess_trend_monotonicity()` and
+— which reuses `core-gp.R`’s `assess_trend_monotonicity()` and
 `assess_realistic_values()`, and additionally counts values outside
 `criteria$realistic_ranges[[prop]]` (or non-finite predictions if no
 range is configured for that property). Violations are aggregated via
@@ -701,9 +701,9 @@ range is configured for that property). Violations are aggregated via
 (`realism_assessment` is currently never separately populated beyond
 what’s nested in `trend_predictions`/`constraint_violations`).
 
-#### 14. `validate_gp_predictions()`
+#### 14. `diagnose_gp_predictions()`
 
-**Signature**: `validate_gp_predictions(gp_models, criteria = NULL)`
+**Signature**: `diagnose_gp_predictions(gp_models, criteria = NULL)`
 
 **Purpose/Behavior**: Default criteria
 `list(test_depths = seq(0, 150, by = 10), uncertainty_threshold = 0.5, smoothness_criteria = 0.1)`.
@@ -715,15 +715,15 @@ discrete-roughness measure). **Returns**
 `list(prediction_smoothness=, uncertainty_assessment=, extrapolation_behavior=)`
 (only `prediction_smoothness` is currently populated).
 
-#### 15. `validate_soil_science_realism()`
+#### 15. `diagnose_soil_science_realism()`
 
 **Signature**:
-`validate_soil_science_realism(simulation_data, original_data = NULL, config = NULL)`
+`diagnose_soil_science_realism(simulation_data, original_data = NULL, config = NULL)`
 
 **Purpose/Behavior**: Validates `simulation_data` via
 [`validate_data_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_data_quality.md),
 then runs four steps with progress tracking:
-[`assess_property_constraints()`](https://jjmaynard.github.io/soilSIM/reference/assess_property_constraints.md),
+[`diagnose_property_constraints()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_property_constraints.md),
 [`validate_horizon_characteristics()`](https://jjmaynard.github.io/soilSIM/reference/validate_horizon_characteristics.md)
 (surface vs. subsurface range compliance plus depth-transition
 smoothness),
@@ -735,10 +735,10 @@ when those columns are present),
 `original_data` is supplied). **Returns**
 `list(property_constraints=, horizon_characteristics=, pedological_relationships=, depth_trend_realism=, data_quality=)`.
 
-#### 16. `assess_property_constraints()`
+#### 16. `diagnose_property_constraints()`
 
 **Signature**:
-`assess_property_constraints(simulation_data, criteria = NULL)`
+`diagnose_property_constraints(simulation_data, criteria = NULL)`
 
 **Purpose/Behavior**: Defaults to `get_default_property_constraints()`,
 which builds `property_ranges` from `get_realistic_property_ranges()`
@@ -824,7 +824,7 @@ carries its own `@section Known limitation`): - *Monte Carlo internals*:
     ├── detect_comprehensive_outliers[_safe]()
     │   └── detect_outliers()                            [utils.R]
     ├── compute_property_statistics()
-    │   ├── calculate_confidence_intervals()             [utils.R]
+    │   ├── compute_confidence_intervals()             [utils.R]
     │   ├── calculate_skewness() / calculate_kurtosis()
     │   └── shapiro.test()                               [stats]
     ├── validate_statistical_results[_safe]()
@@ -845,7 +845,7 @@ carries its own `@section Known limitation`): - *Monte Carlo internals*:
 
     analyze_property_distributions()                     [exported, standalone]
     ├── fit_property_distributions()
-    │   ├── get_appropriate_distributions()
+    │   ├── distributions_for_properties()
     │   ├── fit_single_distribution()
     │   │   └── fitdistrplus::fitdist()                  [fitdistrplus]
     │   └── rank_distribution_fits()
@@ -876,56 +876,56 @@ carries its own `@section Known limitation`): - *Monte Carlo internals*:
     └── generate_analysis_recommendations()
 
 
-    validation-diagnostics.R
+    diagnostics.R
     ========================================================================
-    validate_complete_workflow()                          [MASTER — validation-diagnostics.R]
+    diagnose_workflow()                          [MASTER — diagnostics.R]
     ├── initialize_validation_structure()
     ├── extract_and_validate_components()
     │   └── validate_data_quality()                       [utils.R]
     ├── execute_validation_pipeline()
-    │   ├── validate_monte_carlo_quality()          (if simulation_data found)
+    │   ├── diagnose_simulation()          (if simulation_data found)
     │   │   ├── assess_simulation_convergence()
-    │   │   ├── assess_simulation_coverage()
+    │   │   ├── diagnose_simulation_coverage()
     │   │   │   ├── assess_property_coverage()
     │   │   │   ├── assess_distributional_coverage()
     │   │   │   │   └── detect_outliers()                 [utils.R]
     │   │   │   └── assess_group_representation()
-    │   │   ├── validate_distribution_fidelity()
+    │   │   ├── diagnose_distribution_fidelity()
     │   │   │   ├── test_distribution_fidelity()
     │   │   │   ├── compare_distribution_moments()
     │   │   │   ├── compare_distribution_quantiles()
     │   │   │   │    (all three via quantile_from_fit() [distributions.R])
     │   │   │   └── detect_outliers()                     [utils.R]
     │   │   └── generate_simulation_diagnostics()          [monte-carlo.R — arg-count mismatch, always caught & warned]
-    │   ├── validate_correlation_structures()       (if correlation_matrices found)
+    │   ├── diagnose_correlation_structures()       (if correlation_matrices found)
     │   │   ├── validate_correlation_matrix_quality()
     │   │   │   └── assess_correlation_matrix_properties()
-    │   │   ├── validate_correlation_preservation_diagnostics()
+    │   │   ├── diagnose_correlation_preservation()
     │   │   │   ├── safe_correlation()                     [utils.R]
     │   │   │   ├── assess_correlation_differences()
     │   │   │   └── assess_depth_correlation_preservation()
-    │   │   ├── validate_within_depth_correlations()
+    │   │   ├── diagnose_within_depth_correlations()
     │   │   │   ├── safe_correlation()                     [utils.R]
     │   │   │   ├── assess_correlation_matrix_properties()
     │   │   │   └── assess_correlation_stability_across_depths()
-    │   │   └── assess_cholesky_decomposition()
+    │   │   └── diagnose_cholesky()
     │   │       └── assess_single_cholesky_decomposition()
-    │   ├── validate_gp_model_workflow()            (if gp_models found)
-    │   │   ├── validate_gp_model_performance()
+    │   ├── diagnose_gp_models()            (if gp_models found)
+    │   │   ├── diagnose_gp_performance()
     │   │   │   ├── assess_single_gp_performance()
     │   │   │   │   └── calculate_model_diagnostics()      [gp-modeling.R]
     │   │   │   └── calculate_overall_gp_performance()
-    │   │   ├── validate_gp_predictions()
+    │   │   ├── diagnose_gp_predictions()
     │   │   │   └── validate_single_gp_predictions()
     │   │   │       └── predict_gp_depth_trends()          [gp-modeling.R]
-    │   │   ├── assess_depth_trend_realism()
+    │   │   ├── diagnose_depth_trend_realism()
     │   │   │   └── assess_trend_realism()
     │   │   │       ├── assess_trend_monotonicity()        [gp-modeling.R]
     │   │   │       └── assess_realistic_values()          [gp-modeling.R]
     │   │   └── perform_gp_cross_validation()
     │   │       └── k_fold_gp_cv()                         [gp-modeling.R]
-    │   ├── validate_soil_science_realism()         (if final_data found)
-    │   │   ├── assess_property_constraints()
+    │   ├── diagnose_soil_science_realism()         (if final_data found)
+    │   │   ├── diagnose_property_constraints()
     │   │   │   ├── get_default_property_constraints()
     │   │   │   ├── assess_cross_property_constraints()
     │   │   │   └── detect_distribution_anomalies()
@@ -967,7 +967,7 @@ module) — the single heaviest dependency for both files:
 [`log_message()`](https://jjmaynard.github.io/soilSIM/reference/log_message.md),
 [`handle_workflow_error()`](https://jjmaynard.github.io/soilSIM/reference/handle_workflow_error.md),
 [`setup_logging()`](https://jjmaynard.github.io/soilSIM/reference/setup_logging.md),
-[`get_default_configuration()`](https://jjmaynard.github.io/soilSIM/reference/get_default_configuration.md),
+[`default_config()`](https://jjmaynard.github.io/soilSIM/reference/default_config.md),
 [`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md),
 [`validate_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_parameters.md),
 [`validate_properties()`](https://jjmaynard.github.io/soilSIM/reference/validate_properties.md),
@@ -977,10 +977,10 @@ module) — the single heaviest dependency for both files:
 [`handle_missing_values()`](https://jjmaynard.github.io/soilSIM/reference/handle_missing_values.md),
 [`safe_correlation()`](https://jjmaynard.github.io/soilSIM/reference/safe_correlation.md),
 [`detect_outliers()`](https://jjmaynard.github.io/soilSIM/reference/detect_outliers.md),
-[`calculate_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/calculate_confidence_intervals.md),
+[`compute_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/compute_confidence_intervals.md),
 [`track_progress()`](https://jjmaynard.github.io/soilSIM/reference/track_progress.md),
 `get_default_quality_thresholds()`, `get_package_versions()`. -
-`R/distributions.R` —
+`R/core-distributions.R` —
 [`ilr_forward()`](https://jjmaynard.github.io/soilSIM/reference/ilr_forward.md)
 (isometric log-ratio transform for compositional texture correlation),
 [`validate_correlation_matrix()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrix.md)
@@ -989,18 +989,18 @@ module) — the single heaviest dependency for both files:
 plural, in `statistics.R`),
 [`quantile_from_fit()`](https://jjmaynard.github.io/soilSIM/reference/quantile_from_fit.md)
 (theoretical quantiles from a fitted distribution, used throughout the
-Monte Carlo fidelity checks). - `R/gp-modeling.R` —
+Monte Carlo fidelity checks). - `R/core-gp.R` —
 `calculate_model_diagnostics()`,
 [`predict_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/predict_gp_depth_trends.md),
 `assess_trend_monotonicity()`, `assess_realistic_values()`,
 [`k_fold_gp_cv()`](https://jjmaynard.github.io/soilSIM/reference/k_fold_gp_cv.md)
-— all consumed only by `validation-diagnostics.R`’s GP-validation
-functions. - `R/monte-carlo.R` —
+— all consumed only by `diagnostics.R`’s GP-validation functions. -
+`R/core-montecarlo.R` —
 [`generate_simulation_diagnostics()`](https://jjmaynard.github.io/soilSIM/reference/generate_simulation_diagnostics.md),
 called from
-[`validate_monte_carlo_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_monte_carlo_quality.md)
+[`diagnose_simulation()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_simulation.md)
 (argument-count mismatch fixed — see
-[`validate_monte_carlo_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_monte_carlo_quality.md)
+[`diagnose_simulation()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_simulation.md)
 above).
 
 **External packages**: - `fitdistrplus` — `fitdist()` and `gofstat()`,
@@ -1029,10 +1029,10 @@ matrix before Mahalanobis distance computation in
 [`detect_multivariate_outliers()`](https://jjmaynard.github.io/soilSIM/reference/detect_multivariate_outliers.md). -
 `Hmisc` (declared package Import, used indirectly via `utils.R`’s
 statistical helpers such as
-[`calculate_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/calculate_confidence_intervals.md)). -
+[`compute_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/compute_confidence_intervals.md)). -
 `dplyr` / `tidyr` —
 [`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
-(depth/bin subsetting in `validation-diagnostics.R`),
+(depth/bin subsetting in `diagnostics.R`),
 [`tidyr::pivot_longer()`](https://tidyr.tidyverse.org/reference/pivot_longer.html)
 /
 [`dplyr::everything()`](https://tidyselect.r-lib.org/reference/everything.html)
@@ -1049,18 +1049,18 @@ with a dependency-free fallback in both cases. - `grDevices`, `graphics`
 — PDF/PNG diagnostic plot fallbacks.
 
 **Upstream/downstream soilSIM functional groups**: - **Upstream (feeds
-this group)**: Data Acquisition & Processing (`ssurgo-acquisition.R`,
-`ssurgo-processing.R`, `data-infilling.R`) supplies the `processed_data`
-consumed by
+this group)**: Data Acquisition & Processing
+(`adapter-ssurgo-acquire.R`, `adapter-ssurgo-process.R`,
+`adapter-ssurgo-infill.R`) supplies the `processed_data` consumed by
 [`analyze_soil_statistics()`](https://jjmaynard.github.io/soilSIM/reference/analyze_soil_statistics.md). -
 **Downstream/consumers (validated by this group, not fed by it)**:
-[`validate_complete_workflow()`](https://jjmaynard.github.io/soilSIM/reference/validate_complete_workflow.md)
+[`diagnose_workflow()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_workflow.md)
 and its sub-validators are the quality gate for the Monte Carlo
-simulation group (`monte-carlo.R`), the GP depth-trend modeling group
-(`gp-modeling.R`), and the multivariate/correlation adjustment group
-(`multivariate-adjustment.R`) — this group consumes their *output*
-(`simulation_data`, `gp_models`, `correlation_matrices`) purely for
-assessment; it does not feed data back into them.
+simulation group (`core-montecarlo.R`), the GP depth-trend modeling
+group (`core-gp.R`), and the multivariate/correlation adjustment group
+(`core-gp.R`) — this group consumes their *output* (`simulation_data`,
+`gp_models`, `correlation_matrices`) purely for assessment; it does not
+feed data back into them.
 
 ## Data Flow In/Out
 
@@ -1068,7 +1068,7 @@ assessment; it does not feed data back into them.
 [`analyze_soil_statistics()`](https://jjmaynard.github.io/soilSIM/reference/analyze_soil_statistics.md)
 — a processed SSURGO data frame (post-infilling), with `cokey`,
 `hzdept_r`, and numeric `_r` property columns. -
-[`validate_complete_workflow()`](https://jjmaynard.github.io/soilSIM/reference/validate_complete_workflow.md)
+[`diagnose_workflow()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_workflow.md)
 — a `workflow_results` list assembled from one or more upstream stages:
 `simulation_data`/`integrated_data` (Monte Carlo or fusion output),
 `gp_models` (from GP modeling), `correlation_matrices` (from
@@ -1082,7 +1082,7 @@ stratified/texture-specific), distribution summaries, outlier
 flags/counts, per-property descriptive statistics with confidence
 intervals, a results-validation block, and an overall quality
 report/score. -
-[`validate_complete_workflow()`](https://jjmaynard.github.io/soilSIM/reference/validate_complete_workflow.md)
+[`diagnose_workflow()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_workflow.md)
 — a comprehensive validation report object: per-subsystem validation
 blocks (Monte Carlo, correlation, GP, soil science), workflow
 performance metrics, an overall weighted quality score/grade/pass-fail
@@ -1107,7 +1107,7 @@ stats_result <- analyze_soil_statistics(
 stats_result$quality_report$overall_quality_score
 
 # End-to-end validation of a completed simulation workflow
-validation_result <- validate_complete_workflow(
+validation_result <- diagnose_workflow(
   workflow_results = list(
     simulation_data = monte_carlo_output$simulation_data,
     gp_models = gp_models,

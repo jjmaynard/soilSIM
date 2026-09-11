@@ -68,4 +68,4 @@ the granular validators below
 rather than duplicating their logic inline. `validation_context`,
 `complexity_limits`, and `strict_mode` are all read. The result is the
 nested `geometry_stats$complexity_validation$complexity_stats` shape
-that `ssurgo-acquisition.R`'s downstream code expects.
+that `adapter-ssurgo-acquire.R`'s downstream code expects.

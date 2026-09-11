@@ -3,18 +3,17 @@
 ## Overview
 
 This pipeline is soilSIM’s core-vs-adapter architecture made concrete. A
-generic **fusion core** (`R/distribution-fitting-raster.R`,
-`R/raster-fusion.R`, `R/raster-cache.R`) implements distribution
-fitting, Bayesian prior/likelihood fusion, and disk caching purely in
-terms of
+generic **fusion core** (`R/core-distributions-raster.R`,
+`R/core-fusion.R`, `R/cache.R`) implements distribution fitting,
+Bayesian prior/likelihood fusion, and disk caching purely in terms of
 [`terra::SpatRaster`](https://rspatial.github.io/terra/reference/SpatRaster-class.html)
 percentile-value inputs — it has no knowledge of SSURGO, SOLUS, or any
 other specific data source, and will fuse *any* prior/likelihood
 `SpatRaster` pair sharing a common probability grid. Two **adapters**
 currently plug into that core over a shared area of interest (AOI):
-`R/ssurgo-simulation.R` supplies the **prior** side (SSURGO map units,
-Monte Carlo-simulated to per-cell percentiles), and
-`R/solus-simulation.R` supplies the **likelihood** side (SOLUS100’s own
+`R/adapter-ssurgo-simulate.R` supplies the **prior** side (SSURGO map
+units, Monte Carlo-simulated to per-cell percentiles), and
+`R/adapter-solus.R` supplies the **likelihood** side (SOLUS100’s own
 published low/prediction/high percentiles, fetched directly). Neither
 adapter is special-cased by the core: both simply produce a
 `list(values = <named list of percentile-value SpatRasters>, probs = <matching probabilities>)`
@@ -27,7 +26,7 @@ sources — without any change to the fitting/fusion/caching core itself.
 
 ## Core Functions
 
-### Generic core (distribution-fitting-raster.R, raster-fusion.R, raster-cache.R)
+### Generic core (core-distributions-raster.R, core-fusion.R, cache.R)
 
 #### 1. `fit_normal_raster()` / `quantile_normal_raster()`
 
@@ -173,7 +172,7 @@ around base R’s `digamma`/`trigamma`.
 
 **Purpose**: Fit a metalog distribution via an exactly-determined linear
 solve, vectorized as raster arithmetic — the raster counterpart of
-`R/distributions.R`’s
+`R/core-distributions.R`’s
 [`fit_metalog_linear()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear.md).
 EXACT when feasible (implied density non-negative everywhere); matches
 `rmetalog::metalog()` to ~1e-12, but reproduces none of `rmetalog`’s
@@ -190,7 +189,7 @@ fit_metalog_linear_raster(value_rasters, probs, bounds, boundedness)
 # value_rasters - list of INTERIOR percentile-value rasters (excluding p=0/p=1 if present)
 # probs         - matching interior probabilities
 # bounds        - c(lower, upper); required unless boundedness = "u"
-# boundedness   - one of "u"/"sl"/"su"/"b" (see distributions.R's metalog_to_z())
+# boundedness   - one of "u"/"sl"/"su"/"b" (see core-distributions.R's metalog_to_z())
 
 quantile_metalog_linear_raster(fit, q, bounds, boundedness)
 # fit                  - output of fit_metalog_linear_raster()
@@ -205,7 +204,7 @@ the quantile function returns a single `SpatRaster`.
 **Behavior**: The number of interior percentiles must equal the number
 of metalog terms, making the fit an exactly-determined linear system
 rather than an optimization. The fixed, non-spatial probability-grid
-basis matrix `Y` (from `R/distributions.R`’s existing, reused
+basis matrix `Y` (from `R/core-distributions.R`’s existing, reused
 [`metalog_basis_matrix()`](https://jjmaynard.github.io/soilSIM/reference/metalog_basis_matrix.md))
 and its inverse `Y_inv` are computed once in plain R; each percentile
 value raster is transformed to z-space via the existing, reused
@@ -241,7 +240,7 @@ vectorized. Streams one probe raster at a time (rather than
 materializing the whole grid at once), set to avoid an allocation
 failure at large cell counts.
 
-#### 7. `quantile_metalog_linear_with_fallback()`
+#### 7. `quantile_metalog_linear_with_fallback_raster()`
 
 **Purpose**: Metalog quantile evaluation with automatic per-cell
 fallback to
@@ -253,7 +252,7 @@ an exact `linear_cdf` match on infeasible ones.
 
 ``` r
 
-quantile_metalog_linear_with_fallback(fit, infeasible_r, full_value_rasters, full_probs,
+quantile_metalog_linear_with_fallback_raster(fit, infeasible_r, full_value_rasters, full_probs,
                                        q, bounds, boundedness)
 # fit                              - output of fit_metalog_linear_raster() (fit on INTERIOR percentiles)
 # infeasible_r                     - output of check_metalog_feasibility_raster() for this same fit
@@ -276,9 +275,9 @@ used to fit the metalog) where infeasible.
 #### 8. `fit_gamma_mom_raster()`
 
 **Purpose**: Method-of-moments Gamma fit from a list of percentile-value
-rasters — a thin raster wrapper around `R/bayesian-updating.R`’s
-existing scalar
-[`moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_gamma.md).
+rasters — a thin raster wrapper around `R/core-fusion.R`’s existing
+scalar
+[`convert_moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_gamma.md).
 
 **Parameters**:
 
@@ -293,7 +292,7 @@ fit_gamma_mom_raster(value_rasters)
 **Behavior**: Computes `mean_r`/`var_r` across the list via
 `Reduce(+, ...)` (the only genuinely raster-specific part), then
 delegates to
-[`moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_gamma.md),
+[`convert_moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_gamma.md),
 which is pure elementwise arithmetic and therefore already works
 unchanged on `SpatRaster` inputs.
 
@@ -354,10 +353,10 @@ fuse_adaptive(prior_value_rasters, lik_value_rasters, percentile_probs,
 # family            - "normal" | "beta" | "gamma" - fit family for the closed-form route, and
 #                      the family the general route's output is moment-matched back into
 # bounds            - required for family = "beta" (c(lower, upper))
-# threshold_cells   - AOI cell count at or below which the general bayesian_update() route
+# threshold_cells   - AOI cell count at or below which the general update_prior() route
 #                      is used; above it, the closed-form route
 # n_samples         - samples drawn per side for the general route's KDE fusion
-# grid_resolution   - passed to bayesian_update() for the general route
+# grid_resolution   - passed to update_prior() for the general route
 # verbose           - if TRUE (default), print the chosen route and why
 ```
 
@@ -381,7 +380,7 @@ per cell (via
 over a combined prior+likelihood percentile stack), draws `n_samples`
 samples from each side via
 `simulate_from_percentiles(method = "linear_cdf")`, fuses via
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md),
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md),
 and moment-matches the posterior samples back into the requested family
 — wrapped in a per-cell
 [`tryCatch()`](https://rdrr.io/r/base/conditions.html) so a cell with
@@ -396,14 +395,14 @@ for normal,
 [`fit_beta_mle_newton_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton_raster.md)
 for beta,
 [`fit_gamma_mom_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_gamma_mom_raster.md)
-for gamma) and fuses via `bayesian-updating.R`’s
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)/[`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)/[`fuse_gamma()`](https://jjmaynard.github.io/soilSIM/reference/fuse_gamma.md);
+for gamma) and fuses via `core-fusion.R`’s
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md)/[`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)/[`fuse_gamma()`](https://jjmaynard.github.io/soilSIM/reference/fuse_gamma.md);
 for beta/gamma, cells where the native same-family fusion is infeasible
 fall back per-cell to Normal-moment fusion
-([`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)
+([`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md)
 on each side’s moment-derived mean/sd), re-expressed back into the
 requested family via
-[`moments_to_beta()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_beta.md)/[`moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_gamma.md),
+[`convert_moments_to_beta()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_beta.md)/[`convert_moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_gamma.md),
 with `n_fallback_cells` counting how many cells needed it. `verbose`
 prints the chosen route (and, if any cells fell back, how many).
 
@@ -447,7 +446,7 @@ considered reliable.
 **Purpose**: Fuse one property’s prior and likelihood percentile
 rasters, dispatching automatically to the right distribution family and
 fusion route from a `property_config` list. This is the raster-native
-counterpart of `bayesian-updating.R`’s
+counterpart of `core-fusion.R`’s
 [`fuse_property()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property.md),
 the toolkit’s top-level entry point for non-compositional properties
 (see
@@ -490,15 +489,15 @@ internal
 which — below `threshold_cells` — forces
 [`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md)
 into its general route directly on raw (non-log) values (since
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)’s
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)’s
 general route makes no distributional assumption and needs no log-space
 detour), or — above threshold — fits both sides Normal, transforms to
 lognormal parameter space via
-[`normal_to_lognormal_params()`](https://jjmaynard.github.io/soilSIM/reference/normal_to_lognormal_params.md),
+[`convert_normal_to_lognormal()`](https://jjmaynard.github.io/soilSIM/reference/convert_normal_to_lognormal.md),
 fuses via
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md),
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md),
 and transforms back via
-[`lognormal_to_normal_params()`](https://jjmaynard.github.io/soilSIM/reference/lognormal_to_normal_params.md);
+[`convert_lognormal_to_normal()`](https://jjmaynard.github.io/soilSIM/reference/convert_lognormal_to_normal.md);
 `"metalog"` goes to the internal
 [`fuse_metalog_adapter()`](https://jjmaynard.github.io/soilSIM/reference/fuse_metalog_adapter.md),
 which fits both sides via
@@ -510,7 +509,7 @@ computes each side’s mean/sd via
 [`metalog_moments_raster()`](https://jjmaynard.github.io/soilSIM/reference/metalog_moments_raster.md)
 (quadrature over the raw metalog quantile function, with a Normal-moment
 fallback for infeasible cells), and fuses those moments via
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md).
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md).
 Any other `dist` value [`stop()`](https://rdrr.io/r/base/stop.html)s.
 The returned list always carries `dist`/`dist_source`/`skew_proxy` from
 [`resolve_property_dist()`](https://jjmaynard.github.io/soilSIM/reference/resolve_property_dist.md)
@@ -522,7 +521,7 @@ posterior/route/route_detail/n_fallback_cells.
 **Purpose**: Look up a compositional group’s member property ids, in
 configured order, reusing soilSIM’s own
 `config$monte_carlo$composition_groups` convention (see
-`R/distributions.R`’s
+`R/core-distributions.R`’s
 [`resolve_composition_groups()`](https://jjmaynard.github.io/soilSIM/reference/resolve_composition_groups.md))
 rather than a separate config schema.
 
@@ -555,7 +554,7 @@ fusing each member with
 percentage points on realistic synthetic data). The raster counterpart
 of the scalar
 [`fuse_texture_group_from_triplets()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_from_triplets.md)
-(`bayesian-updating.R`).
+(`core-fusion.R`).
 
 **Parameters**:
 
@@ -577,10 +576,10 @@ combined
 stack of every member’s prior/likelihood low/median/high-percentile
 layers, then per cell (via
 [`terra::app()`](https://rspatial.github.io/terra/reference/app.html))
-calls `R/distributions.R`’s
+calls `R/core-distributions.R`’s
 [`estimate_ilr_moments_mc()`](https://jjmaynard.github.io/soilSIM/reference/estimate_ilr_moments_mc.md)
 on each side’s clay/sand/silt triplet to get `mu`/`Sigma` in
-2-dimensional ILR space, fuses the two sides via `bayesian-updating.R`’s
+2-dimensional ILR space, fuses the two sides via `core-fusion.R`’s
 [`fuse_bivariate_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_bivariate_normal.md),
 and returns the fused `mu1`/`mu2`/`S11`/`S12`/`S22` per cell. Afterward,
 [`ilr_inverse()`](https://jjmaynard.github.io/soilSIM/reference/ilr_inverse.md)
@@ -591,7 +590,7 @@ across all three members) so callers can draw posterior samples for a
 specific fraction/ cell via
 [`sample_ilr_posterior()`](https://jjmaynard.github.io/soilSIM/reference/sample_ilr_posterior.md).
 
-#### 15. `run_stage1_fusion()` — top-level AOI orchestrator (non-compositional)
+#### 15. `run_fusion()` — top-level AOI orchestrator (non-compositional)
 
 **Purpose**: Run the complete prior-fetch → likelihood-fetch → align →
 fuse pipeline for one property/depth window over an AOI, with disk
@@ -601,7 +600,7 @@ caching at every fetch step.
 
 ``` r
 
-run_stage1_fusion(aoi_vect, property_config, top_depth, bottom_depth,
+run_fusion(aoi_vect, property_config, top_depth, bottom_depth,
                    composition_groups = NULL, property_configs = NULL)
 # aoi_vect            - a terra::SpatVector AOI (projected, e.g. EPSG:5070)
 # property_config     - list with id (used as fetch_ssurgo_percentiles()'s property id and as
@@ -610,7 +609,7 @@ run_stage1_fusion(aoi_vect, property_config, top_depth, bottom_depth,
 #                        composition_group as needed by fuse_property_adaptive()
 # top_depth, bottom_depth - numeric depth bounds in cm
 # composition_groups, property_configs - only needed when property_config$composition_group
-#                        is set; passed through to run_stage1_fusion_group()
+#                        is set; passed through to run_fusion_group()
 ```
 
 **Returns**:
@@ -621,7 +620,7 @@ depends on `dist` — see
 
 **Behavior**: If `property_config$composition_group` is set, delegates
 entirely to
-[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
+[`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md)
 and slices out this property’s own result. Otherwise: builds a cache key
 via `build_cache_key(..., "ssurgo")`, checks
 [`cache_get()`](https://jjmaynard.github.io/soilSIM/reference/cache_get.md)/[`unwrap_percentile_list()`](https://jjmaynard.github.io/soilSIM/reference/wrap_percentile_list.md),
@@ -629,7 +628,7 @@ and on a miss calls
 [`fetch_ssurgo_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_percentiles.md)
 and caches the result
 ([`wrap_percentile_list()`](https://jjmaynard.github.io/soilSIM/reference/wrap_percentile_list.md)
-first, per `raster-cache.R`’s known limitation); repeats the same
+first, per `cache.R`’s known limitation); repeats the same
 cache-or-fetch pattern for the SOLUS side via
 [`fetch_solus_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.md)
 under kind `"solus"`. Because the SSURGO prior (~30 m, from
@@ -654,15 +653,15 @@ those components’ other properties being present, so a single-property
 prior can be `NA` for a few cells a full-property run would have
 covered. The restriction is honoured only under the default
 `vertical_correlation_method = "joint_copula"`;
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 never forwards a `config`, so it always gets that method. An optional
 `seed` argument makes the whole call reproducible given identical
 upstream SSURGO/SOLUS data; `NULL` (default) is stochastic.
 
-#### 16. `run_stage1_fusion_group()` — top-level AOI orchestrator (compositional)
+#### 16. `run_fusion_group()` — top-level AOI orchestrator (compositional)
 
 **Purpose**: Run the same fetch → align → fuse pipeline as
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md),
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md),
 but for a whole compositional group (currently only `"texture"`:
 clay/sand/silt) jointly, since independent fusion per member measurably
 breaks sum-to-100.
@@ -671,7 +670,7 @@ breaks sum-to-100.
 
 ``` r
 
-run_stage1_fusion_group(aoi_vect, group, composition_groups, property_configs,
+run_fusion_group(aoi_vect, group, composition_groups, property_configs,
                          top_depth, bottom_depth)
 # aoi_vect                 - a terra::SpatVector AOI
 # group                    - a composition group name (e.g. "texture")
@@ -692,7 +691,7 @@ properties get — or `NULL` if any member’s SSURGO/SOLUS fetch failed.
 Checks a group-level cache entry (kind `"texture_group"`) first; on a
 miss, fetches each member’s SSURGO prior and SOLUS likelihood
 (cache-or-fetch, exactly as in
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md),
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md),
 one `"ssurgo"`/`"solus"` cache entry per member so a later
 single-property request still hits cache), resamples each member’s prior
 onto its own SOLUS grid, and — only if every member’s fetch succeeded —
@@ -701,17 +700,17 @@ calls
 once for the whole group. The joint result is cached under the group
 key, and each member’s own posterior is *also* seeded into a
 per-property `"posterior"` cache kind, so three sequential
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 calls for clay, then sand, then silt trigger the joint fetch+fusion
 exactly once, not three times. The shared simulation is itself
 restricted to the group’s members (which for `"texture"` normalizes to
 “just the sand/silt/clay draw”), skipping the other properties’ GP fits.
 
-#### 16b. `run_stage1_fusion_multi()` — many properties, one simulation
+#### 16b. `run_fusion_multiproperty()` — many properties, one simulation
 
 **Purpose**: Fuse many properties (and many depth windows) over an AOI
 from a **single** SSURGO Monte Carlo simulation, instead of one
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 call per property/window — each of which re-runs the full
 (dominant-cost) simulation only to keep one of its ~9 jointly-simulated
 columns.
@@ -720,13 +719,13 @@ columns.
 
 ``` r
 
-run_stage1_fusion_multi(aoi_vect, property_configs, depth_windows,
+run_fusion_multiproperty(aoi_vect, property_configs, depth_windows,
                          composition_groups = NULL, n_mc = 1000,
                          parallel = FALSE, n_cores = NULL,
                          verbose = FALSE, simplify = FALSE)
 # property_configs  - a NAMED list, keyed by each config's own id, of the same property_config
-#                     lists run_stage1_fusion() takes; a config carrying composition_group is fused
-#                     jointly per run_stage1_fusion_group(), and every member of a referenced group
+#                     lists run_fusion() takes; a config carrying composition_group is fused
+#                     jointly per run_fusion_group(), and every member of a referenced group
 #                     must have its own entry
 # depth_windows     - a non-empty list of c(top, bottom) numeric pairs
 # simplify          - TRUE reduces each leaf to list(percentiles = <named SpatRasters>)
@@ -734,7 +733,7 @@ run_stage1_fusion_multi(aoi_vect, property_configs, depth_windows,
 
 **Returns**: a nested named list
 `result[[config_id]][["<top>-<bottom>"]]`, each leaf a
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)-shaped
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)-shaped
 list (or the `texture_ilr` shape for group members), `NULL` on that
 leaf’s own failure; the whole call returns `NULL` only if the shared
 simulation itself fails.
@@ -745,25 +744,25 @@ compositional-group, then runs
 **once** (skipping it entirely when every needed `"ssurgo"` cache is
 already warm and no config uses raw-draws fusion). SOLUS is fetched via
 one batched
-[`fetch_solus_percentiles_multi()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles_multi.md)
+[`fetch_solus_percentiles_multiproperty()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles_multiproperty.md)
 call **per window** (covering every variable any standalone config or
 group member needs at once, S1), falling back to the per-variable scalar
 [`fetch_solus_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.md)
 only if that batched request itself errors; results are memoized. Per
 window then per property it calls the same fusion tail
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 uses
 ([`stage1_fuse_from_prior_solus()`](https://jjmaynard.github.io/soilSIM/reference/stage1_fuse_from_prior_solus.md)),
 and for texture groups the same one
-[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
+[`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md)
 uses
 ([`stage1_fuse_texture_group_from_fetched()`](https://jjmaynard.github.io/soilSIM/reference/stage1_fuse_texture_group_from_fetched.md)),
 **seeding the same per-property `"ssurgo"`/`"solus"`/`"posterior"` disk
 caches** — so a later single-property
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 for the same AOI/property/window is a cache hit. Every leaf therefore
 shares one draw set, so (unlike independent
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 calls) the properties’ `NA` masks are mutually consistent. The
 per-window draws are released as each window finishes.
 
@@ -839,7 +838,7 @@ the value (wrapped in `tryCatch`) — see Known Limitations for the
 `SpatRaster` wrap/unwrap caveat that both this function and its callers
 must handle manually.
 
-### SSURGO adapter (ssurgo-simulation.R)
+### SSURGO adapter (adapter-ssurgo-simulate.R)
 
 #### 19. `fetch_ssurgo_mukey_raster()`
 
@@ -872,7 +871,7 @@ polygons are reprojected to the grid’s CRS, rasterized onto it by
 and cast to a factor raster via
 [`terra::as.factor()`](https://rspatial.github.io/terra/reference/is.bool.html).
 
-#### 20. `infill_soil_data()`
+#### 20. `infill_ssurgo_data()`
 
 **Purpose**: Infill missing values across the standard SSURGO property
 set for one horizon data frame.
@@ -881,7 +880,7 @@ set for one horizon data frame.
 
 ``` r
 
-infill_soil_data(df, water_retention_method = c("saxton_rawls", "generic"))
+infill_ssurgo_data(df, water_retention_method = c("saxton_rawls", "generic"))
 # df                    - a horizon data frame, as returned by download_ssurgo_tabular()
 # water_retention_method - how to fill wthirdbar/wfifteenbar gaps (see Behavior)
 ```
@@ -923,8 +922,7 @@ maybe_adjust_soil_data_depth_trend(sim_long, properties, min_depths = 2)
 
 **Behavior**: Warns and returns `sim_long` unchanged if `GPfit` isn’t
 installed. Otherwise, groups by `cokey` and, for each cokey with at
-least `min_depths` distinct non-`NA` depths, applies
-`R/multivariate-adjustment.R`’s
+least `min_depths` distinct non-`NA` depths, applies `R/core-gp.R`’s
 [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md)
 (which fits its own local GP per property from that cokey’s own
 within-simulation depth trend — no pre-supplied GP models needed);
@@ -989,9 +987,9 @@ rows were added 2026-09-02 -
 [`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md)
 already emitted those columns (`SSURGO_SIM_PROPERTY_COLUMNS` lists them)
 but the id map was incomplete, blocking water-retention
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 (needed by
-[`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)).
+[`remarginalize_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_awc.md)).
 The 5 chemistry-property rows self-map, since the SOLUS variable name,
 the SSURGO chorizon column stem, and the id are all identical spellings
 for these 5.
@@ -1012,7 +1010,7 @@ simulate_ssurgo_mapunit_draws(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
                               ..., depth_windows = NULL, requested_properties = NULL)
 # aoi_vect                 - a terra::SpatVector AOI
 # top_depth, bottom_depth  - numeric depth window bounds in cm
-# n_mc                     - number of triangular draws sim_component_comp() uses per
+# n_mc                     - number of triangular draws simulate_component_composition() uses per
 #                            component (default 1000)
 # depth_windows            - optional list of c(top, bottom) pairs; simulate once, aggregate per
 #                            window, return a named list of data frames (top_depth/bottom_depth
@@ -1048,18 +1046,18 @@ first, keyed by **AOI alone** via
 takes no depth-window argument and fetches every horizon for every AOI
 mukey regardless, so one AOI’s tabular download is shared across every
 depth window/call requested for it); on a miss, calls
-`R/ssurgo-acquisition.R`’s
+`R/adapter-ssurgo-acquire.R`’s
 [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
 and unwraps its `$ssurgo_data`, caching that data frame directly (no
 [`wrap()`](https://rspatial.github.io/terra/reference/wrap.html) needed
 — it’s tabular, not a raster). Then:
-[`infill_soil_data()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_data.md);
+[`infill_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/infill_ssurgo_data.md);
 removes organic horizons
 ([`remove_organic_layer()`](https://jjmaynard.github.io/soilSIM/reference/remove_organic_layer.md))
 if any `hzname` contains `"O"`; derives `genhz` via
 [`classify_genhz()`](https://jjmaynard.github.io/soilSIM/reference/classify_genhz.md);
 simulates component composition via
-[`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
+[`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)
 and left-joins `sim_comppct` back onto the horizon data by `cokey`;
 loads the KSSL reference correlation matrices via
 [`.kssl_property_matrices()`](https://jjmaynard.github.io/soilSIM/reference/dot-kssl_property_matrices.md)/[`.kssl_texture_matrices()`](https://jjmaynard.github.io/soilSIM/reference/dot-kssl_texture_matrices.md)
@@ -1201,7 +1199,7 @@ reshapes into a `mukey` + one-column-per-percentile data frame, and
 rasterizes via
 [`rasterize_mukey_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/rasterize_mukey_percentiles.md).
 
-### SOLUS100 adapter (solus-simulation.R)
+### SOLUS100 adapter (adapter-solus.R)
 
 #### 28. `closest_solus_depth_slice()`
 
@@ -1307,10 +1305,10 @@ percentile triplet (SOLUS100’s published 95% prediction interval bounds
 plus its point prediction), matching the `list(values=, probs=)` shape
 every fusion route expects.
 
-#### 29b/30b. `fetch_solus_low_pred_high_multi()` / `fetch_solus_percentiles_multi()` — batched multi-variable SOLUS fetch (S1)
+#### 29b/30b. `fetch_solus_low_pred_high_multiproperty()` / `fetch_solus_percentiles_multiproperty()` — batched multi-variable SOLUS fetch (S1)
 
 **Purpose**: Batched siblings of \#29/#30 used by
-[`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md).
+[`run_fusion_multiproperty()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_multiproperty.md).
 [`soilDB::fetchSOLUS()`](http://ncss-tech.github.io/soilDB/reference/fetchSOLUS.md)
 accepts `variables`, `depth_slices`, and `output_type` all as vectors
 simultaneously (live-verified 2026-09-04), so every needed variable’s
@@ -1322,8 +1320,8 @@ ones.
 
 ``` r
 
-fetch_solus_low_pred_high_multi(aoi_vect, solus_variables, top_depth, bottom_depth)
-fetch_solus_percentiles_multi(aoi_vect, solus_variables, top_depth, bottom_depth)
+fetch_solus_low_pred_high_multiproperty(aoi_vect, solus_variables, top_depth, bottom_depth)
+fetch_solus_percentiles_multiproperty(aoi_vect, solus_variables, top_depth, bottom_depth)
 # solus_variables          - character vector of soilDB::fetchSOLUS()-recognized variable names
 # (aoi_vect, top_depth, bottom_depth same as #29/#30)
 ```
@@ -1344,7 +1342,7 @@ single `fetchSOLUS()` error fails the whole batch (every variable’s
 entry becomes `list(pred=NULL,low=NULL,high=NULL)`, with a
 [`warning()`](https://rdrr.io/r/base/warning.html) — callers fall back
 to the scalar path, as
-[`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md)’s
+[`run_fusion_multiproperty()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_multiproperty.md)’s
 A4 SOLUS memo does); a missing layer for just one
 `(variable, output_type)` combo within an otherwise-successful response
 only nulls that one piece, with its own
@@ -1353,22 +1351,22 @@ only nulls that one piece, with its own
 /
 [`fetch_solus_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.md)
 (#29/#30) are unchanged and remain what single-property
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 uses.
 
-### Per-pixel ensemble bridge (raster-fusion-bridge.R)
+### Per-pixel ensemble bridge (core-fusion.R)
 
 Wires the fused posterior back into the modelling framework as a
 **per-pixel** product, without touching either existing pipeline.
 
-#### 31. `extract_mukey_joint_ensemble()` *(ssurgo-simulation.R)*
+#### 31. `extract_mukey_joint_ensemble()` *(adapter-ssurgo-simulate.R)*
 
 Runs `simulate_ssurgo_mapunit_draws(depth_windows=)` once and returns,
 per mukey, the retained bag of **joint** multivariate realizations as
 `[n_replicate x n_property]` matrices, one per depth window, row-aligned
 on `(cokey, simulation_number)` so cross-property and cross-window rank
 structure is preserved. The multi-property / multi-window analogue of
-[`mukey_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md).
+[`lookup_mukey_draws()`](https://jjmaynard.github.io/soilSIM/reference/lookup_mukey_draws.md).
 Takes `properties` (which columns to keep) and, separately,
 `requested_properties` (which properties the simulation itself draws —
 defaulting to `properties`, so a call restricted to the Saxton-Rawls
@@ -1402,11 +1400,11 @@ point-estimate path. The mukey-collapsed comparison arm for the
 benchmark; gated `internal` pending `compare_perpixel_vs_zonal_awc()`
 numbers.
 
-#### 34. `remarginalized_awc()`
+#### 34. `remarginalize_awc()`
 
 Per-pixel available water capacity from the re-marginalized stacks, per
 realization, then per-pixel percentiles, clamped at 0. Does **not** use
-[`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
+[`compute_aws()`](https://jjmaynard.github.io/soilSIM/reference/compute_aws.md)
 (ROSETTA network POST + own MC - can’t run per pixel).
 
 - `method = "saxton_rawls"` (**default**): `fetchSOLUS()` publishes no
@@ -1415,7 +1413,7 @@ realization, then per-pixel percentiles, clamped at 0. Does **not** use
   `soc`, `rfv`) are re-marginalized, then
   [`saxton_rawls_raster()`](https://jjmaynard.github.io/soilSIM/reference/saxton_rawls_raster.md)
   (a `terra`-native vectorized port of
-  [`calculate_saxton_rawls_single()`](https://jjmaynard.github.io/soilSIM/reference/calculate_saxton_rawls_single.md))
+  [`compute_saxton_rawls()`](https://jjmaynard.github.io/soilSIM/reference/compute_saxton_rawls.md))
   derives field capacity / wilting point per (pixel, realization).
   `AWC = sum_windows (fc - wp)/100 * thickness`.
 - `method = "direct"`: the original
@@ -1449,14 +1447,14 @@ window’s contribution). The single-layer effective-thickness raster is
 recycled across the multi-layer `fc`/`wp` realization stack by `terra`’s
 own arithmetic recycling, in place of a scalar `thickness` factor.
 
-#### 34b. `fetch_solus_site_level()` / `fetch_solus_restriction_depth()` *(solus-simulation.R)*
+#### 34b. `fetch_solus_site_level()` / `fetch_solus_restriction_depth()` *(adapter-solus.R)*
 
 **Purpose**: Fetch a SOLUS100 **site-level** (depth-independent)
 variable - `anylithicdpt` (depth to bedrock) / `resdept` (depth to
 restriction) are the two relevant ones - requested via `fetchSOLUS()`’s
 special `depth_slices = "all"`, and turn it into the censoring-guarded
 `restriction_depth` raster
-[`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)
+[`remarginalize_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_awc.md)
 consumes.
 
 **`fetch_solus_site_level(aoi_vect, variable, output_types = c("prediction", "95% low prediction interval", "95% high prediction interval"))`**:
@@ -1491,12 +1489,12 @@ truncation-prone) non-default alternative.
 #### 35. `saxton_rawls_raster()` *(internal)*
 
 The vectorized `terra`-native counterpart of
-[`calculate_saxton_rawls_single()`](https://jjmaynard.github.io/soilSIM/reference/calculate_saxton_rawls_single.md)
-(`R/data-infilling.R`) - identical equations and clamps (including the
-`|sand+silt+clay-100| > 5` texture renormalization), but every operation
-is a `terra` `Arith`/`Math`/`clamp`/`ifel`, so it runs on a whole
-multi-layer realization stack in one pass. Returns `list(fc =, wp =)`
-volumetric % rasters.
+[`compute_saxton_rawls()`](https://jjmaynard.github.io/soilSIM/reference/compute_saxton_rawls.md)
+(`R/adapter-ssurgo-infill.R`) - identical equations and clamps
+(including the `|sand+silt+clay-100| > 5` texture renormalization), but
+every operation is a `terra` `Arith`/`Math`/`clamp`/`ifel`, so it runs
+on a whole multi-layer realization stack in one pass. Returns
+`list(fc =, wp =)` volumetric % rasters.
 
 ### Statistical structure of the per-pixel bridge — and how to read the uncertainty
 
@@ -1533,7 +1531,7 @@ transformed-ensemble Spearman `cor` between two properties equals the
 source’s to `1e-6`.)
 
 **3. Derived quantities are computed per realization, then combined.**
-`remarginalized_awc(method = "saxton_rawls")` takes, for realization `r`
+`remarginalize_awc(method = "saxton_rawls")` takes, for realization `r`
 / pixel `c` / window `w`, the jointly-consistent
 `(sand_r, clay_r, silt_r, db_r, om_r, rfv_r)` -\>
 [`saxton_rawls_raster()`](https://jjmaynard.github.io/soilSIM/reference/saxton_rawls_raster.md)
@@ -1552,7 +1550,7 @@ per-pixel uncertainty band.
 | Cross-property & cross-depth **dependence** | The SSURGO tabular copula (KSSL + joint-copula vertical correlation), **held fixed**. SOLUS carries no joint information - only independent per-property, per-depth point predictions - so there is no fused joint structure to use. |
 | Correlation type preserved | **Rank (Spearman)**, not linear (Pearson). “Wet stays wet”, “high-clay stays high-clay” is exact; Pearson structure is approximate if a marginal shifts substantially under fusion. |
 | **Marginal** uncertainty of each input property | The full SSURGO x SOLUS fused posterior spread, per pixel, propagated through Saxton-Rawls. |
-| Pedotransfer-function error | **Not propagated.** Saxton-Rawls is applied deterministically per realization; the +/-15% `_l`/`_h` band [`calculate_saxton_rawls_single()`](https://jjmaynard.github.io/soilSIM/reference/calculate_saxton_rawls_single.md) returns is not used. |
+| Pedotransfer-function error | **Not propagated.** Saxton-Rawls is applied deterministically per realization; the +/-15% `_l`/`_h` band [`compute_saxton_rawls()`](https://jjmaynard.github.io/soilSIM/reference/compute_saxton_rawls.md) returns is not used. |
 | Sub-mukey variation in the **dependence** structure | None - every pixel in a mukey shares the source ensemble (same copula, same rank ordering); only the fused marginals vary pixel-to-pixel. |
 | Texture compositional closure | Independent re-marginalization can leave `sand + silt + clay != 100`; [`saxton_rawls_raster()`](https://jjmaynard.github.io/soilSIM/reference/saxton_rawls_raster.md) renormalizes to 100 when off by more than 5 (the equations use only the sand and clay fractions). |
 
@@ -1567,13 +1565,13 @@ re-estimated joint posterior and not pedotransfer-model error.
                         +-----------------------------+-----------------------------+
                         |                                                           |
                         v                                                           v
-       SSURGO adapter (ssurgo-simulation.R)                        SOLUS100 adapter (solus-simulation.R)
+       SSURGO adapter (adapter-ssurgo-simulate.R)                        SOLUS100 adapter (adapter-solus.R)
        fetch_ssurgo_mukey_raster()                                 closest_solus_depth_slice()
          -> soilDB::mukey.wcs() + soilDB::SDA_spatialQuery()        fetch_solus_low_pred_high()
        simulate_ssurgo_mapunit_draws()                                -> soilDB::fetchSOLUS() x3
-         -> download_ssurgo_tabular() [R/ssurgo-acquisition.R, cached]    (low / pred / high)
-         -> infill_soil_data() -> classify_genhz()                 fetch_solus_percentiles()
-         -> sim_component_comp() [R/property-simulation.R]            -> list(values=list(P025,P50,P975),
+         -> download_ssurgo_tabular() [R/adapter-ssurgo-acquire.R, cached]    (low / pred / high)
+         -> infill_ssurgo_data() -> classify_genhz()                 fetch_solus_percentiles()
+         -> simulate_component_composition() [R/core-simulation.R]            -> list(values=list(P025,P50,P975),
          -> simulate_cokey_generalized() [property-simulation.R]           probs=c(.025,.5,.975))
          -> maybe_adjust_soil_data_depth_trend()
          -> aggregate_depth_window_by_replicate()
@@ -1587,7 +1585,7 @@ re-estimated joint posterior and not pedotransfer-model error.
                         |                                                           |
                         +--------------------- terra::resample() ------------------+
                                   (prior bilinear-resampled onto the SOLUS grid,
-                                   inside run_stage1_fusion()/run_stage1_fusion_group())
+                                   inside run_fusion()/run_fusion_group())
                                                       |
                                                       v
                                  fuse_property_adaptive()  [raster-fusion.R - GENERIC CORE]
@@ -1596,12 +1594,12 @@ re-estimated joint posterior and not pedotransfer-model error.
                                  └── dispatch on dist:
                                        ├── normal/beta/gamma -> fuse_adaptive()
                                        │      ├── fuse_closed_form()  (large AOI)
-                                       │      │     uses distribution-fitting-raster.R's
+                                       │      │     uses core-distributions-raster.R's
                                        │      │     fit_normal_raster()/fit_beta_mle_newton_raster()/
-                                       │      │     fit_gamma_mom_raster(), and bayesian-updating.R's
-                                       │      │     bayes_update_normal_normal()/fuse_beta()/fuse_gamma()
+                                       │      │     fit_gamma_mom_raster(), and core-fusion.R's
+                                       │      │     fuse_normal_normal()/fuse_beta()/fuse_gamma()
                                        │      └── fuse_general_kde()   (small AOI)
-                                       │            uses simulate_from_percentiles()/bayesian_update()
+                                       │            uses simulate_from_percentiles()/update_prior()
                                        ├── lognormal -> fuse_lognormal_adaptive()
                                        └── metalog   -> fuse_metalog_adapter()
                                               uses fit_metalog_linear_raster()/
@@ -1612,21 +1610,21 @@ re-estimated joint posterior and not pedotransfer-model error.
                                       fused posterior SpatRaster(s)
                                 (mu/sigma, alpha/beta, or shape/rate, per resolved `dist`)
 
-      Compositional (texture) path: run_stage1_fusion_group() fetches clay/sand/silt priors+
+      Compositional (texture) path: run_fusion_group() fetches clay/sand/silt priors+
       likelihoods per member (same adapters as above), then fuse_texture_group() fuses all three
       JOINTLY via ILR (estimate_ilr_moments_mc()/fuse_bivariate_normal()/ilr_inverse()) instead of
       three independent fuse_property_adaptive() calls, to preserve sum-to-100.
 
-      raster-cache.R (build_cache_key() / cache_get() / cache_set() / wrap_percentile_list() /
+      cache.R (build_cache_key() / cache_get() / cache_set() / wrap_percentile_list() /
       unwrap_percentile_list()) sits ALONGSIDE both adapters and both top-level orchestrators,
       disk-caching SSURGO tabular data, SSURGO/SOLUS percentile rasters, and texture-group/per-
       property posterior results under tools::R_user_dir("soilSIM", "cache"), keyed by
       AOI + property/group id + depth window + kind.
 
 
-      PER-PIXEL ENSEMBLE BRIDGE (raster-fusion-bridge.R) - optional, purely additive layer on top:
+      PER-PIXEL ENSEMBLE BRIDGE (core-fusion.R) - optional, purely additive layer on top:
 
-      extract_mukey_joint_ensemble(aoi, depth_windows)          run_stage1_fusion_multi(aoi, configs,
+      extract_mukey_joint_ensemble(aoi, depth_windows)          run_fusion_multiproperty(aoi, configs,
         -> simulate_ssurgo_mapunit_draws(depth_windows=)          depth_windows)  -- ONE simulation for
              (ONE joint Monte Carlo; KSSL + joint-copula           every property x window, seeding the
               vertical correlation; row-aligned across windows)     same per-property caches
@@ -1645,7 +1643,7 @@ re-estimated joint posterior and not pedotransfer-model error.
                                                       |
                         +-----------------------------+------------------------------+
                         v                                                            v
-            summarize = TRUE:                                        remarginalized_awc(method=)
+            summarize = TRUE:                                        remarginalize_awc(method=)
             per-pixel percentile rasters                               "saxton_rawls" (default):
             [[property]][[window]]                                       re-marg sand/silt/clay/db
                                                                          -> saxton_rawls_raster()
@@ -1662,16 +1660,15 @@ pipeline (`SpatRaster`/`SpatVector` arithmetic,
 [`terra::app()`](https://rspatial.github.io/terra/reference/app.html)/[`terra::lapp()`](https://rspatial.github.io/terra/reference/lapp.html)/[`terra::ifel()`](https://rspatial.github.io/terra/reference/ifelse.html)/[`terra::rasterize()`](https://rspatial.github.io/terra/reference/rasterize.html)/[`terra::resample()`](https://rspatial.github.io/terra/reference/resample.html)/
 [`terra::catalyze()`](https://rspatial.github.io/terra/reference/catalyze.html)/[`terra::wrap()`](https://rspatial.github.io/terra/reference/wrap.html)/[`terra::unwrap()`](https://rspatial.github.io/terra/reference/wrap.html)). -
 [`soilDB::fetchSOLUS()`](http://ncss-tech.github.io/soilDB/reference/fetchSOLUS.md)
-— the live network API `solus-simulation.R`’s
+— the live network API `adapter-solus.R`’s
 [`fetch_solus_low_pred_high()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high.md)
 calls for SOLUS100 low/prediction/high rasters. -
 [`soilDB::mukey.wcs()`](http://ncss-tech.github.io/soilDB/reference/mukey.wcs.md)
 /
 [`soilDB::SDA_spatialQuery()`](http://ncss-tech.github.io/soilDB/reference/SDA_spatialQuery.md)
-— the live network APIs `ssurgo-simulation.R`’s
+— the live network APIs `adapter-ssurgo-simulate.R`’s
 [`fetch_ssurgo_mukey_raster()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_mukey_raster.md)
-calls for SSURGO map unit grids/polygons. - `digest` —
-`raster-cache.R`’s
+calls for SSURGO map unit grids/polygons. - `digest` — `cache.R`’s
 [`build_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/build_cache_key.md)
 hashes the AOI’s WKT via
 [`digest::digest()`](https://eddelbuettel.github.io/digest/man/digest.html). -
@@ -1683,37 +1680,37 @@ grouping/joining/summarizing
 [`maybe_adjust_soil_data_depth_trend()`](https://jjmaynard.github.io/soilSIM/reference/maybe_adjust_soil_data_depth_trend.md);
 skipped with a warning if unavailable.
 
-**soilSIM dependencies**: - `R/distributions.R` —
-`distribution-fitting-raster.R` directly reuses
+**soilSIM dependencies**: - `R/core-distributions.R` —
+`core-distributions-raster.R` directly reuses
 [`metalog_basis_matrix()`](https://jjmaynard.github.io/soilSIM/reference/metalog_basis_matrix.md)/`metalog_to_z()`/`metalog_from_z()`
 unchanged, since they’re pure elementwise arithmetic that already works
 on `SpatRaster` inputs (confirmed by a dedicated smoke test before this
-file was written, not merely assumed); `raster-fusion.R`’s
+file was written, not merely assumed); `core-fusion.R`’s
 [`fuse_texture_group()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group.md)
 similarly reuses
 [`estimate_ilr_moments_mc()`](https://jjmaynard.github.io/soilSIM/reference/estimate_ilr_moments_mc.md)/[`ilr_inverse()`](https://jjmaynard.github.io/soilSIM/reference/ilr_inverse.md)
 directly, and
 [`resolve_composition_groups()`](https://jjmaynard.github.io/soilSIM/reference/resolve_composition_groups.md)’s
 composition-group config convention is reused rather than duplicated. -
-`R/bayesian-updating.R` — `raster-fusion.R` reuses
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md),
+`R/core-fusion.R` — `core-fusion.R` reuses
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md),
 [`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md),
 [`fuse_gamma()`](https://jjmaynard.github.io/soilSIM/reference/fuse_gamma.md),
-[`moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_gamma.md)/[`moments_to_beta()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_beta.md)/[`beta_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/beta_to_moments.md)/[`gamma_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/gamma_to_moments.md),
-[`normal_to_lognormal_params()`](https://jjmaynard.github.io/soilSIM/reference/normal_to_lognormal_params.md)/[`lognormal_to_normal_params()`](https://jjmaynard.github.io/soilSIM/reference/lognormal_to_normal_params.md),
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md),
+[`convert_moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_gamma.md)/[`convert_moments_to_beta()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_beta.md)/[`convert_beta_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/convert_beta_to_moments.md)/[`convert_gamma_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/convert_gamma_to_moments.md),
+[`convert_normal_to_lognormal()`](https://jjmaynard.github.io/soilSIM/reference/convert_normal_to_lognormal.md)/[`convert_lognormal_to_normal()`](https://jjmaynard.github.io/soilSIM/reference/convert_lognormal_to_normal.md),
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md),
 and
 [`fuse_bivariate_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_bivariate_normal.md)
 directly, unmodified — all are pure elementwise arithmetic, so they
 already work unchanged on `SpatRaster` inputs exactly as they do on
-plain numerics. - `R/property-simulation.R` — feeds the SSURGO adapter’s
+plain numerics. - `R/core-simulation.R` — feeds the SSURGO adapter’s
 Monte Carlo step:
-[`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
+[`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)
 and
 [`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md)
 are called directly from
 [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md). -
-`R/ssurgo-acquisition.R` —
+`R/adapter-ssurgo-acquire.R` —
 [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)
 is called by
 [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
@@ -1721,21 +1718,21 @@ for the underlying tabular SSURGO fetch (cached separately from the
 raster-fusion cache’s own `"ssurgo"`/`"solus"` kinds, under a
 `"ssurgo_tabular"` kind, keyed by AOI alone - see
 [`ssurgo_tabular_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/ssurgo_tabular_cache_key.md),
-`R/raster-cache.R`). - `R/data-infilling.R` —
+`R/cache.R`). - `R/adapter-ssurgo-infill.R` —
 [`infill_soil_property()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_property.md)
 is called by
-[`infill_soil_data()`](https://jjmaynard.github.io/soilSIM/reference/infill_soil_data.md). -
-`R/kssl-reference-correlations.R` —
+[`infill_ssurgo_data()`](https://jjmaynard.github.io/soilSIM/reference/infill_ssurgo_data.md). -
+`R/core-correlations.R` —
 [`.kssl_property_matrices()`](https://jjmaynard.github.io/soilSIM/reference/dot-kssl_property_matrices.md)/[`.kssl_texture_matrices()`](https://jjmaynard.github.io/soilSIM/reference/dot-kssl_texture_matrices.md)
 (already built into `R/sysdata.rda`) and
 [`classify_genhz()`](https://jjmaynard.github.io/soilSIM/reference/classify_genhz.md)
 are called by
 [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md). -
-`R/multivariate-adjustment.R` —
+`R/core-gp.R` —
 [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md)
 is called by
 [`maybe_adjust_soil_data_depth_trend()`](https://jjmaynard.github.io/soilSIM/reference/maybe_adjust_soil_data_depth_trend.md). -
-`R/monte-carlo.R` —
+`R/core-montecarlo.R` —
 [`simulate_from_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/simulate_from_percentiles.md)
 is called (per cell, inside
 [`terra::app()`](https://rspatial.github.io/terra/reference/app.html))
@@ -1745,17 +1742,17 @@ The per-pixel bridge additionally reuses
 [`fuse_observed_data_into_priors()`](https://jjmaynard.github.io/soilSIM/reference/fuse_observed_data_into_priors.md)’s
 `observed_data_by_mukey=` parameter (the A.1 opt-in) as the sink for
 [`zonal_distribution_from_posterior()`](https://jjmaynard.github.io/soilSIM/reference/zonal_distribution_from_posterior.md). -
-`R/data-infilling.R` — the per-pixel bridge’s
+`R/adapter-ssurgo-infill.R` — the per-pixel bridge’s
 [`saxton_rawls_raster()`](https://jjmaynard.github.io/soilSIM/reference/saxton_rawls_raster.md)
 is a `terra`-native port of this file’s
-[`calculate_saxton_rawls_single()`](https://jjmaynard.github.io/soilSIM/reference/calculate_saxton_rawls_single.md)
+[`compute_saxton_rawls()`](https://jjmaynard.github.io/soilSIM/reference/compute_saxton_rawls.md)
 (the equations are duplicated, not called, because the scalar function’s
 [`max()`](https://rdrr.io/r/base/Extremes.html)/[`min()`](https://rdrr.io/r/base/Extremes.html)/`if`
 do not vectorize over a raster stack).
 
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)/[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
-(`R/raster-fusion.R`) are the top-level AOI orchestrators tying all of
-the above together — the single entry points a downstream caller needs,
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)/[`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md)
+(`R/core-fusion.R`) are the top-level AOI orchestrators tying all of the
+above together — the single entry points a downstream caller needs,
 hiding the fetch/cache/align/fuse sequence behind one call per property
 (or per compositional group) per AOI/depth window.
 
@@ -1778,11 +1775,11 @@ and a per-member `property_configs` list.
 raw prior/likelihood rasters, routing diagnostics (`route`,
 `route_detail`, `n_fallback_cells`), and distribution-resolution
 diagnostics (`dist`, `dist_source`, `skew_proxy`) — from
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md). -
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md). -
 For a compositional group: each member’s fused texture posterior
 (`value` point-estimate raster plus shared `ilr_mu`/`ilr_Sigma` rasters
 for posterior sampling) — from
-[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md). -
+[`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md). -
 Intermediate cached artifacts on disk (under
 `tools::R_user_dir("soilSIM", "cache")`): raw SSURGO tabular data,
 SSURGO/SOLUS percentile rasters
@@ -1794,7 +1791,7 @@ keyed by AOI + id + depth window + kind via
 ## Known Limitations
 
 1.  **[`metalog_moments_raster()`](https://jjmaynard.github.io/soilSIM/reference/metalog_moments_raster.md)
-    is new, less-validated glue code** (`R/raster-fusion.R`). Unlike the
+    is new, less-validated glue code** (`R/core-fusion.R`). Unlike the
     rest of this pipeline’s math — validated against
     `fitdistrplus`/closed-form references — the
     mean/variance-via-quadrature computation in
@@ -1804,8 +1801,8 @@ keyed by AOI + id + depth window + kind via
 
 2.  **`SpatRaster`/`SpatVector` objects do not survive a plain
     [`saveRDS()`](https://rspatial.github.io/terra/reference/serialize.html)/[`readRDS()`](https://rspatial.github.io/terra/reference/serialize.html)
-    round-trip** (`R/raster-cache.R`). These objects hold an external
-    pointer to in-memory/on-disk GDAL state.
+    round-trip** (`R/cache.R`). These objects hold an external pointer
+    to in-memory/on-disk GDAL state.
     [`cache_get()`](https://jjmaynard.github.io/soilSIM/reference/cache_get.md)/[`cache_set()`](https://jjmaynard.github.io/soilSIM/reference/cache_set.md)
     themselves do not wrap/unwrap automatically, since not every cached
     value is a raster (e.g. Monte Carlo draw data frames aren’t).
@@ -1821,8 +1818,8 @@ keyed by AOI + id + depth window + kind via
     [`wrap_percentile_list()`](https://jjmaynard.github.io/soilSIM/reference/wrap_percentile_list.md)/[`unwrap_percentile_list()`](https://jjmaynard.github.io/soilSIM/reference/wrap_percentile_list.md)
     do for the `list(values=<SpatRasters>, probs=)` percentile shape,
     and what
-    [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)/
-    [`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
+    [`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)/
+    [`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md)
     call around every SSURGO/SOLUS cache read and write.
 
 3.  **Per-pixel bridge — dependence structure is not re-estimated from
@@ -1834,14 +1831,14 @@ keyed by AOI + id + depth window + kind via
     use. See “Statistical structure of the per-pixel bridge” above.
 
 4.  **Per-pixel bridge — Saxton-Rawls pedotransfer error is not
-    propagated.** In `remarginalized_awc(method = "saxton_rawls")` the
+    propagated.** In `remarginalize_awc(method = "saxton_rawls")` the
     pedotransfer is applied deterministically per realization; the
     +/-15% band
-    [`calculate_saxton_rawls_single()`](https://jjmaynard.github.io/soilSIM/reference/calculate_saxton_rawls_single.md)
+    [`compute_saxton_rawls()`](https://jjmaynard.github.io/soilSIM/reference/compute_saxton_rawls.md)
     returns is unused. The per-pixel AWC distribution reflects
     fused-posterior *input* uncertainty only.
 
-5.  **[`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)
+5.  **[`remarginalize_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_awc.md)
     cannot fuse water retention directly.** `fetchSOLUS()` publishes no
     water-retention variable, so `wr_3b`/`wr_15b` have no SOLUS
     likelihood. `method = "saxton_rawls"` (default) derives them from
@@ -1859,7 +1856,7 @@ library(terra)
 aoi_vect <- vect("aoi_polygon.gpkg")
 
 # --- Using the top-level orchestrator (fetches + caches both sides internally) ---
-result <- run_stage1_fusion(
+result <- run_fusion(
   aoi_vect = aoi_vect,
   property_config = list(id = "clay", solus_variable = "claytotal", dist = "auto"),
   top_depth = 0, bottom_depth = 30
@@ -1886,7 +1883,7 @@ fused <- fuse_property_adaptive(
 cat("route:", fused$route, "\n")
 plot(fused$posterior$alpha)
 
-# --- Per-pixel joint ensemble + per-pixel AWC (raster-fusion-bridge.R) ---
+# --- Per-pixel joint ensemble + per-pixel AWC (core-fusion.R) ---
 windows <- list(c(0, 5), c(5, 15), c(15, 30))
 
 # 1. one joint SSURGO Monte Carlo, retained per mukey, aligned across windows
@@ -1900,10 +1897,10 @@ configs <- setNames(
   lapply(names(sr_solus), function(nm) list(id = nm, solus_variable = sr_solus[[nm]], dist = "auto")),
   names(sr_solus)
 )
-pbpw <- run_stage1_fusion_multi(aoi_vect, configs, windows, simplify = TRUE)
+pbpw <- run_fusion_multiproperty(aoi_vect, configs, windows, simplify = TRUE)
 
 # 3. per-pixel AWC probability distribution (P5..P95 rasters), clamped at 0
-awc <- remarginalized_awc(ens, pbpw, n_out = 250)         # method = "saxton_rawls" by default
+awc <- remarginalize_awc(ens, pbpw, n_out = 250)         # method = "saxton_rawls" by default
 plot(awc$awc_cm$P50)                                       # median AWC (cm) over 0-30 cm
 plot(awc$awc_cm$P95 - awc$awc_cm$P5)                       # 90% credible-interval width = uncertainty
 ```

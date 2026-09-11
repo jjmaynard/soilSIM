@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -117,7 +117,7 @@ means)</li>
 <li>Distribution shape analysis -
 <code><a href="../reference/analyze_property_distributions.html">analyze_property_distributions()</a></code>,
 <code><a href="../reference/fit_property_distributions.html">fit_property_distributions()</a></code>,
-<code><a href="../reference/get_appropriate_distributions.html">get_appropriate_distributions()</a></code>
+<code><a href="../reference/distributions_for_properties.html">distributions_for_properties()</a></code>
 </li>
 <li>Outlier detection -
 <code><a href="../reference/detect_comprehensive_outliers.html">detect_comprehensive_outliers()</a></code>
@@ -128,7 +128,7 @@ means)</li>
 <li>The QA/reporting layer -
 <code><a href="../reference/validate_statistical_results.html">validate_statistical_results()</a></code>,
 <code><a href="../reference/generate_statistical_quality_report.html">generate_statistical_quality_report()</a></code>,
-<code><a href="../reference/get_statistical_analysis_defaults.html">get_statistical_analysis_defaults()</a></code>,
+<code><a href="../reference/default_statistics_config.html">default_statistics_config()</a></code>,
 <code><a href="../reference/validate_statistical_config.html">validate_statistical_config()</a></code>
 </li>
 </ol>
@@ -141,8 +141,8 @@ handful of <strong>known</strong> outliers, so the effect of each
 parameter can be isolated from real-data messiness. None of the numbers
 below describe an actual soil - see “The synthetic dataset” for exactly
 how it was built. (soilSIM’s percentile-triplet distribution-fitting
-<em>core</em>, <code>R/distributions.R</code>, is covered in a sibling
-vignette; this one stays focused on how the statistics layer
+<em>core</em>, <code>R/core-distributions.R</code>, is covered in a
+sibling vignette; this one stays focused on how the statistics layer
 <em>uses</em> distribution fitting.)</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://jjmaynard.github.io/soilSIM/">soilSIM</a></span><span class="op">)</span></span>
@@ -232,8 +232,8 @@ their <code>config</code> argument
 <span>  mahalanobis_alpha           <span class="op">=</span> <span class="fl">0.975</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>Note that this is <em>not</em> the same shape as
-<code><a href="../reference/get_statistical_analysis_defaults.html">get_statistical_analysis_defaults()</a></code>’s return value (see
-section 6) - that function nests these same keys under a
+<code><a href="../reference/default_statistics_config.html">default_statistics_config()</a></code>’s return value (see section 6)
+- that function nests these same keys under a
 <code>$statistical_analysis</code> element for
 <code><a href="../reference/analyze_soil_statistics.html">analyze_soil_statistics()</a></code>’s own internal use, while the
 standalone functions demonstrated below read them unnested.</p>
@@ -276,7 +276,7 @@ in log output:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">stats_no_outliers</span><span class="op">$</span><span class="va">outlier_analysis</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
 <p><code>analysis_config</code> is merged on top of
-<code><a href="../reference/get_statistical_analysis_defaults.html">get_statistical_analysis_defaults()</a></code> via
+<code><a href="../reference/default_statistics_config.html">default_statistics_config()</a></code> via
 <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>; <code>correlation_methods</code>
 controls which correlation methods Step 4 computes. Per-property
 descriptive statistics (from Step 7’s internal
@@ -477,11 +477,11 @@ group from the output:</p>
 <h2 id="distribution-shape-analysis">3. Distribution shape analysis<a class="anchor" aria-label="anchor" href="#distribution-shape-analysis"></a>
 </h2>
 <div class="section level3">
-<h3 id="get_appropriate_distributions---candidate-family-selection">
-<code>get_appropriate_distributions()</code> - candidate family
-selection<a class="anchor" aria-label="anchor" href="#get_appropriate_distributions---candidate-family-selection"></a>
+<h3 id="distributions_for_properties---candidate-family-selection">
+<code>distributions_for_properties()</code> - candidate family
+selection<a class="anchor" aria-label="anchor" href="#distributions_for_properties---candidate-family-selection"></a>
 </h3>
-<p><code>get_appropriate_distributions(property_name, values, config)</code>
+<p><code>distributions_for_properties(property_name, values, config)</code>
 picks candidate distribution families using a type-based heuristic keyed
 off the property <em>name</em>: <code>c("beta", "normal")</code> for the
 three texture fractions, <code>c("normal", "gamma")</code> for
@@ -490,17 +490,17 @@ three texture fractions, <code>c("normal", "gamma")</code> for
 else. <code>values</code> is currently unused by the heuristic itself
 (kept for interface symmetry).</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/get_appropriate_distributions.html">get_appropriate_distributions</a></span><span class="op">(</span><span class="st">"claytotal_r"</span>, <span class="va">soil_synth</span><span class="op">$</span><span class="va">claytotal_r</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/distributions_for_properties.html">distributions_for_properties</a></span><span class="op">(</span><span class="st">"claytotal_r"</span>, <span class="va">soil_synth</span><span class="op">$</span><span class="va">claytotal_r</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "beta"   "normal"</span></span>
-<span><span class="fu"><a href="../reference/get_appropriate_distributions.html">get_appropriate_distributions</a></span><span class="op">(</span><span class="st">"ph1to1h2o_r"</span>, <span class="va">soil_synth</span><span class="op">$</span><span class="va">ph1to1h2o_r</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/distributions_for_properties.html">distributions_for_properties</a></span><span class="op">(</span><span class="st">"ph1to1h2o_r"</span>, <span class="va">soil_synth</span><span class="op">$</span><span class="va">ph1to1h2o_r</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "normal" "gamma"</span></span>
-<span><span class="fu"><a href="../reference/get_appropriate_distributions.html">get_appropriate_distributions</a></span><span class="op">(</span><span class="st">"om_r"</span>, <span class="va">soil_synth</span><span class="op">$</span><span class="va">om_r</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/distributions_for_properties.html">distributions_for_properties</a></span><span class="op">(</span><span class="st">"om_r"</span>, <span class="va">soil_synth</span><span class="op">$</span><span class="va">om_r</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "normal"    "lognormal" "gamma"     "weibull"</span></span></code></pre></div>
 <p><code>config$distribution_methods</code>, when supplied, narrows the
 heuristic to its intersection with the requested list - a soft prior
 rather than a silent override:</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/get_appropriate_distributions.html">get_appropriate_distributions</a></span><span class="op">(</span><span class="st">"claytotal_r"</span>, <span class="va">soil_synth</span><span class="op">$</span><span class="va">claytotal_r</span>,</span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/distributions_for_properties.html">distributions_for_properties</a></span><span class="op">(</span><span class="st">"claytotal_r"</span>, <span class="va">soil_synth</span><span class="op">$</span><span class="va">claytotal_r</span>,</span>
 <span>                               config <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>distribution_methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"normal"</span>, <span class="st">"gamma"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "normal"</span></span></code></pre></div>
 <p>If the intersection is empty (asking for families the heuristic
@@ -508,7 +508,7 @@ wouldn’t have suggested for this property), the function falls back to
 the requested list unfiltered rather than discarding it, with a logged
 warning:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/get_appropriate_distributions.html">get_appropriate_distributions</a></span><span class="op">(</span><span class="st">"claytotal_r"</span>, <span class="va">soil_synth</span><span class="op">$</span><span class="va">claytotal_r</span>,</span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/distributions_for_properties.html">distributions_for_properties</a></span><span class="op">(</span><span class="st">"claytotal_r"</span>, <span class="va">soil_synth</span><span class="op">$</span><span class="va">claytotal_r</span>,</span>
 <span>                               config <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>distribution_methods <span class="op">=</span> <span class="st">"weibull"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "weibull"</span></span></code></pre></div>
 </div>
@@ -518,7 +518,7 @@ warning:</p>
 candidates<a class="anchor" aria-label="anchor" href="#fit_property_distributions---fitting-and-ranking-candidates"></a>
 </h3>
 <p><code>fit_property_distributions(values, property_name, config)</code>
-fits every candidate from <code><a href="../reference/get_appropriate_distributions.html">get_appropriate_distributions()</a></code>
+fits every candidate from <code><a href="../reference/distributions_for_properties.html">distributions_for_properties()</a></code>
 via <code><a href="https://lbbe-software.github.io/fitdistrplus/reference/fitdist.html" class="external-link">fitdistrplus::fitdist()</a></code>, skips any that fail to
 converge, and ranks the survivors best-first by AIC:</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
@@ -562,7 +562,7 @@ combines fitting with goodness-of-fit testing
 in scope - the underlying percentile-triplet distribution-fitting
 machinery that turns each SSURGO horizon’s low/representative/ high
 values into a single fitted distribution for Monte Carlo simulation
-lives in <code>R/distributions.R</code> and is covered in its own
+lives in <code>R/core-distributions.R</code> and is covered in its own
 sibling vignette.</p>
 </div>
 </div>
@@ -684,17 +684,17 @@ more than 4 complete rows; otherwise it stays <code>NULL</code> and only
 <h2 id="the-qareporting-layer">6. The QA/reporting layer<a class="anchor" aria-label="anchor" href="#the-qareporting-layer"></a>
 </h2>
 <div class="section level3">
-<h3 id="get_statistical_analysis_defaults-and-validate_statistical_config">
-<code>get_statistical_analysis_defaults()</code> and
-<code>validate_statistical_config()</code><a class="anchor" aria-label="anchor" href="#get_statistical_analysis_defaults-and-validate_statistical_config"></a>
+<h3 id="default_statistics_config-and-validate_statistical_config">
+<code>default_statistics_config()</code> and
+<code>validate_statistical_config()</code><a class="anchor" aria-label="anchor" href="#default_statistics_config-and-validate_statistical_config"></a>
 </h3>
-<p><code><a href="../reference/get_statistical_analysis_defaults.html">get_statistical_analysis_defaults()</a></code> takes
-<code>get_default_configuration("full")</code> and merges in a
+<p><code><a href="../reference/default_statistics_config.html">default_statistics_config()</a></code> takes
+<code>default_config("full")</code> and merges in a
 <code>statistical_analysis</code> block covering stratification flags,
 missing-value strategy, correlation defaults, distribution-fitting
 families, outlier defaults, and quality thresholds:</p>
 <div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">default_config</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_statistical_analysis_defaults.html">get_statistical_analysis_defaults</a></span><span class="op">(</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">default_config</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/default_statistics_config.html">default_statistics_config</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">default_config</span><span class="op">$</span><span class="va">statistical_analysis</span><span class="op">)</span></span>
 <span><span class="co">#&gt;  [1] "stratify_by_horizon"          "stratify_by_taxonomy"        </span></span>
 <span><span class="co">#&gt;  [3] "include_texture_analysis"     "missing_value_strategy"      </span></span>
@@ -721,7 +721,7 @@ statistical-analysis config against a fixed parameter specification
 <code>strict_mode = FALSE</code>, so most violations become warnings
 rather than hard errors. It transparently unwraps a nested
 <code>$statistical_analysis</code> block, so it accepts
-<code><a href="../reference/get_statistical_analysis_defaults.html">get_statistical_analysis_defaults()</a></code>’s output directly:</p>
+<code><a href="../reference/default_statistics_config.html">default_statistics_config()</a></code>’s output directly:</p>
 <div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/validate_statistical_config.html">validate_statistical_config</a></span><span class="op">(</span><span class="va">default_config</span><span class="op">)</span><span class="op">$</span><span class="va">valid</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
@@ -753,7 +753,7 @@ warning identifying exactly which field failed:</p>
 assembled in the sections above and rolls them into one validity
 assessment - real per-matrix checks for correlation (via
 <code><a href="../reference/validate_correlation_matrix.html">validate_correlation_matrix()</a></code> in
-<code>R/distributions.R</code>), plus a validation score penalizing
+<code>R/core-distributions.R</code>), plus a validation score penalizing
 errors and warnings:</p>
 <div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">validation_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/validate_statistical_results.html">validate_statistical_results</a></span><span class="op">(</span></span>

@@ -4,7 +4,7 @@ Resolves the property's distribution family - from
 `config$monte_carlo$property_distributions[[property_name]]$family`,
 else `config$monte_carlo$distribution_type` (default `"triangular"`) -
 and fits family-appropriate parameters from its SSURGO `_l/_r/_h`
-triplet via `distributions.R`'s
+triplet via `core-distributions.R`'s
 [`fit_percentile_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_percentile_triplet.md).
 
 ## Usage

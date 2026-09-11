@@ -1,9 +1,9 @@
 # Normalize a Monte Carlo `simulation_config` to be Properly Nested
 
-[`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)'s
+[`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md)'s
 own `@examples` have always shown a FLAT `simulation_config` (e.g.
 `list(distribution_type = "normal", max_depth = 200)`), but
-[`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)
+[`default_monte_carlo_config()`](https://jjmaynard.github.io/soilSIM/reference/default_monte_carlo_config.md)
 nests every Monte Carlo setting under `$monte_carlo`, and
 [`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md)
 merges strictly by matching key path - so a flat user config silently
@@ -33,7 +33,7 @@ normalize_monte_carlo_config(
 - default_config:
 
   Result of
-  [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md),
+  [`default_monte_carlo_config()`](https://jjmaynard.github.io/soilSIM/reference/default_monte_carlo_config.md),
   used only to recognize which flat key names belong under
   `monte_carlo`.
 

@@ -1,15 +1,15 @@
 # Fuse an Already-Fetched Texture Group (Stage 1 group-fusion tail)
 
 The portion of
-[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
+[`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md)
 that runs once every member's aligned SSURGO prior and SOLUS likelihood
 are assembled into `fetched`: optionally prepare the real joint
 per-mukey texture draws for raw-draws fusion, then fuse the group via
 [`fuse_texture_group()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group.md).
 Factored out so
-[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
+[`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md)
 and
-[`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md)
+[`run_fusion_multiproperty()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_multiproperty.md)
 share one group-fusion code path.
 
 ## Usage

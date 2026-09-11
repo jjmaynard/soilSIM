@@ -19,7 +19,7 @@ Streams one probe raster at a time rather than materializing all of them
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -72,7 +72,7 @@ Streams one probe raster at a time rather than materializing all of them
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Vectorized feasibility check: a valid metalog quantile function must be monotonically increasing in y (equivalent to its density staying non-negative everywhere). Probes <code>quantile_metalog_linear_raster()</code> at a fixed grid of y-values and flags cells where consecutive probe values decrease - a probe, not a proof, but fully vectorized raster arithmetic. Streams one probe raster at a time rather than materializing all of them (avoids an allocation failure at large cell counts).</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/distribution-fitting-raster.R" class="external-link"><code>R/distribution-fitting-raster.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-distributions-raster.R" class="external-link"><code>R/core-distributions-raster.R</code></a></small>
       <div class="d-none name"><code>check_metalog_feasibility_raster.Rd</code></div>
     </div>
 
@@ -112,6 +112,26 @@ Streams one probe raster at a time rather than materializing all of them
 <dd><p>Probability grid to probe.</p></dd>
 
 </dl></div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p>Other raster-fusion:
+<code><a href="align_percentile_probs.html">align_percentile_probs()</a></code>,
+<code><a href="build_cache_key.html">build_cache_key()</a></code>,
+<code><a href="cache_get.html">cache_get()</a></code>,
+<code><a href="cache_set.html">cache_set()</a></code>,
+<code><a href="fit_beta_mle_newton_raster.html">fit_beta_mle_newton_raster()</a></code>,
+<code><a href="fit_beta_mom_raster.html">fit_beta_mom_raster()</a></code>,
+<code><a href="fit_gamma_mom_raster.html">fit_gamma_mom_raster()</a></code>,
+<code><a href="fit_metalog_linear_raster.html">fit_metalog_linear_raster()</a></code>,
+<code><a href="fit_normal_raster.html">fit_normal_raster()</a></code>,
+<code><a href="fuse_adaptive.html">fuse_adaptive()</a></code>,
+<code><a href="percentiles_from_draws.html">percentiles_from_draws()</a></code>,
+<code><a href="quantile_metalog_linear_with_fallback_raster.html">quantile_metalog_linear_with_fallback_raster()</a></code>,
+<code><a href="remarginalize_awc.html">remarginalize_awc()</a></code>,
+<code><a href="remarginalize_ensemble_to_posterior.html">remarginalize_ensemble_to_posterior()</a></code>,
+<code><a href="resolve_property_dist.html">resolve_property_dist()</a></code>,
+<code><a href="wrap_nested_rasters.html">wrap_nested_rasters()</a></code></p></div>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

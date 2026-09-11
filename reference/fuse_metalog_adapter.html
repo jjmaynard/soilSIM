@@ -9,7 +9,7 @@ Normal-equivalent moments, used regardless of AOI size."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -62,7 +62,7 @@ Normal-equivalent moments, used regardless of AOI size."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Metalog adapter for <code>fuse_property_adaptive()</code>: closed-form route via metalog-fitted Normal-equivalent moments, used regardless of AOI size.</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/raster-fusion.R" class="external-link"><code>R/raster-fusion.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-fusion.R" class="external-link"><code>R/core-fusion.R</code></a></small>
       <div class="d-none name"><code>fuse_metalog_adapter.Rd</code></div>
     </div>
 
@@ -96,7 +96,7 @@ Normal-equivalent moments, used regardless of AOI size.</p>
 <code>NULL</code> (default) resolves to <a href="FUSE_POSTERIOR_DEFAULT_PROBS.html">FUSE_POSTERIOR_DEFAULT_PROBS</a>. Computed via
 <code><a href="qnorm_percentiles_raster.html">qnorm_percentiles_raster()</a></code> on the final fused <code>(mu, sigma)</code> - this route already reduces
 both sides to Normal-equivalent moments (<code><a href="metalog_moments_raster.html">metalog_moments_raster()</a></code>'s quadrature) before the
-final <code><a href="bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code> step, so there is no richer distributional shape to draw
+final <code><a href="fuse_normal_normal.html">fuse_normal_normal()</a></code> step, so there is no richer distributional shape to draw
 percentiles from beyond that Normal approximation; carries forward this route's existing
 "less-validated glue code" caveat (see <code><a href="metalog_moments_raster.html">metalog_moments_raster()</a></code>'s own docs) to its
 percentile output too.</p></dd>

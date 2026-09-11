@@ -1,7 +1,7 @@
 # Fetch a SOLUS100 Restriction-Depth Raster, Right-Censoring-Guarded (S2)
 
 The truncation-depth signal for bedrock/restriction-aware AWC
-([`remarginalized_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)'s
+([`remarginalize_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_awc.md)'s
 `restriction_depth` argument). Default variable is `"anylithicdpt"` -
 trained (per SOLUS100's own published methodology) **only** on
 `reskind %in% c("Lithic bedrock", "Paralithic bedrock")` records, making
@@ -46,5 +46,5 @@ prediction fetch fails.
 
 `SOLUS_RESTRICTION_CENSOR_CM`,
 [`fetch_solus_site_level()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_site_level.md),
-[remarginalized_awc()](https://jjmaynard.github.io/soilSIM/reference/remarginalized_awc.md)'s
+[remarginalize_awc()](https://jjmaynard.github.io/soilSIM/reference/remarginalize_awc.md)'s
 `restriction_depth` argument

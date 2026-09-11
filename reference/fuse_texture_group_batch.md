@@ -83,7 +83,7 @@ fuse_texture_group_batch_core(
   list, keyed by mukey (as character), each element an `n_mc x 3` matrix
   (columns `clay_total`/`sand_total`/ `silt_total`) of real joint
   texture draws for that mukey - see
-  [`mukey_texture_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_texture_draws_lookup.md).
+  [`lookup_mukey_texture_draws()`](https://jjmaynard.github.io/soilSIM/reference/lookup_mukey_texture_draws.md).
   When supplied, `row_mat`'s last column must be the per-cell mukey
   code. `NULL` (default) preserves original behavior exactly.
 

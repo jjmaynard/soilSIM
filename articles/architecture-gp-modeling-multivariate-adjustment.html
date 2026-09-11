@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -101,14 +101,13 @@
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
 <p>This functional area covers two tightly coupled files.
-<code>gp-modeling.R</code> prepares NRCS/SSURGO component-horizon data
-and fits Gaussian Process (GP) models of how each soil property trends
-with depth, stratified by soil group (series, taxonomic class,
-particle-size class, etc., with hierarchical fallback to coarser
-groupings when a stratum is too sparse).
-<code>multivariate-adjustment.R</code> takes the output of Monte Carlo
-simulation (see the Monte Carlo simulation engine module) across an
-entire dataset and integrates it with these fitted GP depth trends,
+<code>core-gp.R</code> prepares NRCS/SSURGO component-horizon data and
+fits Gaussian Process (GP) models of how each soil property trends with
+depth, stratified by soil group (series, taxonomic class, particle-size
+class, etc., with hierarchical fallback to coarser groupings when a
+stratum is too sparse). <code>core-gp.R</code> takes the output of Monte
+Carlo simulation (see the Monte Carlo simulation engine module) across
+an entire dataset and integrates it with these fitted GP depth trends,
 adding realistic vertical (depth-to-depth) correlation on top of the GP
 mean trend while preserving the <em>within-depth</em> correlation
 structure between properties (e.g. clay vs. bulk density vs. pH). The
@@ -150,7 +149,7 @@ GP model’s own fitted smoothness - the motivation for the
 <h2 id="core-functions">Core Functions<a class="anchor" aria-label="anchor" href="#core-functions"></a>
 </h2>
 <div class="section level3">
-<h3 id="gp-modeling-r">gp-modeling.R<a class="anchor" aria-label="anchor" href="#gp-modeling-r"></a>
+<h3 id="core-gp-r">core-gp.R<a class="anchor" aria-label="anchor" href="#core-gp-r"></a>
 </h3>
 <div class="section level4">
 <h4 id="prepare_nrcs_training_data">
@@ -168,8 +167,7 @@ GP model’s own fitted smoothness - the motivation for the
 <span><span class="op">)</span></span></code></pre></div>
 <p><strong>Purpose</strong>: Turn raw combined NRCS component/horizon
 data into a cleaned, grouped training set ready for
-<code><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models()</a></code>.
-<strong>Parameters</strong>:</p>
+<code><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models()</a></code>. <strong>Parameters</strong>:</p>
 <ul>
 <li>
 <code>nrcs_combined_data</code> - combined NRCS data with horizon
@@ -195,13 +193,12 @@ the auto-selector wants to find before accepting a strategy.</li>
 this (cm) are dropped.</li>
 <li>
 <code>validation_config</code> - quality-threshold config; defaults
-to <code>get_default_configuration("validation")</code>.
-<strong>Returns</strong>: A data frame with standardized property
-columns (<code>clay_pct</code>, <code>sand_pct</code>,
-<code>silt_pct</code>, <code>pH</code>, <code>organic_matter</code>,
-<code>bulk_density</code>, <code>cec</code>, <code>awc</code>), a
-<code>soil_group</code> column, <code>depth_midpoint</code>, and only
-rows belonging to groups meeting
+to <code>default_config("validation")</code>. <strong>Returns</strong>:
+A data frame with standardized property columns (<code>clay_pct</code>,
+<code>sand_pct</code>, <code>silt_pct</code>, <code>pH</code>,
+<code>organic_matter</code>, <code>bulk_density</code>,
+<code>cec</code>, <code>awc</code>), a <code>soil_group</code> column,
+<code>depth_midpoint</code>, and only rows belonging to groups meeting
 <code>min_observations_per_group</code>. <strong>Algorithm</strong>:
 Runs <code><a href="../reference/validate_data_quality.html">validate_data_quality()</a></code>, standardizes property names
 via <code><a href="../reference/standardize_property_names.html">standardize_property_names()</a></code>, computes
@@ -270,11 +267,11 @@ coverage rate among adequate groups, emitting a recommendation when
 overall coverage falls below 30%.</p>
 </div>
 <div class="section level4">
-<h4 id="build_stratified_gp_models---master-function">
-<code>build_stratified_gp_models()</code> - Master Function<a class="anchor" aria-label="anchor" href="#build_stratified_gp_models---master-function"></a>
+<h4 id="fit_depth_gp_models---master-function">
+<code>fit_depth_gp_models()</code> - Master Function<a class="anchor" aria-label="anchor" href="#fit_depth_gp_models---master-function"></a>
 </h4>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models</a></span><span class="op">(</span></span>
 <span>  <span class="va">processed_nrcs_data</span>,</span>
 <span>  properties <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"clay_pct"</span>, <span class="st">"sand_pct"</span>, <span class="st">"pH"</span>, <span class="st">"organic_matter"</span><span class="op">)</span>,</span>
 <span>  min_profiles_per_group <span class="op">=</span> <span class="fl">3</span>,</span>
@@ -332,11 +329,11 @@ via the CV wrapper), and computes diagnostics with
 <code>calculate_model_diagnostics()</code>.</p>
 </div>
 <div class="section level4">
-<h4 id="adjust_multivariate_depthwise_gp">
-<code>adjust_multivariate_depthwise_GP()</code><a class="anchor" aria-label="anchor" href="#adjust_multivariate_depthwise_gp"></a>
+<h4 id="adjust_simulation_depthwise">
+<code>adjust_simulation_depthwise()</code><a class="anchor" aria-label="anchor" href="#adjust_simulation_depthwise"></a>
 </h4>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP</a></span><span class="op">(</span><span class="va">simulated_list</span>, <span class="va">gp_models</span>, <span class="va">depths</span>, primary_property <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/adjust_simulation_depthwise.html">adjust_simulation_depthwise</a></span><span class="op">(</span><span class="va">simulated_list</span>, <span class="va">gp_models</span>, <span class="va">depths</span>, primary_property <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
 <p><strong>Purpose</strong>: A multivariate correlation-preserving
 adjustment routine operating directly on matrices rather than
 long-format simulation data frames. <strong>Parameters</strong>:
@@ -364,10 +361,9 @@ the nudged values back onto the current property’s original ECDF to keep
 its marginal distribution shape intact. Logs a post-hoc check of maximum
 correlation-matrix difference (original vs. adjusted) at the first five
 depths, warning if it exceeds 0.1. This is the array-based sibling of
-<code>multivariate-adjustment.R</code>’s
-<code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code>, which operates on the
-same algorithm but is invoked from the long-format integration
-pipeline.</p>
+<code>core-gp.R</code>’s <code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code>,
+which operates on the same algorithm but is invoked from the long-format
+integration pipeline.</p>
 </div>
 <div class="section level4">
 <h4 id="validate_correlation_preservation">
@@ -379,12 +375,12 @@ pipeline.</p>
 correlation matrix between properties changed between
 <code>original_list</code> and <code>adjusted_list</code> (the
 matrix-format counterparts used by
-<code><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP()</a></code>).
-<strong>Returns</strong>: A data frame with one row per depth
-(<code>depth_idx</code>, <code>depth_value</code>,
-<code>max_cor_difference</code>, <code>mean_cor_difference</code>, the
-latter averaged over the upper triangle of the correlation-difference
-matrix). <strong>Algorithm</strong>: For each depth, extracts a
+<code><a href="../reference/adjust_simulation_depthwise.html">adjust_simulation_depthwise()</a></code>). <strong>Returns</strong>: A
+data frame with one row per depth (<code>depth_idx</code>,
+<code>depth_value</code>, <code>max_cor_difference</code>,
+<code>mean_cor_difference</code>, the latter averaged over the upper
+triangle of the correlation-difference matrix).
+<strong>Algorithm</strong>: For each depth, extracts a
 <code>[simulations x properties]</code> slice from both lists, computes
 <code>cor(..., use = "complete.obs")</code> for each, and records the
 max/mean absolute difference; wrapped in per-depth <code>tryCatch</code>
@@ -547,10 +543,10 @@ correlation matrix via
 <code><a href="../reference/select_simulation_correlation_matrix.html">select_simulation_correlation_matrix()</a></code> (using the cokey’s
 modal <code>genhz</code> group, falling back to
 <code>txt_correlation_matrices</code> or to empirically-estimated
-correlations); calls <code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code>
-and flattens its <code>[horizon, property, realization]</code> array to
-long format via <code><a href="../reference/flatten_simulation_array_to_long.html">flatten_simulation_array_to_long()</a></code>; then,
-if NRCS GP models and a cokey mapping are supplied, looks up the cokey’s
+correlations); calls <code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code> and flattens
+its <code>[horizon, property, realization]</code> array to long format
+via <code><a href="../reference/flatten_simulation_array_to_long.html">flatten_simulation_array_to_long()</a></code>; then, if NRCS GP
+models and a cokey mapping are supplied, looks up the cokey’s
 <code>gp_model_group</code> (falling back to
 <code>"fallback_general"</code>) and calls
 <code><a href="../reference/apply_nrcs_gp_adjustments_with_correlations.html">apply_nrcs_gp_adjustments_with_correlations()</a></code>, otherwise
@@ -571,8 +567,8 @@ the result as an attribute.</p>
 <span>  matching_strategy <span class="op">=</span> <span class="st">"exact_cokey"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><strong>Purpose</strong>: Map every simulated cokey to the GP model
-group (from <code><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models()</a></code>) that should be
-used to adjust its depth trend. <strong>Parameters</strong>:
+group (from <code><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models()</a></code>) that should be used to
+adjust its depth trend. <strong>Parameters</strong>:
 <code>simulated_cokeys</code> - cokeys needing a mapping;
 <code>nrcs_combined_data</code> - source NRCS data carrying taxonomic
 columns; <code>gp_models</code> - fitted models keyed by property;
@@ -626,18 +622,17 @@ trained on using the stored
 <p><strong>Purpose</strong>: Diagnostic pass over an entire fitted GP
 model set, checking predictability, trend monotonicity, and realistic
 value ranges. <strong>Parameters</strong>: <code>gp_models</code> -
-output of <code><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models()</a></code>;
-<code>nrcs_data</code> - original training data (currently unused beyond
-being passed through); <code>validation_depths</code> - depths at which
-to test predictions. <strong>Returns</strong>: A list with
-<code>model_validation</code> (per-property, per-group
-prediction/diagnostic results), <code>prediction_validation</code>
-(unused/reserved), <code>overall_assessment</code>
-(<code>total_models</code>, <code>valid_models</code>,
-<code>success_rate</code>, <code>validation_passed</code> = success rate
-&gt;= 0.8), and <code>recommendations</code>.
-<strong>Algorithm</strong>: For every property/group model, predicts at
-<code>validation_depths</code> via
+output of <code><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models()</a></code>; <code>nrcs_data</code> -
+original training data (currently unused beyond being passed through);
+<code>validation_depths</code> - depths at which to test predictions.
+<strong>Returns</strong>: A list with <code>model_validation</code>
+(per-property, per-group prediction/diagnostic results),
+<code>prediction_validation</code> (unused/reserved),
+<code>overall_assessment</code> (<code>total_models</code>,
+<code>valid_models</code>, <code>success_rate</code>,
+<code>validation_passed</code> = success rate &gt;= 0.8), and
+<code>recommendations</code>. <strong>Algorithm</strong>: For every
+property/group model, predicts at <code>validation_depths</code> via
 <code><a href="../reference/predict_gp_depth_trends.html">predict_gp_depth_trends()</a></code>, then checks
 <code>assess_trend_monotonicity()</code> (&gt;=70% of depth-to-depth
 diffs share the same sign) and <code>assess_realistic_values()</code>
@@ -667,8 +662,7 @@ columns of a long-format simulation data frame),
 <code><a href="../reference/apply_nrcs_gp_adjustments_with_correlations.html">apply_nrcs_gp_adjustments_with_correlations()</a></code> /
 <code><a href="../reference/apply_local_gp_adjustments_with_correlations.html">apply_local_gp_adjustments_with_correlations()</a></code> (thin
 wrappers that infer the <code>properties</code> argument and delegate to
-<code>multivariate-adjustment.R</code>’s
-<code><a href="../reference/apply_nrcs_trend_adjustments.html">apply_nrcs_trend_adjustments()</a></code> /
+<code>core-gp.R</code>’s <code><a href="../reference/apply_nrcs_trend_adjustments.html">apply_nrcs_trend_adjustments()</a></code> /
 <code><a href="../reference/apply_local_gp_adjustments.html">apply_local_gp_adjustments()</a></code>),
 <code>validate_enhanced_simulations()</code> (row-count-match check used
 by <code><a href="../reference/simulate_soil_properties.html">simulate_soil_properties()</a></code>),
@@ -681,14 +675,14 @@ to shrink file size).</p>
 </div>
 </div>
 <div class="section level3">
-<h3 id="multivariate-adjustment-r">multivariate-adjustment.R<a class="anchor" aria-label="anchor" href="#multivariate-adjustment-r"></a>
+<h3 id="core-gp-r-1">core-gp.R<a class="anchor" aria-label="anchor" href="#core-gp-r-1"></a>
 </h3>
 <div class="section level4">
-<h4 id="integrate_monte_carlo_with_gp---master-function">
-<code>integrate_monte_carlo_with_gp()</code> - Master Function<a class="anchor" aria-label="anchor" href="#integrate_monte_carlo_with_gp---master-function"></a>
+<h4 id="apply_depth_gp_to_simulation---master-function">
+<code>apply_depth_gp_to_simulation()</code> - Master Function<a class="anchor" aria-label="anchor" href="#apply_depth_gp_to_simulation---master-function"></a>
 </h4>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/apply_depth_gp_to_simulation.html">apply_depth_gp_to_simulation</a></span><span class="op">(</span></span>
 <span>  <span class="va">simulation_results</span>,</span>
 <span>  gp_models <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  cokey_mapping <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -703,10 +697,10 @@ to shrink file size).</p>
 depth-trend adjustment (NRCS-model-based and/or locally-fit) to every
 cokey in a Monte Carlo simulation result, with validation and rich
 metadata. <strong>Parameters</strong>: <code>simulation_results</code> -
-output of <code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code> (must have a
+output of <code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code> (must have a
 <code>simulation_data</code> element); <code>gp_models</code> - fitted
-NRCS GP models from <code><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models()</a></code>
-(optional); <code>cokey_mapping</code> - output of
+NRCS GP models from <code><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models()</a></code> (optional);
+<code>cokey_mapping</code> - output of
 <code><a href="../reference/match_soils_to_gp_models.html">match_soils_to_gp_models()</a></code> (optional);
 <code>integration_method</code></p>
 <ul>
@@ -719,9 +713,9 @@ whether to run the correlation-preserving quantile transform;
 auto-detect via <code>detect_simulation_properties()</code>;
 <code>parallel</code>/<code>n_cores</code> - parallel dispatch across
 cokeys; <code>config</code> - <a href="architecture-utilities.html">Utilities</a>-style config, defaults
-to <code>get_default_configuration("full")</code>.
-<strong>Returns</strong>: A list: <code>integrated_data</code> (final
-adjusted long-format data frame), <code>original_simulation_data</code>,
+to <code>default_config("full")</code>. <strong>Returns</strong>: A
+list: <code>integrated_data</code> (final adjusted long-format data
+frame), <code>original_simulation_data</code>,
 <code>integration_metadata</code> (method, properties processed, success
 rate, processing time, package versions, etc.),
 <code>validation_results</code> (from
@@ -813,10 +807,9 @@ unmodified/partially-modified data rather than aborting.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure</a></span><span class="op">(</span><span class="va">property_matrices</span>, <span class="va">gp_predictions</span>, <span class="va">depths</span>, <span class="va">primary_property</span><span class="op">)</span></span></code></pre></div>
 <p><strong>Purpose</strong>: The original correlation-preserving
 depth-adjustment algorithm (long-format pipeline’s counterpart to
-<code>gp-modeling.R</code>’s
-<code><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP()</a></code>), still fully supported
-as an explicit <code>"gp_quantile_retrofit"</code> opt-out from
-<code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code>’s default.
+<code>core-gp.R</code>’s <code><a href="../reference/adjust_simulation_depthwise.html">adjust_simulation_depthwise()</a></code>),
+still fully supported as an explicit <code>"gp_quantile_retrofit"</code>
+opt-out from <code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code>’s default.
 <strong>Parameters</strong>: <code>property_matrices</code> - named list
 of <code>[depth x simulation]</code> matrices;
 <code>gp_predictions</code> - named list of per-depth GP mean vectors;
@@ -1144,12 +1137,12 @@ sand/silt/clay-family columns so each row’s sum is exactly 100 whenever
 their sum is &gt; 0).</p>
 <p><strong>Minor exported/internal helpers</strong> (not separately
 detailed above): <code>detect_simulation_properties()</code> (intersects
-<code>get_predefined_properties("laboratory")</code> and a hardcoded
+<code>predefined_properties("laboratory")</code> and a hardcoded
 simulation-column-name list with the data’s actual columns),
 <code>process_cokeys_parallel()</code> /
 <code>process_cokeys_sequential()</code> /
 <code>process_single_cokey()</code> (cokey-level dispatch used by
-<code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code> - the parallel path uses
+<code><a href="../reference/apply_depth_gp_to_simulation.html">apply_depth_gp_to_simulation()</a></code> - the parallel path uses
 <code><a href="https://rdrr.io/r/parallel/makeCluster.html" class="external-link">parallel::makeCluster()</a></code> +
 <code>clusterEvalQ(cl, library(soilSIM))</code> on Windows so worker
 processes have <code>dplyr</code>/<code>GPfit</code> loaded, or
@@ -1195,7 +1188,7 @@ with no cross-property quantile linkage).</p>
 <div class="section level2">
 <h2 id="internal-connections">Internal Connections<a class="anchor" aria-label="anchor" href="#internal-connections"></a>
 </h2>
-<pre><code>build_stratified_gp_models() [MASTER, gp-modeling.R]
+<pre><code>fit_depth_gp_models() [MASTER, core-gp.R]
 ├── apply_hierarchical_grouping()
 │   └── create_test_grouping() [via select_optimal_grouping(), if strategy = "auto"]
 ├── fit_individual_gp_model()  (per property x final_group)
@@ -1219,19 +1212,19 @@ predict_gp_depth_trends() [gp-modeling.R]  &lt;- called from BOTH files:
 
 match_soils_to_gp_models() [gp-modeling.R]
 └── apply_matching_hierarchy()
-        (consumed downstream by match_simulations_to_nrcs_models() in multivariate-adjustment.R)
+        (consumed downstream by match_simulations_to_nrcs_models() in core-gp.R)
 
 simulate_soil_properties() [gp-modeling.R, single-cokey convenience path]
 ├── select_simulation_correlation_matrix()
-├── generate_monte_carlo_realizations()        [Monte Carlo module]
+├── simulate_monte_carlo()        [Monte Carlo module]
 ├── flatten_simulation_array_to_long()
 ├── apply_nrcs_gp_adjustments_with_correlations()
-│   └── apply_nrcs_trend_adjustments()         [-&gt; multivariate-adjustment.R]
+│   └── apply_nrcs_trend_adjustments()         [-&gt; core-gp.R]
 ├── apply_local_gp_adjustments_with_correlations()
-│   └── apply_local_gp_adjustments()           [-&gt; multivariate-adjustment.R]
+│   └── apply_local_gp_adjustments()           [-&gt; core-gp.R]
 └── validate_enhanced_simulations()
 
-integrate_monte_carlo_with_gp() [MASTER, multivariate-adjustment.R, whole-dataset path]
+apply_depth_gp_to_simulation() [MASTER, core-gp.R, whole-dataset path]
 ├── detect_simulation_properties()
 ├── process_cokeys_parallel() / process_cokeys_sequential()
 │   └── process_single_cokey()                 (per cokey)
@@ -1239,7 +1232,7 @@ integrate_monte_carlo_with_gp() [MASTER, multivariate-adjustment.R, whole-datase
 │       ├── apply_nrcs_trend_adjustments()
 │       │   ├── get_nrcs_property_mapping()
 │       │   ├── get_nrcs_gp_predictions()
-│       │   │   └── predict_gp_depth_trends()  [-&gt; gp-modeling.R]
+│       │   │   └── predict_gp_depth_trends()  [-&gt; core-gp.R]
 │       │   └── apply_gp_depth_trends()
 │       │       ├── convert_to_property_matrices()
 │       │       ├── preserve_correlation_structure() / apply_individual_adjustments()
@@ -1250,7 +1243,7 @@ integrate_monte_carlo_with_gp() [MASTER, multivariate-adjustment.R, whole-datase
 │       │       └── merge_adjusted_data()
 │       └── apply_local_gp_adjustments()
 │           ├── fit_local_gp_models() -&gt; fit_local_gp_model_single() -&gt; GPfit::GP_fit()
-│           ├── generate_local_predictions() -&gt; predict_gp_depth_trends() [-&gt; gp-modeling.R]
+│           ├── generate_local_predictions() -&gt; predict_gp_depth_trends() [-&gt; core-gp.R]
 │           └── apply_local_depth_trends() -&gt; apply_gp_depth_trends()
 ├── combine_and_validate_results()
 ├── validate_integration_results()
@@ -1269,18 +1262,18 @@ prepare_nrcs_training_data() [gp-modeling.R]
 ├── auto grouping strategy selection [select_optimal_grouping()]
 └── property coalescing + soil_group assignment
 ↓
-build_stratified_gp_models() [gp-modeling.R]
+fit_depth_gp_models() [gp-modeling.R]
 ├── hierarchical fallback grouping [apply_hierarchical_grouping()]
 └── per-group GP fitting [fit_individual_gp_model() -&gt; GPfit::GP_fit()]
 ↓
 GP Models (by property x soil group) ──────────────┐
                                                      │
 Monte Carlo Simulation Output                       │
-(generate_monte_carlo_realizations(), separate module)
+(simulate_monte_carlo(), separate module)
 ↓                                                    │
 match_soils_to_gp_models() [gp-modeling.R] ◄─────────┘
 ↓ (cokey -&gt; gp_model_group mapping)
-integrate_monte_carlo_with_gp() [multivariate-adjustment.R, MASTER]
+apply_depth_gp_to_simulation() [multivariate-adjustment.R, MASTER]
 ├── per-cokey NRCS GP adjustment  [apply_nrcs_trend_adjustments()]
 ├── per-cokey local GP adjustment [apply_local_gp_adjustments()]
 │   └── both funnel through apply_gp_depth_trends()
@@ -1304,7 +1297,7 @@ Statistics &amp; Diagnostics (validation, summarization) [downstream module]</co
 files)<a class="anchor" aria-label="anchor" href="#correlation-preserving-quantile-nudge-the-core-algorithm-both-files"></a>
 </h3>
 <div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># preserve_correlation_structure() / adjust_multivariate_depthwise_GP()</span></span>
+<code class="sourceCode R"><span><span class="co"># preserve_correlation_structure() / adjust_simulation_depthwise()</span></span>
 <span><span class="va">gp_ratio</span> <span class="op">&lt;-</span> <span class="fu">calculate_safe_gp_ratio</span><span class="op">(</span><span class="va">gp_means</span>, <span class="va">i</span><span class="op">)</span>          <span class="co"># clamped to [0.1, 10]</span></span>
 <span><span class="va">adjusted_curr</span> <span class="op">&lt;-</span> <span class="fu">apply_quantile_adjustment</span><span class="op">(</span></span>
 <span>  <span class="va">reference_quantiles</span>, <span class="va">curr_values</span>, <span class="va">prev_values</span>, <span class="va">gp_ratio</span>, <span class="va">n_sims</span></span>
@@ -1322,8 +1315,7 @@ files)<a class="anchor" aria-label="anchor" href="#correlation-preserving-quanti
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="cross-file-delegation-gp-modeling-r-wrappers---multivariate-adjustment-r">3. Cross-file delegation (gp-modeling.R wrappers -&gt;
-multivariate-adjustment.R)<a class="anchor" aria-label="anchor" href="#cross-file-delegation-gp-modeling-r-wrappers---multivariate-adjustment-r"></a>
+<h3 id="cross-file-delegation-core-gp-r-wrappers---core-gp-r">3. Cross-file delegation (core-gp.R wrappers -&gt; core-gp.R)<a class="anchor" aria-label="anchor" href="#cross-file-delegation-core-gp-r-wrappers---core-gp-r"></a>
 </h3>
 <div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># apply_nrcs_gp_adjustments_with_correlations() [gp-modeling.R]</span></span>
@@ -1340,7 +1332,7 @@ multivariate-adjustment.R)<a class="anchor" aria-label="anchor" href="#cross-fil
 </h3>
 <div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># predict_gp_depth_trends() [gp-modeling.R] - called from get_nrcs_gp_predictions(),</span></span>
-<span><span class="co"># generate_local_predictions(), and extract_nrcs_depth_trends() in multivariate-adjustment.R</span></span>
+<span><span class="co"># generate_local_predictions(), and extract_nrcs_depth_trends() in core-gp.R</span></span>
 <span><span class="va">scaled_depths</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">new_depths</span> <span class="op">-</span> <span class="va">scaling</span><span class="op">$</span><span class="va">min</span><span class="op">)</span> <span class="op">/</span> <span class="va">scaling</span><span class="op">$</span><span class="va">range</span></span>
 <span><span class="va">predictions</span> <span class="op">&lt;-</span> <span class="fu">GPfit</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/GPfit/man/predict.html" class="external-link">predict.GP</a></span><span class="op">(</span><span class="va">gp_model_info</span><span class="op">$</span><span class="va">gp_model</span>, xnew <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">scaled_depths</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -1359,7 +1351,7 @@ used throughout both files (single covariate: scaled depth).</li>
 <code><a href="https://rdrr.io/r/parallel/makeCluster.html" class="external-link">parallel::makeCluster()</a></code>/<code>clusterExport()</code>/<code>clusterEvalQ()</code>/<code>parLapply()</code>
 on Windows, <code><a href="https://rdrr.io/r/parallel/mclapply.html" class="external-link">parallel::mclapply()</a></code> elsewhere, used by
 <code>process_cokeys_parallel()</code> for cokey-level parallel dispatch
-in <code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code>. No
+in <code><a href="../reference/apply_depth_gp_to_simulation.html">apply_depth_gp_to_simulation()</a></code>. No
 <code>future</code>/<code>furrr</code> usage was found in either file -
 parallelism is base <code>parallel</code> only.</li>
 <li>
@@ -1372,11 +1364,10 @@ quantile-nudge/distribution-correction machinery.</li>
 </ul>
 <p><strong>soilSIM dependencies (inputs)</strong>:</p>
 <ul>
-<li>Monte Carlo simulation output
-(<code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code>, its
-<code>simulation_data</code> array/long-format result) is the primary
-upstream input to both <code><a href="../reference/simulate_soil_properties.html">simulate_soil_properties()</a></code>
-(single-cokey) and <code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code>
+<li>Monte Carlo simulation output (<code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code>,
+its <code>simulation_data</code> array/long-format result) is the
+primary upstream input to both <code><a href="../reference/simulate_soil_properties.html">simulate_soil_properties()</a></code>
+(single-cokey) and <code><a href="../reference/apply_depth_gp_to_simulation.html">apply_depth_gp_to_simulation()</a></code>
 (whole-dataset).</li>
 <li>Shared/general utility functions used throughout (validation,
 logging, configuration, error handling) - <code><a href="../reference/log_message.html">log_message()</a></code>,
@@ -1385,25 +1376,24 @@ logging, configuration, error handling) - <code><a href="../reference/log_messag
 <code><a href="../reference/validate_data_quality.html">validate_data_quality()</a></code>,
 <code><a href="../reference/validate_properties.html">validate_properties()</a></code>, <code><a href="../reference/is_unsuitable.html">is_unsuitable()</a></code>,
 <code><a href="../reference/standardize_property_names.html">standardize_property_names()</a></code>, <code><a href="../reference/safe_coalesce.html">safe_coalesce()</a></code>,
-<code><a href="../reference/get_default_configuration.html">get_default_configuration()</a></code>,
-<code><a href="../reference/get_predefined_properties.html">get_predefined_properties()</a></code>, <code><a href="../reference/track_progress.html">track_progress()</a></code>,
-<code>get_package_versions()</code> - these are not defined in either
-file and are assumed to come from a shared validation/utility module
-elsewhere in the package.</li>
-<li>No direct call into a <code>distributions.R</code>-style
+<code><a href="../reference/default_config.html">default_config()</a></code>, <code><a href="../reference/predefined_properties.html">predefined_properties()</a></code>,
+<code><a href="../reference/track_progress.html">track_progress()</a></code>, <code>get_package_versions()</code> -
+these are not defined in either file and are assumed to come from a
+shared validation/utility module elsewhere in the package.</li>
+<li>No direct call into a <code>core-distributions.R</code>-style
 correlation-matrix-generation utility was found in either file;
-<code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code>/<code><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP()</a></code>
+<code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code>/<code><a href="../reference/adjust_simulation_depthwise.html">adjust_simulation_depthwise()</a></code>
 preserve correlation implicitly via the shared reference-quantile
 mechanism rather than by explicitly re-applying a target correlation
 matrix (e.g. no Cholesky step appears in these two files - that logic
 lives upstream, in the Monte Carlo generation step that
 <code><a href="../reference/simulate_soil_properties.html">simulate_soil_properties()</a></code> calls into via
-<code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code>).</li>
+<code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code>).</li>
 </ul>
 <p><strong>Downstream consumers</strong>:</p>
 <ul>
 <li>The <code>integrated_data</code>/<code>validation_results</code>
-produced by <code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code> feed the
+produced by <code><a href="../reference/apply_depth_gp_to_simulation.html">apply_depth_gp_to_simulation()</a></code> feed the
 Statistics &amp; Diagnostics group (percentile/summary statistics
 computation and the broader validation-diagnostics workflow), which
 consumes the GP-adjusted realizations as its input dataset and the
@@ -1423,12 +1413,12 @@ property columns) -&gt; <code><a href="../reference/prepare_nrcs_training_data.h
 <code>cokey</code>, <code>hzdept_r</code>,
 <code>simulation_number</code>, and per-property columns; or the raw
 <code>[horizon, property, realization]</code> array from
-<code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code>) -&gt;
+<code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code>) -&gt;
 <code><a href="../reference/simulate_soil_properties.html">simulate_soil_properties()</a></code> /
-<code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code>.</li>
-<li>Fitted GP models (<code><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models()</a></code> output)
-and a cokey-to-group mapping (<code><a href="../reference/match_soils_to_gp_models.html">match_soils_to_gp_models()</a></code>
-output) -&gt; both integration entry points.</li>
+<code><a href="../reference/apply_depth_gp_to_simulation.html">apply_depth_gp_to_simulation()</a></code>.</li>
+<li>Fitted GP models (<code><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models()</a></code> output) and a
+cokey-to-group mapping (<code><a href="../reference/match_soils_to_gp_models.html">match_soils_to_gp_models()</a></code> output)
+-&gt; both integration entry points.</li>
 <li>Correlation matrices (flat or genhz-keyed) -&gt;
 <code><a href="../reference/simulate_soil_properties.html">simulate_soil_properties()</a></code> (consumed only to pick which
 matrix to hand to the Monte Carlo generator; not directly re-applied in
@@ -1436,14 +1426,14 @@ this file).</li>
 </ul>
 <p><strong>Out</strong>:</p>
 <ul>
-<li>A fitted GP model set (<code><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models()</a></code>’s
-return value: per-property, per-group models + diagnostics + summary),
+<li>A fitted GP model set (<code><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models()</a></code>’s return
+value: per-property, per-group models + diagnostics + summary),
 typically persisted via
 <code>export_gp_models()</code>/<code>load_gp_models()</code>.</li>
 <li>GP-depth-adjusted, correlation-preserving realizations per cokey -
 either as a single-cokey long data frame with validation attributes
 (<code><a href="../reference/simulate_soil_properties.html">simulate_soil_properties()</a></code>) or a whole-dataset result list
-(<code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code>’s
+(<code><a href="../reference/apply_depth_gp_to_simulation.html">apply_depth_gp_to_simulation()</a></code>’s
 <code>integrated_data</code> + <code>integration_metadata</code> +
 <code>validation_results</code>), ready for percentile/statistical
 summarization downstream.</li>
@@ -1460,7 +1450,7 @@ summarization downstream.</li>
 <span>  max_depth <span class="op">=</span> <span class="fl">200</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">gp_models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models</a></span><span class="op">(</span></span>
+<span><span class="va">gp_models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models</a></span><span class="op">(</span></span>
 <span>  <span class="va">nrcs_training</span>,</span>
 <span>  properties <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"clay_pct"</span>, <span class="st">"sand_pct"</span>, <span class="st">"pH"</span>, <span class="st">"organic_matter"</span><span class="op">)</span>,</span>
 <span>  optimize_hyperparameters <span class="op">=</span> <span class="cn">TRUE</span></span>
@@ -1475,7 +1465,7 @@ summarization downstream.</li>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 3. Integrate the Monte Carlo output with the fitted GP models, preserving correlations</span></span>
-<span><span class="va">integrated</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp</a></span><span class="op">(</span></span>
+<span><span class="va">integrated</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/apply_depth_gp_to_simulation.html">apply_depth_gp_to_simulation</a></span><span class="op">(</span></span>
 <span>  simulation_results <span class="op">=</span> <span class="va">mc_results</span>,</span>
 <span>  gp_models <span class="op">=</span> <span class="va">gp_models</span>,</span>
 <span>  cokey_mapping <span class="op">=</span> <span class="va">cokey_mapping</span>,</span>

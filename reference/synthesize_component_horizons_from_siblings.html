@@ -15,7 +15,7 @@ averaging sibling horizons within each classify_genhz() group."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -68,7 +68,7 @@ averaging sibling horizons within each classify_genhz() group."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Synthesize a Representative Horizon Profile for a Component from AOI Siblings</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/ssurgo-acquisition.R" class="external-link"><code>R/ssurgo-acquisition.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/adapter-ssurgo-acquire.R" class="external-link"><code>R/adapter-ssurgo-acquire.R</code></a></small>
       <div class="d-none name"><code>synthesize_component_horizons_from_siblings.Rd</code></div>
     </div>
 
@@ -117,7 +117,7 @@ Sibling rows whose <code>hzname</code> doesn't classify (<code><a href="classify
 averaging entirely rather than guessed at - verified before choosing this: no depth-or-property-
 based genhz fallback exists anywhere in soilSIM. <code><a href="classify_genhz.html">classify_genhz()</a></code> is the package's single
 hzname-to-generalized-horizon mapper (used here, in the SSURGO simulation path, and in the
-OSD boundary-distinctness lookup in <code>R/depth-simulation.R</code>).</p>
+OSD boundary-distinctness lookup in <code>R/core-simulation.R</code>).</p>
     </div>
     <div class="section level2">
     <h2 id="averaging-rule-per-genhz-group">Averaging rule per genhz group<a class="anchor" aria-label="anchor" href="#averaging-rule-per-genhz-group"></a></h2>

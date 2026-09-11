@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -111,9 +111,9 @@ needs to duplicate this logic. It is a <strong>leaf dependency</strong>
 in the ordinary sense - it sources nothing else in <code>soilSIM</code>
 and is depended on, directly or indirectly, by every other functional
 group - with one narrow, source-verified exception documented under <a href="#known-limitations">Known Limitations</a>:
-<code>get_predefined_properties("ssurgo")</code> calls
-<code><a href="../reference/create_ssurgo_property_lookup_working.html">create_ssurgo_property_lookup_working()</a></code>, which actually
-lives in <code>R/ssurgo-acquisition.R</code>, not here.</p>
+<code>predefined_properties("ssurgo")</code> calls
+<code><a href="../reference/build_ssurgo_property_lookup.html">build_ssurgo_property_lookup()</a></code>, which actually lives in
+<code>R/adapter-ssurgo-acquire.R</code>, not here.</p>
 </div>
 <div class="section level2">
 <h2 id="core-functions">Core Functions<a class="anchor" aria-label="anchor" href="#core-functions"></a>
@@ -410,15 +410,15 @@ guidance to <code>errors</code>/<code>warnings</code>. Not called by
 <code><a href="../reference/validate_wkt_geometry.html">validate_wkt_geometry()</a></code> or elsewhere in the package.</p>
 </div>
 <div class="section level5">
-<h5 id="validate_geometry_validitygeom-strict_mode-true-validate_geometry_areageom-area_limits-context-general-validate_geometry_complexitygeom-complexity_limits-validate_coordinate_boundsgeom-bounds_check-context-general-validate_geographic_contextgeom-strict_mode-true-validate_projected_contextgeom-crs-strict_mode-true-get_validation_defaultscontext-crs-calculate_complexity_scoren_vertices-n_parts-geometry_type">
+<h5 id="validate_geometry_validitygeom-strict_mode-true-validate_geometry_areageom-area_limits-context-general-validate_geometry_complexitygeom-complexity_limits-validate_coordinate_boundsgeom-bounds_check-context-general-validate_geographic_contextgeom-strict_mode-true-validate_projected_contextgeom-crs-strict_mode-true-default_diagnostics_configcontext-crs-compute_complexity_scoren_vertices-n_parts-geometry_type">
 <code>validate_geometry_validity(geom, strict_mode = TRUE)</code>,
 <code>validate_geometry_area(geom, area_limits, context = "general")</code>,
 <code>validate_geometry_complexity(geom, complexity_limits)</code>,
 <code>validate_coordinate_bounds(geom, bounds_check, context = "general")</code>,
 <code>validate_geographic_context(geom, strict_mode = TRUE)</code>,
 <code>validate_projected_context(geom, crs, strict_mode = TRUE)</code>,
-<code>get_validation_defaults(context, crs)</code>,
-<code>calculate_complexity_score(n_vertices, n_parts, geometry_type)</code><a class="anchor" aria-label="anchor" href="#validate_geometry_validitygeom-strict_mode-true-validate_geometry_areageom-area_limits-context-general-validate_geometry_complexitygeom-complexity_limits-validate_coordinate_boundsgeom-bounds_check-context-general-validate_geographic_contextgeom-strict_mode-true-validate_projected_contextgeom-crs-strict_mode-true-get_validation_defaultscontext-crs-calculate_complexity_scoren_vertices-n_parts-geometry_type"></a>
+<code>default_diagnostics_config(context, crs)</code>,
+<code>compute_complexity_score(n_vertices, n_parts, geometry_type)</code><a class="anchor" aria-label="anchor" href="#validate_geometry_validitygeom-strict_mode-true-validate_geometry_areageom-area_limits-context-general-validate_geometry_complexitygeom-complexity_limits-validate_coordinate_boundsgeom-bounds_check-context-general-validate_geographic_contextgeom-strict_mode-true-validate_projected_contextgeom-crs-strict_mode-true-default_diagnostics_configcontext-crs-compute_complexity_scoren_vertices-n_parts-geometry_type"></a>
 </h5>
 <p><strong>Purpose</strong>: A granular, single-responsibility family of
 geometry checks that together duplicate (with somewhat more nuance) what
@@ -437,7 +437,7 @@ and compares against <code>area_limits$min</code>/<code>max</code>, each
 independently escalatable to an error via
 <code>area_limits$min_action</code>/<code>max_action == "error"</code>.
 <code><a href="../reference/validate_geometry_complexity.html">validate_geometry_complexity()</a></code> computes vertex/part counts
-and calls <code><a href="../reference/calculate_complexity_score.html">calculate_complexity_score()</a></code>, warning (never
+and calls <code><a href="../reference/compute_complexity_score.html">compute_complexity_score()</a></code>, warning (never
 erroring) if either exceeds
 <code>complexity_limits$max_vertices</code>/<code>max_parts</code>.
 <code><a href="../reference/validate_coordinate_bounds.html">validate_coordinate_bounds()</a></code> checks the bbox against
@@ -451,12 +451,12 @@ the bbox collapses to a single point.
 <code><a href="../reference/validate_projected_context.html">validate_projected_context()</a></code> warns if a “projected”
 geometry is actually lon/lat, or if coordinate magnitudes exceed
 <code>1e8</code> (possible wrong-CRS indicator).
-<code><a href="../reference/get_validation_defaults.html">get_validation_defaults()</a></code> returns a
+<code><a href="../reference/default_diagnostics_config.html">default_diagnostics_config()</a></code> returns a
 <code><a href="https://rdrr.io/r/base/switch.html" class="external-link">switch()</a></code>-selected bundle of
 <code>area_limits</code>/<code>complexity_limits</code>/<code>bounds_check</code>
 for <code>"geographic"</code>, <code>"projected"</code>,
 <code>"custom"</code>, or a final fallback context.
-<code><a href="../reference/calculate_complexity_score.html">calculate_complexity_score()</a></code> is a
+<code><a href="../reference/compute_complexity_score.html">compute_complexity_score()</a></code> is a
 <code>log10(vertices) + log10(parts)</code>, scaled by a
 <code>geometry_type</code>-keyed multiplier (<code>POINT</code> 1.0 up
 to <code>GEOMETRYCOLLECTION</code> 2.5), rounded to 2 decimals - it is
@@ -483,9 +483,9 @@ synonym matching.</p>
 <code>invalid_property_names</code>).</p>
 <p><strong>Algorithm/behavior</strong>: Rejects non-character/empty
 <code>properties</code> immediately. Resolves the available-property set
-via <code>get_available_properties(property_lookup)</code>; if that
-returns zero properties, validation is skipped entirely (a warning is
-recorded, not an error). Otherwise computes
+via <code>available_properties(property_lookup)</code>; if that returns
+zero properties, validation is skipped entirely (a warning is recorded,
+not an error). Otherwise computes
 <code>valid_props &lt;- intersect(properties, available_props)</code>
 and <code>invalid_props &lt;- setdiff(...)</code>; if
 <code>strict_mode</code> and the invalid fraction exceeds
@@ -493,21 +493,20 @@ and <code>invalid_props &lt;- setdiff(...)</code>; if
 Separately warns if the <em>valid</em> property count exceeds
 <code>performance_threshold</code>, and fails if there are zero valid
 properties regardless of <code>strict_mode</code>. This is the function
-actually called elsewhere in the package
-(<code>multivariate-adjustment.R</code>,
-<code>validation-diagnostics.R</code>) - always with
+actually called elsewhere in the package (<code>core-gp.R</code>,
+<code>diagnostics.R</code>) - always with
 <code>property_lookup = "laboratory"</code> in current call sites.</p>
 </div>
 <div class="section level5">
-<h5 id="get_available_propertiesproperty_lookup">
-<code>get_available_properties(property_lookup)</code><a class="anchor" aria-label="anchor" href="#get_available_propertiesproperty_lookup"></a>
+<h5 id="available_propertiesproperty_lookup">
+<code>available_properties(property_lookup)</code><a class="anchor" aria-label="anchor" href="#available_propertiesproperty_lookup"></a>
 </h5>
 <p><strong>Purpose</strong>: Normalizes four different kinds of
 <code>property_lookup</code> input into a plain character vector of
 available property names.</p>
 <p><strong>Algorithm/behavior</strong>: Dispatches on the type of
 <code>property_lookup</code>: a length-1 character string is treated as
-a named source and passed to <code><a href="../reference/get_predefined_properties.html">get_predefined_properties()</a></code>; a
+a named source and passed to <code><a href="../reference/predefined_properties.html">predefined_properties()</a></code>; a
 function is called and its result coerced via
 <code><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character()</a></code>; a longer character vector is returned
 as-is; a data frame is passed to
@@ -517,8 +516,8 @@ wrapped in a <code>tryCatch</code> that degrades to
 <code>character(0)</code> with a warning on any error.</p>
 </div>
 <div class="section level5">
-<h5 id="get_predefined_propertiessource_name">
-<code>get_predefined_properties(source_name)</code><a class="anchor" aria-label="anchor" href="#get_predefined_propertiessource_name"></a>
+<h5 id="predefined_propertiessource_name">
+<code>predefined_properties(source_name)</code><a class="anchor" aria-label="anchor" href="#predefined_propertiessource_name"></a>
 </h5>
 <p><strong>Purpose</strong>: Named canned property lists for
 <code>"ssurgo"</code>, <code>"nrcs"</code>, <code>"laboratory"</code>,
@@ -526,14 +525,14 @@ and <code>"basic"</code> sources.</p>
 <p><strong>Algorithm/behavior</strong>: <code>"nrcs"</code>,
 <code>"laboratory"</code>, and <code>"basic"</code> return small
 hard-coded character vectors. <code>"ssurgo"</code> is different in
-kind: it calls <code><a href="../reference/create_ssurgo_property_lookup_working.html">create_ssurgo_property_lookup_working()</a></code> - a
-function defined not in <code>utils.R</code> but in
-<code>R/ssurgo-acquisition.R</code> - inside a <code>tryCatch</code>,
-and extracts its <code>$Property</code> column if present. This is the
-one place <code>utils.R</code> reaches outside its own file for a live
-function call (see Known Limitations); the call is defensively guarded,
-so if <code>ssurgo-acquisition.R</code>’s function isn’t
-loaded/available the branch just logs a WARN and returns
+kind: it calls <code><a href="../reference/build_ssurgo_property_lookup.html">build_ssurgo_property_lookup()</a></code> - a function
+defined not in <code>utils.R</code> but in
+<code>R/adapter-ssurgo-acquire.R</code> - inside a
+<code>tryCatch</code>, and extracts its <code>$Property</code> column if
+present. This is the one place <code>utils.R</code> reaches outside its
+own file for a live function call (see Known Limitations); the call is
+defensively guarded, so if <code>adapter-ssurgo-acquire.R</code>’s
+function isn’t loaded/available the branch just logs a WARN and returns
 <code>character(0)</code> rather than erroring. Unrecognized
 <code>source_name</code> also logs a WARN and returns
 <code>character(0)</code>.</p>
@@ -584,12 +583,12 @@ invalid count instead produces a warning listing the invalid names. A
 separate warning fires if
 <code>total_properties &gt; performance_threshold</code>. Because the
 synonym table here is separate from (and structured oppositely to)
-<code><a href="../reference/get_default_synonyms.html">get_default_synonyms()</a></code>’s table, the two can drift
+<code><a href="../reference/default_property_synonyms.html">default_property_synonyms()</a></code>’s table, the two can drift
 independently.</p>
 </div>
 <div class="section level5">
-<h5 id="get_default_synonymsproperty_lookup">
-<code>get_default_synonyms(property_lookup)</code><a class="anchor" aria-label="anchor" href="#get_default_synonymsproperty_lookup"></a>
+<h5 id="default_property_synonymsproperty_lookup">
+<code>default_property_synonyms(property_lookup)</code><a class="anchor" aria-label="anchor" href="#default_property_synonymsproperty_lookup"></a>
 </h5>
 <p><strong>Purpose</strong>: Returns a named-list synonym table
 (canonical name -&gt; vector of synonyms) for <code>"ssurgo"</code>,
@@ -624,8 +623,8 @@ otherwise. <code>strict_mode</code> is passed by name, since
 <h3 id="configuration-management">Configuration Management<a class="anchor" aria-label="anchor" href="#configuration-management"></a>
 </h3>
 <div class="section level4">
-<h4 id="get_default_configurationconfig_type-full">
-<code>get_default_configuration(config_type = "full")</code><a class="anchor" aria-label="anchor" href="#get_default_configurationconfig_type-full"></a>
+<h4 id="default_configconfig_type-full">
+<code>default_config(config_type = "full")</code><a class="anchor" aria-label="anchor" href="#default_configconfig_type-full"></a>
 </h4>
 <p><strong>Purpose</strong>: Returns the package-wide baseline
 configuration.</p>
@@ -665,20 +664,20 @@ configuration.</p>
 from disk, merges it over the package defaults, and optionally validates
 it.</p>
 <p><strong>Algorithm/behavior</strong>: If <code>config_path</code>
-doesn’t exist, logs a WARN and returns
-<code><a href="../reference/get_default_configuration.html">get_default_configuration()</a></code> untouched (no error). Otherwise
-auto-detects <code>config_type</code> from the file extension
-(<code>json</code>/<code>r</code>, defaulting to <code>json</code> for
-anything unrecognized) unless explicitly given. Loads via
+doesn’t exist, logs a WARN and returns <code><a href="../reference/default_config.html">default_config()</a></code>
+untouched (no error). Otherwise auto-detects <code>config_type</code>
+from the file extension (<code>json</code>/<code>r</code>, defaulting to
+<code>json</code> for anything unrecognized) unless explicitly given.
+Loads via
 <code>jsonlite::fromJSON(config_path, simplifyVector = FALSE)</code> for
 JSON, or <code>source(config_path)$value</code> for R (i.e. an R script
 whose last top-level expression is treated as the config’s
 <code>value</code>); any other <code>config_type</code> is a hard
 <code><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop()</a></code>. The loaded config is deep-merged onto
-<code><a href="../reference/get_default_configuration.html">get_default_configuration()</a></code> via
-<code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>. If <code>validate_config</code>,
-runs the internal (unexported) <code>validate_configuration()</code> and
-logs a WARN (not an error) listing any validation errors.</p>
+<code><a href="../reference/default_config.html">default_config()</a></code> via <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>.
+If <code>validate_config</code>, runs the internal (unexported)
+<code>validate_configuration()</code> and logs a WARN (not an error)
+listing any validation errors.</p>
 </div>
 <div class="section level4">
 <h4 id="merge_configurationsdefault_config-user_config-deep_merge-true">
@@ -1003,8 +1002,8 @@ computes <code>cor(x_clean, y_clean, method)</code> inside a
 error.</p>
 </div>
 <div class="section level4">
-<h4 id="calculate_confidence_intervalsdata-statistic-mean-confidence_level-0-95-method-normal-n_bootstrap-1000">
-<code>calculate_confidence_intervals(data, statistic = "mean", confidence_level = 0.95, method = "normal", n_bootstrap = 1000)</code><a class="anchor" aria-label="anchor" href="#calculate_confidence_intervalsdata-statistic-mean-confidence_level-0-95-method-normal-n_bootstrap-1000"></a>
+<h4 id="compute_confidence_intervalsdata-statistic-mean-confidence_level-0-95-method-normal-n_bootstrap-1000">
+<code>compute_confidence_intervals(data, statistic = "mean", confidence_level = 0.95, method = "normal", n_bootstrap = 1000)</code><a class="anchor" aria-label="anchor" href="#compute_confidence_intervalsdata-statistic-mean-confidence_level-0-95-method-normal-n_bootstrap-1000"></a>
 </h4>
 <p><strong>Purpose</strong>: Confidence interval computation for a mean,
 median, or proportion, by normal-approximation, t-distribution, or
@@ -1151,10 +1150,10 @@ below for brevity since nearly every function calls it):</p>
 │   └── cleanup_old_backups()               (internal helper)
 │
 ├── load_configuration()
-│   ├── get_default_configuration()
+│   ├── default_config()
 │   ├── merge_configurations()
 │   └── validate_configuration()            (internal, unexported)
-├── get_default_configuration()             [no internal calls]
+├── default_config()             [no internal calls]
 ├── merge_configurations()                  [no internal calls; self-contained recursive helper]
 ├── validate_parameters()                   [no internal calls]
 ├── export_workflow_metadata()
@@ -1165,7 +1164,7 @@ below for brevity since nearly every function calls it):</p>
 │   └── extract_data_summary()              (internal helper)
 │
 ├── safe_correlation()                      [no internal calls]
-├── calculate_confidence_intervals()        [no internal calls]
+├── compute_confidence_intervals()        [no internal calls]
 ├── normalize_values()                      [no internal calls]
 ├── detect_outliers()
 │   └── detect_outliers_iqr() / detect_outliers_zscore() / detect_outliers_modified_zscore()  (internal helpers)
@@ -1177,13 +1176,13 @@ below for brevity since nearly every function calls it):</p>
 ├── track_progress()                        [calls log_message() only]
 │
 ├── validate_properties()
-│   └── get_available_properties()
-│       ├── get_predefined_properties()
-│       │   └── create_ssurgo_property_lookup_working()   *** defined in R/ssurgo-acquisition.R, NOT utils.R ***
+│   └── available_properties()
+│       ├── predefined_properties()
+│       │   └── build_ssurgo_property_lookup()   *** defined in R/adapter-ssurgo-acquire.R, NOT utils.R ***
 │       └── extract_properties_from_dataframe()
 ├── validate_properties_with_synonyms()     [own hard-coded synonym table; does NOT call validate_properties()
-│                                             or get_available_properties()]
-├── get_default_synonyms()                  [no internal calls; separate synonym table from the one above]
+│                                             or available_properties()]
+├── default_property_synonyms()                  [no internal calls; separate synonym table from the one above]
 ├── create_property_lookup()                [closure dispatches to validate_properties() or
 │                                             validate_properties_with_synonyms() at call time]
 │
@@ -1194,9 +1193,9 @@ below for brevity since nearly every function calls it):</p>
 ├── validate_geometry_validity()            [no internal calls; unused elsewhere]
 ├── validate_geometry_area()                [no internal calls; unused elsewhere]
 ├── validate_geometry_complexity()
-│   └── calculate_complexity_score()        (the only cross-call within this granular geometry family)
+│   └── compute_complexity_score()        (the only cross-call within this granular geometry family)
 ├── validate_coordinate_bounds()            [no internal calls; unused elsewhere]
-├── get_validation_defaults()               [no internal calls; unused elsewhere]
+├── default_diagnostics_config()               [no internal calls; unused elsewhere]
 ├── validate_geographic_context()           [no internal calls; unused elsewhere]
 └── validate_projected_context()            [no internal calls; unused elsewhere]</code></pre>
 </div>
@@ -1260,11 +1259,11 @@ reading Excel files errors with a clear message if absent.</li>
 </h3>
 <p><code>utils.R</code> sources nothing else in the package and is
 intended as a pure leaf module - with one verified exception:
-<code>get_predefined_properties("ssurgo")</code> calls
-<code><a href="../reference/create_ssurgo_property_lookup_working.html">create_ssurgo_property_lookup_working()</a></code>, which is defined
-in <code>R/ssurgo-acquisition.R</code>. This call is defensively wrapped
-in <code><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch()</a></code> (degrading to a <code>WARN</code> + empty
-vector if unavailable), so it does not create a hard circular
+<code>predefined_properties("ssurgo")</code> calls
+<code><a href="../reference/build_ssurgo_property_lookup.html">build_ssurgo_property_lookup()</a></code>, which is defined in
+<code>R/adapter-ssurgo-acquire.R</code>. This call is defensively
+wrapped in <code><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch()</a></code> (degrading to a <code>WARN</code> +
+empty vector if unavailable), so it does not create a hard circular
 <em>load-order</em> dependency, but it does mean <code>utils.R</code> is
 not a fully self-contained leaf at the call-graph level. See Known
 Limitations.</p>
@@ -1276,86 +1275,85 @@ grep)<a class="anchor" aria-label="anchor" href="#consumers-functions-from-this-
 <ul>
 <li>
 <strong><code><a href="../reference/is_unsuitable.html">is_unsuitable()</a></code></strong> - the single most
-widely reused function: <code>R/ssurgo-acquisition.R</code>,
-<code>R/ssurgo-processing.R</code>, <code>R/data-infilling.R</code>
-(three call sites), <code>R/gp-modeling.R</code>,
-<code>R/monte-carlo.R</code>.</li>
+widely reused function: <code>R/adapter-ssurgo-acquire.R</code>,
+<code>R/adapter-ssurgo-process.R</code>,
+<code>R/adapter-ssurgo-infill.R</code> (three call sites),
+<code>R/core-gp.R</code>, <code>R/core-montecarlo.R</code>.</li>
 <li>
 <strong><code><a href="../reference/validate_data_quality.html">validate_data_quality()</a></code></strong> -
-<code>R/ssurgo-acquisition.R</code>, <code>R/ssurgo-processing.R</code>,
-<code>R/gp-modeling.R</code>, <code>R/multivariate-adjustment.R</code>,
-<code>R/statistics.R</code>, <code>R/validation-diagnostics.R</code>
-(multiple call sites).</li>
+<code>R/adapter-ssurgo-acquire.R</code>,
+<code>R/adapter-ssurgo-process.R</code>, <code>R/core-gp.R</code>,
+<code>R/core-gp.R</code>, <code>R/statistics.R</code>,
+<code>R/diagnostics.R</code> (multiple call sites).</li>
 <li>
 <strong><code><a href="../reference/validate_properties_with_synonyms.html">validate_properties_with_synonyms()</a></code></strong> -
-<code>R/ssurgo-acquisition.R</code>, <code>R/monte-carlo.R</code>,
-<code>R/statistics.R</code>, <code>R/data-infilling.R</code>.</li>
+<code>R/adapter-ssurgo-acquire.R</code>,
+<code>R/core-montecarlo.R</code>, <code>R/statistics.R</code>,
+<code>R/adapter-ssurgo-infill.R</code>.</li>
 <li>
 <strong><code><a href="../reference/validate_wkt_geometry.html">validate_wkt_geometry()</a></code></strong> -
-<code>R/ssurgo-acquisition.R</code>.</li>
+<code>R/adapter-ssurgo-acquire.R</code>.</li>
 <li>
 <strong><code><a href="../reference/validate_properties.html">validate_properties()</a></code></strong> (the non-synonym
-variant) - <code>R/multivariate-adjustment.R</code>,
-<code>R/validation-diagnostics.R</code> (all current call sites pass
-<code>"laboratory"</code> as the lookup).</li>
+variant) - <code>R/core-gp.R</code>, <code>R/diagnostics.R</code> (all
+current call sites pass <code>"laboratory"</code> as the lookup).</li>
 <li>
 <strong><code><a href="../reference/validate_numeric_ranges.html">validate_numeric_ranges()</a></code></strong> -
-<code>R/ssurgo-processing.R</code>,
-<code>R/validation-diagnostics.R</code>.</li>
+<code>R/adapter-ssurgo-process.R</code>,
+<code>R/diagnostics.R</code>.</li>
 <li>
 <strong><code><a href="../reference/standardize_property_names.html">standardize_property_names()</a></code></strong> -
-<code>R/gp-modeling.R</code>, <code>R/ssurgo-processing.R</code> (two
+<code>R/core-gp.R</code>, <code>R/adapter-ssurgo-process.R</code> (two
 call sites).</li>
 <li>
 <strong><code><a href="../reference/safe_coalesce.html">safe_coalesce()</a></code></strong> -
-<code>R/gp-modeling.R</code>.</li>
+<code>R/core-gp.R</code>.</li>
 <li>
 <strong><code><a href="../reference/handle_missing_values.html">handle_missing_values()</a></code></strong> -
 <code>R/statistics.R</code>.</li>
 <li>
 <strong><code><a href="../reference/detect_outliers.html">detect_outliers()</a></code></strong> -
-<code>R/monte-carlo.R</code> (two call sites),
+<code>R/core-montecarlo.R</code> (two call sites),
 <code>R/statistics.R</code> (two call sites),
-<code>R/ssurgo-processing.R</code>,
-<code>R/validation-diagnostics.R</code> (three call sites).</li>
+<code>R/adapter-ssurgo-process.R</code>, <code>R/diagnostics.R</code>
+(three call sites).</li>
 <li>
 <strong><code><a href="../reference/safe_correlation.html">safe_correlation()</a></code></strong> -
 <code>R/statistics.R</code> (multiple call sites),
-<code>R/validation-diagnostics.R</code> (three call sites).</li>
+<code>R/diagnostics.R</code> (three call sites).</li>
 <li>
-<strong><code><a href="../reference/calculate_confidence_intervals.html">calculate_confidence_intervals()</a></code></strong> -
+<strong><code><a href="../reference/compute_confidence_intervals.html">compute_confidence_intervals()</a></code></strong> -
 <code>R/statistics.R</code>.</li>
 <li>
-<strong><code><a href="../reference/get_default_configuration.html">get_default_configuration()</a></code></strong> -
-<code>R/gp-modeling.R</code>, <code>R/multivariate-adjustment.R</code>
-(multiple call sites), <code>R/ssurgo-acquisition.R</code> (two call
-sites), <code>R/statistics.R</code>,
-<code>R/validation-diagnostics.R</code> (multiple call sites),
-<code>R/monte-carlo.R</code>.</li>
+<strong><code><a href="../reference/default_config.html">default_config()</a></code></strong> -
+<code>R/core-gp.R</code>, <code>R/core-gp.R</code> (multiple call
+sites), <code>R/adapter-ssurgo-acquire.R</code> (two call sites),
+<code>R/statistics.R</code>, <code>R/diagnostics.R</code> (multiple call
+sites), <code>R/core-montecarlo.R</code>.</li>
 <li>
 <strong><code><a href="../reference/merge_configurations.html">merge_configurations()</a></code></strong> -
-<code>R/monte-carlo.R</code> (two call sites, one inside its own
+<code>R/core-montecarlo.R</code> (two call sites, one inside its own
 roxygen-documented helper), <code>R/statistics.R</code> (two call
-sites), <code>R/ssurgo-processing.R</code>.</li>
+sites), <code>R/adapter-ssurgo-process.R</code>.</li>
 <li>
 <strong><code><a href="../reference/load_configuration.html">load_configuration()</a></code></strong> -
-<code>R/ssurgo-acquisition.R</code>.</li>
+<code>R/adapter-ssurgo-acquire.R</code>.</li>
 <li>
 <strong><code><a href="../reference/setup_logging.html">setup_logging()</a></code></strong> -
-<code>R/monte-carlo.R</code>, <code>R/statistics.R</code>,
-<code>R/ssurgo-acquisition.R</code>.</li>
+<code>R/core-montecarlo.R</code>, <code>R/statistics.R</code>,
+<code>R/adapter-ssurgo-acquire.R</code>.</li>
 <li>
 <strong><code><a href="../reference/handle_workflow_error.html">handle_workflow_error()</a></code></strong> - used
 pervasively as the <code>error =</code> handler inside
-<code><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch()</a></code> throughout <code>R/gp-modeling.R</code>,
-<code>R/multivariate-adjustment.R</code>, <code>R/monte-carlo.R</code>,
-<code>R/ssurgo-acquisition.R</code>,
-<code>R/validation-diagnostics.R</code>.</li>
+<code><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch()</a></code> throughout <code>R/core-gp.R</code>,
+<code>R/core-gp.R</code>, <code>R/core-montecarlo.R</code>,
+<code>R/adapter-ssurgo-acquire.R</code>,
+<code>R/diagnostics.R</code>.</li>
 <li>
 <strong><code><a href="../reference/track_progress.html">track_progress()</a></code></strong> -
-<code>R/multivariate-adjustment.R</code> (two call sites),
-<code>R/monte-carlo.R</code>, <code>R/validation-diagnostics.R</code>
-(multiple call sites).</li>
+<code>R/core-gp.R</code> (two call sites),
+<code>R/core-montecarlo.R</code>, <code>R/diagnostics.R</code> (multiple
+call sites).</li>
 </ul>
 <p>Functions defined in this file but <strong>not currently called from
 any other file in the package</strong> (confirmed by source grep):
@@ -1367,11 +1365,11 @@ any other file in the package</strong> (confirmed by source grep):
 <code><a href="../reference/validate_geometry_area.html">validate_geometry_area()</a></code>,
 <code><a href="../reference/validate_geometry_complexity.html">validate_geometry_complexity()</a></code>,
 <code><a href="../reference/validate_coordinate_bounds.html">validate_coordinate_bounds()</a></code>,
-<code><a href="../reference/get_validation_defaults.html">get_validation_defaults()</a></code>,
+<code><a href="../reference/default_diagnostics_config.html">default_diagnostics_config()</a></code>,
 <code><a href="../reference/validate_geographic_context.html">validate_geographic_context()</a></code>,
 <code><a href="../reference/validate_projected_context.html">validate_projected_context()</a></code>,
-<code><a href="../reference/get_default_synonyms.html">get_default_synonyms()</a></code>,
-<code><a href="../reference/get_available_properties.html">get_available_properties()</a></code>/<code><a href="../reference/get_predefined_properties.html">get_predefined_properties()</a></code>/<code><a href="../reference/extract_properties_from_dataframe.html">extract_properties_from_dataframe()</a></code>/<code><a href="../reference/create_property_lookup.html">create_property_lookup()</a></code>
+<code><a href="../reference/default_property_synonyms.html">default_property_synonyms()</a></code>,
+<code><a href="../reference/available_properties.html">available_properties()</a></code>/<code><a href="../reference/predefined_properties.html">predefined_properties()</a></code>/<code><a href="../reference/extract_properties_from_dataframe.html">extract_properties_from_dataframe()</a></code>/<code><a href="../reference/create_property_lookup.html">create_property_lookup()</a></code>
 (these four are called only from within <code>utils.R</code> itself, via
 <code><a href="../reference/validate_properties.html">validate_properties()</a></code>).</p>
 </div>
@@ -1406,11 +1404,11 @@ frames</strong> (<code><a href="../reference/handle_missing_values.html">handle_
 (<code><a href="../reference/normalize_values.html">normalize_values()</a></code>, <code><a href="../reference/convert_depth_units.html">convert_depth_units()</a></code>,
 <code><a href="../reference/safe_coalesce.html">safe_coalesce()</a></code>, <code><a href="../reference/safe_correlation.html">safe_correlation()</a></code>). -
 <strong>Small structured lists</strong> for statistics
-(<code><a href="../reference/calculate_confidence_intervals.html">calculate_confidence_intervals()</a></code>) and configuration
-(<code><a href="../reference/get_default_configuration.html">get_default_configuration()</a></code>,
-<code><a href="../reference/load_configuration.html">load_configuration()</a></code>, <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>).
-- <strong>Side effects only</strong> (<code><a href="../reference/setup_logging.html">setup_logging()</a></code>,
-<code><a href="../reference/log_message.html">log_message()</a></code>, <code><a href="../reference/track_progress.html">track_progress()</a></code> write to
+(<code><a href="../reference/compute_confidence_intervals.html">compute_confidence_intervals()</a></code>) and configuration
+(<code><a href="../reference/default_config.html">default_config()</a></code>, <code><a href="../reference/load_configuration.html">load_configuration()</a></code>,
+<code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>). - <strong>Side effects
+only</strong> (<code><a href="../reference/setup_logging.html">setup_logging()</a></code>, <code><a href="../reference/log_message.html">log_message()</a></code>,
+<code><a href="../reference/track_progress.html">track_progress()</a></code> write to
 console/file/<code><a href="https://rdrr.io/r/base/options.html" class="external-link">options()</a></code> and return <code><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible()</a></code>
 or the config list itself;
 <code><a href="../reference/write_soil_data.html">write_soil_data()</a></code>/<code><a href="../reference/backup_data.html">backup_data()</a></code>/<code><a href="../reference/export_workflow_metadata.html">export_workflow_metadata()</a></code>
@@ -1421,10 +1419,10 @@ write to disk and return a path or a success boolean).</p>
 </h2>
 <ul>
 <li>
-<strong><code>get_predefined_properties("ssurgo")</code> breaks the
+<strong><code>predefined_properties("ssurgo")</code> breaks the
 leaf-module property</strong>: it calls
-<code><a href="../reference/create_ssurgo_property_lookup_working.html">create_ssurgo_property_lookup_working()</a></code>, which is defined
-in <code>R/ssurgo-acquisition.R</code>, not <code>utils.R</code>. The
+<code><a href="../reference/build_ssurgo_property_lookup.html">build_ssurgo_property_lookup()</a></code>, which is defined in
+<code>R/adapter-ssurgo-acquire.R</code>, not <code>utils.R</code>. The
 call is <code>tryCatch</code>-guarded (degrades to <code>WARN</code> +
 <code>character(0)</code> if unavailable), so it is not a hard failure,
 but it means <code>utils.R</code> is not a fully self-contained leaf at
@@ -1433,14 +1431,14 @@ package.</li>
 <li>
 <strong>Two independent, non-communicating WKT validation code
 paths</strong>: <code><a href="../reference/validate_wkt_geometry.html">validate_wkt_geometry()</a></code> (the one actually
-wired into <code>R/ssurgo-acquisition.R</code>) inlines all of its own
-parsing/bbox/area/bounds logic and does not call
+wired into <code>R/adapter-ssurgo-acquire.R</code>) inlines all of its
+own parsing/bbox/area/bounds logic and does not call
 <code><a href="../reference/parse_wkt_geometry.html">parse_wkt_geometry()</a></code>,
 <code><a href="../reference/validate_geometry_validity.html">validate_geometry_validity()</a></code>,
 <code><a href="../reference/validate_geometry_area.html">validate_geometry_area()</a></code>,
 <code><a href="../reference/validate_geometry_complexity.html">validate_geometry_complexity()</a></code>,
 <code><a href="../reference/validate_coordinate_bounds.html">validate_coordinate_bounds()</a></code>,
-<code><a href="../reference/get_validation_defaults.html">get_validation_defaults()</a></code>,
+<code><a href="../reference/default_diagnostics_config.html">default_diagnostics_config()</a></code>,
 <code><a href="../reference/validate_geographic_context.html">validate_geographic_context()</a></code>, or
 <code><a href="../reference/validate_projected_context.html">validate_projected_context()</a></code> - all nine of which are
 exported but otherwise dead code (unused anywhere in the package).
@@ -1451,7 +1449,7 @@ checker, also unused elsewhere.</li>
 drift</strong>: <code><a href="../reference/validate_properties_with_synonyms.html">validate_properties_with_synonyms()</a></code>
 hard-codes its own ~13-entry SSURGO synonym table inline, structurally
 unrelated to (and not sharing data with)
-<code>get_default_synonyms("ssurgo")</code>’s separate table or
+<code>default_property_synonyms("ssurgo")</code>’s separate table or
 <code>get_default_property_mapping("ssurgo")</code>’s (used by
 <code><a href="../reference/standardize_property_names.html">standardize_property_names()</a></code>). All three tables encode
 overlapping but independently-maintained SSURGO name/synonym
@@ -1472,12 +1470,11 @@ final <code>validation_passed</code> check, but falls back to a literal
 no thresholds at all) is <code>0.8</code> - the two default values are
 inconsistent with each other.</li>
 <li>
-<strong><code><a href="../reference/calculate_confidence_intervals.html">calculate_confidence_intervals()</a></code>’s
-missing-value log message always reports zero removed</strong>: the
-“removed N missing values” count is computed from <code>data</code>
-<em>after</em> it has already had its <code>NA</code>s stripped, so the
-logged count is always <code>0</code> regardless of how many values were
-actually dropped.</li>
+<strong><code><a href="../reference/compute_confidence_intervals.html">compute_confidence_intervals()</a></code>’s missing-value
+log message always reports zero removed</strong>: the “removed N missing
+values” count is computed from <code>data</code> <em>after</em> it has
+already had its <code>NA</code>s stripped, so the logged count is always
+<code>0</code> regardless of how many values were actually dropped.</li>
 <li>
 <strong><code><a href="../reference/export_workflow_metadata.html">export_workflow_metadata()</a></code> and
 <code><a href="../reference/check_required_columns.html">check_required_columns()</a></code> are unused elsewhere</strong> in

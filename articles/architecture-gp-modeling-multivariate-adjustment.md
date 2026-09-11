@@ -2,20 +2,19 @@
 
 ## Overview
 
-This functional area covers two tightly coupled files. `gp-modeling.R`
+This functional area covers two tightly coupled files. `core-gp.R`
 prepares NRCS/SSURGO component-horizon data and fits Gaussian Process
 (GP) models of how each soil property trends with depth, stratified by
 soil group (series, taxonomic class, particle-size class, etc., with
 hierarchical fallback to coarser groupings when a stratum is too
-sparse). `multivariate-adjustment.R` takes the output of Monte Carlo
-simulation (see the Monte Carlo simulation engine module) across an
-entire dataset and integrates it with these fitted GP depth trends,
-adding realistic vertical (depth-to-depth) correlation on top of the GP
-mean trend while preserving the *within-depth* correlation structure
-between properties (e.g. clay vs. bulk density vs. pH). The result is a
-GP-depth-adjusted, correlation-preserving set of property realizations
-per component (cokey), ready for downstream statistical summarization
-and validation.
+sparse). `core-gp.R` takes the output of Monte Carlo simulation (see the
+Monte Carlo simulation engine module) across an entire dataset and
+integrates it with these fitted GP depth trends, adding realistic
+vertical (depth-to-depth) correlation on top of the GP mean trend while
+preserving the *within-depth* correlation structure between properties
+(e.g. clay vs. bulk density vs. pH). The result is a GP-depth-adjusted,
+correlation-preserving set of property realizations per component
+(cokey), ready for downstream statistical summarization and validation.
 
 Two vertical-correlation methods are available, selected via
 `config$monte_carlo$vertical_correlation_method`:
@@ -46,7 +45,7 @@ Two vertical-correlation methods are available, selected via
 
 ## Core Functions
 
-### gp-modeling.R
+### core-gp.R
 
 #### `prepare_nrcs_training_data()`
 
@@ -65,7 +64,7 @@ prepare_nrcs_training_data(
 
 **Purpose**: Turn raw combined NRCS component/horizon data into a
 cleaned, grouped training set ready for
-[`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md).
+[`fit_depth_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_depth_gp_models.md).
 **Parameters**:
 
 - `nrcs_combined_data` - combined NRCS data with horizon and component
@@ -82,11 +81,11 @@ cleaned, grouped training set ready for
   auto-selector wants to find before accepting a strategy.
 - `max_depth` - horizons with `hzdepb_r` beyond this (cm) are dropped.
 - `validation_config` - quality-threshold config; defaults to
-  `get_default_configuration("validation")`. **Returns**: A data frame
-  with standardized property columns (`clay_pct`, `sand_pct`,
-  `silt_pct`, `pH`, `organic_matter`, `bulk_density`, `cec`, `awc`), a
-  `soil_group` column, `depth_midpoint`, and only rows belonging to
-  groups meeting `min_observations_per_group`. **Algorithm**: Runs
+  `default_config("validation")`. **Returns**: A data frame with
+  standardized property columns (`clay_pct`, `sand_pct`, `silt_pct`,
+  `pH`, `organic_matter`, `bulk_density`, `cec`, `awc`), a `soil_group`
+  column, `depth_midpoint`, and only rows belonging to groups meeting
+  `min_observations_per_group`. **Algorithm**: Runs
   [`validate_data_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_data_quality.md),
   standardizes property names via
   [`standardize_property_names()`](https://jjmaynard.github.io/soilSIM/reference/standardize_property_names.md),
@@ -149,11 +148,11 @@ meeting all three adequacy criteria, and for each requested property
 computes per-group non-NA coverage rate among adequate groups, emitting
 a recommendation when overall coverage falls below 30%.
 
-#### `build_stratified_gp_models()` - Master Function
+#### `fit_depth_gp_models()` - Master Function
 
 ``` r
 
-build_stratified_gp_models(
+fit_depth_gp_models(
   processed_nrcs_data,
   properties = c("clay_pct", "sand_pct", "pH", "organic_matter"),
   min_profiles_per_group = 3,
@@ -209,11 +208,11 @@ predictions can rescale new depths later), fits the GP via
 (optionally via the CV wrapper), and computes diagnostics with
 `calculate_model_diagnostics()`.
 
-#### `adjust_multivariate_depthwise_GP()`
+#### `adjust_simulation_depthwise()`
 
 ``` r
 
-adjust_multivariate_depthwise_GP(simulated_list, gp_models, depths, primary_property = NULL)
+adjust_simulation_depthwise(simulated_list, gp_models, depths, primary_property = NULL)
 ```
 
 **Purpose**: A multivariate correlation-preserving adjustment routine
@@ -242,7 +241,7 @@ and re-maps the nudged values back onto the current property’s original
 ECDF to keep its marginal distribution shape intact. Logs a post-hoc
 check of maximum correlation-matrix difference (original vs. adjusted)
 at the first five depths, warning if it exceeds 0.1. This is the
-array-based sibling of `multivariate-adjustment.R`’s
+array-based sibling of `core-gp.R`’s
 [`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md),
 which operates on the same algorithm but is invoked from the long-format
 integration pipeline.
@@ -257,7 +256,7 @@ validate_correlation_preservation(original_list, adjusted_list, depths)
 **Purpose**: Quantify how much the depth-wise correlation matrix between
 properties changed between `original_list` and `adjusted_list` (the
 matrix-format counterparts used by
-[`adjust_multivariate_depthwise_GP()`](https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.md)).
+[`adjust_simulation_depthwise()`](https://jjmaynard.github.io/soilSIM/reference/adjust_simulation_depthwise.md)).
 **Returns**: A data frame with one row per depth (`depth_idx`,
 `depth_value`, `max_cor_difference`, `mean_cor_difference`, the latter
 averaged over the upper triangle of the correlation-difference matrix).
@@ -415,7 +414,7 @@ to `target_cokey`; picks a single flat correlation matrix via
 (using the cokey’s modal `genhz` group, falling back to
 `txt_correlation_matrices` or to empirically-estimated correlations);
 calls
-[`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)
+[`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md)
 and flattens its `[horizon, property, realization]` array to long format
 via
 [`flatten_simulation_array_to_long()`](https://jjmaynard.github.io/soilSIM/reference/flatten_simulation_array_to_long.md);
@@ -442,7 +441,7 @@ match_soils_to_gp_models(
 ```
 
 **Purpose**: Map every simulated cokey to the GP model group (from
-[`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md))
+[`fit_depth_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_depth_gp_models.md))
 that should be used to adjust its depth trend. **Parameters**:
 `simulated_cokeys` - cokeys needing a mapping; `nrcs_combined_data` -
 source NRCS data carrying taxonomic columns; `gp_models` - fitted models
@@ -491,7 +490,7 @@ validate_gp_models(gp_models, nrcs_data, validation_depths = seq(0, 200, by = 10
 **Purpose**: Diagnostic pass over an entire fitted GP model set,
 checking predictability, trend monotonicity, and realistic value ranges.
 **Parameters**: `gp_models` - output of
-[`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md);
+[`fit_depth_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_depth_gp_models.md);
 `nrcs_data` - original training data (currently unused beyond being
 passed through); `validation_depths` - depths at which to test
 predictions. **Returns**: A list with `model_validation` (per-property,
@@ -531,7 +530,7 @@ frame),
 /
 [`apply_local_gp_adjustments_with_correlations()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments_with_correlations.md)
 (thin wrappers that infer the `properties` argument and delegate to
-`multivariate-adjustment.R`’s
+`core-gp.R`’s
 [`apply_nrcs_trend_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_nrcs_trend_adjustments.md)
 /
 [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md)),
@@ -546,13 +545,13 @@ and `export_gp_models()`/`load_gp_models()` (RDS-based persistence of a
 fitted GP model set, optionally stripping training data to shrink file
 size).
 
-### multivariate-adjustment.R
+### core-gp.R
 
-#### `integrate_monte_carlo_with_gp()` - Master Function
+#### `apply_depth_gp_to_simulation()` - Master Function
 
 ``` r
 
-integrate_monte_carlo_with_gp(
+apply_depth_gp_to_simulation(
   simulation_results,
   gp_models = NULL,
   cokey_mapping = NULL,
@@ -569,10 +568,10 @@ integrate_monte_carlo_with_gp(
 adjustment (NRCS-model-based and/or locally-fit) to every cokey in a
 Monte Carlo simulation result, with validation and rich metadata.
 **Parameters**: `simulation_results` - output of
-[`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)
+[`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md)
 (must have a `simulation_data` element); `gp_models` - fitted NRCS GP
 models from
-[`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md)
+[`fit_depth_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_depth_gp_models.md)
 (optional); `cokey_mapping` - output of
 [`match_soils_to_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/match_soils_to_gp_models.md)
 (optional); `integration_method`
@@ -585,8 +584,8 @@ models from
   `detect_simulation_properties()`; `parallel`/`n_cores` - parallel
   dispatch across cokeys; `config` -
   [Utilities](https://jjmaynard.github.io/soilSIM/articles/architecture-utilities.md)-style
-  config, defaults to `get_default_configuration("full")`. **Returns**:
-  A list: `integrated_data` (final adjusted long-format data frame),
+  config, defaults to `default_config("full")`. **Returns**: A list:
+  `integrated_data` (final adjusted long-format data frame),
   `original_simulation_data`, `integration_metadata` (method, properties
   processed, success rate, processing time, package versions, etc.),
   `validation_results` (from
@@ -674,8 +673,8 @@ preserve_correlation_structure(property_matrices, gp_predictions, depths, primar
 ```
 
 **Purpose**: The original correlation-preserving depth-adjustment
-algorithm (long-format pipeline’s counterpart to `gp-modeling.R`’s
-[`adjust_multivariate_depthwise_GP()`](https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.md)),
+algorithm (long-format pipeline’s counterpart to `core-gp.R`’s
+[`adjust_simulation_depthwise()`](https://jjmaynard.github.io/soilSIM/reference/adjust_simulation_depthwise.md)),
 still fully supported as an explicit `"gp_quantile_retrofit"` opt-out
 from
 [`apply_gp_depth_trends()`](https://jjmaynard.github.io/soilSIM/reference/apply_gp_depth_trends.md)’s
@@ -1007,11 +1006,11 @@ columns so each row’s sum is exactly 100 whenever their sum is \> 0).
 
 **Minor exported/internal helpers** (not separately detailed above):
 `detect_simulation_properties()` (intersects
-`get_predefined_properties("laboratory")` and a hardcoded
+`predefined_properties("laboratory")` and a hardcoded
 simulation-column-name list with the data’s actual columns),
 `process_cokeys_parallel()` / `process_cokeys_sequential()` /
 `process_single_cokey()` (cokey-level dispatch used by
-[`integrate_monte_carlo_with_gp()`](https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.md) -
+[`apply_depth_gp_to_simulation()`](https://jjmaynard.github.io/soilSIM/reference/apply_depth_gp_to_simulation.md) -
 the parallel path uses
 [`parallel::makeCluster()`](https://rdrr.io/r/parallel/makeCluster.html) +
 `clusterEvalQ(cl, library(soilSIM))` on Windows so worker processes have
@@ -1053,7 +1052,7 @@ with no cross-property quantile linkage).
 
 ## Internal Connections
 
-    build_stratified_gp_models() [MASTER, gp-modeling.R]
+    fit_depth_gp_models() [MASTER, core-gp.R]
     ├── apply_hierarchical_grouping()
     │   └── create_test_grouping() [via select_optimal_grouping(), if strategy = "auto"]
     ├── fit_individual_gp_model()  (per property x final_group)
@@ -1077,19 +1076,19 @@ with no cross-property quantile linkage).
 
     match_soils_to_gp_models() [gp-modeling.R]
     └── apply_matching_hierarchy()
-            (consumed downstream by match_simulations_to_nrcs_models() in multivariate-adjustment.R)
+            (consumed downstream by match_simulations_to_nrcs_models() in core-gp.R)
 
     simulate_soil_properties() [gp-modeling.R, single-cokey convenience path]
     ├── select_simulation_correlation_matrix()
-    ├── generate_monte_carlo_realizations()        [Monte Carlo module]
+    ├── simulate_monte_carlo()        [Monte Carlo module]
     ├── flatten_simulation_array_to_long()
     ├── apply_nrcs_gp_adjustments_with_correlations()
-    │   └── apply_nrcs_trend_adjustments()         [-> multivariate-adjustment.R]
+    │   └── apply_nrcs_trend_adjustments()         [-> core-gp.R]
     ├── apply_local_gp_adjustments_with_correlations()
-    │   └── apply_local_gp_adjustments()           [-> multivariate-adjustment.R]
+    │   └── apply_local_gp_adjustments()           [-> core-gp.R]
     └── validate_enhanced_simulations()
 
-    integrate_monte_carlo_with_gp() [MASTER, multivariate-adjustment.R, whole-dataset path]
+    apply_depth_gp_to_simulation() [MASTER, core-gp.R, whole-dataset path]
     ├── detect_simulation_properties()
     ├── process_cokeys_parallel() / process_cokeys_sequential()
     │   └── process_single_cokey()                 (per cokey)
@@ -1097,7 +1096,7 @@ with no cross-property quantile linkage).
     │       ├── apply_nrcs_trend_adjustments()
     │       │   ├── get_nrcs_property_mapping()
     │       │   ├── get_nrcs_gp_predictions()
-    │       │   │   └── predict_gp_depth_trends()  [-> gp-modeling.R]
+    │       │   │   └── predict_gp_depth_trends()  [-> core-gp.R]
     │       │   └── apply_gp_depth_trends()
     │       │       ├── convert_to_property_matrices()
     │       │       ├── preserve_correlation_structure() / apply_individual_adjustments()
@@ -1108,7 +1107,7 @@ with no cross-property quantile linkage).
     │       │       └── merge_adjusted_data()
     │       └── apply_local_gp_adjustments()
     │           ├── fit_local_gp_models() -> fit_local_gp_model_single() -> GPfit::GP_fit()
-    │           ├── generate_local_predictions() -> predict_gp_depth_trends() [-> gp-modeling.R]
+    │           ├── generate_local_predictions() -> predict_gp_depth_trends() [-> core-gp.R]
     │           └── apply_local_depth_trends() -> apply_gp_depth_trends()
     ├── combine_and_validate_results()
     ├── validate_integration_results()
@@ -1127,18 +1126,18 @@ with no cross-property quantile linkage).
     ├── auto grouping strategy selection [select_optimal_grouping()]
     └── property coalescing + soil_group assignment
     ↓
-    build_stratified_gp_models() [gp-modeling.R]
+    fit_depth_gp_models() [gp-modeling.R]
     ├── hierarchical fallback grouping [apply_hierarchical_grouping()]
     └── per-group GP fitting [fit_individual_gp_model() -> GPfit::GP_fit()]
     ↓
     GP Models (by property x soil group) ──────────────┐
                                                          │
     Monte Carlo Simulation Output                       │
-    (generate_monte_carlo_realizations(), separate module)
+    (simulate_monte_carlo(), separate module)
     ↓                                                    │
     match_soils_to_gp_models() [gp-modeling.R] ◄─────────┘
     ↓ (cokey -> gp_model_group mapping)
-    integrate_monte_carlo_with_gp() [multivariate-adjustment.R, MASTER]
+    apply_depth_gp_to_simulation() [multivariate-adjustment.R, MASTER]
     ├── per-cokey NRCS GP adjustment  [apply_nrcs_trend_adjustments()]
     ├── per-cokey local GP adjustment [apply_local_gp_adjustments()]
     │   └── both funnel through apply_gp_depth_trends()
@@ -1159,7 +1158,7 @@ with no cross-property quantile linkage).
 
 ``` r
 
-# preserve_correlation_structure() / adjust_multivariate_depthwise_GP()
+# preserve_correlation_structure() / adjust_simulation_depthwise()
 gp_ratio <- calculate_safe_gp_ratio(gp_means, i)          # clamped to [0.1, 10]
 adjusted_curr <- apply_quantile_adjustment(
   reference_quantiles, curr_values, prev_values, gp_ratio, n_sims
@@ -1178,7 +1177,7 @@ result_data <- apply_nrcs_trend_adjustments(
 )
 ```
 
-### 3. Cross-file delegation (gp-modeling.R wrappers -\> multivariate-adjustment.R)
+### 3. Cross-file delegation (core-gp.R wrappers -\> core-gp.R)
 
 ``` r
 
@@ -1197,7 +1196,7 @@ apply_nrcs_trend_adjustments(
 ``` r
 
 # predict_gp_depth_trends() [gp-modeling.R] - called from get_nrcs_gp_predictions(),
-# generate_local_predictions(), and extract_nrcs_depth_trends() in multivariate-adjustment.R
+# generate_local_predictions(), and extract_nrcs_depth_trends() in core-gp.R
 scaled_depths <- (new_depths - scaling$min) / scaling$range
 predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled_depths))
 ```
@@ -1217,7 +1216,7 @@ predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled
   [`parallel::mclapply()`](https://rdrr.io/r/parallel/mclapply.html)
   elsewhere, used by `process_cokeys_parallel()` for cokey-level
   parallel dispatch in
-  [`integrate_monte_carlo_with_gp()`](https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.md).
+  [`apply_depth_gp_to_simulation()`](https://jjmaynard.github.io/soilSIM/reference/apply_depth_gp_to_simulation.md).
   No `future`/`furrr` usage was found in either file - parallelism is
   base `parallel` only.
 - `dplyr` - pervasive for grouping/summarizing/filtering/joining
@@ -1233,12 +1232,12 @@ predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled
 **soilSIM dependencies (inputs)**:
 
 - Monte Carlo simulation output
-  ([`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md),
+  ([`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md),
   its `simulation_data` array/long-format result) is the primary
   upstream input to both
   [`simulate_soil_properties()`](https://jjmaynard.github.io/soilSIM/reference/simulate_soil_properties.md)
   (single-cokey) and
-  [`integrate_monte_carlo_with_gp()`](https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.md)
+  [`apply_depth_gp_to_simulation()`](https://jjmaynard.github.io/soilSIM/reference/apply_depth_gp_to_simulation.md)
   (whole-dataset).
 - Shared/general utility functions used throughout (validation, logging,
   configuration, error handling) -
@@ -1250,27 +1249,27 @@ predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled
   [`is_unsuitable()`](https://jjmaynard.github.io/soilSIM/reference/is_unsuitable.md),
   [`standardize_property_names()`](https://jjmaynard.github.io/soilSIM/reference/standardize_property_names.md),
   [`safe_coalesce()`](https://jjmaynard.github.io/soilSIM/reference/safe_coalesce.md),
-  [`get_default_configuration()`](https://jjmaynard.github.io/soilSIM/reference/get_default_configuration.md),
-  [`get_predefined_properties()`](https://jjmaynard.github.io/soilSIM/reference/get_predefined_properties.md),
+  [`default_config()`](https://jjmaynard.github.io/soilSIM/reference/default_config.md),
+  [`predefined_properties()`](https://jjmaynard.github.io/soilSIM/reference/predefined_properties.md),
   [`track_progress()`](https://jjmaynard.github.io/soilSIM/reference/track_progress.md),
   `get_package_versions()` - these are not defined in either file and
   are assumed to come from a shared validation/utility module elsewhere
   in the package.
-- No direct call into a `distributions.R`-style
+- No direct call into a `core-distributions.R`-style
   correlation-matrix-generation utility was found in either file;
-  [`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md)/[`adjust_multivariate_depthwise_GP()`](https://jjmaynard.github.io/soilSIM/reference/adjust_multivariate_depthwise_GP.md)
+  [`preserve_correlation_structure()`](https://jjmaynard.github.io/soilSIM/reference/preserve_correlation_structure.md)/[`adjust_simulation_depthwise()`](https://jjmaynard.github.io/soilSIM/reference/adjust_simulation_depthwise.md)
   preserve correlation implicitly via the shared reference-quantile
   mechanism rather than by explicitly re-applying a target correlation
   matrix (e.g. no Cholesky step appears in these two files - that logic
   lives upstream, in the Monte Carlo generation step that
   [`simulate_soil_properties()`](https://jjmaynard.github.io/soilSIM/reference/simulate_soil_properties.md)
   calls into via
-  [`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)).
+  [`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md)).
 
 **Downstream consumers**:
 
 - The `integrated_data`/`validation_results` produced by
-  [`integrate_monte_carlo_with_gp()`](https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.md)
+  [`apply_depth_gp_to_simulation()`](https://jjmaynard.github.io/soilSIM/reference/apply_depth_gp_to_simulation.md)
   feed the Statistics & Diagnostics group (percentile/summary statistics
   computation and the broader validation-diagnostics workflow), which
   consumes the GP-adjusted realizations as its input dataset and the
@@ -1286,13 +1285,13 @@ predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled
 - Monte Carlo realizations (long-format simulation data frame with
   `cokey`, `hzdept_r`, `simulation_number`, and per-property columns; or
   the raw `[horizon, property, realization]` array from
-  [`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md))
+  [`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md))
   -\>
   [`simulate_soil_properties()`](https://jjmaynard.github.io/soilSIM/reference/simulate_soil_properties.md)
   /
-  [`integrate_monte_carlo_with_gp()`](https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.md).
+  [`apply_depth_gp_to_simulation()`](https://jjmaynard.github.io/soilSIM/reference/apply_depth_gp_to_simulation.md).
 - Fitted GP models
-  ([`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md)
+  ([`fit_depth_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_depth_gp_models.md)
   output) and a cokey-to-group mapping
   ([`match_soils_to_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/match_soils_to_gp_models.md)
   output) -\> both integration entry points.
@@ -1304,14 +1303,14 @@ predictions <- GPfit::predict.GP(gp_model_info$gp_model, xnew = as.matrix(scaled
 **Out**:
 
 - A fitted GP model set
-  ([`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md)’s
+  ([`fit_depth_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_depth_gp_models.md)’s
   return value: per-property, per-group models + diagnostics + summary),
   typically persisted via `export_gp_models()`/`load_gp_models()`.
 - GP-depth-adjusted, correlation-preserving realizations per cokey -
   either as a single-cokey long data frame with validation attributes
   ([`simulate_soil_properties()`](https://jjmaynard.github.io/soilSIM/reference/simulate_soil_properties.md))
   or a whole-dataset result list
-  ([`integrate_monte_carlo_with_gp()`](https://jjmaynard.github.io/soilSIM/reference/integrate_monte_carlo_with_gp.md)’s
+  ([`apply_depth_gp_to_simulation()`](https://jjmaynard.github.io/soilSIM/reference/apply_depth_gp_to_simulation.md)’s
   `integrated_data` + `integration_metadata` + `validation_results`),
   ready for percentile/statistical summarization downstream.
 
@@ -1326,7 +1325,7 @@ nrcs_training <- prepare_nrcs_training_data(
   max_depth = 200
 )
 
-gp_models <- build_stratified_gp_models(
+gp_models <- fit_depth_gp_models(
   nrcs_training,
   properties = c("clay_pct", "sand_pct", "pH", "organic_matter"),
   optimize_hyperparameters = TRUE
@@ -1341,7 +1340,7 @@ cokey_mapping <- match_soils_to_gp_models(
 )
 
 # 3. Integrate the Monte Carlo output with the fitted GP models, preserving correlations
-integrated <- integrate_monte_carlo_with_gp(
+integrated <- apply_depth_gp_to_simulation(
   simulation_results = mc_results,
   gp_models = gp_models,
   cokey_mapping = cokey_mapping,

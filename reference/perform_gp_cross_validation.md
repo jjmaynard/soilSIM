@@ -2,8 +2,8 @@
 
 Runs real k-fold cross-validation (reusing the shared
 [`k_fold_gp_cv()`](https://jjmaynard.github.io/soilSIM/reference/k_fold_gp_cv.md)
-helper from `gp-modeling.R`) for each property in `gp_models` against
-the matching column of `training_data`, aggregating mean CV RMSE and an
+helper from `core-gp.R`) for each property in `gp_models` against the
+matching column of `training_data`, aggregating mean CV RMSE and an
 R-squared derived from it.
 
 ## Usage
@@ -17,7 +17,7 @@ perform_gp_cross_validation(gp_models, training_data, criteria)
 - gp_models:
 
   GP models from
-  [`build_stratified_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/build_stratified_gp_models.md).
+  [`fit_depth_gp_models()`](https://jjmaynard.github.io/soilSIM/reference/fit_depth_gp_models.md).
 
 - training_data:
 

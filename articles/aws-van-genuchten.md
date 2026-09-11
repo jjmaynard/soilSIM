@@ -22,7 +22,7 @@ library(ggplot2)
 
 ## Step 1: Real texture/bulk-density input
 
-[`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
+[`compute_aws()`](https://jjmaynard.github.io/soilSIM/reference/compute_aws.md)
 expects ROSETTA’s own input variable names (`sand_total`, `silt_total`,
 `clay_total`, `bulk_density_third_bar`, `water_retention_third_bar`,
 `water_retention_15_bar`) - different from soilSIM’s usual
@@ -50,12 +50,12 @@ rosetta_input[1:6, c("compname", "hzdept_r", "hzdepb_r", "sand_total", "clay_tot
 These are 15 real horizons across 2 real components from the Amador-area
 AOI, each with complete real texture, bulk density, and water-retention
 data
-([`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
+([`compute_aws()`](https://jjmaynard.github.io/soilSIM/reference/compute_aws.md)
 requires all six ROSETTA input variables present).
 
 ## Step 2: Run ROSETTA and simulate available water storage
 
-[`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
+[`compute_aws()`](https://jjmaynard.github.io/soilSIM/reference/compute_aws.md)
 (1) calls
 [`soilDB::ROSETTA()`](http://ncss-tech.github.io/soilDB/reference/ROSETTA.md) -
 a live POST to `handbook60.org` - to derive van Genuchten shape
@@ -69,7 +69,7 @@ and (3) depth-slices the result to standard intervals via
 ``` r
 
 # The real call this vignette's cached data came from (requires live network access):
-aws_result <- calculate_aws_df(rosetta_input)
+aws_result <- compute_aws(rosetta_input)
 ```
 
 ``` r
@@ -145,7 +145,7 @@ ggplot(plot_data, aes(x = mid_depth, y = AWHC, color = cokey)) +
 
 [`van_genuchten()`](https://jjmaynard.github.io/soilSIM/reference/van_genuchten.md)
 is the closed-form curve
-[`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
+[`compute_aws()`](https://jjmaynard.github.io/soilSIM/reference/compute_aws.md)
 evaluates internally at field capacity (-33 kPa) and permanent wilting
 point (-1500 kPa) matric potentials. The three curves below use
 illustrative shape parameters only - representative of the ranges
@@ -201,6 +201,6 @@ The cached data this vignette loads
 `data-raw/build_vignette_data.R`, which builds the ROSETTA input from
 the same real Amador-area SSURGO download as the “Getting Started”
 vignette, then calls
-[`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
+[`compute_aws()`](https://jjmaynard.github.io/soilSIM/reference/compute_aws.md)
 live (requiring network access to `handbook60.org`). Re-run that script
 to refresh it.

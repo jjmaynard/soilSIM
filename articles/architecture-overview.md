@@ -42,8 +42,8 @@ data flow, and known limitations.
                       │  05 GP depth modeling & adjustment        │
                       │  08 Bayesian updating (scalar)            │
                       │  09 Raster fusion core (distribution-     │
-                      │     fitting-raster.R, raster-fusion.R,    │
-                      │     raster-cache.R)                       │
+                      │     fitting-raster.R, core-fusion.R,    │
+                      │     cache.R)                       │
                       └───────────────┬───────────────────────────┘
                                       │ consumed by / feeds
               ┌───────────────────────┼───────────────────────┐
@@ -106,10 +106,10 @@ adapter for a property-lookup helper).
     │    with_gp                 │
     └───────────────────────────┘
             │
-            ├──► 06 sim_component_comp / simulate_profile_depths_by_mukey
+            ├──► 06 simulate_component_composition / simulate_profile_depths
             │    (component composition + horizon depth/thickness variability)
             │
-            ├──► 07 calculate_aws_df (available water storage via ROSETTA/Van Genuchten)
+            ├──► 07 compute_aws (available water storage via ROSETTA/Van Genuchten)
             │
             ▼
     ┌───────────────────────────┐        ┌───────────────────────────┐
@@ -142,13 +142,13 @@ and never touches the raster fusion group.
 
 | \# | Document | Functional area | Key R/ files |
 |----|----|----|----|
-| 01 | [Data Acquisition & Processing](https://jjmaynard.github.io/soilSIM/articles/architecture-data-acquisition-processing.md) | SSURGO data acquisition, cleaning, infilling | `ssurgo-acquisition.R`, `ssurgo-processing.R`, `data-infilling.R` |
-| 02 | [Statistics & Diagnostics](https://jjmaynard.github.io/soilSIM/articles/architecture-statistics-diagnostics.md) | Statistical characterization + workflow QA | `statistics.R`, `validation-diagnostics.R` |
-| 03 | [Distribution Fitting & Correlation Matrices](https://jjmaynard.github.io/soilSIM/articles/architecture-distribution-fitting-correlations.md) | Percentile fitting, ILR transforms, correlation matrices (core) | `distributions.R`, `percentile-sampling.R`, `kssl-reference-correlations.R` |
-| 04 | [Monte Carlo Simulation](https://jjmaynard.github.io/soilSIM/articles/architecture-monte-carlo-simulation.md) | Correlated Monte Carlo simulation engine (core) | `monte-carlo.R` |
-| 05 | [GP Depth Modeling & Multivariate Adjustment](https://jjmaynard.github.io/soilSIM/articles/architecture-gp-modeling-multivariate-adjustment.md) | GP depth-trend modeling + MC/GP integration (core) | `gp-modeling.R`, `multivariate-adjustment.R` |
-| 06 | [Profile, Component & Depth Simulation](https://jjmaynard.github.io/soilSIM/articles/architecture-profile-component-depth-simulation.md) | Component composition + horizon depth/thickness simulation | `property-simulation.R`, `depth-simulation.R` |
-| 07 | [AWS / Van Genuchten Modeling](https://jjmaynard.github.io/soilSIM/articles/architecture-aws-van-genuchten-modeling.md) | Available water storage / Van Genuchten modeling | `aws-simulation.R` |
-| 08 | [Bayesian Updating (Scalar)](https://jjmaynard.github.io/soilSIM/articles/architecture-bayesian-updating.md) | Scalar Bayesian updating/fusion (core) | `bayesian-updating.R` |
-| 09 | [Multi-Source Raster Fusion Pipeline](https://jjmaynard.github.io/soilSIM/articles/architecture-multi-source-raster-fusion-pipeline.md) | Raster-native fusion core + SSURGO/SOLUS100 adapters | `distribution-fitting-raster.R`, `raster-fusion.R`, `raster-cache.R`, `ssurgo-simulation.R`, `solus-simulation.R` |
+| 01 | [Data Acquisition & Processing](https://jjmaynard.github.io/soilSIM/articles/architecture-data-acquisition-processing.md) | SSURGO data acquisition, cleaning, infilling | `adapter-ssurgo-acquire.R`, `adapter-ssurgo-process.R`, `adapter-ssurgo-infill.R` |
+| 02 | [Statistics & Diagnostics](https://jjmaynard.github.io/soilSIM/articles/architecture-statistics-diagnostics.md) | Statistical characterization + workflow QA | `statistics.R`, `diagnostics.R` |
+| 03 | [Distribution Fitting & Correlation Matrices](https://jjmaynard.github.io/soilSIM/articles/architecture-distribution-fitting-correlations.md) | Percentile fitting, ILR transforms, correlation matrices (core) | `core-distributions.R`, `core-distributions.R`, `core-correlations.R` |
+| 04 | [Monte Carlo Simulation](https://jjmaynard.github.io/soilSIM/articles/architecture-monte-carlo-simulation.md) | Correlated Monte Carlo simulation engine (core) | `core-montecarlo.R` |
+| 05 | [GP Depth Modeling & Multivariate Adjustment](https://jjmaynard.github.io/soilSIM/articles/architecture-gp-modeling-multivariate-adjustment.md) | GP depth-trend modeling + MC/GP integration (core) | `core-gp.R`, `core-gp.R` |
+| 06 | [Profile, Component & Depth Simulation](https://jjmaynard.github.io/soilSIM/articles/architecture-profile-component-depth-simulation.md) | Component composition + horizon depth/thickness simulation | `core-simulation.R`, `core-simulation.R` |
+| 07 | [AWS / Van Genuchten Modeling](https://jjmaynard.github.io/soilSIM/articles/architecture-aws-van-genuchten-modeling.md) | Available water storage / Van Genuchten modeling | `model-aws.R` |
+| 08 | [Bayesian Updating (Scalar)](https://jjmaynard.github.io/soilSIM/articles/architecture-bayesian-updating.md) | Scalar Bayesian updating/fusion (core) | `core-fusion.R` |
+| 09 | [Multi-Source Raster Fusion Pipeline](https://jjmaynard.github.io/soilSIM/articles/architecture-multi-source-raster-fusion-pipeline.md) | Raster-native fusion core + SSURGO/SOLUS100 adapters | `core-distributions-raster.R`, `core-fusion.R`, `cache.R`, `adapter-ssurgo-simulate.R`, `adapter-solus.R` |
 | 10 | [Utilities](https://jjmaynard.github.io/soilSIM/articles/architecture-utilities.md) | Shared validation, logging, config, I/O (leaf module) | `utils.R` |

@@ -3,12 +3,12 @@
 simulate_ssurgo_mapunit_draws() result can be reused across multiple properties instead of
 resimulating once per property - simulate_cokey_generalized() already simulates every
 recognized property jointly in one pass per cokey, so a caller that needs several properties
-from the same AOI/depth window (e.g. run_stage1_fusion_group()'s texture members) only needs
+from the same AOI/depth window (e.g. run_fusion_group()'s texture members) only needs
 to run the (expensive) simulation once and call this per property afterward."><meta property="og:description" content="The quantile/rasterize half of fetch_ssurgo_percentiles(), factored out so a single shared
 simulate_ssurgo_mapunit_draws() result can be reused across multiple properties instead of
 resimulating once per property - simulate_cokey_generalized() already simulates every
 recognized property jointly in one pass per cokey, so a caller that needs several properties
-from the same AOI/depth window (e.g. run_stage1_fusion_group()'s texture members) only needs
+from the same AOI/depth window (e.g. run_fusion_group()'s texture members) only needs
 to run the (expensive) simulation once and call this per property afterward."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
@@ -17,7 +17,7 @@ to run the (expensive) simulation once and call this per property afterward."></
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -70,7 +70,7 @@ to run the (expensive) simulation once and call this per property afterward."></
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Compute Per-Mukey Percentile Rasters from Already-Simulated SSURGO Draws</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/ssurgo-simulation.R" class="external-link"><code>R/ssurgo-simulation.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/adapter-ssurgo-simulate.R" class="external-link"><code>R/adapter-ssurgo-simulate.R</code></a></small>
       <div class="d-none name"><code>percentiles_from_draws.Rd</code></div>
     </div>
 
@@ -79,7 +79,7 @@ to run the (expensive) simulation once and call this per property afterward."></
 <code><a href="simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> result can be reused across multiple properties instead of
 resimulating once per property - <code><a href="simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code> already simulates every
 recognized property jointly in one pass per cokey, so a caller that needs several properties
-from the same AOI/depth window (e.g. <code><a href="run_stage1_fusion_group.html">run_stage1_fusion_group()</a></code>'s texture members) only needs
+from the same AOI/depth window (e.g. <code><a href="run_fusion_group.html">run_fusion_group()</a></code>'s texture members) only needs
 to run the (expensive) simulation once and call this per property afterward.</p>
     </div>
 
@@ -119,6 +119,26 @@ window <code>mukey_raster</code> covers.</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p><code>list(values = &lt;named list of percentile-value SpatRasters&gt;, probs = probs)</code>, or <code>NULL</code>
 if <code>property_id</code>'s simulated column isn't present in <code>draws</code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p>Other raster-fusion:
+<code><a href="align_percentile_probs.html">align_percentile_probs()</a></code>,
+<code><a href="build_cache_key.html">build_cache_key()</a></code>,
+<code><a href="cache_get.html">cache_get()</a></code>,
+<code><a href="cache_set.html">cache_set()</a></code>,
+<code><a href="check_metalog_feasibility_raster.html">check_metalog_feasibility_raster()</a></code>,
+<code><a href="fit_beta_mle_newton_raster.html">fit_beta_mle_newton_raster()</a></code>,
+<code><a href="fit_beta_mom_raster.html">fit_beta_mom_raster()</a></code>,
+<code><a href="fit_gamma_mom_raster.html">fit_gamma_mom_raster()</a></code>,
+<code><a href="fit_metalog_linear_raster.html">fit_metalog_linear_raster()</a></code>,
+<code><a href="fit_normal_raster.html">fit_normal_raster()</a></code>,
+<code><a href="fuse_adaptive.html">fuse_adaptive()</a></code>,
+<code><a href="quantile_metalog_linear_with_fallback_raster.html">quantile_metalog_linear_with_fallback_raster()</a></code>,
+<code><a href="remarginalize_awc.html">remarginalize_awc()</a></code>,
+<code><a href="remarginalize_ensemble_to_posterior.html">remarginalize_ensemble_to_posterior()</a></code>,
+<code><a href="resolve_property_dist.html">resolve_property_dist()</a></code>,
+<code><a href="wrap_nested_rasters.html">wrap_nested_rasters()</a></code></p></div>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

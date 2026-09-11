@@ -2,11 +2,11 @@
 
 Applies
 [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md)
-(`R/multivariate-adjustment.R` - fits its own local GP per property from
-each cokey's own within-simulation depth trend, no pre-supplied GP
-models needed) per cokey, when `GPfit` is installed and a cokey has
-enough distinct depths. Cokeys with fewer than `min_depths` distinct
-depths pass through unadjusted.
+(`R/core-gp.R` - fits its own local GP per property from each cokey's
+own within-simulation depth trend, no pre-supplied GP models needed) per
+cokey, when `GPfit` is installed and a cokey has enough distinct depths.
+Cokeys with fewer than `min_depths` distinct depths pass through
+unadjusted.
 
 ## Usage
 
@@ -44,7 +44,7 @@ maybe_adjust_soil_data_depth_trend(
   worker processes (default `FALSE`, sequential). Falls back to
   sequential processing if the parallel setup itself errors. See
   [`run_parallel_lapply()`](https://jjmaynard.github.io/soilSIM/reference/run_parallel_lapply.md)
-  (`R/parallel-utils.R`).
+  (`R/parallel.R`).
 
 - n_cores:
 
@@ -63,7 +63,7 @@ maybe_adjust_soil_data_depth_trend(
   `"joint_copula"`, or `"gp_quantile_retrofit"`) selects the
   vertical-correlation method; `NULL` (default) resolves to
   `"joint_copula"`, matching
-  [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)'s
+  [`default_monte_carlo_config()`](https://jjmaynard.github.io/soilSIM/reference/default_monte_carlo_config.md)'s
   own default.
 
 - seed:

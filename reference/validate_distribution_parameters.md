@@ -1,6 +1,6 @@
 # Validate a Horizon's Fitted Distribution Parameters
 
-Thin wrapper around `distributions.R`'s
+Thin wrapper around `core-distributions.R`'s
 [`validate_fit_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_fit_parameters.md).
 
 ## Usage

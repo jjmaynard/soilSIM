@@ -5,8 +5,8 @@ horizon in one call, with no state carried across horizons or
 realizations, so it can safely be called once per worker with a smaller
 n_realizations chunk and the resulting arrays concatenated along the
 realization dimension. Uses the same Windows-PSOCK-vs-mclapply pattern
-as process_cokeys_parallel() in multivariate-adjustment.R, with a
-sequential fallback on any error.
+as process_cokeys_parallel() in core-gp.R, with a sequential fallback on
+any error.
 
 ## Usage
 

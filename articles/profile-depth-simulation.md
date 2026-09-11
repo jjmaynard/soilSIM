@@ -20,7 +20,7 @@ library(ggplot2)
 
 ## The real component
 
-[`get_aws_data_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/get_aws_data_by_mukey.md)
+[`fetch_ssurgo_aws_data()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_aws_data.md)
 queries NRCS Soil Data Access live for a given map unit key. This
 vignette’s cached data was produced by that real call (see “Where this
 data came from” below) for map unit **462255** within the Amador-area
@@ -48,7 +48,7 @@ NA-NA%).
 
 ## Step 1: Simulate component composition
 
-[`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
+[`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)
 draws `n_simulations` triangular samples from each component’s
 low/representative/high percentage and derives a single `sim_comppct`
 value - the number of Monte Carlo profile realizations to simulate for
@@ -56,7 +56,7 @@ that component:
 
 ``` r
 
-component_sim <- sim_component_comp(mu_data, n_simulations = 25)
+component_sim <- simulate_component_composition(mu_data, n_simulations = 25)
 component_sim
 #>    mukey    cokey compname comppct_l comppct_r comppct_h sim_comppct
 #> 1 462255 26397825 Mariposa        73        75        77          19
@@ -68,10 +68,10 @@ simulated in the next step.
 
 ## Step 2: Simulate horizon depth and thickness variability
 
-[`simulate_profile_depths_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths_by_mukey.md)
+[`simulate_profile_depths()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths.md)
 orchestrates the full depth-simulation pipeline for a real mukey: it
 queries SSURGO, derives `sim_comppct` via
-[`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
+[`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)
 and joins it onto every horizon (internally - no manual join needed by
 the caller), fetches real Official Series Description
 boundary-distinctness data for the component name, and perturbs horizon
@@ -80,7 +80,7 @@ thickness and boundary depths accordingly:
 ``` r
 
 # The real call this vignette's cached data came from:
-simulated_profiles <- simulate_profile_depths_by_mukey("462255", n_simulations = 25, seed = 123)
+simulated_profiles <- simulate_profile_depths("462255", n_simulations = 25, seed = 123)
 ```
 
 ``` r
@@ -230,9 +230,9 @@ The cached data this vignette loads
 `inst/extdata/depth_sim_profiles_amador.rds`) was produced once by
 `data-raw/build_vignette_data.R`, which calls
 [`process_aoi_and_get_mukeys_working()`](https://jjmaynard.github.io/soilSIM/reference/process_aoi_and_get_mukeys_working.md),
-[`get_aws_data_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/get_aws_data_by_mukey.md),
+[`fetch_ssurgo_aws_data()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_aws_data.md),
 and
-[`simulate_profile_depths_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths_by_mukey.md)
+[`simulate_profile_depths()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths.md)
 live against NRCS Soil Data Access and the Official Series Description
 database. Re-run that script to refresh it (the real mukey it resolves
 to may change if SSURGO data for this AOI is updated).

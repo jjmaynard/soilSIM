@@ -37,17 +37,3 @@ horizon name or generalized horizon group.
 - **Cr Horizons (Weathered Bedrock):** gradual
 
 - **R Horizons (Bedrock):** abrupt
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-  df <- data.frame(
-    hzname = c("A", "B", "C", "R", "O", "Cr"),
-    distinctness = c(NA, "gradual", NA, NA, "diffuse", NA),
-    stringsAsFactors = FALSE
-  )
-  df <- infill_missing_distinctness(df)
-  print(df)
-} # }
-```

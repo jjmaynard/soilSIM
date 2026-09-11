@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -102,8 +102,9 @@
 </h2>
 <p>This functional group is soilSIM’s generic,
 <strong>data-source-agnostic statistical core</strong>. Nothing in
-<code>R/distributions.R</code>, <code>R/percentile-sampling.R</code>, or
-<code>R/kssl-reference-correlations.R</code> knows or cares whether a
+<code>R/core-distributions.R</code>,
+<code>R/core-distributions.R</code>, or
+<code>R/core-correlations.R</code> knows or cares whether a
 low/representative/high (or arbitrary-count) percentile triplet came
 from SSURGO, SOLUS, a KSSL lab table, or a fused/Bayesian-updated
 posterior - these files take plain numeric percentile values and
@@ -112,9 +113,9 @@ quantile functions, ILR-transformed compositional coordinates, and
 repaired positive-definite correlation matrices. Because of that
 neutrality, this group is consumed directly by every downstream
 simulation/fusion function in the package (<code>statistics.R</code>,
-<code>monte-carlo.R</code>, <code>bayesian-updating.R</code>,
-<code>gp-modeling.R</code>, <code>raster-fusion.R</code>,
-<code>depth-simulation.R</code>) regardless of where the percentile data
+<code>core-montecarlo.R</code>, <code>core-fusion.R</code>,
+<code>core-gp.R</code>, <code>core-fusion.R</code>,
+<code>core-simulation.R</code>) regardless of where the percentile data
 originated. It is the single place where the package’s core
 probability-distribution math and compositional-data math live, so it is
 validated once (against <code>fitdistrplus</code>,
@@ -126,8 +127,8 @@ everywhere rather than re-derived per data source.</p>
 <h2 id="core-functions">Core Functions<a class="anchor" aria-label="anchor" href="#core-functions"></a>
 </h2>
 <div class="section level3">
-<h3 id="a--percentile-triplet-distribution-fitting-distributions-r-section-1">A. Percentile-Triplet Distribution Fitting
-(<code>distributions.R</code>, section 1)<a class="anchor" aria-label="anchor" href="#a--percentile-triplet-distribution-fitting-distributions-r-section-1"></a>
+<h3 id="a--percentile-triplet-distribution-fitting-core-distributions-r-section-1">A. Percentile-Triplet Distribution Fitting
+(<code>core-distributions.R</code>, section 1)<a class="anchor" aria-label="anchor" href="#a--percentile-triplet-distribution-fitting-core-distributions-r-section-1"></a>
 </h3>
 <div class="section level4">
 <h4 id="fit_normal_triplet-quantile_normal---exact-closed-form-normal-fit">1. <strong><code>fit_normal_triplet()</code> /
@@ -246,14 +247,13 @@ separately-maintained random-draw implementation kept distinct from
 edge-case contract: it errors on invalid <code>n</code> but returns
 <code>NaN</code> (not an error) when <code>a &gt; c</code>,
 <code>b &lt; c</code>, or any parameter is infinite/<code>NA</code>.
-Used by <code>R/depth-simulation.R</code>’s profile-depth
-simulators.</p>
+Used by <code>R/core-simulation.R</code>’s profile-depth simulators.</p>
 </div>
 <div class="section level4">
-<h4 id="metalog-fitting-fit_metalog_linear-quantile_metalog_linear-check_metalog_feasible-quantile_metalog_with_fallback">5. <strong>Metalog fitting: <code>fit_metalog_linear()</code> /
+<h4 id="metalog-fitting-fit_metalog_linear-quantile_metalog_linear-check_metalog_feasible-quantile_metalog_linear_fallback">5. <strong>Metalog fitting: <code>fit_metalog_linear()</code> /
 <code>quantile_metalog_linear()</code> /
 <code>check_metalog_feasible()</code> /
-<code>quantile_metalog_with_fallback()</code></strong><a class="anchor" aria-label="anchor" href="#metalog-fitting-fit_metalog_linear-quantile_metalog_linear-check_metalog_feasible-quantile_metalog_with_fallback"></a>
+<code>quantile_metalog_linear_fallback()</code></strong><a class="anchor" aria-label="anchor" href="#metalog-fitting-fit_metalog_linear-quantile_metalog_linear-check_metalog_feasible-quantile_metalog_linear_fallback"></a>
 </h4>
 <p><strong>Purpose</strong>: A dependency-free (no
 <code>rmetalog</code>) closed-form metalog distribution fitter, used
@@ -263,7 +263,7 @@ metalog terms. <strong>Signatures</strong>:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fit_metalog_linear.html">fit_metalog_linear</a></span><span class="op">(</span><span class="va">interior_values</span>, <span class="va">interior_probs</span>, bounds <span class="op">=</span> <span class="cn">NULL</span>, boundedness <span class="op">=</span> <span class="st">"u"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/quantile_metalog_linear.html">quantile_metalog_linear</a></span><span class="op">(</span><span class="va">fit</span>, <span class="va">q</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/check_metalog_feasible.html">check_metalog_feasible</a></span><span class="op">(</span><span class="va">fit</span>, y_grid <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.02</span>, <span class="fl">0.98</span>, by <span class="op">=</span> <span class="fl">0.02</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/quantile_metalog_with_fallback.html">quantile_metalog_with_fallback</a></span><span class="op">(</span><span class="va">fit</span>, <span class="va">infeasible</span>, <span class="va">full_probs</span>, <span class="va">full_values</span>, <span class="va">q</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/quantile_metalog_linear_fallback.html">quantile_metalog_linear_fallback</a></span><span class="op">(</span><span class="va">fit</span>, <span class="va">infeasible</span>, <span class="va">full_probs</span>, <span class="va">full_values</span>, <span class="va">q</span><span class="op">)</span></span></code></pre></div>
 <p><strong>Parameters</strong>:
 <code>interior_values</code>/<code>interior_probs</code> - percentile
 values/probabilities strictly interior to (0,1); <code>bounds</code> -
@@ -280,7 +280,7 @@ FULL percentile set (including p=0/p=1 if available) used for the
 fallback. <strong>Returns</strong>: <code><a href="../reference/fit_metalog_linear.html">fit_metalog_linear()</a></code>
 returns <code>list(a=, term=, bounds=, boundedness=)</code>;
 <code><a href="../reference/quantile_metalog_linear.html">quantile_metalog_linear()</a></code> and
-<code><a href="../reference/quantile_metalog_with_fallback.html">quantile_metalog_with_fallback()</a></code> return numeric vectors;
+<code><a href="../reference/quantile_metalog_linear_fallback.html">quantile_metalog_linear_fallback()</a></code> return numeric vectors;
 <code><a href="../reference/check_metalog_feasible.html">check_metalog_feasible()</a></code> returns <code>TRUE</code> if
 infeasible (non-monotonic quantile function), else <code>FALSE</code>.
 <strong>Algorithm</strong>: When the interior-percentile count equals
@@ -299,7 +299,7 @@ back from z-space (<code>metalog_from_z()</code>).
 <code><a href="../reference/check_metalog_feasible.html">check_metalog_feasible()</a></code> probes the quantile function
 across <code>y_grid</code> and flags non-monotonicity (equivalent to the
 implied density going negative) - a cheap probe, not a proof.
-<code><a href="../reference/quantile_metalog_with_fallback.html">quantile_metalog_with_fallback()</a></code> is the safety net
+<code><a href="../reference/quantile_metalog_linear_fallback.html">quantile_metalog_linear_fallback()</a></code> is the safety net
 <code><a href="../reference/fit_percentile_triplet.html">fit_percentile_triplet()</a></code>/<code><a href="../reference/quantile_from_fit.html">quantile_from_fit()</a></code>
 rely on: if <code>infeasible</code> is <code>TRUE</code>, it evaluates
 <code><a href="../reference/quantile_linear_cdf.html">quantile_linear_cdf()</a></code> on the full percentile set instead of
@@ -336,9 +336,10 @@ explicit, opted-in config choice.</p>
 percentile-triplet dispatcher<a class="anchor" aria-label="anchor" href="#fit_percentile_triplet---master-percentile-triplet-dispatcher"></a>
 </h4>
 <p><strong>Purpose</strong>: The single entry point
-<code>monte-carlo.R</code>’s <code><a href="../reference/extract_property_parameters.html">extract_property_parameters()</a></code>
-calls to turn a SSURGO-style <code>_l/_r/_h</code> triplet into a
-family-appropriate fit. <strong>Signature</strong>:</p>
+<code>core-montecarlo.R</code>’s
+<code><a href="../reference/extract_property_parameters.html">extract_property_parameters()</a></code> calls to turn a SSURGO-style
+<code>_l/_r/_h</code> triplet into a family-appropriate fit.
+<strong>Signature</strong>:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fit_percentile_triplet.html">fit_percentile_triplet</a></span><span class="op">(</span><span class="va">l</span>, <span class="va">r</span>, <span class="va">h</span>, <span class="va">family</span>,</span>
 <span>                        lh_probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.95</span><span class="op">)</span>,</span>
@@ -382,7 +383,7 @@ calls <code><a href="../reference/fit_beta_mle_newton.html">fit_beta_mle_newton(
 <code><a href="../reference/fit_metalog_linear.html">fit_metalog_linear()</a></code> and immediately attaches
 <code>infeasible</code> (via <code><a href="../reference/check_metalog_feasible.html">check_metalog_feasible()</a></code>) plus
 the full <code>fallback_probs</code>/<code>fallback_values</code> needed
-by <code><a href="../reference/quantile_metalog_with_fallback.html">quantile_metalog_with_fallback()</a></code>;
+by <code><a href="../reference/quantile_metalog_linear_fallback.html">quantile_metalog_linear_fallback()</a></code>;
 <code>linear_cdf</code> stores the raw
 <code>probs</code>/<code>values</code>; any other family string
 errors.</p>
@@ -408,7 +409,7 @@ error) when <code>fit</code> is <code>NULL</code>/invalid, or when
 <code><a href="../reference/quantile_triangular.html">quantile_triangular()</a></code>, <code><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">qunif()</a></code>,
 <code><a href="../reference/fit_normal_triplet.html">quantile_normal()</a></code>, <code>exp(quantile_normal(...))</code>
 (lognormal), <code><a href="../reference/quantile_beta.html">quantile_beta()</a></code> rescaled by
-<code>bounds</code>, <code><a href="../reference/quantile_metalog_with_fallback.html">quantile_metalog_with_fallback()</a></code>, or
+<code>bounds</code>, <code><a href="../reference/quantile_metalog_linear_fallback.html">quantile_metalog_linear_fallback()</a></code>, or
 <code><a href="../reference/quantile_linear_cdf.html">quantile_linear_cdf()</a></code> as appropriate.</p>
 </div>
 <div class="section level4">
@@ -441,8 +442,8 @@ callers to discard a usable fit in favor of a cruder guess;
 </div>
 </div>
 <div class="section level3">
-<h3 id="b--ilr-isometric-log-ratio-compositional-transforms-distributions-r-section-2">B. ILR (Isometric Log-Ratio) Compositional Transforms
-(<code>distributions.R</code>, section 2)<a class="anchor" aria-label="anchor" href="#b--ilr-isometric-log-ratio-compositional-transforms-distributions-r-section-2"></a>
+<h3 id="b--ilr-isometric-log-ratio-compositional-transforms-core-distributions-r-section-2">B. ILR (Isometric Log-Ratio) Compositional Transforms
+(<code>core-distributions.R</code>, section 2)<a class="anchor" aria-label="anchor" href="#b--ilr-isometric-log-ratio-compositional-transforms-core-distributions-r-section-2"></a>
 </h3>
 <p>These formulas match <code>compositions::ilr()</code> exactly and
 round-trip to ~1e-14. The balance hierarchy (position 1 vs. {2,3}, then
@@ -450,7 +451,7 @@ round-trip to ~1e-14. The balance hierarchy (position 1 vs. {2,3}, then
 <code>clay</code>/<code>sand</code>/<code>silt</code> parameter and
 output names are <strong>positional-role placeholders</strong> (position
 1/2/3 of the sequential binary partition), not an identity requirement -
-callers (via <code>monte-carlo.R</code>’s
+callers (via <code>core-montecarlo.R</code>’s
 <code>composition_groups$texture$members</code>) determine which real
 property occupies which position.</p>
 <div class="section level4">
@@ -530,13 +531,13 @@ to <code>total</code> and stay in <code>[0, total]</code> for every draw
 by construction.</p>
 </div>
 <div class="section level4">
-<h4 id="composition-group-orchestration-resolve_composition_groups-restore_composition_properties-distributions-r-section-4">13. <strong>Composition-group orchestration:
+<h4 id="composition-group-orchestration-resolve_composition_groups-restore_composition_properties-core-distributions-r-section-4">13. <strong>Composition-group orchestration:
 <code>resolve_composition_groups()</code> /
 <code>restore_composition_properties()</code></strong>
-(<code>distributions.R</code>, section 4)<a class="anchor" aria-label="anchor" href="#composition-group-orchestration-resolve_composition_groups-restore_composition_properties-distributions-r-section-4"></a>
+(<code>core-distributions.R</code>, section 4)<a class="anchor" aria-label="anchor" href="#composition-group-orchestration-resolve_composition_groups-restore_composition_properties-core-distributions-r-section-4"></a>
 </h4>
-<p><strong>Purpose</strong>: Let <code>monte-carlo.R</code>’s generic
-Cholesky-copula simulation engine treat a 3-part composition
+<p><strong>Purpose</strong>: Let <code>core-montecarlo.R</code>’s
+generic Cholesky-copula simulation engine treat a 3-part composition
 (e.g. sand/silt/clay) as two ordinary simulated pseudo-properties
 (<code>ilr1</code>/<code>ilr2</code>) instead of needing bespoke
 compositional logic in the simulation core.
@@ -580,8 +581,8 @@ occupies each ILR position.</p>
 </div>
 </div>
 <div class="section level3">
-<h3 id="c--correlation-matrix-estimation-repair-distributions-r-section-3">C. Correlation-Matrix Estimation &amp; Repair
-(<code>distributions.R</code>, section 3)<a class="anchor" aria-label="anchor" href="#c--correlation-matrix-estimation-repair-distributions-r-section-3"></a>
+<h3 id="c--correlation-matrix-estimation-repair-core-distributions-r-section-3">C. Correlation-Matrix Estimation &amp; Repair
+(<code>core-distributions.R</code>, section 3)<a class="anchor" aria-label="anchor" href="#c--correlation-matrix-estimation-repair-core-distributions-r-section-3"></a>
 </h3>
 <div class="section level4">
 <h4 id="ensure_positive_definite_matrix---eigenvalue-floor-pd-repair">14. <strong><code>ensure_positive_definite_matrix()</code></strong>
@@ -683,18 +684,18 @@ qualify (or <code>group_var</code> wasn’t supplied), falls back to
 </div>
 </div>
 <div class="section level3">
-<h3 id="d--arbitrary-percentile-count-sampling-percentile-sampling-r">D. Arbitrary-Percentile-Count Sampling
-(<code>percentile-sampling.R</code>)<a class="anchor" aria-label="anchor" href="#d--arbitrary-percentile-count-sampling-percentile-sampling-r"></a>
+<h3 id="d--arbitrary-percentile-count-sampling-core-distributions-r">D. Arbitrary-Percentile-Count Sampling
+(<code>core-distributions.R</code>)<a class="anchor" aria-label="anchor" href="#d--arbitrary-percentile-count-sampling-core-distributions-r"></a>
 </h3>
 <p>This file consolidates several “simulate a distribution from summary
 percentiles” approaches behind one dispatcher, generalizing
-<code>distributions.R</code>’s fixed 3-point
+<code>core-distributions.R</code>’s fixed 3-point
 (<code><a href="../reference/fit_percentile_triplet.html">fit_percentile_triplet()</a></code>) machinery to an arbitrary number
 of known percentiles (e.g. P0/P5/P50/P95/P100, or any other set).
 <code>method = "metalog"</code> is deliberately not offered here (it
 would require the <code>rmetalog</code> package, which the project
 avoids per validated hang/segfault history) -
-<code>distributions.R</code>’s own dependency-free
+<code>core-distributions.R</code>’s own dependency-free
 <code><a href="../reference/fit_metalog_linear.html">fit_metalog_linear()</a></code> covers that need instead.</p>
 <div class="section level4">
 <h4 id="simulate_from_percentiles---master-percentile-reconstruction-dispatcher">17. <strong><code>simulate_from_percentiles()</code></strong> -
@@ -775,7 +776,7 @@ Side-by-side method comparison<a class="anchor" aria-label="anchor" href="#compa
 <code>samples</code> a named list of numeric vectors (one per method,
 <code>NA_real_</code> with a warning if a method errors),
 <code>summary</code> a data frame of summary statistics (via
-<code><a href="../reference/calculate_summary_statistics.html">calculate_summary_statistics()</a></code>) with one row per method.
+<code><a href="../reference/compute_summary_statistics.html">compute_summary_statistics()</a></code>) with one row per method.
 <strong>Algorithm</strong>: Runs
 <code><a href="../reference/simulate_from_percentiles.html">simulate_from_percentiles()</a></code> once per requested method on
 the same <code>quantile_df</code>, catching per-method errors so one
@@ -783,11 +784,11 @@ failing method doesn’t abort the comparison, then tabulates statistics
 for eyeballing or KS-testing method pairs against each other.</p>
 </div>
 <div class="section level4">
-<h4 id="calculate_summary_statistics---generic-summary-statistics-table">20. <strong><code>calculate_summary_statistics()</code></strong> -
-Generic summary-statistics table<a class="anchor" aria-label="anchor" href="#calculate_summary_statistics---generic-summary-statistics-table"></a>
+<h4 id="compute_summary_statistics---generic-summary-statistics-table">20. <strong><code>compute_summary_statistics()</code></strong> -
+Generic summary-statistics table<a class="anchor" aria-label="anchor" href="#compute_summary_statistics---generic-summary-statistics-table"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>calculate_summary_statistics(data, percentile_probs = seq(0.1, 0.9, by = 0.1))</code>
+<code>compute_summary_statistics(data, percentile_probs = seq(0.1, 0.9, by = 0.1))</code>
 <strong>Parameters</strong>: <code>data</code> - a numeric vector;
 <code>percentile_probs</code> - probabilities (0-1) to compute as
 dynamically-named percentile columns. <strong>Returns</strong>: A
@@ -825,14 +826,14 @@ prefer for a given data shape.</p>
 </div>
 </div>
 <div class="section level3">
-<h3 id="e--kssl-reference-correlations-kssl-reference-correlations-r">E. KSSL Reference Correlations
-(<code>kssl-reference-correlations.R</code>)<a class="anchor" aria-label="anchor" href="#e--kssl-reference-correlations-kssl-reference-correlations-r"></a>
+<h3 id="e--kssl-reference-correlations-core-correlations-r">E. KSSL Reference Correlations
+(<code>core-correlations.R</code>)<a class="anchor" aria-label="anchor" href="#e--kssl-reference-correlations-core-correlations-r"></a>
 </h3>
 <p>Static, pre-computed, genetic-horizon-keyed (O/A/E/B/C/Cr, plus R for
 the texture matrix) correlation matrices fit once from KSSL lab data,
 stored internally as package sysdata. These let
-<code>monte-carlo.R</code>’s correlation-structure estimation optionally
-fall back to real lab-derived correlations
+<code>core-montecarlo.R</code>’s correlation-structure estimation
+optionally fall back to real lab-derived correlations
 (<code>config$monte_carlo$correlation_fallback = "kssl_global"</code>)
 instead of a plain identity matrix when there isn’t enough SSURGO data
 to estimate correlations empirically.</p>
@@ -935,7 +936,7 @@ automatically, no code changes needed anywhere that calls it.</p>
 <div class="section level2">
 <h2 id="internal-connections">Internal Connections<a class="anchor" aria-label="anchor" href="#internal-connections"></a>
 </h2>
-<pre><code>distributions.R
+<pre><code>core-distributions.R
 ├── fit_percentile_triplet() [MASTER FITTER]
 │   ├── resolve_property_family()               (family = "auto")
 │   ├── fit_normal_triplet()                    (normal / lognormal)
@@ -953,7 +954,7 @@ automatically, no code changes needed anywhere that calls it.</p>
 │   ├── quantile_triangular()
 │   ├── quantile_normal()                       (normal / lognormal, via exp())
 │   ├── quantile_beta()
-│   ├── quantile_metalog_with_fallback()
+│   ├── quantile_metalog_linear_fallback()
 │   │   ├── quantile_metalog_linear()           (feasible fit)
 │   │   └── quantile_linear_cdf()               (infeasible fit -&gt; fallback)
 │   └── quantile_linear_cdf()                   (linear_cdf family)
@@ -979,7 +980,7 @@ automatically, no code changes needed anywhere that calls it.</p>
     └── does NOT call ensure_positive_definite_matrix() - it uses its own
         chol()/nearPD()-based repair path instead
 
-percentile-sampling.R
+core-distributions.R
 ├── simulate_from_percentiles() [MASTER DISPATCH]
 │   ├── extract_percentile_pairs()  [internal, shared front end]
 │   ├── sim_linear_cdf()   [internal]
@@ -990,16 +991,16 @@ percentile-sampling.R
 ├── generate_inverse_cdf_distribution() --&gt; simulate_from_percentiles(method="linear_cdf")
 ├── compare_percentile_methods()
 │   ├── simulate_from_percentiles()   (once per method)
-│   └── calculate_summary_statistics()
-├── calculate_summary_statistics()  [standalone]
+│   └── compute_summary_statistics()
+├── compute_summary_statistics()  [standalone]
 └── validate_percentile_methods_synthetic() --&gt; simulate_from_percentiles() (per method, per replicate)
 
-kssl-reference-correlations.R
+core-correlations.R
 ├── classify_genhz()  [standalone]
 └── build_kssl_fallback_matrix() [MASTER]
     ├── .kssl_property_matrices()      [internal accessor, this file]
     ├── .kssl_property_name_map        [internal lookup vector, this file]
-    └── ensure_positive_definite_matrix()  [CROSS-FILE call into distributions.R]</code></pre>
+    └── ensure_positive_definite_matrix()  [CROSS-FILE call into core-distributions.R]</code></pre>
 </div>
 <div class="section level2">
 <h2 id="pipeline-representative-call-path-through-this-functional-group">Pipeline (representative call path through this functional
@@ -1012,7 +1013,7 @@ group)<a class="anchor" aria-label="anchor" href="#pipeline-representative-call-
 +-------------------------------+       +--------------------------------------+
 | fit_percentile_triplet()      |  OR   | simulate_from_percentiles()          |
 | (fixed 3-point: l/r/h)        |       | (arbitrary percentile count)         |
-| distributions.R               |       | percentile-sampling.R                |
+| core-distributions.R               |       | core-distributions.R                |
 +-------------------------------+       +--------------------------------------+
         |                                          |
         v                                          v
@@ -1064,7 +1065,7 @@ Meanwhile, in parallel: correlation structure needed by the Cholesky-copula step
 <h3 id="percentile-triplet-fitting-feeding-monte-carlo-simulation">1. Percentile-triplet fitting feeding Monte Carlo simulation<a class="anchor" aria-label="anchor" href="#percentile-triplet-fitting-feeding-monte-carlo-simulation"></a>
 </h3>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># monte-carlo.R's extract_property_parameters() calls the master fitter,</span></span>
+<code class="sourceCode R"><span><span class="co"># core-montecarlo.R's extract_property_parameters() calls the master fitter,</span></span>
 <span><span class="co"># then quantile_from_fit() turns correlated uniform draws into simulated values</span></span>
 <span><span class="va">triplet_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_percentile_triplet.html">fit_percentile_triplet</a></span><span class="op">(</span><span class="va">l</span>, <span class="va">r</span>, <span class="va">h</span>, family <span class="op">=</span> <span class="st">"auto"</span>, bounds <span class="op">=</span> <span class="va">bounds</span><span class="op">)</span></span>
 <span><span class="va">simulated_values</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/quantile_from_fit.html">quantile_from_fit</a></span><span class="op">(</span><span class="va">correlated_uniforms</span>, <span class="va">triplet_fit</span><span class="op">$</span><span class="va">family</span>, <span class="va">triplet_fit</span><span class="op">$</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
@@ -1084,7 +1085,7 @@ Meanwhile, in parallel: correlation structure needed by the Cholesky-copula step
 <h3 id="correlation-matrix-estimation-with-a-kssl-lab-data-fallback">3. Correlation-matrix estimation with a KSSL lab-data fallback<a class="anchor" aria-label="anchor" href="#correlation-matrix-estimation-with-a-kssl-lab-data-fallback"></a>
 </h3>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># monte-carlo.R builds group_fallback_matrices from KSSL data before calling</span></span>
+<code class="sourceCode R"><span><span class="co"># core-montecarlo.R builds group_fallback_matrices from KSSL data before calling</span></span>
 <span><span class="co"># the robust estimator, so sparse SSURGO groups borrow real lab correlations</span></span>
 <span><span class="co"># instead of an uninformative identity matrix</span></span>
 <span><span class="va">kssl_fallbacks</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span></span>
@@ -1125,11 +1126,11 @@ base probability/statistics machinery nearly every function in this
 group is built on.</li>
 <li>
 <strong><code>fitdistrplus</code></strong> - <code>fitdist()</code>,
-used by <code>percentile-sampling.R</code>’s <code><a href="../reference/sim_beta.html">sim_beta()</a></code> for
+used by <code>core-distributions.R</code>’s <code><a href="../reference/sim_beta.html">sim_beta()</a></code> for
 a general MLE Beta fit (loaded lazily via
 <code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace()</a></code>; not used by
-<code>distributions.R</code>’s own closed-form Beta fitter, which needs
-no external package).</li>
+<code>core-distributions.R</code>’s own closed-form Beta fitter, which
+needs no external package).</li>
 <li>
 <strong><code>Matrix</code></strong> - <code>nearPD()</code>, used
 inside <code><a href="../reference/estimate_correlation_matrix_robust.html">estimate_correlation_matrix_robust()</a></code>’s repair
@@ -1141,7 +1142,7 @@ inside <code><a href="../reference/estimate_correlation_matrix_robust.html">esti
 empirical Pearson correlations per group/pooled dataset.</li>
 <li>
 <strong><code>truncnorm</code></strong> - <code>rtruncnorm()</code>,
-used by <code>percentile-sampling.R</code>’s <code><a href="../reference/sim_kde.html">sim_kde()</a></code>
+used by <code>core-distributions.R</code>’s <code><a href="../reference/sim_kde.html">sim_kde()</a></code>
 (loaded lazily via <code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace()</a></code>) to seed the KDE
 reconstruction.</li>
 </ul>
@@ -1152,7 +1153,8 @@ everything)<a class="anchor" aria-label="anchor" href="#consumers-within-soilsim
 </h3>
 <ul>
 <li>
-<strong><code>monte-carlo.R</code></strong> - the primary consumer:
+<strong><code>core-montecarlo.R</code></strong> - the primary
+consumer:
 <code><a href="../reference/fit_percentile_triplet.html">fit_percentile_triplet()</a></code>/<code><a href="../reference/quantile_from_fit.html">quantile_from_fit()</a></code>
 drive its Cholesky-copula property simulation;
 <code><a href="../reference/resolve_composition_groups.html">resolve_composition_groups()</a></code>/<code><a href="../reference/restore_composition_properties.html">restore_composition_properties()</a></code>/<code><a href="../reference/ilr_inverse.html">ilr_inverse()</a></code>
@@ -1165,24 +1167,24 @@ supply its correlation structure.</li>
 other matrix/fit utilities for its own summary-statistics and
 correlation work.</li>
 <li>
-<strong><code>bayesian-updating.R</code></strong> - uses the ILR
-transform pieces
+<strong><code>core-fusion.R</code></strong> - uses the ILR transform
+pieces
 (<code><a href="../reference/ilr_forward.html">ilr_forward()</a></code>/<code><a href="../reference/ilr_inverse.html">ilr_inverse()</a></code>/<code><a href="../reference/sample_ilr_posterior.html">sample_ilr_posterior()</a></code>)
 for compositional posterior updates.</li>
 <li>
-<strong><code>gp-modeling.R</code></strong> - consumes
+<strong><code>core-gp.R</code></strong> - consumes
 fitted-distribution/quantile machinery for Gaussian-process-based
 property prediction workflows.</li>
 <li>
-<strong><code>raster-fusion.R</code></strong> - fuses percentile
+<strong><code>core-fusion.R</code></strong> - fuses percentile
 rasters from multiple sources, relying on this group’s
 percentile-triplet/quantile-function machinery at the per-cell
 level.</li>
 <li>
-<strong><code>depth-simulation.R</code></strong> - uses
+<strong><code>core-simulation.R</code></strong> - uses
 <code><a href="../reference/tri_dist.html">tri_dist()</a></code> directly for profile-depth simulation.</li>
 <li>
-<strong><code>distribution-fitting-raster.R</code></strong> - the
+<strong><code>core-distributions-raster.R</code></strong> - the
 <code><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a></code>-native sibling implementation of this
 file’s closed-form fitters.</li>
 </ul>

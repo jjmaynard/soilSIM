@@ -1,17 +1,17 @@
 # Fuse an Already-Fetched Prior and Likelihood (Stage 1 fusion tail)
 
 The portion of
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 that runs once its SSURGO prior and SOLUS likelihood percentile lists
 are in hand: resample the prior onto the SOLUS grid, optionally attach
 the real per-mukey Monte Carlo draws for raw-draws fusion, fuse via
 [`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md),
 and assemble the standard
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 return list. Factored out so
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 and
-[`run_stage1_fusion_multi()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_multi.md)
+[`run_fusion_multiproperty()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_multiproperty.md)
 share exactly one non-compositional fusion code path.
 
 ## Usage
@@ -32,7 +32,7 @@ stage1_fuse_from_prior_solus(
 - property_config:
 
   As in
-  [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md).
+  [`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md).
 
 - prior, solus:
 
@@ -57,6 +57,6 @@ stage1_fuse_from_prior_solus(
 
 ## Value
 
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)'s
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)'s
 return list
 (`list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=, route_detail=, n_fallback_cells=)`).

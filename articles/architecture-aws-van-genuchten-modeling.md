@@ -6,9 +6,9 @@ This functional area covers available water storage (AWS) modeling:
 evaluating the closed-form van Genuchten (1980) water-retention curve,
 Monte Carlo-simulating available water holding capacity (AWHC) from
 ROSETTA-derived pedotransfer parameters, and depth-slicing/summarizing
-AWHC per soil component. It is implemented entirely in
-`R/aws-simulation.R`. The three functions here are self-contained and
-depend on no other part of the package.
+AWHC per soil component. It is implemented entirely in `R/model-aws.R`.
+The three functions here are self-contained and depend on no other part
+of the package.
 
 ## Core Functions
 
@@ -64,7 +64,7 @@ simulate_vg_aws(data, n_simulations = 100)
   `sd_theta_r`, `theta_s`, `sd_theta_s`, `layerID` - exactly the shape
   produced by `soilDB::ROSETTA(..., include.sd = TRUE)` plus a
   caller-added `layerID` (see
-  [`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)).
+  [`compute_aws()`](https://jjmaynard.github.io/soilSIM/reference/compute_aws.md)).
 - `n_simulations` - Number of Monte Carlo draws per row (default `100`).
 
 **Returns**: A named list (one element per row, keyed
@@ -115,7 +115,7 @@ current default `slab.fun` (`slab_function(method = "numeric")`) returns
 quantile columns instead, which
 [`tidyr::pivot_wider()`](https://tidyr.tidyverse.org/reference/pivot_wider.html)
 in
-[`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
+[`compute_aws()`](https://jjmaynard.github.io/soilSIM/reference/compute_aws.md)
 cannot consume.
 
 **Parameters**:
@@ -134,7 +134,7 @@ cannot consume.
 
 **Algorithm/behavior**: One-line pass-through to
 `mean(values, na.rm = TRUE)`. It exists so
-[`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)’s
+[`compute_aws()`](https://jjmaynard.github.io/soilSIM/reference/compute_aws.md)’s
 call to
 [`aqp::slab()`](https://ncss-tech.github.io/aqp/reference/slab.html)
 yields a single `value` column that
@@ -143,7 +143,7 @@ can consume;
 [`aqp::slab()`](https://ncss-tech.github.io/aqp/reference/slab.html)’s
 current default `slab.fun` returns quantile columns instead.
 
-### 4. `calculate_aws_df()` - Master AWS-by-Depth-Interval Function
+### 4. `compute_aws()` - Master AWS-by-Depth-Interval Function
 
 **Purpose**: Runs
 [`soilDB::ROSETTA()`](http://ncss-tech.github.io/soilDB/reference/ROSETTA.md)
@@ -159,7 +159,7 @@ depth intervals via
 
 ``` r
 
-calculate_aws_df(sim_data_df)
+compute_aws(sim_data_df)
 ```
 
 - `sim_data_df` - A data frame with one row per horizon, with columns
@@ -219,7 +219,7 @@ the data frame is returned.
 
 ## Internal Connections
 
-    calculate_aws_df(sim_data_df)
+    compute_aws(sim_data_df)
     ├── soilDB::ROSETTA(sim_data_df, vars, v = "3", include.sd = TRUE)   [live network call to handbook60.org]
     │   └── (internally uses httr::POST())
     ├── layerID construction (paste(compname, hzdept_r, sep = "_"))
@@ -238,7 +238,7 @@ the data frame is returned.
 
 ### External packages
 
-    soilSIM (aws-simulation.R)
+    soilSIM (model-aws.R)
     ├── soilDB::ROSETTA()   - REQUIRED, live network call (POST to handbook60.org); derives van Genuchten
     │                          pedotransfer parameters (alpha, npar, theta_r, theta_s + SDs) from
     │                          texture/bulk-density/water-retention inputs
@@ -249,7 +249,7 @@ the data frame is returned.
     ├── tidyr::pivot_wider()- reshapes aqp::slab()'s long output to a value-per-row shape
     └── httr                - Suggests-guarded: not called directly by this file, but required
                                transitively because soilDB::ROSETTA() uses it internally for the
-                               HTTP POST; calculate_aws_df() checks requireNamespace("httr", ...)
+                               HTTP POST; compute_aws() checks requireNamespace("httr", ...)
                                up front and stops with a clear message if it's absent
 
 ### soilSIM dependencies / consumers
@@ -260,7 +260,7 @@ water-retention data produced by SSURGO acquisition/property-simulation
 steps elsewhere in `soilSIM` can be reshaped into the
 `sand_total`/`silt_total`/`clay_total`/`bulk_density_third_bar`/`water_retention_third_bar`/`water_retention_15_bar`/`compname`/`hzdept_r`/`hzdepb_r`/`cokey`
 shape
-[`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
+[`compute_aws()`](https://jjmaynard.github.io/soilSIM/reference/compute_aws.md)
 expects, but no such wiring exists inside this file - the caller is
 responsible for producing `sim_data_df` in the expected shape.
 
@@ -282,7 +282,7 @@ property tables downstream.
 ## Known Limitations
 
 - **Live network dependency**:
-  [`calculate_aws_df()`](https://jjmaynard.github.io/soilSIM/reference/calculate_aws_df.md)
+  [`compute_aws()`](https://jjmaynard.github.io/soilSIM/reference/compute_aws.md)
   requires live network access.
   [`soilDB::ROSETTA()`](http://ncss-tech.github.io/soilDB/reference/ROSETTA.md)
   POSTs to `https://www.handbook60.org/api/v1/rosetta/<version>` via
@@ -338,7 +338,7 @@ sim_data_df <- data.frame(
 # NOTE: requires live network access - calls soilDB::ROSETTA(), which POSTs
 # to https://www.handbook60.org via httr::POST(). Will fail if offline or
 # if handbook60.org is unreachable.
-aws_by_depth <- calculate_aws_df(sim_data_df)
+aws_by_depth <- compute_aws(sim_data_df)
 
 # aws_by_depth: long-format data frame with columns cokey, top, bottom, AWHC
 # - one row per depth slab (0-5, 5-15, 15-30, 30-60, 60-100 cm) actually

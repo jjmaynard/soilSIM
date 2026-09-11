@@ -9,7 +9,7 @@ calls to *vectorized* base-R math functions (`qnorm`, `qbeta`,
 `digamma`/`trigamma`) - never a per-cell optimizer, which is what makes
 these fast across whole rasters.
 
-Reuses `R/distributions.R`'s existing
+Reuses `R/core-distributions.R`'s existing
 [`metalog_basis_matrix()`](https://jjmaynard.github.io/soilSIM/reference/metalog_basis_matrix.md)/
 `metalog_to_z()`/`metalog_from_z()` directly rather than duplicating
 them: those functions are pure elementwise arithmetic (`log`/`exp`/`/`
@@ -45,7 +45,7 @@ Family status:
   /
   [`check_metalog_feasibility_raster()`](https://jjmaynard.github.io/soilSIM/reference/check_metalog_feasibility_raster.md)
   /
-  [`quantile_metalog_linear_with_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_with_fallback.md) -
+  [`quantile_metalog_linear_with_fallback_raster()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_with_fallback_raster.md) -
   exact linear-solve metalog reformulation (matches
   `rmetalog::metalog()` to ~1e-12 when its own fit is feasible), with a
   fallback to `linear_cdf` for the cells where it isn't.

@@ -1,10 +1,10 @@
-# Fully general fusion path for `fuse_adaptive()`: per cell, draw samples from both sides' percentiles (via `simulate_from_percentiles(method= "linear_cdf")`), fuse via `bayesian_update()`, and moment-match the posterior samples back into the requested family so the output contract matches the closed-form route.
+# Fully general fusion path for `fuse_adaptive()`: per cell, draw samples from both sides' percentiles (via `simulate_from_percentiles(method= "linear_cdf")`), fuse via `update_prior()`, and moment-match the posterior samples back into the requested family so the output contract matches the closed-form route.
 
 Fully general fusion path for
 [`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md):
 per cell, draw samples from both sides' percentiles (via
 `simulate_from_percentiles(method= "linear_cdf")`), fuse via
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md),
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md),
 and moment-match the posterior samples back into the requested family so
 the output contract matches the closed-form route.
 
@@ -50,13 +50,13 @@ fuse_general_kde(
 - grid_resolution:
 
   Passed to
-  [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md).
+  [`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md).
   `NULL` (the caller-facing default from
   [`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md))
   resolves to
   [FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION](https://jjmaynard.github.io/soilSIM/reference/FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION.md),
   not
-  [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+  [`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)'s
   own standalone default of `0.01` - see that constant's docs for why.
 
 - mukey_raster, mukey_draws:
@@ -66,7 +66,7 @@ fuse_general_kde(
   `prior_value_rasters`/`lik_value_rasters` (nearest-neighbor resampled,
   since it's categorical - bilinear would fabricate nonsensical mukey
   codes). `mukey_draws` is a
-  [`mukey_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md)
+  [`lookup_mukey_draws()`](https://jjmaynard.github.io/soilSIM/reference/lookup_mukey_draws.md)
   result. When both are supplied, the PRIOR side's samples for a cell
   are drawn from that cell's mukey's real Monte Carlo draws (computed
   once per unique mukey, not once per cell) instead of
@@ -84,12 +84,12 @@ fuse_general_kde(
 
   Numeric vector of probabilities (0-1) at which to report posterior
   percentiles, computed via
-  [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+  [`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)'s
   grid-based exact percentile machinery (see that function's docs).
   `NULL` (default) resolves to
   [FUSE_POSTERIOR_DEFAULT_PROBS](https://jjmaynard.github.io/soilSIM/reference/FUSE_POSTERIOR_DEFAULT_PROBS.md) -
   unlike
-  [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+  [`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)'s
   own `NULL` default (which means "no percentiles, preserve the original
   plain-vector return"), this is an internal orchestration parameter
   with no external plain-vector consumers, so its `NULL` means "use the

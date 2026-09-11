@@ -1,9 +1,9 @@
 # Assess Depth-Trend Realism
 
 Reuses the already-real `assess_trend_monotonicity()` and
-`assess_realistic_values()` (`gp-modeling.R`) to judge whether a
-predicted depth trend is realistic, and counts constraint violations
-against `criteria$realistic_ranges` when supplied.
+`assess_realistic_values()` (`core-gp.R`) to judge whether a predicted
+depth trend is realistic, and counts constraint violations against
+`criteria$realistic_ranges` when supplied.
 
 ## Usage
 

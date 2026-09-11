@@ -11,7 +11,7 @@ with existing soil property simulation workflows."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -64,7 +64,7 @@ with existing soil property simulation workflows."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Download SSURGO Tabular Data with Comprehensive Processing</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/ssurgo-acquisition.R" class="external-link"><code>R/ssurgo-acquisition.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/adapter-ssurgo-acquire.R" class="external-link"><code>R/adapter-ssurgo-acquire.R</code></a></small>
       <div class="d-none name"><code>download_ssurgo_tabular.Rd</code></div>
     </div>
 
@@ -101,7 +101,7 @@ with existing soil property simulation workflows.</p>
 <dd><p>Character vector. Soil properties to download.
 Default: c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o", "cec7", "om",
 "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar"). Each needs a matching
-row in <code><a href="create_ssurgo_property_lookup_working.html">create_ssurgo_property_lookup_working()</a></code> to reach the SQL query.</p></dd>
+row in <code><a href="build_ssurgo_property_lookup.html">build_ssurgo_property_lookup()</a></code> to reach the SQL query.</p></dd>
 
 
 <dt id="arg-include-restrictions">include_restrictions<a class="anchor" aria-label="anchor" href="#arg-include-restrictions"></a></dt>

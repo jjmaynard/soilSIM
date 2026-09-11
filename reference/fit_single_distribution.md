@@ -20,7 +20,7 @@ fit_single_distribution(values, dist_name, property_name, config)
 - dist_name:
 
   One of "normal", "lognormal", "gamma", "beta" (the candidate names
-  returned by get_appropriate_distributions()).
+  returned by distributions_for_properties()).
 
 - property_name:
 

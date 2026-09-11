@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -105,12 +105,12 @@ pipeline end to end, and its final step only touches Gaussian-process
 (GP) depth modeling briefly - fitting one set of stratified GP models
 and plotting a single depth trend. This vignette is a companion,
 finer-grained tour of the same functional group: it walks through the
-<em>individual</em> functions in <code>R/gp-modeling.R</code> and
-<code>R/multivariate-adjustment.R</code> one at a time, explains what
-each parameter controls (not just how to call the function), and shows
-parameter effects visually. See the “GP Modeling &amp; Multivariate
-Adjustment” architecture article for the full function-level
-architecture reference this vignette is drawn from.</p>
+<em>individual</em> functions in <code>R/core-gp.R</code> and
+<code>R/core-gp.R</code> one at a time, explains what each parameter
+controls (not just how to call the function), and shows parameter
+effects visually. See the “GP Modeling &amp; Multivariate Adjustment”
+architecture article for the full function-level architecture reference
+this vignette is drawn from.</p>
 <p>Functions covered, in order:</p>
 <ol style="list-style-type: decimal">
 <li>
@@ -120,7 +120,7 @@ data into GP training data</li>
 <code><a href="../reference/select_optimal_grouping.html">select_optimal_grouping()</a></code> - choose a soil-grouping
 strategy for stratified GP fitting</li>
 <li>
-<code><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models()</a></code> and
+<code><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models()</a></code> and
 <code><a href="../reference/fit_individual_gp_model.html">fit_individual_gp_model()</a></code> - fit the depth-trend GPs</li>
 <li>
 <code><a href="../reference/predict_gp_depth_trends.html">predict_gp_depth_trends()</a></code> - predict a fitted model at
@@ -129,7 +129,7 @@ new depths, with an uncertainty band</li>
 <code><a href="../reference/validate_gp_models.html">validate_gp_models()</a></code> - diagnostic pass over a fitted
 model set</li>
 <li>
-<code><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP()</a></code> - why
+<code><a href="../reference/adjust_simulation_depthwise.html">adjust_simulation_depthwise()</a></code> - why
 correlation-preserving adjustment matters</li>
 <li>
 <code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code> /
@@ -163,11 +163,11 @@ vignette<a class="anchor" aria-label="anchor" href="#step-0-get-to-the-same-star
 <code>getting-started-monte-carlo.Rmd</code> calls
 <code>horizon_data</code> - the output of
 <code><a href="../reference/process_ssurgo_data.html">process_ssurgo_data()</a></code>, before any missing-value infilling.
-<code><a href="../reference/download_and_prepare_ssurgo.html">download_and_prepare_ssurgo()</a></code> is the real, live call that
-produced the cached data (shown for reference only - not run here):</p>
+<code><a href="../reference/fetch_ssurgo_data.html">fetch_ssurgo_data()</a></code> is the real, live call that produced
+the cached data (shown for reference only - not run here):</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># The real call the cached data came from:</span></span>
-<span><span class="va">ssurgo_amador</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/download_and_prepare_ssurgo.html">download_and_prepare_ssurgo</a></span><span class="op">(</span></span>
+<span><span class="va">ssurgo_amador</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fetch_ssurgo_data.html">fetch_ssurgo_data</a></span><span class="op">(</span></span>
 <span>  aoi_wkt <span class="op">=</span> <span class="st">"POLYGON((-120.5 38.5, -120.4 38.5, -120.4 38.6, -120.5 38.6, -120.5 38.5))"</span>,</span>
 <span>  properties <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"sandtotal"</span>, <span class="st">"claytotal"</span>, <span class="st">"silttotal"</span>, <span class="st">"dbovendry"</span>, <span class="st">"ph1to1h2o"</span>,</span>
 <span>                 <span class="st">"cec7"</span>, <span class="st">"om"</span>, <span class="st">"wthirdbar"</span>, <span class="st">"wfifteenbar"</span><span class="op">)</span>,</span>
@@ -188,7 +188,7 @@ for GP fitting<a class="anchor" aria-label="anchor" href="#step-1-prepare_nrcs_t
 </h2>
 <p><strong>Purpose</strong>: turn raw combined NRCS component/horizon
 data into a cleaned, grouped training set ready for
-<code><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models()</a></code>.</p>
+<code><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models()</a></code>.</p>
 <p><strong>Parameters that matter</strong>:</p>
 <ul>
 <li>
@@ -267,9 +267,9 @@ trading off grouping resolution against data adequacy per group.</p>
 <h2 id="step-3-fitting-depth-trend-gp-models">Step 3: Fitting depth-trend GP models<a class="anchor" aria-label="anchor" href="#step-3-fitting-depth-trend-gp-models"></a>
 </h2>
 <div class="section level3">
-<h3 id="build_stratified_gp_models---the-master-fitting-function">
-<code>build_stratified_gp_models()</code> - the master fitting
-function<a class="anchor" aria-label="anchor" href="#build_stratified_gp_models---the-master-fitting-function"></a>
+<h3 id="fit_depth_gp_models---the-master-fitting-function">
+<code>fit_depth_gp_models()</code> - the master fitting
+function<a class="anchor" aria-label="anchor" href="#fit_depth_gp_models---the-master-fitting-function"></a>
 </h3>
 <p><strong>Concept</strong>: for each requested property, and separately
 within each soil group, this fits a 1-D Gaussian Process regression of
@@ -301,7 +301,7 @@ RMSE; <code>FALSE</code> fits a single default GP directly.
 cost of not searching over correlation families.</li>
 </ul>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">gp_models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">gp_models</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models</a></span><span class="op">(</span></span>
 <span>  <span class="va">gp_train</span>,</span>
 <span>  properties <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"clay_pct"</span>, <span class="st">"sand_pct"</span>, <span class="st">"pH"</span>, <span class="st">"organic_matter"</span><span class="op">)</span>,</span>
 <span>  min_profiles_per_group <span class="op">=</span> <span class="fl">3</span>,</span>
@@ -320,8 +320,8 @@ similarly for the other three properties) from this AOI’s real data.</p>
 <code>fit_individual_gp_model()</code> - the per-group fit, called
 directly<a class="anchor" aria-label="anchor" href="#fit_individual_gp_model---the-per-group-fit-called-directly"></a>
 </h3>
-<p>This is the function <code><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models()</a></code> calls
-once per (property, group) combination. Calling it directly on a single
+<p>This is the function <code><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models()</a></code> calls once
+per (property, group) combination. Calling it directly on a single
 group’s data shows what it actually does: aggregate to one mean value
 per depth (across profiles, then across horizons at that depth), min-max
 scale depths to <code>[0, 1]</code> (so the GP’s length-scale
@@ -329,15 +329,15 @@ hyperparameter is on a comparable footing across groups with different
 depth ranges), and fit <code><a href="https://rdrr.io/pkg/GPfit/man/GP_fit.html" class="external-link">GPfit::GP_fit()</a></code>. It returns
 <code>NULL</code> rather than erroring when there’s too little data to
 fit (fewer than 3 aggregated depth points, no variance in values, or no
-depth range) - <code><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models()</a></code> relies on this
-to skip ungroupable data gracefully.</p>
+depth range) - <code><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models()</a></code> relies on this to skip
+ungroupable data gracefully.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Pick a soil_group that already has a successfully-fit clay_pct AND</span></span>
 <span><span class="co"># organic_matter model in gp_models (used again in later steps), with the</span></span>
 <span><span class="co"># most training points among those - guarantees the direct, un-fallback-ed</span></span>
 <span><span class="co"># fit_individual_gp_model() call below actually succeeds (fitting can return</span></span>
 <span><span class="co"># NULL for groups whose raw soil_group data - as opposed to</span></span>
-<span><span class="co"># build_stratified_gp_models()'s internal hierarchical-fallback final_group -</span></span>
+<span><span class="co"># fit_depth_gp_models()'s internal hierarchical-fallback final_group -</span></span>
 <span><span class="co"># turns out to have no depth variation for this property).</span></span>
 <span><span class="va">candidate_groups</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/intersect.html" class="external-link">intersect</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">gp_models</span><span class="op">$</span><span class="va">clay_pct</span><span class="op">$</span><span class="va">models</span><span class="op">)</span>, <span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">gp_models</span><span class="op">$</span><span class="va">organic_matter</span><span class="op">$</span><span class="va">models</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">candidate_groups</span> <span class="op">&lt;-</span> <span class="va">candidate_groups</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span></span>
@@ -381,7 +381,7 @@ to skip ungroupable data gracefully.</p>
 <span><span class="co">#&gt; [1] 18.84615 32.00000</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $training_rmse</span></span>
-<span><span class="co">#&gt; [1] 4.544647e-15</span></span>
+<span><span class="co">#&gt; [1] 6.942062e-15</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $log_likelihood</span></span>
 <span><span class="co">#&gt; [1] NA</span></span></code></pre></div>
@@ -448,11 +448,11 @@ meant to provide over a plain regression trend line.</p>
 model set<a class="anchor" aria-label="anchor" href="#step-5-validate_gp_models---diagnosing-a-fitted-model-set"></a>
 </h2>
 <p><strong>Purpose</strong>: a diagnostic pass over an entire fitted GP
-model set (the output of <code><a href="../reference/build_stratified_gp_models.html">build_stratified_gp_models()</a></code>),
-checking three things per (property, group) model: whether predictions
-come back at all (<code>model_valid</code>), whether the depth trend is
-reasonably monotonic (<code>&gt;= 70%</code> of consecutive
-depth-to-depth differences share the same sign, via
+model set (the output of <code><a href="../reference/fit_depth_gp_models.html">fit_depth_gp_models()</a></code>), checking
+three things per (property, group) model: whether predictions come back
+at all (<code>model_valid</code>), whether the depth trend is reasonably
+monotonic (<code>&gt;= 70%</code> of consecutive depth-to-depth
+differences share the same sign, via
 <code>assess_trend_monotonicity()</code>), and whether predictions fall
 inside a property-specific realistic range (e.g. clay/sand/silt in
 <code>[0, 100]</code>, pH in <code>[2.5, 11]</code>, via
@@ -491,8 +491,8 @@ correlation that the Monte Carlo engine worked to preserve in the first
 place (e.g. clay and sand content are naturally anti-correlated within a
 horizon; adjusting each to its own trend independently reshuffles which
 simulated clay value is paired with which simulated sand value).
-<code><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP()</a></code> avoids this by computing
-a single <em>reference quantile</em> per simulation (from the primary
+<code><a href="../reference/adjust_simulation_depthwise.html">adjust_simulation_depthwise()</a></code> avoids this by computing a
+single <em>reference quantile</em> per simulation (from the primary
 property’s surface-depth distribution) and using that same quantile -
 not each property’s own independent quantile - to drive every property’s
 adjustment, so realization <em>j</em>’s properties all move
@@ -500,9 +500,8 @@ together.</p>
 <p>To demonstrate concretely with real fitted models, build a small
 synthetic set of “before adjustment” Monte Carlo-style realizations for
 clay and sand content at a few depths, correlated within each simulation
-(mimicking what <code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code>
-produces before any depth-trend adjustment is applied) but with no depth
-trend yet:</p>
+(mimicking what <code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code> produces before any
+depth-trend adjustment is applied) but with no depth trend yet:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">2024</span><span class="op">)</span></span>
 <span><span class="va">n_sims</span> <span class="op">&lt;-</span> <span class="fl">300</span></span>
@@ -531,26 +530,26 @@ trend yet:</p>
 <span><span class="co">#&gt; [1] -0.685475</span></span></code></pre></div>
 <p>Now adjust toward the two real fitted GP depth trends two different
 ways: <strong>jointly</strong> (the correlation-preserving way
-<code><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP()</a></code> is designed for) and
+<code><a href="../reference/adjust_simulation_depthwise.html">adjust_simulation_depthwise()</a></code> is designed for) and
 <strong>naively</strong>, by calling the same function separately on
 each property in isolation - which forces each property to use <em>its
 own</em> surface distribution as the reference quantile ordering instead
 of sharing one:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">joint_adjusted</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">joint_adjusted</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/adjust_simulation_depthwise.html">adjust_simulation_depthwise</a></span><span class="op">(</span></span>
 <span>  simulated_list <span class="op">=</span> <span class="va">simulated_list</span>,</span>
 <span>  gp_models <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>clay_pct <span class="op">=</span> <span class="va">clay_gp_model</span>, sand_pct <span class="op">=</span> <span class="va">sand_gp_model</span><span class="op">)</span>,</span>
 <span>  depths <span class="op">=</span> <span class="va">demo_depths</span>,</span>
 <span>  primary_property <span class="op">=</span> <span class="st">"clay_pct"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">naive_clay</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP</a></span><span class="op">(</span></span>
+<span><span class="va">naive_clay</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/adjust_simulation_depthwise.html">adjust_simulation_depthwise</a></span><span class="op">(</span></span>
 <span>  simulated_list <span class="op">=</span> <span class="va">simulated_list</span><span class="op">[</span><span class="st">"clay_pct"</span><span class="op">]</span>,</span>
 <span>  gp_models <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>clay_pct <span class="op">=</span> <span class="va">clay_gp_model</span><span class="op">)</span>,</span>
 <span>  depths <span class="op">=</span> <span class="va">demo_depths</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">naive_sand</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP</a></span><span class="op">(</span></span>
+<span><span class="va">naive_sand</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/adjust_simulation_depthwise.html">adjust_simulation_depthwise</a></span><span class="op">(</span></span>
 <span>  simulated_list <span class="op">=</span> <span class="va">simulated_list</span><span class="op">[</span><span class="st">"sand_pct"</span><span class="op">]</span>,</span>
 <span>  gp_models <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>sand_pct <span class="op">=</span> <span class="va">sand_gp_model</span><span class="op">)</span>,</span>
 <span>  depths <span class="op">=</span> <span class="va">demo_depths</span></span>
@@ -560,8 +559,8 @@ of sharing one:</p>
 <span></span>
 <span><span class="va">cor_comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  stage <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Original\n(unadjusted)"</span>, <span class="st">"Naive\n(each property adjusted alone)"</span>, <span class="st">"Correlation-preserving\n(adjust_multivariate_depthwise_GP)"</span><span class="op">)</span>,</span>
-<span>    levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Original\n(unadjusted)"</span>, <span class="st">"Naive\n(each property adjusted alone)"</span>, <span class="st">"Correlation-preserving\n(adjust_multivariate_depthwise_GP)"</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Original\n(unadjusted)"</span>, <span class="st">"Naive\n(each property adjusted alone)"</span>, <span class="st">"Correlation-preserving\n(adjust_simulation_depthwise)"</span><span class="op">)</span>,</span>
+<span>    levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Original\n(unadjusted)"</span>, <span class="st">"Naive\n(each property adjusted alone)"</span>, <span class="st">"Correlation-preserving\n(adjust_simulation_depthwise)"</span><span class="op">)</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  correlation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">clay_mat</span><span class="op">[</span><span class="va">deep_idx</span>, <span class="op">]</span>, <span class="va">sand_mat</span><span class="op">[</span><span class="va">deep_idx</span>, <span class="op">]</span><span class="op">)</span>,</span>
@@ -570,10 +569,10 @@ of sharing one:</p>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">cor_comparison</span></span>
-<span><span class="co">#&gt;                                                        stage correlation</span></span>
-<span><span class="co">#&gt; 1                                     Original\n(unadjusted)  -0.6854750</span></span>
-<span><span class="co">#&gt; 2                      Naive\n(each property adjusted alone)  -0.6847005</span></span>
-<span><span class="co">#&gt; 3 Correlation-preserving\n(adjust_multivariate_depthwise_GP)  -0.6847005</span></span></code></pre></div>
+<span><span class="co">#&gt;                                                   stage correlation</span></span>
+<span><span class="co">#&gt; 1                                Original\n(unadjusted)  -0.6854750</span></span>
+<span><span class="co">#&gt; 2                 Naive\n(each property adjusted alone)  -0.6847005</span></span>
+<span><span class="co">#&gt; 3 Correlation-preserving\n(adjust_simulation_depthwise)  -0.6847005</span></span></code></pre></div>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">cor_comparison</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">stage</span>, y <span class="op">=</span> <span class="va">correlation</span>, fill <span class="op">=</span> <span class="va">correlation</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_bar.html" class="external-link">geom_col</a></span><span class="op">(</span>width <span class="op">=</span> <span class="fl">0.6</span><span class="op">)</span> <span class="op">+</span></span>
@@ -599,17 +598,16 @@ nearly intact.</p>
 <h2 id="step-7-preserve_correlation_structure-apply_gp_depth_trends---the-long-format-path">Step 7: <code>preserve_correlation_structure()</code> /
 <code>apply_gp_depth_trends()</code> - the long-format path<a class="anchor" aria-label="anchor" href="#step-7-preserve_correlation_structure-apply_gp_depth_trends---the-long-format-path"></a>
 </h2>
-<p><code><a href="../reference/adjust_multivariate_depthwise_GP.html">adjust_multivariate_depthwise_GP()</a></code> above (from
-<code>gp-modeling.R</code>) operates directly on
+<p><code><a href="../reference/adjust_simulation_depthwise.html">adjust_simulation_depthwise()</a></code> above (from
+<code>core-gp.R</code>) operates directly on
 <code>[depth x simulation]</code> matrices - the array-based form of
-this algorithm. The pipeline
-<code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code> actually calls works on
-long-format Monte Carlo output instead, via
-<code>multivariate-adjustment.R</code>’s
-<code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code> (reshapes long-format rows into
-matrices, dispatches to <code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code>
-when <code>preserve_correlations = TRUE</code>, at least two properties
-are present, and
+this algorithm. The pipeline <code><a href="../reference/apply_depth_gp_to_simulation.html">apply_depth_gp_to_simulation()</a></code>
+actually calls works on long-format Monte Carlo output instead, via
+<code>core-gp.R</code>’s <code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code> (reshapes
+long-format rows into matrices, dispatches to
+<code><a href="../reference/preserve_correlation_structure.html">preserve_correlation_structure()</a></code> when
+<code>preserve_correlations = TRUE</code>, at least two properties are
+present, and
 <code>config$monte_carlo$vertical_correlation_method = "gp_quantile_retrofit"</code>
 is explicitly set - see Step 9 below for the package’s actual current
 default, <code>"joint_copula"</code> - then reshapes back) and
@@ -650,7 +648,7 @@ whatever depth pattern this specific cokey’s own horizons show, but with
 very few training points it is much more sensitive to noise in that one
 profile.</li>
 </ul>
-<p><code>integrate_monte_carlo_with_gp(integration_method = "hybrid")</code>
+<p><code>apply_depth_gp_to_simulation(integration_method = "hybrid")</code>
 (the default) actually applies both, in sequence, per cokey. Demonstrate
 the two independently on the synthetic <code>demo_cokey_data</code>
 built from Step 6’s matrices (which, by construction, has <em>no</em>
@@ -908,7 +906,7 @@ methods with identical synthetic Monte Carlo-style inputs -
 offline-reproducible without a live network call.
 <code>joint_copula</code> is the package default and is reachable
 through
-<code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>/<code><a href="../reference/integrate_monte_carlo_with_gp.html">integrate_monte_carlo_with_gp()</a></code>’s
+<code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>/<code><a href="../reference/apply_depth_gp_to_simulation.html">apply_depth_gp_to_simulation()</a></code>’s
 own top-level config as well as via <code><a href="../reference/apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code>
 directly. The depth kernel’s discontinuity-gating defaults
 (<code>distinctness_range</code>/<code>min_gate_weight</code>) are off
@@ -921,8 +919,8 @@ calibration against real KSSL/SSURGO profile lag-correlations.</p>
 <p>The cached data this vignette loads
 (<code>inst/extdata/ssurgo_amador.rds</code>) was produced once by
 <code>data-raw/build_vignette_data.R</code>, which calls
-<code><a href="../reference/download_and_prepare_ssurgo.html">download_and_prepare_ssurgo()</a></code> live against NRCS Soil Data
-Access for the AOI used above - the same cached file
+<code><a href="../reference/fetch_ssurgo_data.html">fetch_ssurgo_data()</a></code> live against NRCS Soil Data Access for
+the AOI used above - the same cached file
 <code>getting-started-monte-carlo.Rmd</code> uses. Re-run that script to
 refresh it.</p>
 </div>

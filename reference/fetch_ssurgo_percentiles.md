@@ -1,6 +1,6 @@
 # Fetch SSURGO Percentile-Value Rasters for an AOI
 
-The top-level SSURGO "prior" entry point for `R/raster-fusion.R`'s
+The top-level SSURGO "prior" entry point for `R/core-fusion.R`'s
 [`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md):
 rasterizes map units, Monte Carlo-simulates the requested property, and
 returns per-cell percentile-value rasters in the `list(values=, probs=)`

@@ -49,7 +49,7 @@ fuse_adaptive(
 - threshold_cells:
 
   AOI cell count at or below which the general
-  [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
+  [`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)
   route is used; above it, the closed-form route.
 
 - n_samples:
@@ -59,12 +59,12 @@ fuse_adaptive(
 - grid_resolution:
 
   Passed to
-  [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
+  [`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)
   for the general route. `NULL` (default) resolves to
   [FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION](https://jjmaynard.github.io/soilSIM/reference/FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION.md)
   (`0.1`) - see that constant's docs for the profiling/accuracy
   justification for why this differs from
-  [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+  [`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)'s
   own standalone default of `0.01`.
 
 - verbose:
@@ -96,7 +96,7 @@ fuse_adaptive(
   [FUSE_POSTERIOR_DEFAULT_PROBS](https://jjmaynard.github.io/soilSIM/reference/FUSE_POSTERIOR_DEFAULT_PROBS.md)).
   `NULL` (default) resolves to the same rich default on both routes. The
   general route computes percentiles from
-  [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+  [`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)'s
   discretized posterior (exact relative to `grid_resolution`, but tail
   percentiles are limited by how well the KDE approximates the tails
   from a finite sample); the closed-form route computes them
@@ -124,3 +124,23 @@ A list:
 
 - `diagnostics`:
   `list(ncell=, threshold_cells=, family=, elapsed_sec=)`.
+
+## See also
+
+Other raster-fusion:
+[`align_percentile_probs()`](https://jjmaynard.github.io/soilSIM/reference/align_percentile_probs.md),
+[`build_cache_key()`](https://jjmaynard.github.io/soilSIM/reference/build_cache_key.md),
+[`cache_get()`](https://jjmaynard.github.io/soilSIM/reference/cache_get.md),
+[`cache_set()`](https://jjmaynard.github.io/soilSIM/reference/cache_set.md),
+[`check_metalog_feasibility_raster()`](https://jjmaynard.github.io/soilSIM/reference/check_metalog_feasibility_raster.md),
+[`fit_beta_mle_newton_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton_raster.md),
+[`fit_beta_mom_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mom_raster.md),
+[`fit_gamma_mom_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_gamma_mom_raster.md),
+[`fit_metalog_linear_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear_raster.md),
+[`fit_normal_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_raster.md),
+[`percentiles_from_draws()`](https://jjmaynard.github.io/soilSIM/reference/percentiles_from_draws.md),
+[`quantile_metalog_linear_with_fallback_raster()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_with_fallback_raster.md),
+[`remarginalize_awc()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_awc.md),
+[`remarginalize_ensemble_to_posterior()`](https://jjmaynard.github.io/soilSIM/reference/remarginalize_ensemble_to_posterior.md),
+[`resolve_property_dist()`](https://jjmaynard.github.io/soilSIM/reference/resolve_property_dist.md),
+[`wrap_nested_rasters()`](https://jjmaynard.github.io/soilSIM/reference/wrap_nested_rasters.md)

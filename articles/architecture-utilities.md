@@ -13,9 +13,9 @@ a **leaf dependency** in the ordinary sense - it sources nothing else in
 `soilSIM` and is depended on, directly or indirectly, by every other
 functional group - with one narrow, source-verified exception documented
 under [Known Limitations](#known-limitations):
-`get_predefined_properties("ssurgo")` calls
-[`create_ssurgo_property_lookup_working()`](https://jjmaynard.github.io/soilSIM/reference/create_ssurgo_property_lookup_working.md),
-which actually lives in `R/ssurgo-acquisition.R`, not here.
+`predefined_properties("ssurgo")` calls
+[`build_ssurgo_property_lookup()`](https://jjmaynard.github.io/soilSIM/reference/build_ssurgo_property_lookup.md),
+which actually lives in `R/adapter-ssurgo-acquire.R`, not here.
 
 ## Core Functions
 
@@ -272,7 +272,7 @@ to append more specific guidance to `errors`/`warnings`. Not called by
 [`validate_wkt_geometry()`](https://jjmaynard.github.io/soilSIM/reference/validate_wkt_geometry.md)
 or elsewhere in the package.
 
-##### `validate_geometry_validity(geom, strict_mode = TRUE)`, `validate_geometry_area(geom, area_limits, context = "general")`, `validate_geometry_complexity(geom, complexity_limits)`, `validate_coordinate_bounds(geom, bounds_check, context = "general")`, `validate_geographic_context(geom, strict_mode = TRUE)`, `validate_projected_context(geom, crs, strict_mode = TRUE)`, `get_validation_defaults(context, crs)`, `calculate_complexity_score(n_vertices, n_parts, geometry_type)`
+##### `validate_geometry_validity(geom, strict_mode = TRUE)`, `validate_geometry_area(geom, area_limits, context = "general")`, `validate_geometry_complexity(geom, complexity_limits)`, `validate_coordinate_bounds(geom, bounds_check, context = "general")`, `validate_geographic_context(geom, strict_mode = TRUE)`, `validate_projected_context(geom, crs, strict_mode = TRUE)`, `default_diagnostics_config(context, crs)`, `compute_complexity_score(n_vertices, n_parts, geometry_type)`
 
 **Purpose**: A granular, single-responsibility family of geometry checks
 that together duplicate (with somewhat more nuance) what
@@ -297,7 +297,7 @@ escalatable to an error via
 `area_limits$min_action`/`max_action == "error"`.
 [`validate_geometry_complexity()`](https://jjmaynard.github.io/soilSIM/reference/validate_geometry_complexity.md)
 computes vertex/part counts and calls
-[`calculate_complexity_score()`](https://jjmaynard.github.io/soilSIM/reference/calculate_complexity_score.md),
+[`compute_complexity_score()`](https://jjmaynard.github.io/soilSIM/reference/compute_complexity_score.md),
 warning (never erroring) if either exceeds
 `complexity_limits$max_vertices`/`max_parts`.
 [`validate_coordinate_bounds()`](https://jjmaynard.github.io/soilSIM/reference/validate_coordinate_bounds.md)
@@ -312,11 +312,11 @@ collapses to a single point.
 [`validate_projected_context()`](https://jjmaynard.github.io/soilSIM/reference/validate_projected_context.md)
 warns if a “projected” geometry is actually lon/lat, or if coordinate
 magnitudes exceed `1e8` (possible wrong-CRS indicator).
-[`get_validation_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_validation_defaults.md)
+[`default_diagnostics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_diagnostics_config.md)
 returns a [`switch()`](https://rdrr.io/r/base/switch.html)-selected
 bundle of `area_limits`/`complexity_limits`/`bounds_check` for
 `"geographic"`, `"projected"`, `"custom"`, or a final fallback context.
-[`calculate_complexity_score()`](https://jjmaynard.github.io/soilSIM/reference/calculate_complexity_score.md)
+[`compute_complexity_score()`](https://jjmaynard.github.io/soilSIM/reference/compute_complexity_score.md)
 is a `log10(vertices) + log10(parts)`, scaled by a `geometry_type`-keyed
 multiplier (`POINT` 1.0 up to `GEOMETRYCOLLECTION` 2.5), rounded to 2
 decimals - it is the only one of this family actually called by another
@@ -339,7 +339,7 @@ names against a lookup of “known” names, without synonym matching.
 
 **Algorithm/behavior**: Rejects non-character/empty `properties`
 immediately. Resolves the available-property set via
-`get_available_properties(property_lookup)`; if that returns zero
+`available_properties(property_lookup)`; if that returns zero
 properties, validation is skipped entirely (a warning is recorded, not
 an error). Otherwise computes
 `valid_props <- intersect(properties, available_props)` and
@@ -348,17 +348,17 @@ fraction exceeds `max_invalid_pct`, marks `valid <- FALSE`. Separately
 warns if the *valid* property count exceeds `performance_threshold`, and
 fails if there are zero valid properties regardless of `strict_mode`.
 This is the function actually called elsewhere in the package
-(`multivariate-adjustment.R`, `validation-diagnostics.R`) - always with
+(`core-gp.R`, `diagnostics.R`) - always with
 `property_lookup = "laboratory"` in current call sites.
 
-##### `get_available_properties(property_lookup)`
+##### `available_properties(property_lookup)`
 
 **Purpose**: Normalizes four different kinds of `property_lookup` input
 into a plain character vector of available property names.
 
 **Algorithm/behavior**: Dispatches on the type of `property_lookup`: a
 length-1 character string is treated as a named source and passed to
-[`get_predefined_properties()`](https://jjmaynard.github.io/soilSIM/reference/get_predefined_properties.md);
+[`predefined_properties()`](https://jjmaynard.github.io/soilSIM/reference/predefined_properties.md);
 a function is called and its result coerced via
 [`as.character()`](https://rdrr.io/r/base/character.html); a longer
 character vector is returned as-is; a data frame is passed to
@@ -367,7 +367,7 @@ anything else logs a warning and returns `character(0)`. The whole
 dispatch is wrapped in a `tryCatch` that degrades to `character(0)` with
 a warning on any error.
 
-##### `get_predefined_properties(source_name)`
+##### `predefined_properties(source_name)`
 
 **Purpose**: Named canned property lists for `"ssurgo"`, `"nrcs"`,
 `"laboratory"`, and `"basic"` sources.
@@ -375,14 +375,15 @@ a warning on any error.
 **Algorithm/behavior**: `"nrcs"`, `"laboratory"`, and `"basic"` return
 small hard-coded character vectors. `"ssurgo"` is different in kind: it
 calls
-[`create_ssurgo_property_lookup_working()`](https://jjmaynard.github.io/soilSIM/reference/create_ssurgo_property_lookup_working.md) -
-a function defined not in `utils.R` but in `R/ssurgo-acquisition.R` -
-inside a `tryCatch`, and extracts its `$Property` column if present.
-This is the one place `utils.R` reaches outside its own file for a live
-function call (see Known Limitations); the call is defensively guarded,
-so if `ssurgo-acquisition.R`’s function isn’t loaded/available the
-branch just logs a WARN and returns `character(0)` rather than erroring.
-Unrecognized `source_name` also logs a WARN and returns `character(0)`.
+[`build_ssurgo_property_lookup()`](https://jjmaynard.github.io/soilSIM/reference/build_ssurgo_property_lookup.md) -
+a function defined not in `utils.R` but in
+`R/adapter-ssurgo-acquire.R` - inside a `tryCatch`, and extracts its
+`$Property` column if present. This is the one place `utils.R` reaches
+outside its own file for a live function call (see Known Limitations);
+the call is defensively guarded, so if `adapter-ssurgo-acquire.R`’s
+function isn’t loaded/available the branch just logs a WARN and returns
+`character(0)` rather than erroring. Unrecognized `source_name` also
+logs a WARN and returns `character(0)`.
 
 ##### `extract_properties_from_dataframe(df)`
 
@@ -420,10 +421,10 @@ error; a nonzero-but-acceptable invalid count instead produces a warning
 listing the invalid names. A separate warning fires if
 `total_properties > performance_threshold`. Because the synonym table
 here is separate from (and structured oppositely to)
-[`get_default_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/get_default_synonyms.md)’s
+[`default_property_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/default_property_synonyms.md)’s
 table, the two can drift independently.
 
-##### `get_default_synonyms(property_lookup)`
+##### `default_property_synonyms(property_lookup)`
 
 **Purpose**: Returns a named-list synonym table (canonical name -\>
 vector of synonyms) for `"ssurgo"`, `"nrcs"`, or `"laboratory"`, or an
@@ -449,7 +450,7 @@ has no `synonyms` parameter.
 
 ### Configuration Management
 
-#### `get_default_configuration(config_type = "full")`
+#### `default_config(config_type = "full")`
 
 **Purpose**: Returns the package-wide baseline configuration.
 
@@ -479,7 +480,7 @@ merges it over the package defaults, and optionally validates it.
 
 **Algorithm/behavior**: If `config_path` doesn’t exist, logs a WARN and
 returns
-[`get_default_configuration()`](https://jjmaynard.github.io/soilSIM/reference/get_default_configuration.md)
+[`default_config()`](https://jjmaynard.github.io/soilSIM/reference/default_config.md)
 untouched (no error). Otherwise auto-detects `config_type` from the file
 extension (`json`/`r`, defaulting to `json` for anything unrecognized)
 unless explicitly given. Loads via
@@ -488,7 +489,7 @@ unless explicitly given. Loads via
 expression is treated as the config’s `value`); any other `config_type`
 is a hard [`stop()`](https://rdrr.io/r/base/stop.html). The loaded
 config is deep-merged onto
-[`get_default_configuration()`](https://jjmaynard.github.io/soilSIM/reference/get_default_configuration.md)
+[`default_config()`](https://jjmaynard.github.io/soilSIM/reference/default_config.md)
 via
 [`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md).
 If `validate_config`, runs the internal (unexported)
@@ -764,7 +765,7 @@ pairs remain, warns and returns `NA`. If either variable is constant
 `cor(x_clean, y_clean, method)` inside a `tryCatch`, returning `NA` on
 any computation error.
 
-#### `calculate_confidence_intervals(data, statistic = "mean", confidence_level = 0.95, method = "normal", n_bootstrap = 1000)`
+#### `compute_confidence_intervals(data, statistic = "mean", confidence_level = 0.95, method = "normal", n_bootstrap = 1000)`
 
 **Purpose**: Confidence interval computation for a mean, median, or
 proportion, by normal-approximation, t-distribution, or bootstrap.
@@ -901,10 +902,10 @@ function calls it):
     │   └── cleanup_old_backups()               (internal helper)
     │
     ├── load_configuration()
-    │   ├── get_default_configuration()
+    │   ├── default_config()
     │   ├── merge_configurations()
     │   └── validate_configuration()            (internal, unexported)
-    ├── get_default_configuration()             [no internal calls]
+    ├── default_config()             [no internal calls]
     ├── merge_configurations()                  [no internal calls; self-contained recursive helper]
     ├── validate_parameters()                   [no internal calls]
     ├── export_workflow_metadata()
@@ -915,7 +916,7 @@ function calls it):
     │   └── extract_data_summary()              (internal helper)
     │
     ├── safe_correlation()                      [no internal calls]
-    ├── calculate_confidence_intervals()        [no internal calls]
+    ├── compute_confidence_intervals()        [no internal calls]
     ├── normalize_values()                      [no internal calls]
     ├── detect_outliers()
     │   └── detect_outliers_iqr() / detect_outliers_zscore() / detect_outliers_modified_zscore()  (internal helpers)
@@ -927,13 +928,13 @@ function calls it):
     ├── track_progress()                        [calls log_message() only]
     │
     ├── validate_properties()
-    │   └── get_available_properties()
-    │       ├── get_predefined_properties()
-    │       │   └── create_ssurgo_property_lookup_working()   *** defined in R/ssurgo-acquisition.R, NOT utils.R ***
+    │   └── available_properties()
+    │       ├── predefined_properties()
+    │       │   └── build_ssurgo_property_lookup()   *** defined in R/adapter-ssurgo-acquire.R, NOT utils.R ***
     │       └── extract_properties_from_dataframe()
     ├── validate_properties_with_synonyms()     [own hard-coded synonym table; does NOT call validate_properties()
-    │                                             or get_available_properties()]
-    ├── get_default_synonyms()                  [no internal calls; separate synonym table from the one above]
+    │                                             or available_properties()]
+    ├── default_property_synonyms()                  [no internal calls; separate synonym table from the one above]
     ├── create_property_lookup()                [closure dispatches to validate_properties() or
     │                                             validate_properties_with_synonyms() at call time]
     │
@@ -944,9 +945,9 @@ function calls it):
     ├── validate_geometry_validity()            [no internal calls; unused elsewhere]
     ├── validate_geometry_area()                [no internal calls; unused elsewhere]
     ├── validate_geometry_complexity()
-    │   └── calculate_complexity_score()        (the only cross-call within this granular geometry family)
+    │   └── compute_complexity_score()        (the only cross-call within this granular geometry family)
     ├── validate_coordinate_bounds()            [no internal calls; unused elsewhere]
-    ├── get_validation_defaults()               [no internal calls; unused elsewhere]
+    ├── default_diagnostics_config()               [no internal calls; unused elsewhere]
     ├── validate_geographic_context()           [no internal calls; unused elsewhere]
     └── validate_projected_context()            [no internal calls; unused elsewhere]
 
@@ -1001,71 +1002,71 @@ function calls it):
 
 `utils.R` sources nothing else in the package and is intended as a pure
 leaf module - with one verified exception:
-`get_predefined_properties("ssurgo")` calls
-[`create_ssurgo_property_lookup_working()`](https://jjmaynard.github.io/soilSIM/reference/create_ssurgo_property_lookup_working.md),
-which is defined in `R/ssurgo-acquisition.R`. This call is defensively
-wrapped in [`tryCatch()`](https://rdrr.io/r/base/conditions.html)
-(degrading to a `WARN` + empty vector if unavailable), so it does not
-create a hard circular *load-order* dependency, but it does mean
-`utils.R` is not a fully self-contained leaf at the call-graph level.
-See Known Limitations.
+`predefined_properties("ssurgo")` calls
+[`build_ssurgo_property_lookup()`](https://jjmaynard.github.io/soilSIM/reference/build_ssurgo_property_lookup.md),
+which is defined in `R/adapter-ssurgo-acquire.R`. This call is
+defensively wrapped in
+[`tryCatch()`](https://rdrr.io/r/base/conditions.html) (degrading to a
+`WARN` + empty vector if unavailable), so it does not create a hard
+circular *load-order* dependency, but it does mean `utils.R` is not a
+fully self-contained leaf at the call-graph level. See Known
+Limitations.
 
 ### Consumers (functions from this file used elsewhere, per source grep)
 
 - **[`is_unsuitable()`](https://jjmaynard.github.io/soilSIM/reference/is_unsuitable.md)** -
-  the single most widely reused function: `R/ssurgo-acquisition.R`,
-  `R/ssurgo-processing.R`, `R/data-infilling.R` (three call sites),
-  `R/gp-modeling.R`, `R/monte-carlo.R`.
+  the single most widely reused function: `R/adapter-ssurgo-acquire.R`,
+  `R/adapter-ssurgo-process.R`, `R/adapter-ssurgo-infill.R` (three call
+  sites), `R/core-gp.R`, `R/core-montecarlo.R`.
 - **[`validate_data_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_data_quality.md)** -
-  `R/ssurgo-acquisition.R`, `R/ssurgo-processing.R`, `R/gp-modeling.R`,
-  `R/multivariate-adjustment.R`, `R/statistics.R`,
-  `R/validation-diagnostics.R` (multiple call sites).
+  `R/adapter-ssurgo-acquire.R`, `R/adapter-ssurgo-process.R`,
+  `R/core-gp.R`, `R/core-gp.R`, `R/statistics.R`, `R/diagnostics.R`
+  (multiple call sites).
 - **[`validate_properties_with_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/validate_properties_with_synonyms.md)** -
-  `R/ssurgo-acquisition.R`, `R/monte-carlo.R`, `R/statistics.R`,
-  `R/data-infilling.R`.
+  `R/adapter-ssurgo-acquire.R`, `R/core-montecarlo.R`, `R/statistics.R`,
+  `R/adapter-ssurgo-infill.R`.
 - **[`validate_wkt_geometry()`](https://jjmaynard.github.io/soilSIM/reference/validate_wkt_geometry.md)** -
-  `R/ssurgo-acquisition.R`.
+  `R/adapter-ssurgo-acquire.R`.
 - **[`validate_properties()`](https://jjmaynard.github.io/soilSIM/reference/validate_properties.md)**
-  (the non-synonym variant) - `R/multivariate-adjustment.R`,
-  `R/validation-diagnostics.R` (all current call sites pass
-  `"laboratory"` as the lookup).
+  (the non-synonym variant) - `R/core-gp.R`, `R/diagnostics.R` (all
+  current call sites pass `"laboratory"` as the lookup).
 - **[`validate_numeric_ranges()`](https://jjmaynard.github.io/soilSIM/reference/validate_numeric_ranges.md)** -
-  `R/ssurgo-processing.R`, `R/validation-diagnostics.R`.
+  `R/adapter-ssurgo-process.R`, `R/diagnostics.R`.
 - **[`standardize_property_names()`](https://jjmaynard.github.io/soilSIM/reference/standardize_property_names.md)** -
-  `R/gp-modeling.R`, `R/ssurgo-processing.R` (two call sites).
+  `R/core-gp.R`, `R/adapter-ssurgo-process.R` (two call sites).
 - **[`safe_coalesce()`](https://jjmaynard.github.io/soilSIM/reference/safe_coalesce.md)** -
-  `R/gp-modeling.R`.
+  `R/core-gp.R`.
 - **[`handle_missing_values()`](https://jjmaynard.github.io/soilSIM/reference/handle_missing_values.md)** -
   `R/statistics.R`.
 - **[`detect_outliers()`](https://jjmaynard.github.io/soilSIM/reference/detect_outliers.md)** -
-  `R/monte-carlo.R` (two call sites), `R/statistics.R` (two call sites),
-  `R/ssurgo-processing.R`, `R/validation-diagnostics.R` (three call
+  `R/core-montecarlo.R` (two call sites), `R/statistics.R` (two call
+  sites), `R/adapter-ssurgo-process.R`, `R/diagnostics.R` (three call
   sites).
 - **[`safe_correlation()`](https://jjmaynard.github.io/soilSIM/reference/safe_correlation.md)** -
-  `R/statistics.R` (multiple call sites), `R/validation-diagnostics.R`
-  (three call sites).
-- **[`calculate_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/calculate_confidence_intervals.md)** -
+  `R/statistics.R` (multiple call sites), `R/diagnostics.R` (three call
+  sites).
+- **[`compute_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/compute_confidence_intervals.md)** -
   `R/statistics.R`.
-- **[`get_default_configuration()`](https://jjmaynard.github.io/soilSIM/reference/get_default_configuration.md)** -
-  `R/gp-modeling.R`, `R/multivariate-adjustment.R` (multiple call
-  sites), `R/ssurgo-acquisition.R` (two call sites), `R/statistics.R`,
-  `R/validation-diagnostics.R` (multiple call sites), `R/monte-carlo.R`.
+- **[`default_config()`](https://jjmaynard.github.io/soilSIM/reference/default_config.md)** -
+  `R/core-gp.R`, `R/core-gp.R` (multiple call sites),
+  `R/adapter-ssurgo-acquire.R` (two call sites), `R/statistics.R`,
+  `R/diagnostics.R` (multiple call sites), `R/core-montecarlo.R`.
 - **[`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md)** -
-  `R/monte-carlo.R` (two call sites, one inside its own
+  `R/core-montecarlo.R` (two call sites, one inside its own
   roxygen-documented helper), `R/statistics.R` (two call sites),
-  `R/ssurgo-processing.R`.
+  `R/adapter-ssurgo-process.R`.
 - **[`load_configuration()`](https://jjmaynard.github.io/soilSIM/reference/load_configuration.md)** -
-  `R/ssurgo-acquisition.R`.
+  `R/adapter-ssurgo-acquire.R`.
 - **[`setup_logging()`](https://jjmaynard.github.io/soilSIM/reference/setup_logging.md)** -
-  `R/monte-carlo.R`, `R/statistics.R`, `R/ssurgo-acquisition.R`.
+  `R/core-montecarlo.R`, `R/statistics.R`, `R/adapter-ssurgo-acquire.R`.
 - **[`handle_workflow_error()`](https://jjmaynard.github.io/soilSIM/reference/handle_workflow_error.md)** -
   used pervasively as the `error =` handler inside
   [`tryCatch()`](https://rdrr.io/r/base/conditions.html) throughout
-  `R/gp-modeling.R`, `R/multivariate-adjustment.R`, `R/monte-carlo.R`,
-  `R/ssurgo-acquisition.R`, `R/validation-diagnostics.R`.
+  `R/core-gp.R`, `R/core-gp.R`, `R/core-montecarlo.R`,
+  `R/adapter-ssurgo-acquire.R`, `R/diagnostics.R`.
 - **[`track_progress()`](https://jjmaynard.github.io/soilSIM/reference/track_progress.md)** -
-  `R/multivariate-adjustment.R` (two call sites), `R/monte-carlo.R`,
-  `R/validation-diagnostics.R` (multiple call sites).
+  `R/core-gp.R` (two call sites), `R/core-montecarlo.R`,
+  `R/diagnostics.R` (multiple call sites).
 
 Functions defined in this file but **not currently called from any other
 file in the package** (confirmed by source grep):
@@ -1078,11 +1079,11 @@ file in the package** (confirmed by source grep):
 [`validate_geometry_area()`](https://jjmaynard.github.io/soilSIM/reference/validate_geometry_area.md),
 [`validate_geometry_complexity()`](https://jjmaynard.github.io/soilSIM/reference/validate_geometry_complexity.md),
 [`validate_coordinate_bounds()`](https://jjmaynard.github.io/soilSIM/reference/validate_coordinate_bounds.md),
-[`get_validation_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_validation_defaults.md),
+[`default_diagnostics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_diagnostics_config.md),
 [`validate_geographic_context()`](https://jjmaynard.github.io/soilSIM/reference/validate_geographic_context.md),
 [`validate_projected_context()`](https://jjmaynard.github.io/soilSIM/reference/validate_projected_context.md),
-[`get_default_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/get_default_synonyms.md),
-[`get_available_properties()`](https://jjmaynard.github.io/soilSIM/reference/get_available_properties.md)/[`get_predefined_properties()`](https://jjmaynard.github.io/soilSIM/reference/get_predefined_properties.md)/[`extract_properties_from_dataframe()`](https://jjmaynard.github.io/soilSIM/reference/extract_properties_from_dataframe.md)/[`create_property_lookup()`](https://jjmaynard.github.io/soilSIM/reference/create_property_lookup.md)
+[`default_property_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/default_property_synonyms.md),
+[`available_properties()`](https://jjmaynard.github.io/soilSIM/reference/available_properties.md)/[`predefined_properties()`](https://jjmaynard.github.io/soilSIM/reference/predefined_properties.md)/[`extract_properties_from_dataframe()`](https://jjmaynard.github.io/soilSIM/reference/extract_properties_from_dataframe.md)/[`create_property_lookup()`](https://jjmaynard.github.io/soilSIM/reference/create_property_lookup.md)
 (these four are called only from within `utils.R` itself, via
 [`validate_properties()`](https://jjmaynard.github.io/soilSIM/reference/validate_properties.md)).
 
@@ -1119,9 +1120,9 @@ vectors/matrices**
 [`safe_coalesce()`](https://jjmaynard.github.io/soilSIM/reference/safe_coalesce.md),
 [`safe_correlation()`](https://jjmaynard.github.io/soilSIM/reference/safe_correlation.md)). -
 **Small structured lists** for statistics
-([`calculate_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/calculate_confidence_intervals.md))
+([`compute_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/compute_confidence_intervals.md))
 and configuration
-([`get_default_configuration()`](https://jjmaynard.github.io/soilSIM/reference/get_default_configuration.md),
+([`default_config()`](https://jjmaynard.github.io/soilSIM/reference/default_config.md),
 [`load_configuration()`](https://jjmaynard.github.io/soilSIM/reference/load_configuration.md),
 [`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md)). -
 **Side effects only**
@@ -1136,24 +1137,24 @@ write to disk and return a path or a success boolean).
 
 ## Known Limitations
 
-- **`get_predefined_properties("ssurgo")` breaks the leaf-module
-  property**: it calls
-  [`create_ssurgo_property_lookup_working()`](https://jjmaynard.github.io/soilSIM/reference/create_ssurgo_property_lookup_working.md),
-  which is defined in `R/ssurgo-acquisition.R`, not `utils.R`. The call
-  is `tryCatch`-guarded (degrades to `WARN` + `character(0)` if
+- **`predefined_properties("ssurgo")` breaks the leaf-module property**:
+  it calls
+  [`build_ssurgo_property_lookup()`](https://jjmaynard.github.io/soilSIM/reference/build_ssurgo_property_lookup.md),
+  which is defined in `R/adapter-ssurgo-acquire.R`, not `utils.R`. The
+  call is `tryCatch`-guarded (degrades to `WARN` + `character(0)` if
   unavailable), so it is not a hard failure, but it means `utils.R` is
   not a fully self-contained leaf at the call-graph level despite
   otherwise sourcing nothing else in the package.
 - **Two independent, non-communicating WKT validation code paths**:
   [`validate_wkt_geometry()`](https://jjmaynard.github.io/soilSIM/reference/validate_wkt_geometry.md)
-  (the one actually wired into `R/ssurgo-acquisition.R`) inlines all of
-  its own parsing/bbox/area/bounds logic and does not call
+  (the one actually wired into `R/adapter-ssurgo-acquire.R`) inlines all
+  of its own parsing/bbox/area/bounds logic and does not call
   [`parse_wkt_geometry()`](https://jjmaynard.github.io/soilSIM/reference/parse_wkt_geometry.md),
   [`validate_geometry_validity()`](https://jjmaynard.github.io/soilSIM/reference/validate_geometry_validity.md),
   [`validate_geometry_area()`](https://jjmaynard.github.io/soilSIM/reference/validate_geometry_area.md),
   [`validate_geometry_complexity()`](https://jjmaynard.github.io/soilSIM/reference/validate_geometry_complexity.md),
   [`validate_coordinate_bounds()`](https://jjmaynard.github.io/soilSIM/reference/validate_coordinate_bounds.md),
-  [`get_validation_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_validation_defaults.md),
+  [`default_diagnostics_config()`](https://jjmaynard.github.io/soilSIM/reference/default_diagnostics_config.md),
   [`validate_geographic_context()`](https://jjmaynard.github.io/soilSIM/reference/validate_geographic_context.md),
   or
   [`validate_projected_context()`](https://jjmaynard.github.io/soilSIM/reference/validate_projected_context.md) -
@@ -1165,7 +1166,7 @@ write to disk and return a path or a success boolean).
   [`validate_properties_with_synonyms()`](https://jjmaynard.github.io/soilSIM/reference/validate_properties_with_synonyms.md)
   hard-codes its own ~13-entry SSURGO synonym table inline, structurally
   unrelated to (and not sharing data with)
-  `get_default_synonyms("ssurgo")`’s separate table or
+  `default_property_synonyms("ssurgo")`’s separate table or
   `get_default_property_mapping("ssurgo")`’s (used by
   [`standardize_property_names()`](https://jjmaynard.github.io/soilSIM/reference/standardize_property_names.md)).
   All three tables encode overlapping but independently-maintained
@@ -1184,7 +1185,7 @@ write to disk and return a path or a success boolean).
   `quality_thresholds$min_completeness` (when the caller passes no
   thresholds at all) is `0.8` - the two default values are inconsistent
   with each other.
-- **[`calculate_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/calculate_confidence_intervals.md)’s
+- **[`compute_confidence_intervals()`](https://jjmaynard.github.io/soilSIM/reference/compute_confidence_intervals.md)’s
   missing-value log message always reports zero removed**: the “removed
   N missing values” count is computed from `data` *after* it has already
   had its `NA`s stripped, so the logged count is always `0` regardless

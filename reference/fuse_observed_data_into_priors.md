@@ -3,8 +3,8 @@
 Orchestrates Bayesian updating against each property's per-horizon prior
 fit produced by
 [`prepare_simulation_parameters()`](https://jjmaynard.github.io/soilSIM/reference/prepare_simulation_parameters.md),
-using `bayesian-updating.R`'s pure fusion primitives
-([`bayes_fuse()`](https://jjmaynard.github.io/soilSIM/reference/bayes_fuse.md),
+using `core-fusion.R`'s pure fusion primitives
+([`fuse_distribution()`](https://jjmaynard.github.io/soilSIM/reference/fuse_distribution.md),
 [`fuse_property()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property.md),
 [`fuse_texture_group_from_triplets()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_from_triplets.md)).
 For every property present in `observed_data`, every horizon's existing
@@ -98,7 +98,7 @@ Two supported shapes per non-texture entry in `observed_data`:
 
 - a numeric vector of raw samples -\> the fully general route
   ([`fuse_property()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property.md)'s
-  [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
+  [`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)
   grid-KDE path). The prior is first SAMPLED (via
   [`quantile_from_fit()`](https://jjmaynard.github.io/soilSIM/reference/quantile_from_fit.md),
   since that route needs both sides to already be raw vectors - it fits
@@ -111,7 +111,7 @@ Two supported shapes per non-texture entry in `observed_data`:
   lognormal prior/likelihood; `list(shape1=, shape2=)` or
   `list(mean=, var=)` for a beta prior/likelihood) -\> the closed-form
   route
-  ([`bayes_fuse()`](https://jjmaynard.github.io/soilSIM/reference/bayes_fuse.md)),
+  ([`fuse_distribution()`](https://jjmaynard.github.io/soilSIM/reference/fuse_distribution.md)),
   only supported for prior families `"normal"`/`"lognormal"`/`"beta"`
   (the only families with a conjugate route). Any other prior family
   (`"triangular"`/`"uniform"`/ `"metalog"`/`"linear_cdf"`) SKIPS fusion

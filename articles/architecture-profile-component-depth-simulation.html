@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -102,21 +102,22 @@
 </h2>
 <p>This functional group covers two source files that together simulate
 the compositional and morphological variability of SSURGO soil
-components and profiles. <code>R/property-simulation.R</code> simulates
-component-composition percentages (<code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code>)
-and per-cokey correlated soil properties - including compositional
-sand/silt/clay texture via the package’s ILR core - from
-low/representative/high (<code>_l/_r/_h</code>) triplets
+components and profiles. <code>R/core-simulation.R</code> simulates
+component-composition percentages
+(<code><a href="../reference/simulate_component_composition.html">simulate_component_composition()</a></code>) and per-cokey correlated
+soil properties - including compositional sand/silt/clay texture via the
+package’s ILR core - from low/representative/high
+(<code>_l/_r/_h</code>) triplets
 (<code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code>, built on
 <code><a href="../reference/simulate_correlated_triangular.html">simulate_correlated_triangular()</a></code>).
-<code>R/depth-simulation.R</code> simulates horizon depths,
+<code>R/core-simulation.R</code> simulates horizon depths,
 horizon-thickness variability, and boundary distinctness for whole
 <code><a href="https://ncss-tech.github.io/aqp/reference/SoilProfileCollection-class.html" class="external-link">aqp::SoilProfileCollection</a></code> profiles, using OSD (Official
 Series Description) data to inform boundary perturbation, with
 sequential, parallel (<code>future</code>/<code>future.apply</code>),
-and by-mukey orchestration entry points.
-<code>property-simulation.R</code> also holds two smaller standalone
-horizon-data helpers, <code><a href="../reference/remove_organic_layer.html">remove_organic_layer()</a></code> and
+and by-mukey orchestration entry points. <code>core-simulation.R</code>
+also holds two smaller standalone horizon-data helpers,
+<code><a href="../reference/remove_organic_layer.html">remove_organic_layer()</a></code> and
 <code><a href="../reference/slice_and_aggregate_soil_data.html">slice_and_aggregate_soil_data()</a></code>, which are not tied to the
 compositional-simulation machinery.</p>
 </div>
@@ -124,7 +125,7 @@ compositional-simulation machinery.</p>
 <h2 id="core-functions">Core Functions<a class="anchor" aria-label="anchor" href="#core-functions"></a>
 </h2>
 <div class="section level3">
-<h3 id="property-simulation-r">property-simulation.R<a class="anchor" aria-label="anchor" href="#property-simulation-r"></a>
+<h3 id="core-simulation-r">core-simulation.R<a class="anchor" aria-label="anchor" href="#core-simulation-r"></a>
 </h3>
 <div class="section level4">
 <h4 id="remove_organic_layerdf">
@@ -191,8 +192,8 @@ if present.</li>
 </ul>
 </div>
 <div class="section level4">
-<h4 id="sim_component_compdata-n_simulations-1000">
-<code>sim_component_comp(data, n_simulations = 1000)</code><a class="anchor" aria-label="anchor" href="#sim_component_compdata-n_simulations-1000"></a>
+<h4 id="simulate_component_compositiondata-n_simulations-1000">
+<code>simulate_component_composition(data, n_simulations = 1000)</code><a class="anchor" aria-label="anchor" href="#simulate_component_compositiondata-n_simulations-1000"></a>
 </h4>
 <ul>
 <li>
@@ -277,8 +278,8 @@ the constant <code>a</code> (degenerate triangular).</li>
 </ul>
 </div>
 <div class="section level4">
-<h4 id="calculate_modex">
-<code>calculate_mode(x)</code><a class="anchor" aria-label="anchor" href="#calculate_modex"></a>
+<h4 id="compute_modex">
+<code>compute_mode(x)</code><a class="anchor" aria-label="anchor" href="#compute_modex"></a>
 </h4>
 <ul>
 <li>
@@ -305,7 +306,7 @@ value for re-use as a triangular-distribution mode.</li>
 <code>sim_cokey</code> - a data frame of horizon rows for one cokey,
 with a <code>genhz</code> column and a <code>sim_comppct</code> column
 (the number of realizations to simulate for that row - see
-<code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code>).</li>
+<code><a href="../reference/simulate_component_composition.html">simulate_component_composition()</a></code>).</li>
 <li>
 <code>correlation_matrices</code> - a list of correlation matrices
 keyed by <code>genhz</code>, with row/column names drawn from (a subset
@@ -345,7 +346,7 @@ supplied, texture is simulated <em>first</em> and separately:
 texture correlation matrix, these are converted to ILR coordinates via
 <code><a href="../reference/ilr_forward.html">ilr_forward()</a></code>, and the resulting
 <code>ilr1</code>/<code>ilr2</code> vectors are collapsed to
-<code>(min, calculate_mode(), max)</code> triples to serve as ordinary
+<code>(min, compute_mode(), max)</code> triples to serve as ordinary
 triangular-distribution parameters for the <em>main</em> simulation. All
 recognized parameters (property triplets plus, if present,
 <code>ilr1</code>/<code>ilr2</code>) are then simulated jointly in a
@@ -363,11 +364,11 @@ across rows are <code><a href="https://rdrr.io/r/base/cbind.html" class="externa
 </div>
 </div>
 <div class="section level3">
-<h3 id="depth-simulation-r">depth-simulation.R<a class="anchor" aria-label="anchor" href="#depth-simulation-r"></a>
+<h3 id="core-simulation-r-1">core-simulation.R<a class="anchor" aria-label="anchor" href="#core-simulation-r-1"></a>
 </h3>
 <div class="section level4">
-<h4 id="get_aws_data_by_mukeymukeys">
-<code>get_aws_data_by_mukey(mukeys)</code><a class="anchor" aria-label="anchor" href="#get_aws_data_by_mukeymukeys"></a>
+<h4 id="fetch_ssurgo_aws_datamukeys">
+<code>fetch_ssurgo_aws_data(mukeys)</code><a class="anchor" aria-label="anchor" href="#fetch_ssurgo_aws_datamukeys"></a>
 </h4>
 <ul>
 <li>
@@ -389,7 +390,7 @@ results are grouped by <code>chkey</code> and
 (<code>na.rm = TRUE</code>) before being re-merged onto the main result
 and deduplicated. Deliberately does <em>not</em> reuse
 <code><a href="../reference/execute_ssurgo_query_working.html">execute_ssurgo_query_working()</a></code>
-(<code>R/ssurgo-acquisition.R</code>): that function only selects
+(<code>R/adapter-ssurgo-acquire.R</code>): that function only selects
 <code>chf.fragsize_r</code>, never <code>chf.fragvol_l/r/h</code>, so
 its rock fragment path produces no data - delegating to it here would
 silently drop rock fragment volume.</li>
@@ -468,7 +469,7 @@ via real-AOI validation, not synthetic test fixtures) where a naive
 exact-case join against <code>hz_data$compname</code> silently produced
 all-<code>NA</code> <code>bound_sd</code> for every row. Wired into
 <code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code>
-(<code>ssurgo-simulation.R</code>) immediately after
+(<code>adapter-ssurgo-simulate.R</code>) immediately after
 <code><a href="../reference/classify_genhz.html">classify_genhz()</a></code>; unconditional, so <code>bound_sd</code>
 (all-<code>NA</code> or resolved) is always present in that pipeline’s
 output regardless of whether the joint-copula method’s discontinuity
@@ -672,8 +673,8 @@ range.</li>
 </ul>
 </div>
 <div class="section level4">
-<h4 id="simulate_profile_depths_by_collectionsoil_collection-seed-123">
-<code>simulate_profile_depths_by_collection(soil_collection, seed = 123)</code><a class="anchor" aria-label="anchor" href="#simulate_profile_depths_by_collectionsoil_collection-seed-123"></a>
+<h4 id="simulate_profile_depthssoil_collection-seed-123">
+<code>simulate_profile_depths(soil_collection, seed = 123)</code><a class="anchor" aria-label="anchor" href="#simulate_profile_depthssoil_collection-seed-123"></a>
 </h4>
 <ul>
 <li>
@@ -699,8 +700,8 @@ subset and combining all results via <code><a href="https://ncss-tech.github.io/
 </ul>
 </div>
 <div class="section level4">
-<h4 id="simulate_profile_depths_by_collection_parallelsoil_collection-seed-123-n_cores-6">
-<code>simulate_profile_depths_by_collection_parallel(soil_collection, seed = 123, n_cores = 6)</code><a class="anchor" aria-label="anchor" href="#simulate_profile_depths_by_collection_parallelsoil_collection-seed-123-n_cores-6"></a>
+<h4 id="simulate_profile_depthssoil_collection-seed-123-n_cores-6">
+<code>simulate_profile_depths(soil_collection, seed = 123, n_cores = 6)</code><a class="anchor" aria-label="anchor" href="#simulate_profile_depthssoil_collection-seed-123-n_cores-6"></a>
 </h4>
 <ul>
 <li>
@@ -739,8 +740,8 @@ session (not merely <code>devtools::load_all()</code>’d).</li>
 </ul>
 </div>
 <div class="section level4">
-<h4 id="simulate_profile_depths_by_mukeymukey-n_simulations-100-seed-123">
-<code>simulate_profile_depths_by_mukey(mukey, n_simulations = 100, seed = 123)</code><a class="anchor" aria-label="anchor" href="#simulate_profile_depths_by_mukeymukey-n_simulations-100-seed-123"></a>
+<h4 id="simulate_profile_depthsmukey-n_simulations-100-seed-123">
+<code>simulate_profile_depths(mukey, n_simulations = 100, seed = 123)</code><a class="anchor" aria-label="anchor" href="#simulate_profile_depthsmukey-n_simulations-100-seed-123"></a>
 </h4>
 <ul>
 <li>
@@ -762,7 +763,7 @@ session (not merely <code>devtools::load_all()</code>’d).</li>
 every component in the mukey.</li>
 <li>
 <strong>Behavior</strong>: Queries
-<code><a href="../reference/get_aws_data_by_mukey.html">get_aws_data_by_mukey()</a></code> for the mukey, errors if no data is
+<code><a href="../reference/fetch_ssurgo_aws_data.html">fetch_ssurgo_aws_data()</a></code> for the mukey, errors if no data is
 returned, sets the seed, derives an <code>id</code> column from
 <code>compname</code> (required because
 <code><a href="../reference/query_osd_distinctness.html">query_osd_distinctness()</a></code> and the internal
@@ -817,13 +818,13 @@ normal use).</li>
 <div class="section level2">
 <h2 id="internal-connections">Internal Connections<a class="anchor" aria-label="anchor" href="#internal-connections"></a>
 </h2>
-<pre><code>property-simulation.R
+<pre><code>core-simulation.R
 ======================
-tri_dist() [R/distributions.R]
+tri_dist() [R/core-distributions.R]
     │
-    ├──► sim_component_comp() ──► one row per cokey, + sim_comppct
+    ├──► simulate_component_composition() ──► one row per cokey, + sim_comppct
     │
-    └──► simulate_correlated_triangular() ◄── ilr_forward()/ilr_inverse() [R/distributions.R]
+    └──► simulate_correlated_triangular() ◄── ilr_forward()/ilr_inverse() [R/core-distributions.R]
                   │                                (texture only)
                   ▼
          simulate_cokey_generalized() ──► one row per horizon x realization,
@@ -832,40 +833,40 @@ tri_dist() [R/distributions.R]
 
 remove_organic_layer() ─────────────────► standalone horizon-cleanup helper
 slice_and_aggregate_soil_data() ────────► standalone depth-binning helper
-calculate_mode() ────────────────────────► used inside simulate_cokey_generalized()
+compute_mode() ────────────────────────► used inside simulate_cokey_generalized()
                                             (collapses simulated ILR draws to a
                                             triangular-mode parameter)
 
 
-    sim_component_comp() output (per-cokey sim_comppct)
+    simulate_component_composition() output (per-cokey sim_comppct)
                   │
-                  │   dplyr::left_join(horizon_data, sim_component_comp(component_data),
+                  │   dplyr::left_join(horizon_data, simulate_component_composition(component_data),
                   │                    by = "cokey")
                   ▼
     horizon-level data now carrying sim_comppct on every row
                   │
                   ▼
 
-depth-simulation.R
+core-simulation.R
 ======================
-get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
+fetch_ssurgo_aws_data() ──► raw SSURGO horizon data (SDA_query)
                   │
                   ▼
-   sim_component_comp() + dplyr::left_join(by = "cokey")   (performed internally
-                  │                                         by simulate_profile_depths_by_mukey()
+   simulate_component_composition() + dplyr::left_join(by = "cokey")   (performed internally
+                  │                                         by simulate_profile_depths()
                   ▼                                         as of the sim_comppct integration fix)
-   simulate_profile_depths_by_mukey()  ──┐
+   simulate_profile_depths()  ──┐
                   │                       │  (per-component profile loop)
                   ▼                       │
-   simulate_profile_depths_by_collection()│
-   simulate_profile_depths_by_collection_parallel()
+   simulate_profile_depths()│
+   simulate_profile_depths()
                   │                       │
                   └───────────────────────┘
                   ▼
       simulate_and_perturb_soil_profiles()   *** still requires horizons$sim_comppct
                                                   to already be present - callers who use
                                                   this function directly (not via
-                                                  simulate_profile_depths_by_mukey()) must
+                                                  simulate_profile_depths()) must
                                                   still perform the join themselves ***
                   │
                   ├──► simulate_soil_profile_thickness()
@@ -898,18 +899,17 @@ get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
 <code><a href="https://ncss-tech.github.io/aqp/reference/hzDistinctnessCodeToOffset.html" class="external-link">aqp::hzDistinctnessCodeToOffset()</a></code>,
 <code><a href="https://ncss-tech.github.io/aqp/reference/perturb.html" class="external-link">aqp::perturb()</a></code>, <code><a href="https://ncss-tech.github.io/aqp/reference/combine-SoilProfileCollection-method.html" class="external-link">aqp::combine()</a></code>,
 <code>aqp::profile_id&lt;-</code>) - used throughout
-<code>depth-simulation.R</code> only; <code>property-simulation.R</code>
-has no <code>aqp</code> dependency.</li>
+<code>core-simulation.R</code> only; <code>core-simulation.R</code> has
+no <code>aqp</code> dependency.</li>
 <li>
 <strong><code>soilDB</code></strong> -
-<code><a href="http://ncss-tech.github.io/soilDB/reference/SDA_query.html" class="external-link">soilDB::SDA_query()</a></code> (<code><a href="../reference/get_aws_data_by_mukey.html">get_aws_data_by_mukey()</a></code>)
+<code><a href="http://ncss-tech.github.io/soilDB/reference/SDA_query.html" class="external-link">soilDB::SDA_query()</a></code> (<code><a href="../reference/fetch_ssurgo_aws_data.html">fetch_ssurgo_aws_data()</a></code>)
 and <code><a href="http://ncss-tech.github.io/soilDB/reference/fetchOSD.html" class="external-link">soilDB::fetchOSD()</a></code>
 (<code><a href="../reference/query_osd_distinctness.html">query_osd_distinctness()</a></code>) for live SSURGO/OSD database
 access.</li>
 <li>
 <strong><code>future</code> / <code>future.apply</code></strong> -
-parallel dispatch backend for
-<code><a href="../reference/simulate_profile_depths_by_collection_parallel.html">simulate_profile_depths_by_collection_parallel()</a></code>
+parallel dispatch backend for <code><a href="../reference/simulate_profile_depths.html">simulate_profile_depths()</a></code>
 (<code>future::plan(future::multisession)</code>,
 <code><a href="https://future.apply.futureverse.org/reference/future_lapply.html" class="external-link">future.apply::future_lapply()</a></code>).</li>
 <li>
@@ -918,19 +918,19 @@ both files (<code>group_by</code>, <code>mutate</code>,
 <code>left_join</code>, <code>select</code>, <code>summarise</code>,
 <code>rowwise</code>, etc.).</li>
 <li>
-<strong><code>R/distributions.R</code></strong> (soilSIM internal) -
-<code><a href="../reference/tri_dist.html">tri_dist()</a></code> (used by both files:
-<code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code>/<code><a href="../reference/simulate_correlated_triangular.html">simulate_correlated_triangular()</a></code>
-in <code>property-simulation.R</code>; all four depth-simulation
-functions in <code>depth-simulation.R</code>) and
+<strong><code>R/core-distributions.R</code></strong> (soilSIM
+internal) - <code><a href="../reference/tri_dist.html">tri_dist()</a></code> (used by both files:
+<code><a href="../reference/simulate_component_composition.html">simulate_component_composition()</a></code>/<code><a href="../reference/simulate_correlated_triangular.html">simulate_correlated_triangular()</a></code>
+in <code>core-simulation.R</code>; all four depth-simulation functions
+in <code>core-simulation.R</code>) and
 <code><a href="../reference/ilr_forward.html">ilr_forward()</a></code>/<code><a href="../reference/ilr_inverse.html">ilr_inverse()</a></code> (used only by
 <code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code> for compositional texture
 handling).</li>
 <li>
-<strong><code>R/ssurgo-acquisition.R</code> /
-<code>R/ssurgo-processing.R</code></strong> (soilSIM internal) -
+<strong><code>R/adapter-ssurgo-acquire.R</code> /
+<code>R/adapter-ssurgo-process.R</code></strong> (soilSIM internal) -
 upstream SSURGO data-source adapters;
-<code><a href="../reference/get_aws_data_by_mukey.html">get_aws_data_by_mukey()</a></code> in this group duplicates rather
+<code><a href="../reference/fetch_ssurgo_aws_data.html">fetch_ssurgo_aws_data()</a></code> in this group duplicates rather
 than reuses <code><a href="../reference/execute_ssurgo_query_working.html">execute_ssurgo_query_working()</a></code>’s query (see
 that function’s docs for why), but both ultimately query the same
 underlying SSURGO tables.</li>
@@ -938,31 +938,31 @@ underlying SSURGO tables.</li>
 <strong>Downstream consumers</strong>:
 <ul>
 <li>
-<strong><code>R/ssurgo-simulation.R</code>’s
+<strong><code>R/adapter-ssurgo-simulate.R</code>’s
 <code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code></strong> is a real, live
 in-package consumer of this group: it calls
 <code><a href="../reference/remove_organic_layer.html">remove_organic_layer()</a></code> and
-<code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code> directly, performs the
+<code><a href="../reference/simulate_component_composition.html">simulate_component_composition()</a></code> directly, performs the
 <code>sim_comppct</code> component-to-horizon join itself, then calls
 <code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code> per cokey - i.e. it exercises
-exactly the <code>property-simulation.R</code> half of this group
-(component composition + per-cokey property simulation) as part of the
-multi-source raster fusion pipeline’s SSURGO adapter (prior-side data
-for <code>R/raster-fusion.R</code>’s
+exactly the <code>core-simulation.R</code> half of this group (component
+composition + per-cokey property simulation) as part of the multi-source
+raster fusion pipeline’s SSURGO adapter (prior-side data for
+<code>R/core-fusion.R</code>’s
 <code><a href="../reference/fuse_property_adaptive.html">fuse_property_adaptive()</a></code>/<code><a href="../reference/fuse_texture_group.html">fuse_texture_group()</a></code>).
 It does <strong>not</strong> call anything in
-<code>depth-simulation.R</code>.</li>
+<code>core-simulation.R</code>.</li>
 <li>
 <strong>AWS / van Genuchten modeling</strong>
-(<code>R/aws-simulation.R</code>) is documented in
+(<code>R/model-aws.R</code>) is documented in
 <code>R/soilSIM-package.R</code> as conceptually downstream in the
 pipeline (depth- sliced, depth-simulated profiles feeding
 available-water-storage estimation), but there is no direct
-function-level call between <code>depth-simulation.R</code> and
-<code>aws-simulation.R</code> in the current codebase -
-<code>aws-simulation.R</code>’s own header notes it is self-contained
-and does not depend on <code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code> or any other
-helper from this group.</li>
+function-level call between <code>core-simulation.R</code> and
+<code>model-aws.R</code> in the current codebase -
+<code>model-aws.R</code>’s own header notes it is self-contained and
+does not depend on <code><a href="../reference/simulate_component_composition.html">simulate_component_composition()</a></code> or any
+other helper from this group.</li>
 </ul>
 </li>
 </ul>
@@ -972,26 +972,26 @@ helper from this group.</li>
 </h2>
 <p><strong>In:</strong> - SSURGO component data (<code>mukey</code>,
 <code>cokey</code>, <code>compname</code>, <code>comppct_l/r/h</code>) -
-input to <code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code>. - SSURGO horizon data
-(<code>hzname</code>, texture/bulk-density/water-retention/RFV/
+input to <code><a href="../reference/simulate_component_composition.html">simulate_component_composition()</a></code>. - SSURGO horizon
+data (<code>hzname</code>, texture/bulk-density/water-retention/RFV/
 pH/CEC/OM <code>_l/_r/_h</code> triplets, <code>genhz</code>) - input to
 <code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code>,
-<code><a href="../reference/get_aws_data_by_mukey.html">get_aws_data_by_mukey()</a></code>, and the depth- simulation
+<code><a href="../reference/fetch_ssurgo_aws_data.html">fetch_ssurgo_aws_data()</a></code>, and the depth- simulation
 functions. - OSD (Official Series Description) horizon distinctness
 data, fetched live via <code><a href="http://ncss-tech.github.io/soilDB/reference/fetchOSD.html" class="external-link">soilDB::fetchOSD()</a></code> inside
 <code><a href="../reference/query_osd_distinctness.html">query_osd_distinctness()</a></code>. - A <code>mukey</code>
-(string/numeric) - sole input to
-<code><a href="../reference/simulate_profile_depths_by_mukey.html">simulate_profile_depths_by_mukey()</a></code>, which internally
-queries SSURGO. - An existing <code><a href="https://ncss-tech.github.io/aqp/reference/SoilProfileCollection-class.html" class="external-link">aqp::SoilProfileCollection</a></code> -
-input to <code><a href="../reference/simulate_and_perturb_soil_profiles.html">simulate_and_perturb_soil_profiles()</a></code> and the
+(string/numeric) - sole input to <code><a href="../reference/simulate_profile_depths.html">simulate_profile_depths()</a></code>,
+which internally queries SSURGO. - An existing
+<code><a href="https://ncss-tech.github.io/aqp/reference/SoilProfileCollection-class.html" class="external-link">aqp::SoilProfileCollection</a></code> - input to
+<code><a href="../reference/simulate_and_perturb_soil_profiles.html">simulate_and_perturb_soil_profiles()</a></code> and the
 collection-level orchestration functions.</p>
 <p><strong>Out:</strong> - Simulated component percentages: one row per
 component with a <code>sim_comppct</code> column
-(<code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code>). - Simulated per-cokey property
-realizations: one row per horizon x realization, with simulated bulk
-density/water retention/texture/RFV/pH/ CEC/OM columns plus identifying
-columns (<code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code>). - Simulated
-horizon-thickness variability: one row per horizon with a
+(<code><a href="../reference/simulate_component_composition.html">simulate_component_composition()</a></code>). - Simulated per-cokey
+property realizations: one row per horizon x realization, with simulated
+bulk density/water retention/texture/RFV/pH/ CEC/OM columns plus
+identifying columns (<code><a href="../reference/simulate_cokey_generalized.html">simulate_cokey_generalized()</a></code>). -
+Simulated horizon-thickness variability: one row per horizon with a
 <code>thickness_sd</code> estimate
 (<code><a href="../reference/simulate_soil_profile_thickness.html">simulate_soil_profile_thickness()</a></code>). - Simulated/perturbed
 <code>SoilProfileCollection</code>s: <code>n_simulations</code>
@@ -1008,45 +1008,46 @@ simulated depths (<code><a href="../reference/evaluate_simulated_depths.html">ev
 <strong><code><a href="../reference/simulate_and_perturb_soil_profiles.html">simulate_and_perturb_soil_profiles()</a></code></strong> -
 requires <code>soil_profile</code>’s horizons to already carry a
 <code>sim_comppct</code> column (used to derive
-<code>n_simulations</code>); <code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code> produces
-this column but at per-<strong>component</strong> grain, not
+<code>n_simulations</code>);
+<code><a href="../reference/simulate_component_composition.html">simulate_component_composition()</a></code> produces this column but
+at per-<strong>component</strong> grain, not
 per-<strong>horizon</strong> grain, so callers who use this function
-<em>directly</em> (not via
-<code><a href="../reference/simulate_profile_depths_by_mukey.html">simulate_profile_depths_by_mukey()</a></code>) must still
-<code><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">dplyr::left_join()</a></code> the two by <code>cokey</code> before
-calling it, or it errors with a missing-column condition. This part of
-the contract is unchanged.</li>
+<em>directly</em> (not via <code><a href="../reference/simulate_profile_depths.html">simulate_profile_depths()</a></code>) must
+still <code><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">dplyr::left_join()</a></code> the two by <code>cokey</code>
+before calling it, or it errors with a missing-column condition. This
+part of the contract is unchanged.</li>
 <li>
-<del><strong><code><a href="../reference/simulate_profile_depths_by_mukey.html">simulate_profile_depths_by_mukey()</a></code></strong>
-- has the same underlying <code>sim_comppct</code> requirement but does
-not itself call <code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code> or perform the
+<del><strong><code><a href="../reference/simulate_profile_depths.html">simulate_profile_depths()</a></code></strong> - has
+the same underlying <code>sim_comppct</code> requirement but does not
+itself call <code><a href="../reference/simulate_component_composition.html">simulate_component_composition()</a></code> or perform the
 component-to-horizon join</del> <strong>Fixed</strong>: this function
 now calls
-<code>sim_component_comp(mu_data, n_simulations = n_simulations)</code>
+<code>simulate_component_composition(mu_data, n_simulations = n_simulations)</code>
 and left-joins the result onto every horizon row by <code>cokey</code>
 internally, mirroring the same pattern
-<code>R/ssurgo-simulation.R</code>’s
+<code>R/adapter-ssurgo-simulate.R</code>’s
 <code><a href="../reference/simulate_ssurgo_mapunit_draws.html">simulate_ssurgo_mapunit_draws()</a></code> uses for the
 property-simulation path. Its <code>n_simulations</code> parameter flows
-into <code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code>’s own <code>n_simulations</code>
-argument (number of triangular draws per component).</li>
+into <code><a href="../reference/simulate_component_composition.html">simulate_component_composition()</a></code>’s own
+<code>n_simulations</code> argument (number of triangular draws per
+component).</li>
 </ul>
 </div>
 <div class="section level2">
 <h2 id="usage-example">Usage Example<a class="anchor" aria-label="anchor" href="#usage-example"></a>
 </h2>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># simulate_profile_depths_by_mukey() now derives and joins sim_comppct</span></span>
-<span><span class="co"># internally (sim_component_comp() -&gt; left_join by cokey), so a direct call</span></span>
+<code class="sourceCode R"><span><span class="co"># simulate_profile_depths() now derives and joins sim_comppct</span></span>
+<span><span class="co"># internally (simulate_component_composition() -&gt; left_join by cokey), so a direct call</span></span>
 <span><span class="co"># is sufficient - no manual join step required:</span></span>
-<span><span class="va">simulated_profiles</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_profile_depths_by_mukey.html">simulate_profile_depths_by_mukey</a></span><span class="op">(</span></span>
+<span><span class="va">simulated_profiles</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_profile_depths.html">simulate_profile_depths</a></span><span class="op">(</span></span>
 <span>  mukey <span class="op">=</span> <span class="st">"123456"</span>, n_simulations <span class="op">=</span> <span class="fl">1000</span>, seed <span class="op">=</span> <span class="fl">123</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Calling simulate_and_perturb_soil_profiles() directly (bypassing</span></span>
-<span><span class="co"># simulate_profile_depths_by_mukey()) still requires the manual join, since</span></span>
+<span><span class="co"># simulate_profile_depths()) still requires the manual join, since</span></span>
 <span><span class="co"># that lower-level function's own contract hasn't changed:</span></span>
-<span><span class="va">component_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/sim_component_comp.html">sim_component_comp</a></span><span class="op">(</span><span class="va">ssurgo_component_data</span>, n_simulations <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
+<span><span class="va">component_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_component_composition.html">simulate_component_composition</a></span><span class="op">(</span><span class="va">ssurgo_component_data</span>, n_simulations <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
 <span><span class="va">horizon_data</span> <span class="op">&lt;-</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span></span>
 <span>  <span class="va">ssurgo_horizon_data</span>,</span>
 <span>  <span class="va">component_data</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"cokey"</span>, <span class="st">"sim_comppct"</span><span class="op">)</span><span class="op">]</span>,</span>

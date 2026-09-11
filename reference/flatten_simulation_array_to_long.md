@@ -1,7 +1,7 @@
 # Flatten a Monte Carlo Simulation Array to Long Format
 
 Converts the `[horizon, property, realization]` array returned by
-[`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)
+[`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md)
 (as `result$simulation_data`) into a long-format data frame with one row
 per horizon-realization combination, matching the shape
 [`apply_local_gp_adjustments()`](https://jjmaynard.github.io/soilSIM/reference/apply_local_gp_adjustments.md),

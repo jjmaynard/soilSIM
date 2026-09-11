@@ -3,15 +3,15 @@
 between the general and closed-form routes by AOI cell count - a concept
 with no tabular analogue - this dispatches on the SHAPE of prior/
 likelihood: atomic numeric vectors (raw samples) route to the fully
-general bayesian_update(); named lists of family-native parameters
-route to the closed-form bayes_fuse(). This removes the &quot;which
+general update_prior(); named lists of family-native parameters
+route to the closed-form fuse_distribution(). This removes the &quot;which
 heuristic&quot; ambiguity entirely, since the caller's input shape already
 determines which route applies."><meta property="og:description" content="Unlike the raster-native reference (fuse_adaptive()), which dispatches
 between the general and closed-form routes by AOI cell count - a concept
 with no tabular analogue - this dispatches on the SHAPE of prior/
 likelihood: atomic numeric vectors (raw samples) route to the fully
-general bayesian_update(); named lists of family-native parameters
-route to the closed-form bayes_fuse(). This removes the &quot;which
+general update_prior(); named lists of family-native parameters
+route to the closed-form fuse_distribution(). This removes the &quot;which
 heuristic&quot; ambiguity entirely, since the caller's input shape already
 determines which route applies."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -21,7 +21,7 @@ determines which route applies."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -74,7 +74,7 @@ determines which route applies."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Fuse a prior and likelihood belief distribution, dispatching by input shape</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/bayesian-updating.R" class="external-link"><code>R/bayesian-updating.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-fusion.R" class="external-link"><code>R/core-fusion.R</code></a></small>
       <div class="d-none name"><code>fuse_property.Rd</code></div>
     </div>
 
@@ -83,22 +83,37 @@ determines which route applies."></head><body>
 between the general and closed-form routes by AOI cell count - a concept
 with no tabular analogue - this dispatches on the SHAPE of <code>prior</code>/
 <code>likelihood</code>: atomic numeric vectors (raw samples) route to the fully
-general <code><a href="bayesian_update.html">bayesian_update()</a></code>; named lists of family-native parameters
-route to the closed-form <code><a href="bayes_fuse.html">bayes_fuse()</a></code>. This removes the "which
+general <code><a href="update_prior.html">update_prior()</a></code>; named lists of family-native parameters
+route to the closed-form <code><a href="fuse_distribution.html">fuse_distribution()</a></code>. This removes the "which
 heuristic" ambiguity entirely, since the caller's input shape already
 determines which route applies.</p>
     </div>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fuse_property</span><span class="op">(</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fuse_property</span><span class="op">(</span><span class="va">prior</span>, <span class="va">likelihood</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Default S3 method</span></span>
+<span><span class="fu">fuse_property</span><span class="op">(</span></span>
 <span>  <span class="va">prior</span>,</span>
 <span>  <span class="va">likelihood</span>,</span>
 <span>  family <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  bounds <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  method <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_samples <span class="op">=</span> <span class="fl">1000</span>,</span>
-<span>  grid_resolution <span class="op">=</span> <span class="fl">0.01</span></span>
+<span>  grid_resolution <span class="op">=</span> <span class="fl">0.01</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class 'percentile_rasters'</span></span>
+<span><span class="fu">fuse_property</span><span class="op">(</span></span>
+<span>  <span class="va">prior</span>,</span>
+<span>  <span class="va">likelihood</span>,</span>
+<span>  <span class="va">prior_probs</span>,</span>
+<span>  <span class="va">lik_probs</span>,</span>
+<span>  <span class="va">property_config</span>,</span>
+<span>  threshold_cells <span class="op">=</span> <span class="fl">80000</span>,</span>
+<span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -110,6 +125,10 @@ determines which route applies.</p>
 <dd><p>Either numeric vectors of raw samples (both sides
 must be vectors), or named lists of family-native parameters matching
 <code>family</code> (both sides must be lists).</p></dd>
+
+
+<dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
+<dd><p>Passed to the dispatched method.</p></dd>
 
 
 <dt id="arg-family">family<a class="anchor" aria-label="anchor" href="#arg-family"></a></dt>
@@ -130,18 +149,47 @@ silently overriding it.</p></dd>
 
 
 <dt id="arg-n-samples-grid-resolution">n_samples, grid_resolution<a class="anchor" aria-label="anchor" href="#arg-n-samples-grid-resolution"></a></dt>
-<dd><p>Passed to <code><a href="bayesian_update.html">bayesian_update()</a></code> for the
+<dd><p>Passed to <code><a href="update_prior.html">update_prior()</a></code> for the
 general route.</p></dd>
+
+
+<dt id="arg-prior-probs-lik-probs">prior_probs, lik_probs<a class="anchor" aria-label="anchor" href="#arg-prior-probs-lik-probs"></a></dt>
+<dd><p>Percentile levels for <code>prior</code>/<code>likelihood</code> (raster method only).</p></dd>
+
+
+<dt id="arg-property-config">property_config<a class="anchor" aria-label="anchor" href="#arg-property-config"></a></dt>
+<dd><p>A property configuration list selecting the fusion distribution family
+(raster method only) - see <code><a href="fuse_property_adaptive.html">fuse_property_adaptive()</a></code>.</p></dd>
+
+
+<dt id="arg-threshold-cells">threshold_cells<a class="anchor" aria-label="anchor" href="#arg-threshold-cells"></a></dt>
+<dd><p>Raster method only; see <code><a href="fuse_property_adaptive.html">fuse_property_adaptive()</a></code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>For the general route: a numeric vector of posterior samples
-(<code><a href="bayesian_update.html">bayesian_update()</a></code>'s native output). For the closed-form route: the
-family-native posterior parameter list (<code><a href="bayes_fuse.html">bayes_fuse()</a></code>'s native output).
+(<code><a href="update_prior.html">update_prior()</a></code>'s native output). For the closed-form route: the
+family-native posterior parameter list (<code><a href="fuse_distribution.html">fuse_distribution()</a></code>'s native output).
 These are NOT the same shape - documented deliberately rather than
 forced into a fake-uniform contract, since the caller already knows
 which shape it's passing in and therefore which shape it gets back.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p>Other bayesian-fusion:
+<code><a href="convert_beta_to_moments.html">convert_beta_to_moments()</a></code>,
+<code><a href="convert_gamma_to_moments.html">convert_gamma_to_moments()</a></code>,
+<code><a href="convert_lognormal_to_normal.html">convert_lognormal_to_normal()</a></code>,
+<code><a href="convert_moments_to_beta.html">convert_moments_to_beta()</a></code>,
+<code><a href="convert_moments_to_gamma.html">convert_moments_to_gamma()</a></code>,
+<code><a href="convert_normal_to_lognormal.html">convert_normal_to_lognormal()</a></code>,
+<code><a href="fuse_beta.html">fuse_beta()</a></code>,
+<code><a href="fuse_bivariate_normal.html">fuse_bivariate_normal()</a></code>,
+<code><a href="fuse_distribution.html">fuse_distribution()</a></code>,
+<code><a href="fuse_gamma.html">fuse_gamma()</a></code>,
+<code><a href="fuse_normal_normal.html">fuse_normal_normal()</a></code>,
+<code><a href="update_prior.html">update_prior()</a></code></p></div>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

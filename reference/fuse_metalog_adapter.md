@@ -35,7 +35,7 @@ fuse_metalog_adapter(
   sides to Normal-equivalent moments
   ([`metalog_moments_raster()`](https://jjmaynard.github.io/soilSIM/reference/metalog_moments_raster.md)'s
   quadrature) before the final
-  [`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)
+  [`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md)
   step, so there is no richer distributional shape to draw percentiles
   from beyond that Normal approximation; carries forward this route's
   existing "less-validated glue code" caveat (see

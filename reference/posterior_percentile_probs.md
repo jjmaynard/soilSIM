@@ -1,7 +1,7 @@
-# Probabilities behind a `run_stage1_fusion()` posterior's percentile layers
+# Probabilities behind a `run_fusion()` posterior's percentile layers
 
 Probabilities behind a
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 posterior's percentile layers
 
 ## Usage
@@ -15,7 +15,7 @@ posterior_percentile_probs(posterior)
 - posterior:
 
   A
-  [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)-style
+  [`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)-style
   `list(percentiles = <named P.. rasters>, ...)`.
 
 ## Value

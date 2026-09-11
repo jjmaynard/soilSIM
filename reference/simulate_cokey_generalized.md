@@ -28,7 +28,7 @@ simulate_cokey_generalized(
   A data frame of horizon rows for one cokey, with a `genhz` column and
   a `sim_comppct` column (number of realizations to simulate for that
   row - see
-  [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)).
+  [`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)).
 
 - correlation_matrices:
 

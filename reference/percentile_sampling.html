@@ -4,7 +4,7 @@ percentiles&quot; approaches (a piecewise-linear inverse-CDF, a monotonic-spline
 inverse-CDF, a KDE/truncated-normal approach, and beta/normal parametric
 fits) behind a single method argument, for arbitrary percentile counts
 (not just SSURGO's low/rep/high triplet). Complements
-R/distributions.R's fit_percentile_triplet()/
+R/core-distributions.R's fit_percentile_triplet()/
 quantile_from_fit(), which is the production Monte Carlo engine's
 fixed 3-point fitter.
 method = &quot;metalog&quot; is not provided here: it would need the rmetalog
@@ -15,7 +15,7 @@ percentiles&quot; approaches (a piecewise-linear inverse-CDF, a monotonic-spline
 inverse-CDF, a KDE/truncated-normal approach, and beta/normal parametric
 fits) behind a single method argument, for arbitrary percentile counts
 (not just SSURGO's low/rep/high triplet). Complements
-R/distributions.R's fit_percentile_triplet()/
+R/core-distributions.R's fit_percentile_triplet()/
 quantile_from_fit(), which is the production Monte Carlo engine's
 fixed 3-point fitter.
 method = &quot;metalog&quot; is not provided here: it would need the rmetalog
@@ -29,7 +29,7 @@ it."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -82,7 +82,7 @@ it."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Flexible Percentile-Based Distribution Sampling</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/percentile-sampling.R" class="external-link"><code>R/percentile-sampling.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-distributions.R" class="external-link"><code>R/core-distributions.R</code></a></small>
       <div class="d-none name"><code>percentile_sampling.Rd</code></div>
     </div>
 
@@ -92,7 +92,7 @@ percentiles" approaches (a piecewise-linear inverse-CDF, a monotonic-spline
 inverse-CDF, a KDE/truncated-normal approach, and beta/normal parametric
 fits) behind a single <code>method</code> argument, for arbitrary percentile counts
 (not just SSURGO's low/rep/high triplet). Complements
-<code>R/distributions.R</code>'s <code><a href="fit_percentile_triplet.html">fit_percentile_triplet()</a></code>/
+<code>R/core-distributions.R</code>'s <code><a href="fit_percentile_triplet.html">fit_percentile_triplet()</a></code>/
 <code><a href="quantile_from_fit.html">quantile_from_fit()</a></code>, which is the production Monte Carlo engine's
 fixed 3-point fitter.</p>
 <p><code>method = "metalog"</code> is not provided here: it would need the <code>rmetalog</code>

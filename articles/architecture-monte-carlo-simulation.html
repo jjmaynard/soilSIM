@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -100,14 +100,14 @@
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p><code>R/monte-carlo.R</code> is the core correlated Monte Carlo
+<p><code>R/core-montecarlo.R</code> is the core correlated Monte Carlo
 simulation engine of <code>soilSIM</code>. It takes SSURGO (or other)
 soil property data expressed as low/representative/high
 (<code>_l</code>/<code>_r</code>/<code>_h</code>) percentile triplets -
 already fitted to per-property distribution families by the Distribution
-Fitting core group in <code>distributions.R</code> - and produces many
-correlated realizations of soil properties per horizon. It handles both
-ordinary independent/correlated numeric properties
+Fitting core group in <code>core-distributions.R</code> - and produces
+many correlated realizations of soil properties per horizon. It handles
+both ordinary independent/correlated numeric properties
 (e.g. <code>dbovendry</code>, <code>ph1to1h2o</code>) and the
 compositional texture group
 (<code>sandtotal</code>/<code>silttotal</code>/<code>claytotal</code>),
@@ -124,8 +124,8 @@ quality-assessment metadata alongside the simulated values.</p>
 <h2 id="core-functions">Core Functions<a class="anchor" aria-label="anchor" href="#core-functions"></a>
 </h2>
 <p>Functions are grouped in the pipeline order that
-<code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code> (the master
-orchestrator) calls them.</p>
+<code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code> (the master orchestrator) calls
+them.</p>
 <div class="section level3">
 <h3 id="validate_monte_carlo_config---configuration-validation">1. <code>validate_monte_carlo_config()</code> - Configuration
 Validation<a class="anchor" aria-label="anchor" href="#validate_monte_carlo_config---configuration-validation"></a>
@@ -159,14 +159,14 @@ and <code>correlation_fallback</code>
 <code><a href="../reference/validate_parameters.html">validate_parameters()</a></code>.</p>
 </div>
 <div class="section level3">
-<h3 id="get_monte_carlo_defaults---default-configuration">2. <code>get_monte_carlo_defaults()</code> - Default
-Configuration<a class="anchor" aria-label="anchor" href="#get_monte_carlo_defaults---default-configuration"></a>
+<h3 id="default_monte_carlo_config---default-configuration">2. <code>default_monte_carlo_config()</code> - Default
+Configuration<a class="anchor" aria-label="anchor" href="#default_monte_carlo_config---default-configuration"></a>
 </h3>
 <p><strong>Purpose</strong>: Returns the full default Monte Carlo
 configuration, merged (safely) on top of the package’s general default
 configuration. <strong>Signature</strong>:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/get_monte_carlo_defaults.html">get_monte_carlo_defaults</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/default_monte_carlo_config.html">default_monte_carlo_config</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p><strong>Returns</strong>: A list with a <code>$monte_carlo</code>
 element containing every tunable default, including: -
 <code>distribution_type = "triangular"</code> - global fallback family
@@ -211,16 +211,15 @@ Normalization<a class="anchor" aria-label="anchor" href="#normalize_monte_carlo_
 <p><strong>Purpose</strong>: Accepts either a flat
 <code>simulation_config</code>
 (e.g. <code>list(distribution_type = "normal")</code>, the shape shown
-in <code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code>’s own
-<code>@examples</code>) or an already-nested one
-(<code>list(monte_carlo = list(...))</code>), and normalizes to the
-nested shape <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code> expects.
-<strong>Signature</strong>:</p>
+in <code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code>’s own <code>@examples</code>) or
+an already-nested one (<code>list(monte_carlo = list(...))</code>), and
+normalizes to the nested shape <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>
+expects. <strong>Signature</strong>:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/normalize_monte_carlo_config.html">normalize_monte_carlo_config</a></span><span class="op">(</span><span class="va">simulation_config</span>, <span class="va">default_config</span><span class="op">)</span></span></code></pre></div>
 <p><strong>Parameters</strong>: - <code>simulation_config</code> -
 User-supplied config, flat or nested. - <code>default_config</code> -
-Result of <code><a href="../reference/get_monte_carlo_defaults.html">get_monte_carlo_defaults()</a></code>, used only to
+Result of <code><a href="../reference/default_monte_carlo_config.html">default_monte_carlo_config()</a></code>, used only to
 recognize which flat key names belong under
 <code>monte_carlo</code>.</p>
 <p><strong>Returns</strong>: <code>simulation_config</code>, wrapped
@@ -231,8 +230,8 @@ merges strictly by key path, so a flat config key
 (e.g. <code>distribution_type = "normal"</code>) would not reach
 <code>config$monte_carlo$distribution_type</code>. This function runs
 immediately before <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code> in
-<code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code> to lift flat keys into
-the <code>monte_carlo</code> sub-list.</p>
+<code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code> to lift flat keys into the
+<code>monte_carlo</code> sub-list.</p>
 </div>
 <div class="section level3">
 <h3 id="validate_monte_carlo_inputs---input-validation">4. <code>validate_monte_carlo_inputs()</code> - Input
@@ -282,7 +281,7 @@ column never exists. <strong>Signature</strong>:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/resolve_real_properties.html">resolve_real_properties</a></span><span class="op">(</span><span class="va">properties</span>, composition_plan <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
 <p><strong>Parameters</strong>: <code>properties</code> - possibly
 including pseudo-properties; <code>composition_plan</code> - result of
-<code>distributions.R</code>’s
+<code>core-distributions.R</code>’s
 <code><a href="../reference/resolve_composition_groups.html">resolve_composition_groups()</a></code>, or <code>NULL</code>
 (pass-through). <strong>Returns</strong>: Character vector of real
 property names, deduplicated.</p>
@@ -335,7 +334,7 @@ property, each value <code>list(family=, fit=, source=)</code>.
 properties, calls <code><a href="../reference/extract_property_parameters.html">extract_property_parameters()</a></code> per horizon
 per property. For each <em>active</em> composition group’s
 pseudo-properties (e.g. <code>ilr1</code>/<code>ilr2</code>), both are
-fit together, once per horizon, via <code>distributions.R</code>’s
+fit together, once per horizon, via <code>core-distributions.R</code>’s
 <code><a href="../reference/estimate_ilr_moments_mc.html">estimate_ilr_moments_mc()</a></code> from the group’s real
 <code>_l/_r/_h</code> triplets (their joint covariance only makes sense
 computed jointly). Only the marginal SDs from that MC estimate are kept
@@ -371,19 +370,19 @@ first, falling back to
 <code>list(valid=, parameters=list(family=, fit=, source=))</code>.
 <strong>Behavior</strong>: If all three of
 <code>l</code>/<code>r</code>/<code>h</code> are finite, delegates to
-<code>distributions.R</code>’s <code><a href="../reference/fit_percentile_triplet.html">fit_percentile_triplet()</a></code>
-with the resolved family, <code>lh_percentile</code>, and any registered
-<code>bounds</code> (<code>source = "complete"</code>). If only
-<code>r</code> is finite, falls back to a simple
-+/-20%-around-<code>r</code> triangular estimate, explicitly tagged
-<code>family = "triangular"</code> regardless of the requested family
-(<code>source = "estimated"</code>), so <code><a href="../reference/quantile_from_fit.html">quantile_from_fit()</a></code>
-still dispatches correctly. If <code>r</code> itself is missing, returns
-<code>valid = FALSE</code>. Prior to this being implemented for real,
-this function only ever returned <code>list(min=, mode=, max=)</code>
-regardless of requested family, so
-<code>"normal"</code>/<code>"beta"</code> requests silently produced
-downstream <code>NA</code>s.</p>
+<code>core-distributions.R</code>’s
+<code><a href="../reference/fit_percentile_triplet.html">fit_percentile_triplet()</a></code> with the resolved family,
+<code>lh_percentile</code>, and any registered <code>bounds</code>
+(<code>source = "complete"</code>). If only <code>r</code> is finite,
+falls back to a simple +/-20%-around-<code>r</code> triangular estimate,
+explicitly tagged <code>family = "triangular"</code> regardless of the
+requested family (<code>source = "estimated"</code>), so
+<code><a href="../reference/quantile_from_fit.html">quantile_from_fit()</a></code> still dispatches correctly. If
+<code>r</code> itself is missing, returns <code>valid = FALSE</code>.
+Prior to this being implemented for real, this function only ever
+returned <code>list(min=, mode=, max=)</code> regardless of requested
+family, so <code>"normal"</code>/<code>"beta"</code> requests silently
+produced downstream <code>NA</code>s.</p>
 </div>
 <div class="section level3">
 <h3 id="fuse_observed_data_into_priors---bayesian-fusion-of-observed-data-optional">9. <code>fuse_observed_data_into_priors()</code> - Bayesian Fusion
@@ -392,8 +391,8 @@ of Observed Data (optional)<a class="anchor" aria-label="anchor" href="#fuse_obs
 <p><strong>Purpose</strong>: Orchestrates Bayesian updating of each
 property’s per-horizon prior (from
 <code><a href="../reference/prepare_simulation_parameters.html">prepare_simulation_parameters()</a></code>) against a caller-supplied
-observed-data likelihood, using <code>bayesian-updating.R</code>’s pure
-fusion primitives. <strong>Signature</strong>:</p>
+observed-data likelihood, using <code>core-fusion.R</code>’s pure fusion
+primitives. <strong>Signature</strong>:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fuse_observed_data_into_priors.html">fuse_observed_data_into_priors</a></span><span class="op">(</span><span class="va">simulation_params</span>, <span class="va">simulation_data</span>, <span class="va">sim_properties</span>,</span>
 <span>                                <span class="va">properties</span>, <span class="va">observed_data</span>, <span class="va">composition_plan</span>, <span class="va">config</span><span class="op">)</span></span></code></pre></div>
@@ -441,8 +440,8 @@ shapes: a raw numeric sample vector routes through the fully general
 quantile function with <code>family = "linear_cdf"</code>); a
 family-native parameter list (<code>list(mean=, sd=)</code> or
 <code>list(shape1=, shape2=)</code>/<code>list(mean=, var=)</code>)
-routes through the closed-form <code><a href="../reference/bayes_fuse.html">bayes_fuse()</a></code>-based path,
-supported only for prior families
+routes through the closed-form <code><a href="../reference/fuse_distribution.html">fuse_distribution()</a></code>-based
+path, supported only for prior families
 <code>normal</code>/<code>lognormal</code>/<code>beta</code> (the only
 families with a conjugate route) - any other prior family skips fusion
 for that (horizon, property) with a logged WARN. Note: this only narrows
@@ -459,13 +458,13 @@ raw representative values.</p>
 - implements the per-property closed-form/general dispatch described
 above, handling <code>normal</code>, <code>lognormal</code> (converts
 the raw-space likelihood to log-space via
-<code><a href="../reference/normal_to_lognormal_params.html">normal_to_lognormal_params()</a></code> before fusing, since the
+<code><a href="../reference/convert_normal_to_lognormal.html">convert_normal_to_lognormal()</a></code> before fusing, since the
 lognormal prior fit is already stored in log-space), and
 <code>beta</code> (rescales a raw-scale likelihood mean/var onto the
 prior’s own <code>[lower, upper]</code> support before fitting moments,
 since <code><a href="../reference/fuse_beta.html">fuse_beta()</a></code>’s alpha/beta addition requires shared
 support; falls back to a Normal-moments round-trip via
-<code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code> if the direct beta fusion is
+<code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code> if the direct beta fusion is
 infeasible).</p>
 </div>
 <div class="section level3">
@@ -532,13 +531,13 @@ over distribution family (mode for triangular, midpoint for uniform,
 mean for normal, <code>exp(mean)</code> for lognormal, the Beta mean
 rescaled to <code>[lower, upper]</code>, the median for
 metalog/linear_cdf). Assembles these into a data frame and delegates to
-<code>distributions.R</code>‘s
+<code>core-distributions.R</code>‘s
 <code><a href="../reference/estimate_correlation_matrix_robust.html">estimate_correlation_matrix_robust()</a></code>
 (<code><a href="https://rdrr.io/pkg/Hmisc/man/rcorr.html" class="external-link">Hmisc::rcorr()</a></code> plus positive-definiteness repair), grouped
 by <code>genhz</code> when available. When
 <code>config$monte_carlo$correlation_fallback == "kssl_global"</code>
 (default <code>"identity"</code>), a group that fails empirical
-estimation falls back to <code>kssl-reference-correlations.R</code>’s
+estimation falls back to <code>core-correlations.R</code>’s
 <code><a href="../reference/build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code> for that group instead of
 being dropped, the global fallback becomes a KSSL-pooled matrix, and
 <code>genhz</code> is auto-derived from <code>hzname</code> via
@@ -569,7 +568,7 @@ configs from
 <code>create_distribution_config()</code>/<code>create_fallback_distribution()</code>.
 <strong>Behavior</strong>: For each horizon and property with existing
 parameters, calls <code><a href="../reference/validate_distribution_parameters.html">validate_distribution_parameters()</a></code> (a
-thin wrapper over <code>distributions.R</code>’s
+thin wrapper over <code>core-distributions.R</code>’s
 <code><a href="../reference/validate_fit_parameters.html">validate_fit_parameters()</a></code>); on success wraps it via
 <code>create_distribution_config()</code>, on failure substitutes a
 <code>create_fallback_distribution()</code> (+/-20% triangular around
@@ -609,8 +608,8 @@ Per horizon: draws an independent uniform matrix
 normal (<code>qnorm</code>), applies the correlation structure
 (<code>chol_matrix %*% normal_matrix</code>), transforms back to
 correlated uniforms (<code>pnorm</code>), then for each property calls
-<code>distributions.R</code>’s <code><a href="../reference/quantile_from_fit.html">quantile_from_fit()</a></code> with
-that property’s own resolved <code>family</code>/<code>fit</code>
+<code>core-distributions.R</code>’s <code><a href="../reference/quantile_from_fit.html">quantile_from_fit()</a></code>
+with that property’s own resolved <code>family</code>/<code>fit</code>
 (family travels with params -
 <code>config$monte_carlo$distribution_type</code> is only ever consulted
 upstream as <em>their</em> fallback, never here) to get the final
@@ -684,8 +683,7 @@ properties/horizons/realizations, and sets <code>valid = FALSE</code> if
 that overall rate falls below <code>min_success_rate</code>.</p>
 </div>
 <div class="section level3">
-<h3 id="generate_monte_carlo_realizations---master-pipeline">16. <code>generate_monte_carlo_realizations()</code> - Master
-Pipeline<a class="anchor" aria-label="anchor" href="#generate_monte_carlo_realizations---master-pipeline"></a>
+<h3 id="simulate_monte_carlo---master-pipeline">16. <code>simulate_monte_carlo()</code> - Master Pipeline<a class="anchor" aria-label="anchor" href="#simulate_monte_carlo---master-pipeline"></a>
 </h3>
 <p><strong>Purpose</strong>: The top-level, end-to-end orchestrator:
 validates inputs and config, prepares data and parameters, optionally
@@ -694,7 +692,7 @@ simulation (sequential or parallel), restores compositional properties,
 applies constraints, validates output, and compiles diagnostics/quality
 assessment. <strong>Signature</strong>:</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations</a></span><span class="op">(</span><span class="va">soil_data</span>,</span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo</a></span><span class="op">(</span><span class="va">soil_data</span>,</span>
 <span>                                   <span class="va">properties</span>,</span>
 <span>                                   correlation_matrix <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>                                   n_realizations <span class="op">=</span> <span class="fl">1000</span>,</span>
@@ -763,9 +761,9 @@ wholesale and would otherwise silently discard fused posteriors.</p>
 </h3>
 <ul>
 <li>
-<code>sim_component_compositions(component_data, n_realizations = 1000, config = NULL)</code>
+<code>simulate_component_compositions_batch(component_data, n_realizations = 1000, config = NULL)</code>
 - A separate, self-contained pipeline (not called by
-<code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code>) for simulating SSURGO
+<code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code>) for simulating SSURGO
 <em>component</em> percent composition (<code>comppct_l/_r/_h</code>),
 independent of the horizon-property engine above. Validates via
 <code><a href="../reference/validate_component_data.html">validate_component_data()</a></code>, extracts per-component
@@ -836,10 +834,10 @@ fallback if that function is somehow unavailable.</li>
 <div class="section level2">
 <h2 id="internal-connections">Internal Connections<a class="anchor" aria-label="anchor" href="#internal-connections"></a>
 </h2>
-<pre><code>generate_monte_carlo_realizations()  [MASTER PIPELINE]
+<pre><code>simulate_monte_carlo()  [MASTER PIPELINE]
 ├── setup_logging()                                  [utils.R]        (if not already configured)
 ├── set.seed(seed)                                    (if seed supplied)
-├── get_monte_carlo_defaults()
+├── default_monte_carlo_config()
 ├── normalize_monte_carlo_config()
 ├── merge_configurations()                            [utils.R]
 ├── validate_monte_carlo_config()
@@ -869,9 +867,9 @@ fallback if that function is somehow unavailable.</li>
 │   └── fuse_one_property_prior()                      (ordinary properties)
 │       ├── quantile_from_fit()                        [distributions.R]
 │       ├── fuse_property()                            [bayesian-updating.R]
-│       ├── bayes_update_normal_normal()                [bayesian-updating.R]
-│       ├── normal_to_lognormal_params()                [bayesian-updating.R]
-│       └── fuse_beta() / moments_to_beta() / beta_to_moments()  [bayesian-updating.R]
+│       ├── fuse_normal_normal()                [bayesian-updating.R]
+│       ├── convert_normal_to_lognormal()                [bayesian-updating.R]
+│       └── fuse_beta() / convert_moments_to_beta() / convert_beta_to_moments()  [bayesian-updating.R]
 ├── Step 5: configure_correlation_structure()
 │   ├── validate_correlation_matrix()                  [distributions.R]  (user-provided path)
 │   ├── estimate_property_correlations()                (auto_correlation path)
@@ -906,7 +904,7 @@ fallback if that function is somehow unavailable.</li>
 <div class="section level2">
 <h2 id="dependencies">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies"></a>
 </h2>
-<p><strong>From <code>distributions.R</code></strong>
+<p><strong>From <code>core-distributions.R</code></strong>
 (percentile-triplet fitting, ILR compositional machinery,
 correlation-matrix utilities): <code><a href="../reference/fit_percentile_triplet.html">fit_percentile_triplet()</a></code>,
 <code><a href="../reference/quantile_from_fit.html">quantile_from_fit()</a></code>,
@@ -917,16 +915,17 @@ correlation-matrix utilities): <code><a href="../reference/fit_percentile_triple
 <code><a href="../reference/ensure_positive_definite_matrix.html">ensure_positive_definite_matrix()</a></code>,
 <code><a href="../reference/validate_correlation_matrix.html">validate_correlation_matrix()</a></code>,
 <code><a href="../reference/estimate_correlation_matrix_robust.html">estimate_correlation_matrix_robust()</a></code>.</p>
-<p><strong>From <code>bayesian-updating.R</code></strong> (only
-exercised when <code>observed_data</code> is supplied to
-<code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code>):
-<code><a href="../reference/bayes_fuse.html">bayes_fuse()</a></code>, <code><a href="../reference/fuse_property.html">fuse_property()</a></code>,
+<p><strong>From <code>core-fusion.R</code></strong> (only exercised when
+<code>observed_data</code> is supplied to
+<code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code>): <code><a href="../reference/fuse_distribution.html">fuse_distribution()</a></code>,
+<code><a href="../reference/fuse_property.html">fuse_property()</a></code>,
 <code><a href="../reference/fuse_texture_group_from_triplets.html">fuse_texture_group_from_triplets()</a></code>,
-<code><a href="../reference/bayes_update_normal_normal.html">bayes_update_normal_normal()</a></code>,
-<code><a href="../reference/normal_to_lognormal_params.html">normal_to_lognormal_params()</a></code>, <code><a href="../reference/fuse_beta.html">fuse_beta()</a></code>,
-<code><a href="../reference/moments_to_beta.html">moments_to_beta()</a></code>, <code><a href="../reference/beta_to_moments.html">beta_to_moments()</a></code>.</p>
-<p><strong>From <code>kssl-reference-correlations.R</code></strong>
-(only exercised when
+<code><a href="../reference/fuse_normal_normal.html">fuse_normal_normal()</a></code>,
+<code><a href="../reference/convert_normal_to_lognormal.html">convert_normal_to_lognormal()</a></code>, <code><a href="../reference/fuse_beta.html">fuse_beta()</a></code>,
+<code><a href="../reference/convert_moments_to_beta.html">convert_moments_to_beta()</a></code>,
+<code><a href="../reference/convert_beta_to_moments.html">convert_beta_to_moments()</a></code>.</p>
+<p><strong>From <code>core-correlations.R</code></strong> (only
+exercised when
 <code>config$monte_carlo$correlation_fallback == "kssl_global"</code>):
 <code><a href="../reference/build_kssl_fallback_matrix.html">build_kssl_fallback_matrix()</a></code>,
 <code><a href="../reference/classify_genhz.html">classify_genhz()</a></code>.</p>
@@ -936,8 +935,7 @@ infrastructure): <code><a href="../reference/log_message.html">log_message()</a>
 <code><a href="../reference/track_progress.html">track_progress()</a></code>, <code><a href="../reference/validate_parameters.html">validate_parameters()</a></code>,
 <code><a href="../reference/validate_properties_with_synonyms.html">validate_properties_with_synonyms()</a></code>,
 <code><a href="../reference/validate_data_quality.html">validate_data_quality()</a></code>, <code><a href="../reference/is_unsuitable.html">is_unsuitable()</a></code>,
-<code><a href="../reference/detect_outliers.html">detect_outliers()</a></code>,
-<code><a href="../reference/get_default_configuration.html">get_default_configuration()</a></code>,
+<code><a href="../reference/detect_outliers.html">detect_outliers()</a></code>, <code><a href="../reference/default_config.html">default_config()</a></code>,
 <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>.</p>
 <p><strong>External packages</strong>: base <code>stats</code>
 (<code>qnorm</code>, <code>pnorm</code>, <code>runif</code>,
@@ -945,24 +943,24 @@ infrastructure): <code><a href="../reference/log_message.html">log_message()</a>
 <code>parallel</code> (<code>detectCores</code>,
 <code>makeCluster</code>/<code>stopCluster</code>/<code>clusterExport</code>/<code>clusterEvalQ</code>/<code>parLapply</code>
 on Windows, <code>mclapply</code> elsewhere).
-<code>distributions.R</code>’s
+<code>core-distributions.R</code>’s
 <code><a href="../reference/estimate_correlation_matrix_robust.html">estimate_correlation_matrix_robust()</a></code> in turn depends on
 <code><a href="https://rdrr.io/pkg/Hmisc/man/rcorr.html" class="external-link">Hmisc::rcorr()</a></code>.</p>
 <p><strong>Downstream consumers of this file’s output</strong>: -
 <strong>GP depth modeling &amp; multivariate adjustment</strong>
-(<code>gp-modeling.R</code>, <code>multivariate-adjustment.R</code>) -
-call <code><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations()</a></code> directly per cokey
-(choosing a single flat correlation matrix via
+(<code>core-gp.R</code>, <code>core-gp.R</code>) - call
+<code><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo()</a></code> directly per cokey (choosing a
+single flat correlation matrix via
 <code><a href="../reference/select_simulation_correlation_matrix.html">select_simulation_correlation_matrix()</a></code> from a genhz-keyed
 set), then flatten the resulting
 <code>[horizon, property, realization]</code> array to long format
 (<code>result$simulation_data</code>) for depth-trend and NRCS/local GP
 adjustment. - <strong>Statistics &amp; Diagnostics</strong>
-(<code>validation-diagnostics.R</code>) - consumes the long-format
-simulation data (columns per property plus
-<code>simulation_number</code>, <code>hzdept_r</code>,
-<code>cokey</code>, etc.) for quality-assessment reporting, depth-binned
-summaries, and cross-property/cross-depth diagnostics.</p>
+(<code>diagnostics.R</code>) - consumes the long-format simulation data
+(columns per property plus <code>simulation_number</code>,
+<code>hzdept_r</code>, <code>cokey</code>, etc.) for quality-assessment
+reporting, depth-binned summaries, and cross-property/cross-depth
+diagnostics.</p>
 </div>
 <div class="section level2">
 <h2 id="data-flow-inout">Data Flow In/Out<a class="anchor" aria-label="anchor" href="#data-flow-inout"></a>
@@ -1003,18 +1001,18 @@ config, success rate).</p>
 <ul>
 <li>
 <code>generate_component_values()</code> (used by
-<code><a href="../reference/sim_component_compositions.html">sim_component_compositions()</a></code>) is a placeholder: it always
-draws from a <code>runif(min, max)</code> distribution regardless of the
-requested <code>distribution_type</code> - the component-composition
-pipeline is not yet family-aware in the way the main horizon-property
-pipeline is.</li>
+<code><a href="../reference/simulate_component_compositions_batch.html">simulate_component_compositions_batch()</a></code>) is a placeholder:
+it always draws from a <code>runif(min, max)</code> distribution
+regardless of the requested <code>distribution_type</code> - the
+component-composition pipeline is not yet family-aware in the way the
+main horizon-property pipeline is.</li>
 </ul>
 </div>
 <div class="section level2">
 <h2 id="usage-example">Usage Example<a class="anchor" aria-label="anchor" href="#usage-example"></a>
 </h2>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">mc_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/generate_monte_carlo_realizations.html">generate_monte_carlo_realizations</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">mc_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_monte_carlo.html">simulate_monte_carlo</a></span><span class="op">(</span></span>
 <span>  soil_data <span class="op">=</span> <span class="va">soil_data</span>,                 <span class="co"># data frame with cokey + _l/_r/_h columns</span></span>
 <span>  properties <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"sandtotal"</span>, <span class="st">"claytotal"</span>, <span class="st">"silttotal"</span>, <span class="st">"dbovendry"</span><span class="op">)</span>,</span>
 <span>  n_realizations <span class="op">=</span> <span class="fl">5000</span>,</span>

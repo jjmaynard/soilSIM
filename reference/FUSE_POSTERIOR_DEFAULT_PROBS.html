@@ -9,7 +9,7 @@ it, every other fusion route)."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -62,7 +62,7 @@ it, every other fusion route)."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Default posterior percentile set computed by <code>fuse_general_kde()</code> (and, as later routes adopt it, every other fusion route).</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/raster-fusion.R" class="external-link"><code>R/raster-fusion.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-fusion.R" class="external-link"><code>R/core-fusion.R</code></a></small>
       <div class="d-none name"><code>FUSE_POSTERIOR_DEFAULT_PROBS.Rd</code></div>
     </div>
 
@@ -99,7 +99,7 @@ median/IQR.</p>
 <p>For the closed-form analytic routes (<code>qnorm</code>/<code>qbeta</code>/<code>qgamma</code>), extra percentiles are free
 and exact regardless of how extreme they are. For
 <code><a href="fuse_general_kde.html">fuse_general_kde()</a></code>'s sample/grid-based route, percentiles are read directly off
-<code><a href="bayesian_update.html">bayesian_update()</a></code>'s discretized <code>posterior_prob</code> (see that function's own "Grid-based
+<code><a href="update_prior.html">update_prior()</a></code>'s discretized <code>posterior_prob</code> (see that function's own "Grid-based
 percentiles" section) - exact relative to <code>grid_resolution</code> and NOT resampling-noise-limited,
 but still subject to how well the underlying KDE itself approximates the tails from a finite
 <code>n_samples</code>-sized input resample; the extreme percentiles here (P01/P99) are inherently noisier

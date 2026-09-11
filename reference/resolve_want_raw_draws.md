@@ -1,4 +1,4 @@
-# Resolve whether a `run_stage1_fusion()` call should fuse against real per-mukey Monte Carlo draws (`prior_fusion_method = "raw_draws"`) or the percentile-reconstructed approximation.
+# Resolve whether a `run_fusion()` call should fuse against real per-mukey Monte Carlo draws (`prior_fusion_method = "raw_draws"`) or the percentile-reconstructed approximation.
 
 An explicit `prior_fusion_method` value ("raw_draws" or "percentile")
 always wins; this function only decides what happens when it is unset

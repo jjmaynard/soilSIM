@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -60,7 +60,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Fit Individual GP Model</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/gp-modeling.R" class="external-link"><code>R/gp-modeling.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-gp.R" class="external-link"><code>R/core-gp.R</code></a></small>
       <div class="d-none name"><code>fit_individual_gp_model.Rd</code></div>
     </div>
 
@@ -99,7 +99,7 @@
 <dd><p>Passed through to <code><a href="https://rdrr.io/pkg/GPfit/man/GP_fit.html" class="external-link">GPfit::GP_fit()</a></code>'s <code>control</code> argument (population size /
 iteration counts for its internal hyperparameter search). Defaults to <code>c(20, 10, 2)</code>, far
 below <code>GP_fit()</code>'s own default <code>c(200*d, 80*d, 2*d)</code> - see
-<code><a href="fit_local_gp_model_single.html">fit_local_gp_model_single()</a></code>'s docs (<code>multivariate-adjustment.R</code>) for the empirical
+<code><a href="fit_local_gp_model_single.html">fit_local_gp_model_single()</a></code>'s docs (<code>core-gp.R</code>) for the empirical
 justification (identical fitted results, ~5x faster per call). Only used when
 <code>optimize_hyperparameters = TRUE</code> calls through to <code><a href="optimize_gp_hyperparameters.html">optimize_gp_hyperparameters()</a></code>/
 <code><a href="k_fold_gp_cv.html">k_fold_gp_cv()</a></code> (many <code>GP_fit()</code> calls per fit - 5-fold CV x 3 correlation candidates + a
@@ -113,6 +113,23 @@ refit), or by the direct <code>GP_fit()</code> call when <code>optimize_hyperpar
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>List containing GP model and diagnostics</p>
+    </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p>Other gp-modeling:
+<code><a href="adjust_simulation_depthwise.html">adjust_simulation_depthwise()</a></code>,
+<code><a href="apply_gp_depth_trends.html">apply_gp_depth_trends()</a></code>,
+<code><a href="apply_local_gp_adjustments.html">apply_local_gp_adjustments()</a></code>,
+<code><a href="apply_nrcs_trend_adjustments.html">apply_nrcs_trend_adjustments()</a></code>,
+<code><a href="convert_to_property_matrices.html">convert_to_property_matrices()</a></code>,
+<code><a href="extract_depth_length_scale.html">extract_depth_length_scale()</a></code>,
+<code><a href="fit_depth_gp_models.html">fit_depth_gp_models()</a></code>,
+<code><a href="fit_local_gp_model_single.html">fit_local_gp_model_single()</a></code>,
+<code><a href="predict.soilSIM_gp_models.html">predict.soilSIM_gp_models()</a></code>,
+<code><a href="predict_gp_depth_trends.html">predict_gp_depth_trends()</a></code>,
+<code><a href="prepare_nrcs_training_data.html">prepare_nrcs_training_data()</a></code>,
+<code><a href="select_optimal_grouping.html">select_optimal_grouping()</a></code>,
+<code><a href="validate_gp_models.html">validate_gp_models()</a></code></p></div>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

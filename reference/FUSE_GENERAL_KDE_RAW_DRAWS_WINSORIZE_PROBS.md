@@ -1,9 +1,9 @@
-# Default `winsorize_probs` `fuse_general_kde()` passes to `bayesian_update()` on its `raw_draws` branch only.
+# Default `winsorize_probs` `fuse_general_kde()` passes to `update_prior()` on its `raw_draws` branch only.
 
 Default `winsorize_probs`
 [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)
 passes to
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)
 on its `raw_draws` branch only.
 
 ## Usage
@@ -18,7 +18,7 @@ An object of class `numeric` of length 2.
 
 ## Why this exists
 
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)'s
 `stats::density(bw = "nrd0")` bandwidth choice is sensitive to outliers
 a raw-draws resample can genuinely contain - confirmed via a dedicated
 adversarial test: a right-skewed synthetic prior's raw resample
@@ -31,7 +31,7 @@ retaining the bulk of the real distribution's shape - only the most
 extreme 1% on each tail is affected, which is exactly the region a
 KDE-based fused mean is most vulnerable to.
 
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)'s
 own standalone default is deliberately left `NULL` (unclipped) - this
 constant only affects
 [`fuse_general_kde()`](https://jjmaynard.github.io/soilSIM/reference/fuse_general_kde.md)'s

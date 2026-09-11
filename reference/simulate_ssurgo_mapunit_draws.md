@@ -3,7 +3,7 @@
 Orchestrates the full SSURGO percentile-prior pipeline for one
 AOI/depth-window: fetch (cached) tabular SSURGO data, infill missing
 values, derive `genhz`, simulate component composition
-([`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md))
+([`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md))
 and join it onto horizons, simulate correlated properties per cokey
 ([`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md),
 using the KSSL reference correlation matrices), optionally remove
@@ -49,7 +49,7 @@ An object of class `character` of length 15.
 - n_mc:
 
   Number of triangular draws
-  [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
+  [`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)
   uses per component (default 1000).
 
 - parallel, n_cores:
@@ -73,7 +73,7 @@ An object of class `character` of length 15.
   `"joint_copula"` default, or `"gp_quantile_retrofit"`) selects this
   top-level entry point's vertical-correlation method; `NULL` (default)
   resolves to `"joint_copula"`, matching
-  [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md)'s
+  [`default_monte_carlo_config()`](https://jjmaynard.github.io/soilSIM/reference/default_monte_carlo_config.md)'s
   own default.
 
 - mukey_raster:
@@ -165,9 +165,9 @@ fresh fetch.
 This function's SIMULATED output is not disk-cached: every call
 re-simulates fresh random draws. Raw-draws fusion reuses draws in memory
 within one
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 call (computed once, used for both the percentile cache and
-[`mukey_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md));
+[`lookup_mukey_draws()`](https://jjmaynard.github.io/soilSIM/reference/lookup_mukey_draws.md));
 see also
-[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)'s
+[`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md)'s
 `shared_draws` pattern.

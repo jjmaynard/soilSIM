@@ -44,10 +44,9 @@ quantile_from_fit(u = c(0.05, 0.5, 0.95), family = clay_fit$family, fit = clay_f
 #> [1] 11 22 33
 ```
 
-That single fit is the unit
-[`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)
-scales up into a full, cross-property-correlated Monte Carlo simulation
-across every horizon in a real SSURGO dataset - see
+That single fit is the unit `generate_monte_carlo_realizations()` scales
+up into a full, cross-property-correlated Monte Carlo simulation across
+every horizon in a real SSURGO dataset - see
 [`vignette("getting-started-monte-carlo")`](https://jjmaynard.github.io/soilSIM/articles/getting-started-monte-carlo.md)
 for the end-to-end pipeline against a real area of interest.
 

@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -101,26 +101,26 @@
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
 <p>This functional group covers two files — <code>R/statistics.R</code>
-and <code>R/validation-diagnostics.R</code> — that together provide the
-package’s analytical and quality-assurance layer.
-<code>statistics.R</code> performs statistical characterization of
-processed SSURGO soil property data: correlation analysis (including
-compositional/ILR-aware texture correlations), distribution fitting via
-<code>fitdistrplus</code>, outlier detection (univariate IQR/Z-score and
-multivariate Mahalanobis), and descriptive property statistics with
-confidence intervals. <code>validation-diagnostics.R</code> performs
-end-to-end quality assurance across the <em>entire</em> simulation
-workflow, not just this group’s own output: it checks Monte Carlo
-convergence and coverage, correlation-structure preservation through the
-simulation pipeline, Gaussian-process (GP) depth-trend model
-performance, and soil-science plausibility of final simulated values,
-then rolls all of that into a single weighted quality score, grade, and
-optional diagnostic report/plots. In the overall soilSIM pipeline this
-group sits downstream of data acquisition and processing: it consumes
-cleaned/infilled SSURGO data for its own statistical analysis, and
-separately consumes the <em>outputs</em> of the Monte Carlo,
-GP-modeling, and multivariate-adjustment (correlation) groups to
-validate the workflow as a whole.</p>
+and <code>R/diagnostics.R</code> — that together provide the package’s
+analytical and quality-assurance layer. <code>statistics.R</code>
+performs statistical characterization of processed SSURGO soil property
+data: correlation analysis (including compositional/ILR-aware texture
+correlations), distribution fitting via <code>fitdistrplus</code>,
+outlier detection (univariate IQR/Z-score and multivariate Mahalanobis),
+and descriptive property statistics with confidence intervals.
+<code>diagnostics.R</code> performs end-to-end quality assurance across
+the <em>entire</em> simulation workflow, not just this group’s own
+output: it checks Monte Carlo convergence and coverage,
+correlation-structure preservation through the simulation pipeline,
+Gaussian-process (GP) depth-trend model performance, and soil-science
+plausibility of final simulated values, then rolls all of that into a
+single weighted quality score, grade, and optional diagnostic
+report/plots. In the overall soilSIM pipeline this group sits downstream
+of data acquisition and processing: it consumes cleaned/infilled SSURGO
+data for its own statistical analysis, and separately consumes the
+<em>outputs</em> of the Monte Carlo, GP-modeling, and
+multivariate-adjustment (correlation) groups to validate the workflow as
+a whole.</p>
 </div>
 <div class="section level2">
 <h2 id="core-functions">Core Functions<a class="anchor" aria-label="anchor" href="#core-functions"></a>
@@ -153,7 +153,7 @@ processed SSURGO data frame (from the data-processing group), expected
 to carry <code>cokey</code>, <code>hzdept_r</code>, and numeric
 <code>_r</code> property columns. - <code>analysis_config</code> — list
 of overrides merged (via <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>) on top of
-<code><a href="../reference/get_statistical_analysis_defaults.html">get_statistical_analysis_defaults()</a></code>. -
+<code><a href="../reference/default_statistics_config.html">default_statistics_config()</a></code>. -
 <code>correlation_methods</code> — character vector of correlation
 methods to compute (<code>"pearson"</code>, <code>"spearman"</code>,
 and/or <code>"kendall"</code>). - <code>distribution_fitting</code> —
@@ -213,7 +213,7 @@ internal helper <code>.stat_cfg(config, key, default)</code> =
 <code>config$statistical_analysis[[key]] %||% config[[key]] %||% default</code>,
 so they accept parameters both flat off <code>config$X</code> and nested
 under <code>config$statistical_analysis$X</code> (the shape
-<code><a href="../reference/get_statistical_analysis_defaults.html">get_statistical_analysis_defaults()</a></code> produces).</p>
+<code><a href="../reference/default_statistics_config.html">default_statistics_config()</a></code> produces).</p>
 </div>
 <div class="section level4">
 <h4 id="run_comprehensive_correlation_analysis-enhanced-correlation-analysis">2. <code>run_comprehensive_correlation_analysis()</code> — Enhanced
@@ -290,17 +290,17 @@ fitting.</p>
 <p><strong>Signature</strong>:
 <code>fit_property_distributions(values, property_name, config)</code></p>
 <p><strong>Purpose/Behavior</strong>: Determines candidate distribution
-families via <code><a href="../reference/get_appropriate_distributions.html">get_appropriate_distributions()</a></code>, fits each
-with <code><a href="../reference/fit_single_distribution.html">fit_single_distribution()</a></code> (skipping failures), and
-ranks the successful fits best-first by AIC via
+families via <code><a href="../reference/distributions_for_properties.html">distributions_for_properties()</a></code>, fits each with
+<code><a href="../reference/fit_single_distribution.html">fit_single_distribution()</a></code> (skipping failures), and ranks
+the successful fits best-first by AIC via
 <code><a href="../reference/rank_distribution_fits.html">rank_distribution_fits()</a></code>. <strong>Returns</strong> a named
 list of fit results (one per successfully-fit distribution family).</p>
 </div>
 <div class="section level4">
-<h4 id="get_appropriate_distributions">6. <code>get_appropriate_distributions()</code><a class="anchor" aria-label="anchor" href="#get_appropriate_distributions"></a>
+<h4 id="distributions_for_properties">6. <code>distributions_for_properties()</code><a class="anchor" aria-label="anchor" href="#distributions_for_properties"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>get_appropriate_distributions(property_name, values, config = NULL)</code></p>
+<code>distributions_for_properties(property_name, values, config = NULL)</code></p>
 <p><strong>Purpose</strong>: Chooses candidate distribution families for
 a property using a type-based heuristic —
 <code>c("beta", "normal")</code> for texture fractions
@@ -345,7 +345,7 @@ Validation<a class="anchor" aria-label="anchor" href="#validate_statistical_resu
 <code>validate_statistical_results(correlation_analysis, distribution_analysis, outlier_analysis, property_statistics, config)</code></p>
 <p><strong>Purpose/Behavior</strong>: Validates correlation matrices via
 <code><a href="../reference/validate_correlation_matrices.html">validate_correlation_matrices()</a></code> (real check, delegates to
-<code>distributions.R</code>’s
+<code>core-distributions.R</code>’s
 <code><a href="../reference/validate_correlation_matrix.html">validate_correlation_matrix()</a></code>), plus pass-through stubs
 <code><a href="../reference/validate_distribution_analysis.html">validate_distribution_analysis()</a></code> and
 <code><a href="../reference/validate_outlier_analysis.html">validate_outlier_analysis()</a></code> (both currently always return
@@ -377,13 +377,13 @@ hardcoded checks: data-quality-below-0.8 and presence of correlation
 warnings).</p>
 </div>
 <div class="section level4">
-<h4 id="get_statistical_analysis_defaults">10. <code>get_statistical_analysis_defaults()</code><a class="anchor" aria-label="anchor" href="#get_statistical_analysis_defaults"></a>
+<h4 id="default_statistics_config">10. <code>default_statistics_config()</code><a class="anchor" aria-label="anchor" href="#default_statistics_config"></a>
 </h4>
-<p><strong>Signature</strong>:
-<code><a href="../reference/get_statistical_analysis_defaults.html">get_statistical_analysis_defaults()</a></code> (no arguments)</p>
+<p><strong>Signature</strong>: <code><a href="../reference/default_statistics_config.html">default_statistics_config()</a></code>
+(no arguments)</p>
 <p><strong>Purpose/Behavior</strong>: Builds the default
 statistical-analysis configuration by taking
-<code>get_default_configuration("full")</code> and merging in a
+<code>default_config("full")</code> and merging in a
 <code>statistical_analysis</code> block covering stratification flags,
 missing-value strategy, correlation method/threshold defaults,
 distribution-fitting families, outlier method/threshold defaults, and
@@ -434,8 +434,7 @@ character vector of column names.</p>
 <p><strong>Purpose/Behavior</strong>: For each property, computes
 n/missing-rate/mean/sd/min/max/range/CV/median/quartiles/IQR on finite
 values, adds a 95% t-based confidence interval via
-<code><a href="../reference/calculate_confidence_intervals.html">calculate_confidence_intervals()</a></code>, and adds
-skewness/kurtosis
+<code><a href="../reference/compute_confidence_intervals.html">compute_confidence_intervals()</a></code>, and adds skewness/kurtosis
 (<code>calculate_skewness()</code>/<code>calculate_kurtosis()</code>,
 both hand-rolled moment-based implementations) plus a Shapiro-Wilk
 normality p-value (only computed when n ≤ 5000, since
@@ -456,7 +455,7 @@ all three of
 <code>claytotal_r</code>/<code>sandtotal_r</code>/<code>silttotal_r</code>
 are present with &gt;4 complete rows, additionally computes the same
 correlations in isometric-log-ratio (ILR) space via
-<code>distributions.R</code>’s dependency-free
+<code>core-distributions.R</code>’s dependency-free
 <code><a href="../reference/ilr_forward.html">ilr_forward()</a></code>, exposed as <code>ilr_correlations</code> —
 the statistically defensible view for compositional data.
 <strong>Returns</strong>
@@ -478,12 +477,12 @@ also non-exported.</p>
 </div>
 </div>
 <div class="section level3">
-<h3 id="workflow-validation-diagnostics-validation-diagnostics-r">Workflow Validation &amp; Diagnostics
-(<code>validation-diagnostics.R</code>)<a class="anchor" aria-label="anchor" href="#workflow-validation-diagnostics-validation-diagnostics-r"></a>
+<h3 id="workflow-validation-diagnostics-diagnostics-r">Workflow Validation &amp; Diagnostics
+(<code>diagnostics.R</code>)<a class="anchor" aria-label="anchor" href="#workflow-validation-diagnostics-diagnostics-r"></a>
 </h3>
 <div class="section level4">
-<h4 id="validate_complete_workflow-master-validation-entry-point">1. <code>validate_complete_workflow()</code> — Master Validation
-Entry Point<a class="anchor" aria-label="anchor" href="#validate_complete_workflow-master-validation-entry-point"></a>
+<h4 id="diagnose_workflow-master-validation-entry-point">1. <code>diagnose_workflow()</code> — Master Validation Entry
+Point<a class="anchor" aria-label="anchor" href="#diagnose_workflow-master-validation-entry-point"></a>
 </h4>
 <p><strong>Purpose</strong>: Top-level driver that assesses an entire
 soil-simulation workflow’s output (Monte Carlo, correlation, GP models,
@@ -491,7 +490,7 @@ soil-science realism) and rolls it up into one overall quality
 assessment.</p>
 <p><strong>Signature</strong>:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/validate_complete_workflow.html">validate_complete_workflow</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/diagnose_workflow.html">diagnose_workflow</a></span><span class="op">(</span></span>
 <span>  <span class="va">workflow_results</span>,</span>
 <span>  original_data <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  validation_config <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -505,8 +504,7 @@ complete workflow output, expected to optionally contain
 <code>training_data</code> keys. - <code>original_data</code> — original
 SSURGO/NRCS data, used as a comparison baseline for coverage and
 depth-trend checks. - <code>validation_config</code> — validation
-configuration; defaults to
-<code>get_default_configuration("validation")</code>. -
+configuration; defaults to <code>default_config("validation")</code>. -
 <code>generate_plots</code> — whether to generate diagnostic plots (Step
 7 of the pipeline). - <code>output_dir</code> — directory to save
 diagnostic plot files into (plots are still returned as objects/paths
@@ -525,10 +523,10 @@ shallow-validates whichever of
 <code>simulation_data</code>/<code>gp_models</code>/<code>correlation_matrices</code>/<code>training_data</code>
 are present via <code>extract_and_validate_components()</code>; (3) runs
 <code>execute_validation_pipeline()</code>, which in turn conditionally
-calls <code><a href="../reference/validate_monte_carlo_quality.html">validate_monte_carlo_quality()</a></code>,
-<code><a href="../reference/validate_correlation_structures.html">validate_correlation_structures()</a></code>,
-<code><a href="../reference/validate_gp_model_workflow.html">validate_gp_model_workflow()</a></code>, and
-<code><a href="../reference/validate_soil_science_realism.html">validate_soil_science_realism()</a></code> — each skipped (not failed)
+calls <code><a href="../reference/diagnose_simulation.html">diagnose_simulation()</a></code>,
+<code><a href="../reference/diagnose_correlation_structures.html">diagnose_correlation_structures()</a></code>,
+<code><a href="../reference/diagnose_gp_models.html">diagnose_gp_models()</a></code>, and
+<code><a href="../reference/diagnose_soil_science_realism.html">diagnose_soil_science_realism()</a></code> — each skipped (not failed)
 if its required component wasn’t found — then computes
 <code><a href="../reference/calculate_workflow_performance.html">calculate_workflow_performance()</a></code>,
 <code><a href="../reference/assess_workflow_quality.html">assess_workflow_quality()</a></code>, optionally
@@ -552,11 +550,10 @@ rather than aborting the whole call.</p>
 <span>  include_plots <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><strong>Parameters</strong>: <code>validation_results</code> (output
-of <code><a href="../reference/validate_complete_workflow.html">validate_complete_workflow()</a></code>),
-<code>output_format</code> (<code>"html"</code>, <code>"pdf"</code>, or
-<code>"markdown"</code>), <code>output_file</code> (defaults to a
-timestamped filename in the current directory),
-<code>include_plots</code> (whether to embed
+of <code><a href="../reference/diagnose_workflow.html">diagnose_workflow()</a></code>), <code>output_format</code>
+(<code>"html"</code>, <code>"pdf"</code>, or <code>"markdown"</code>),
+<code>output_file</code> (defaults to a timestamped filename in the
+current directory), <code>include_plots</code> (whether to embed
 <code>validation_results$diagnostic_plots</code>).</p>
 <p><strong>Returns</strong>: <code>TRUE</code>/<code>FALSE</code>
 success status.</p>
@@ -605,10 +602,10 @@ score with low cross-component variance), and
 <code>assessment_metadata</code>.</p>
 </div>
 <div class="section level4">
-<h4 id="validate_monte_carlo_quality">4. <code>validate_monte_carlo_quality()</code><a class="anchor" aria-label="anchor" href="#validate_monte_carlo_quality"></a>
+<h4 id="diagnose_simulation">4. <code>diagnose_simulation()</code><a class="anchor" aria-label="anchor" href="#diagnose_simulation"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>validate_monte_carlo_quality(monte_carlo_results, original_data = NULL, config = NULL)</code></p>
+<code>diagnose_simulation(monte_carlo_results, original_data = NULL, config = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Validates
 <code>monte_carlo_results$simulation_data</code> via
 <code><a href="../reference/validate_data_quality.html">validate_data_quality()</a></code> (requires <code>cokey</code>,
@@ -619,11 +616,11 @@ with progress tracking (<code><a href="../reference/track_progress.html">track_p
 <code>config$convergence_criteria$n_batches</code> sequential batches —
 default 5 — and checks whether each numeric property’s batch mean has
 stabilized within <code>tolerance</code>, default 0.05 relative change),
-<code><a href="../reference/assess_simulation_coverage.html">assess_simulation_coverage()</a></code>,
-<code><a href="../reference/validate_distribution_fidelity.html">validate_distribution_fidelity()</a></code>, and a
+<code><a href="../reference/diagnose_simulation_coverage.html">diagnose_simulation_coverage()</a></code>,
+<code><a href="../reference/diagnose_distribution_fidelity.html">diagnose_distribution_fidelity()</a></code>, and a
 <code>"diagnostics"</code> step that calls
 <code><a href="../reference/generate_simulation_diagnostics.html">generate_simulation_diagnostics()</a></code> (defined in
-<code>monte-carlo.R</code>) with all 5 arguments
+<code>core-montecarlo.R</code>) with all 5 arguments
 (<code>original_data, simulation_results, properties, correlation_config, config</code>)
 by name, sourced from this function’s own <code>original_data</code>
 parameter, the <code>simulation_data</code> local (the constrained
@@ -633,10 +630,10 @@ parameter, the <code>simulation_data</code> local (the constrained
 <code>list(convergence_assessment=, coverage_assessment=, distribution_fidelity=, simulation_diagnostics=, data_quality=)</code>.</p>
 </div>
 <div class="section level4">
-<h4 id="assess_simulation_coverage">5. <code>assess_simulation_coverage()</code><a class="anchor" aria-label="anchor" href="#assess_simulation_coverage"></a>
+<h4 id="diagnose_simulation_coverage">5. <code>diagnose_simulation_coverage()</code><a class="anchor" aria-label="anchor" href="#diagnose_simulation_coverage"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>assess_simulation_coverage(simulation_data, original_data, criteria = NULL)</code></p>
+<code>diagnose_simulation_coverage(simulation_data, original_data, criteria = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Default criteria
 <code>list(min_coverage_percentile = 0.95, max_extrapolation_factor = 1.2, min_samples_per_group = 10)</code>.
 Identifies numeric properties (excluding
@@ -654,16 +651,16 @@ range). If <code>cokey</code> is present, also computes
 <code>list(parameter_space_coverage=, distributional_coverage=, group_representation=)</code>.</p>
 </div>
 <div class="section level4">
-<h4 id="validate_distribution_fidelity">6. <code>validate_distribution_fidelity()</code><a class="anchor" aria-label="anchor" href="#validate_distribution_fidelity"></a>
+<h4 id="diagnose_distribution_fidelity">6. <code>diagnose_distribution_fidelity()</code><a class="anchor" aria-label="anchor" href="#diagnose_distribution_fidelity"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>validate_distribution_fidelity(simulation_data, simulation_metadata, criteria = NULL)</code></p>
+<code>diagnose_distribution_fidelity(simulation_data, simulation_metadata, criteria = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Default criteria
 <code>list(ks_test_alpha = 0.05, moment_tolerance = 0.1, quantile_tolerance = 0.05)</code>.
 For each property named in
 <code>simulation_metadata$distribution_parameters</code>, draws a
 reference sample from the fitted distribution via
-<code>distributions.R</code>’s <code><a href="../reference/quantile_from_fit.html">quantile_from_fit()</a></code> and
+<code>core-distributions.R</code>’s <code><a href="../reference/quantile_from_fit.html">quantile_from_fit()</a></code> and
 compares it against the simulated values three ways:
 <code><a href="../reference/test_distribution_fidelity.html">test_distribution_fidelity()</a></code> (two-sample Kolmogorov-Smirnov
 test), <code><a href="../reference/compare_distribution_moments.html">compare_distribution_moments()</a></code> (relative
@@ -674,26 +671,26 @@ IQR-based <code><a href="../reference/detect_outliers.html">detect_outliers()</a
 <code>list(distribution_tests=, moment_comparisons=, quantile_comparisons=, outlier_assessment=)</code>.</p>
 </div>
 <div class="section level4">
-<h4 id="validate_correlation_structures">7. <code>validate_correlation_structures()</code><a class="anchor" aria-label="anchor" href="#validate_correlation_structures"></a>
+<h4 id="diagnose_correlation_structures">7. <code>diagnose_correlation_structures()</code><a class="anchor" aria-label="anchor" href="#diagnose_correlation_structures"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>validate_correlation_structures(correlation_matrices, simulation_data, config = NULL)</code></p>
+<code>diagnose_correlation_structures(correlation_matrices, simulation_data, config = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Validates
 <code>simulation_data</code> via <code><a href="../reference/validate_data_quality.html">validate_data_quality()</a></code>,
 then runs four steps with progress tracking:
 <code><a href="../reference/validate_correlation_matrix_quality.html">validate_correlation_matrix_quality()</a></code>
 (positive-definiteness + condition number per matrix, via
 <code><a href="../reference/assess_correlation_matrix_properties.html">assess_correlation_matrix_properties()</a></code>),
-<code><a href="../reference/validate_correlation_preservation_diagnostics.html">validate_correlation_preservation_diagnostics()</a></code>,
-<code><a href="../reference/validate_within_depth_correlations.html">validate_within_depth_correlations()</a></code>,
-<code><a href="../reference/assess_cholesky_decomposition.html">assess_cholesky_decomposition()</a></code>. <strong>Returns</strong>
+<code><a href="../reference/diagnose_correlation_preservation.html">diagnose_correlation_preservation()</a></code>,
+<code><a href="../reference/diagnose_within_depth_correlations.html">diagnose_within_depth_correlations()</a></code>,
+<code><a href="../reference/diagnose_cholesky.html">diagnose_cholesky()</a></code>. <strong>Returns</strong>
 <code>list(matrix_quality=, preservation_assessment=, depth_specific_validation=, cholesky_validation=, data_quality=)</code>.</p>
 </div>
 <div class="section level4">
-<h4 id="validate_correlation_preservation_diagnostics">8. <code>validate_correlation_preservation_diagnostics()</code><a class="anchor" aria-label="anchor" href="#validate_correlation_preservation_diagnostics"></a>
+<h4 id="diagnose_correlation_preservation">8. <code>diagnose_correlation_preservation()</code><a class="anchor" aria-label="anchor" href="#diagnose_correlation_preservation"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>validate_correlation_preservation_diagnostics(original_correlations, simulation_data, criteria = NULL)</code></p>
+<code>diagnose_correlation_preservation(original_correlations, simulation_data, criteria = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Default criteria
 <code>list(max_correlation_difference = 0.1, correlation_rmse_threshold = 0.05, min_samples_for_validation = 30)</code>.
 Computes the overall simulated correlation matrix via
@@ -709,10 +706,10 @@ each via <code><a href="../reference/assess_depth_correlation_preservation.html"
 (the last is currently never populated).</p>
 </div>
 <div class="section level4">
-<h4 id="validate_within_depth_correlations">9. <code>validate_within_depth_correlations()</code><a class="anchor" aria-label="anchor" href="#validate_within_depth_correlations"></a>
+<h4 id="diagnose_within_depth_correlations">9. <code>diagnose_within_depth_correlations()</code><a class="anchor" aria-label="anchor" href="#diagnose_within_depth_correlations"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>validate_within_depth_correlations(simulation_data, criteria = NULL)</code></p>
+<code>diagnose_within_depth_correlations(simulation_data, criteria = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Default criteria includes
 <code>depth_bins = c(0, 15, 30, 60, 100, 200)</code> and
 <code>min_samples_per_bin = 20</code>. Bins <code>hzdept_r</code> via
@@ -727,10 +724,10 @@ much each pairwise correlation’s value varies across bins).
 (the last is currently never populated).</p>
 </div>
 <div class="section level4">
-<h4 id="assess_cholesky_decomposition">10. <code>assess_cholesky_decomposition()</code><a class="anchor" aria-label="anchor" href="#assess_cholesky_decomposition"></a>
+<h4 id="diagnose_cholesky">10. <code>diagnose_cholesky()</code><a class="anchor" aria-label="anchor" href="#diagnose_cholesky"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>assess_cholesky_decomposition(correlation_matrices, criteria = NULL)</code></p>
+<code>diagnose_cholesky(correlation_matrices, criteria = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Default criteria
 <code>list(reconstruction_tolerance = 1e-10, condition_number_threshold = 1e12, eigenvalue_threshold = 1e-8)</code>.
 For every matrix entry in <code>correlation_matrices</code>, runs
@@ -744,30 +741,30 @@ tolerance. <strong>Returns</strong>
 <code>decomposition_quality</code>).</p>
 </div>
 <div class="section level4">
-<h4 id="validate_gp_model_workflow">11. <code>validate_gp_model_workflow()</code><a class="anchor" aria-label="anchor" href="#validate_gp_model_workflow"></a>
+<h4 id="diagnose_gp_models">11. <code>diagnose_gp_models()</code><a class="anchor" aria-label="anchor" href="#diagnose_gp_models"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>validate_gp_model_workflow(gp_models, training_data, config = NULL)</code></p>
+<code>diagnose_gp_models(gp_models, training_data, config = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Validates
 <code>training_data</code> (if supplied) via
 <code><a href="../reference/validate_data_quality.html">validate_data_quality()</a></code>, then runs four GP-focused steps
-with progress tracking: <code><a href="../reference/validate_gp_model_performance.html">validate_gp_model_performance()</a></code>,
-<code><a href="../reference/validate_gp_predictions.html">validate_gp_predictions()</a></code>,
-<code><a href="../reference/assess_depth_trend_realism.html">assess_depth_trend_realism()</a></code>,
+with progress tracking: <code><a href="../reference/diagnose_gp_performance.html">diagnose_gp_performance()</a></code>,
+<code><a href="../reference/diagnose_gp_predictions.html">diagnose_gp_predictions()</a></code>,
+<code><a href="../reference/diagnose_depth_trend_realism.html">diagnose_depth_trend_realism()</a></code>,
 <code><a href="../reference/perform_gp_cross_validation.html">perform_gp_cross_validation()</a></code>. <strong>Returns</strong>
 <code>list(model_performance=, prediction_quality=, depth_trend_realism=, cross_validation=, training_data_quality=)</code>.</p>
 </div>
 <div class="section level4">
-<h4 id="validate_gp_model_performance">12. <code>validate_gp_model_performance()</code><a class="anchor" aria-label="anchor" href="#validate_gp_model_performance"></a>
+<h4 id="diagnose_gp_performance">12. <code>diagnose_gp_performance()</code><a class="anchor" aria-label="anchor" href="#diagnose_gp_performance"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>validate_gp_model_performance(gp_models, training_data, criteria = NULL)</code></p>
+<code>diagnose_gp_performance(gp_models, training_data, criteria = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Default criteria
 <code>list(max_training_rmse = 0.5, min_r_squared = 0.6, max_condition_number = 1e12)</code>.
 For every property/group combination in <code>gp_models</code> whose
 type is <code>"stratified_grouped"</code>, calls
 <code><a href="../reference/assess_single_gp_performance.html">assess_single_gp_performance()</a></code>, which delegates training
-RMSE to <code>gp-modeling.R</code>’s
+RMSE to <code>core-gp.R</code>’s
 <code>calculate_model_diagnostics()</code> and derives R² from that RMSE
 against the training data’s own variance. Aggregates via
 <code><a href="../reference/calculate_overall_gp_performance.html">calculate_overall_gp_performance()</a></code> (mean R²/RMSE across all
@@ -775,20 +772,19 @@ models). <strong>Returns</strong>
 <code>list(individual_model_performance=, overall_performance=)</code>.</p>
 </div>
 <div class="section level4">
-<h4 id="assess_depth_trend_realism">13. <code>assess_depth_trend_realism()</code><a class="anchor" aria-label="anchor" href="#assess_depth_trend_realism"></a>
+<h4 id="diagnose_depth_trend_realism">13. <code>diagnose_depth_trend_realism()</code><a class="anchor" aria-label="anchor" href="#diagnose_depth_trend_realism"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>assess_depth_trend_realism(gp_models, criteria = NULL)</code></p>
+<code>diagnose_depth_trend_realism(gp_models, criteria = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Default criteria includes
 <code>test_depths = seq(0, 200, by = 5)</code>,
 <code>realistic_ranges = get_realistic_property_ranges()</code>,
 <code>monotonicity_tolerance = 0.3</code>,
 <code>gradient_limits = get_realistic_gradients()</code>. For each
 stratified-grouped GP model, predicts a depth trend via
-<code>gp-modeling.R</code>’s <code><a href="../reference/predict_gp_depth_trends.html">predict_gp_depth_trends()</a></code>,
-then judges realism via <code><a href="../reference/assess_trend_realism.html">assess_trend_realism()</a></code> — which
-reuses <code>gp-modeling.R</code>’s
-<code>assess_trend_monotonicity()</code> and
+<code>core-gp.R</code>’s <code><a href="../reference/predict_gp_depth_trends.html">predict_gp_depth_trends()</a></code>, then
+judges realism via <code><a href="../reference/assess_trend_realism.html">assess_trend_realism()</a></code> — which reuses
+<code>core-gp.R</code>’s <code>assess_trend_monotonicity()</code> and
 <code>assess_realistic_values()</code>, and additionally counts values
 outside <code>criteria$realistic_ranges[[prop]]</code> (or non-finite
 predictions if no range is configured for that property). Violations are
@@ -800,10 +796,10 @@ beyond what’s nested in
 <code>trend_predictions</code>/<code>constraint_violations</code>).</p>
 </div>
 <div class="section level4">
-<h4 id="validate_gp_predictions">14. <code>validate_gp_predictions()</code><a class="anchor" aria-label="anchor" href="#validate_gp_predictions"></a>
+<h4 id="diagnose_gp_predictions">14. <code>diagnose_gp_predictions()</code><a class="anchor" aria-label="anchor" href="#diagnose_gp_predictions"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>validate_gp_predictions(gp_models, criteria = NULL)</code></p>
+<code>diagnose_gp_predictions(gp_models, criteria = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Default criteria
 <code>list(test_depths = seq(0, 150, by = 10), uncertainty_threshold = 0.5, smoothness_criteria = 0.1)</code>.
 For each stratified-grouped GP model, calls
@@ -815,14 +811,14 @@ second difference of the predicted curve (a discrete-roughness measure).
 (only <code>prediction_smoothness</code> is currently populated).</p>
 </div>
 <div class="section level4">
-<h4 id="validate_soil_science_realism">15. <code>validate_soil_science_realism()</code><a class="anchor" aria-label="anchor" href="#validate_soil_science_realism"></a>
+<h4 id="diagnose_soil_science_realism">15. <code>diagnose_soil_science_realism()</code><a class="anchor" aria-label="anchor" href="#diagnose_soil_science_realism"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>validate_soil_science_realism(simulation_data, original_data = NULL, config = NULL)</code></p>
+<code>diagnose_soil_science_realism(simulation_data, original_data = NULL, config = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Validates
 <code>simulation_data</code> via <code><a href="../reference/validate_data_quality.html">validate_data_quality()</a></code>,
 then runs four steps with progress tracking:
-<code><a href="../reference/assess_property_constraints.html">assess_property_constraints()</a></code>,
+<code><a href="../reference/diagnose_property_constraints.html">diagnose_property_constraints()</a></code>,
 <code><a href="../reference/validate_horizon_characteristics.html">validate_horizon_characteristics()</a></code> (surface vs. subsurface
 range compliance plus depth-transition smoothness),
 <code><a href="../reference/assess_pedological_relationships.html">assess_pedological_relationships()</a></code> (checks clay–CEC and
@@ -833,10 +829,10 @@ are present), <code><a href="../reference/validate_simulation_depth_trends.html"
 <code>list(property_constraints=, horizon_characteristics=, pedological_relationships=, depth_trend_realism=, data_quality=)</code>.</p>
 </div>
 <div class="section level4">
-<h4 id="assess_property_constraints">16. <code>assess_property_constraints()</code><a class="anchor" aria-label="anchor" href="#assess_property_constraints"></a>
+<h4 id="diagnose_property_constraints">16. <code>diagnose_property_constraints()</code><a class="anchor" aria-label="anchor" href="#diagnose_property_constraints"></a>
 </h4>
 <p><strong>Signature</strong>:
-<code>assess_property_constraints(simulation_data, criteria = NULL)</code></p>
+<code>diagnose_property_constraints(simulation_data, criteria = NULL)</code></p>
 <p><strong>Purpose/Behavior</strong>: Defaults to
 <code>get_default_property_constraints()</code>, which builds
 <code>property_ranges</code> from
@@ -927,7 +923,7 @@ analyze_soil_statistics(use_enhanced_chain=)         [MASTER — statistics.R]
 ├── detect_comprehensive_outliers[_safe]()
 │   └── detect_outliers()                            [utils.R]
 ├── compute_property_statistics()
-│   ├── calculate_confidence_intervals()             [utils.R]
+│   ├── compute_confidence_intervals()             [utils.R]
 │   ├── calculate_skewness() / calculate_kurtosis()
 │   └── shapiro.test()                               [stats]
 ├── validate_statistical_results[_safe]()
@@ -948,7 +944,7 @@ run_comprehensive_correlation_analysis()             [exported, standalone]
 
 analyze_property_distributions()                     [exported, standalone]
 ├── fit_property_distributions()
-│   ├── get_appropriate_distributions()
+│   ├── distributions_for_properties()
 │   ├── fit_single_distribution()
 │   │   └── fitdistrplus::fitdist()                  [fitdistrplus]
 │   └── rank_distribution_fits()
@@ -979,56 +975,56 @@ generate_statistical_quality_report()                [exported, standalone]
 └── generate_analysis_recommendations()
 
 
-validation-diagnostics.R
+diagnostics.R
 ========================================================================
-validate_complete_workflow()                          [MASTER — validation-diagnostics.R]
+diagnose_workflow()                          [MASTER — diagnostics.R]
 ├── initialize_validation_structure()
 ├── extract_and_validate_components()
 │   └── validate_data_quality()                       [utils.R]
 ├── execute_validation_pipeline()
-│   ├── validate_monte_carlo_quality()          (if simulation_data found)
+│   ├── diagnose_simulation()          (if simulation_data found)
 │   │   ├── assess_simulation_convergence()
-│   │   ├── assess_simulation_coverage()
+│   │   ├── diagnose_simulation_coverage()
 │   │   │   ├── assess_property_coverage()
 │   │   │   ├── assess_distributional_coverage()
 │   │   │   │   └── detect_outliers()                 [utils.R]
 │   │   │   └── assess_group_representation()
-│   │   ├── validate_distribution_fidelity()
+│   │   ├── diagnose_distribution_fidelity()
 │   │   │   ├── test_distribution_fidelity()
 │   │   │   ├── compare_distribution_moments()
 │   │   │   ├── compare_distribution_quantiles()
 │   │   │   │    (all three via quantile_from_fit() [distributions.R])
 │   │   │   └── detect_outliers()                     [utils.R]
 │   │   └── generate_simulation_diagnostics()          [monte-carlo.R — arg-count mismatch, always caught &amp; warned]
-│   ├── validate_correlation_structures()       (if correlation_matrices found)
+│   ├── diagnose_correlation_structures()       (if correlation_matrices found)
 │   │   ├── validate_correlation_matrix_quality()
 │   │   │   └── assess_correlation_matrix_properties()
-│   │   ├── validate_correlation_preservation_diagnostics()
+│   │   ├── diagnose_correlation_preservation()
 │   │   │   ├── safe_correlation()                     [utils.R]
 │   │   │   ├── assess_correlation_differences()
 │   │   │   └── assess_depth_correlation_preservation()
-│   │   ├── validate_within_depth_correlations()
+│   │   ├── diagnose_within_depth_correlations()
 │   │   │   ├── safe_correlation()                     [utils.R]
 │   │   │   ├── assess_correlation_matrix_properties()
 │   │   │   └── assess_correlation_stability_across_depths()
-│   │   └── assess_cholesky_decomposition()
+│   │   └── diagnose_cholesky()
 │   │       └── assess_single_cholesky_decomposition()
-│   ├── validate_gp_model_workflow()            (if gp_models found)
-│   │   ├── validate_gp_model_performance()
+│   ├── diagnose_gp_models()            (if gp_models found)
+│   │   ├── diagnose_gp_performance()
 │   │   │   ├── assess_single_gp_performance()
 │   │   │   │   └── calculate_model_diagnostics()      [gp-modeling.R]
 │   │   │   └── calculate_overall_gp_performance()
-│   │   ├── validate_gp_predictions()
+│   │   ├── diagnose_gp_predictions()
 │   │   │   └── validate_single_gp_predictions()
 │   │   │       └── predict_gp_depth_trends()          [gp-modeling.R]
-│   │   ├── assess_depth_trend_realism()
+│   │   ├── diagnose_depth_trend_realism()
 │   │   │   └── assess_trend_realism()
 │   │   │       ├── assess_trend_monotonicity()        [gp-modeling.R]
 │   │   │       └── assess_realistic_values()          [gp-modeling.R]
 │   │   └── perform_gp_cross_validation()
 │   │       └── k_fold_gp_cv()                         [gp-modeling.R]
-│   ├── validate_soil_science_realism()         (if final_data found)
-│   │   ├── assess_property_constraints()
+│   ├── diagnose_soil_science_realism()         (if final_data found)
+│   │   ├── diagnose_property_constraints()
 │   │   │   ├── get_default_property_constraints()
 │   │   │   ├── assess_cross_property_constraints()
 │   │   │   └── detect_distribution_anomalies()
@@ -1069,34 +1065,33 @@ generate_validation_report()                          [standalone]
 <a href="architecture-utilities.html">Utilities</a> module) — the single
 heaviest dependency for both files: <code><a href="../reference/log_message.html">log_message()</a></code>,
 <code><a href="../reference/handle_workflow_error.html">handle_workflow_error()</a></code>, <code><a href="../reference/setup_logging.html">setup_logging()</a></code>,
-<code><a href="../reference/get_default_configuration.html">get_default_configuration()</a></code>,
-<code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>, <code><a href="../reference/validate_parameters.html">validate_parameters()</a></code>,
-<code><a href="../reference/validate_properties.html">validate_properties()</a></code>,
+<code><a href="../reference/default_config.html">default_config()</a></code>, <code><a href="../reference/merge_configurations.html">merge_configurations()</a></code>,
+<code><a href="../reference/validate_parameters.html">validate_parameters()</a></code>, <code><a href="../reference/validate_properties.html">validate_properties()</a></code>,
 <code><a href="../reference/validate_properties_with_synonyms.html">validate_properties_with_synonyms()</a></code>,
 <code><a href="../reference/validate_data_quality.html">validate_data_quality()</a></code>,
 <code><a href="../reference/validate_numeric_ranges.html">validate_numeric_ranges()</a></code>,
 <code><a href="../reference/handle_missing_values.html">handle_missing_values()</a></code>, <code><a href="../reference/safe_correlation.html">safe_correlation()</a></code>,
 <code><a href="../reference/detect_outliers.html">detect_outliers()</a></code>,
-<code><a href="../reference/calculate_confidence_intervals.html">calculate_confidence_intervals()</a></code>,
+<code><a href="../reference/compute_confidence_intervals.html">compute_confidence_intervals()</a></code>,
 <code><a href="../reference/track_progress.html">track_progress()</a></code>,
 <code>get_default_quality_thresholds()</code>,
-<code>get_package_versions()</code>. - <code>R/distributions.R</code> —
-<code><a href="../reference/ilr_forward.html">ilr_forward()</a></code> (isometric log-ratio transform for
-compositional texture correlation),
+<code>get_package_versions()</code>. -
+<code>R/core-distributions.R</code> — <code><a href="../reference/ilr_forward.html">ilr_forward()</a></code>
+(isometric log-ratio transform for compositional texture correlation),
 <code><a href="../reference/validate_correlation_matrix.html">validate_correlation_matrix()</a></code> (singular; the real
 per-matrix check backing <code><a href="../reference/validate_correlation_matrices.html">validate_correlation_matrices()</a></code>,
 plural, in <code>statistics.R</code>), <code><a href="../reference/quantile_from_fit.html">quantile_from_fit()</a></code>
 (theoretical quantiles from a fitted distribution, used throughout the
-Monte Carlo fidelity checks). - <code>R/gp-modeling.R</code> —
+Monte Carlo fidelity checks). - <code>R/core-gp.R</code> —
 <code>calculate_model_diagnostics()</code>,
 <code><a href="../reference/predict_gp_depth_trends.html">predict_gp_depth_trends()</a></code>,
 <code>assess_trend_monotonicity()</code>,
 <code>assess_realistic_values()</code>, <code><a href="../reference/k_fold_gp_cv.html">k_fold_gp_cv()</a></code> —
-all consumed only by <code>validation-diagnostics.R</code>’s
-GP-validation functions. - <code>R/monte-carlo.R</code> —
+all consumed only by <code>diagnostics.R</code>’s GP-validation
+functions. - <code>R/core-montecarlo.R</code> —
 <code><a href="../reference/generate_simulation_diagnostics.html">generate_simulation_diagnostics()</a></code>, called from
-<code><a href="../reference/validate_monte_carlo_quality.html">validate_monte_carlo_quality()</a></code> (argument-count mismatch
-fixed — see <code><a href="../reference/validate_monte_carlo_quality.html">validate_monte_carlo_quality()</a></code> above).</p>
+<code><a href="../reference/diagnose_simulation.html">diagnose_simulation()</a></code> (argument-count mismatch fixed — see
+<code><a href="../reference/diagnose_simulation.html">diagnose_simulation()</a></code> above).</p>
 <p><strong>External packages</strong>: - <code>fitdistrplus</code> —
 <code>fitdist()</code> and <code>gofstat()</code>, the entire basis of
 <code><a href="../reference/fit_single_distribution.html">fit_single_distribution()</a></code> /
@@ -1114,12 +1109,12 @@ non-positive-definite covariance matrix before Mahalanobis distance
 computation in <code><a href="../reference/detect_multivariate_outliers.html">detect_multivariate_outliers()</a></code>. -
 <code>Hmisc</code> (declared package Import, used indirectly via
 <code>utils.R</code>’s statistical helpers such as
-<code><a href="../reference/calculate_confidence_intervals.html">calculate_confidence_intervals()</a></code>). - <code>dplyr</code> /
+<code><a href="../reference/compute_confidence_intervals.html">compute_confidence_intervals()</a></code>). - <code>dplyr</code> /
 <code>tidyr</code> — <code><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">dplyr::filter()</a></code> (depth/bin subsetting
-in <code>validation-diagnostics.R</code>),
-<code><a href="https://tidyr.tidyverse.org/reference/pivot_longer.html" class="external-link">tidyr::pivot_longer()</a></code> / <code><a href="https://tidyselect.r-lib.org/reference/everything.html" class="external-link">dplyr::everything()</a></code>
-(Monte Carlo diagnostic plot reshaping). - <code>ggplot2</code>,
-<code>corrplot</code> (Suggests-only) — diagnostic plot rendering in
+in <code>diagnostics.R</code>), <code><a href="https://tidyr.tidyverse.org/reference/pivot_longer.html" class="external-link">tidyr::pivot_longer()</a></code> /
+<code><a href="https://tidyselect.r-lib.org/reference/everything.html" class="external-link">dplyr::everything()</a></code> (Monte Carlo diagnostic plot
+reshaping). - <code>ggplot2</code>, <code>corrplot</code>
+(Suggests-only) — diagnostic plot rendering in
 <code><a href="../reference/generate_comprehensive_diagnostics.html">generate_comprehensive_diagnostics()</a></code>; every plot block
 checks <code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace()</a></code> first and degrades to an empty
 list rather than erroring if unavailable. - <code>rmarkdown</code>,
@@ -1130,19 +1125,20 @@ with a dependency-free fallback in both cases. - <code>grDevices</code>,
 <code>graphics</code> — PDF/PNG diagnostic plot fallbacks.</p>
 <p><strong>Upstream/downstream soilSIM functional groups</strong>: -
 <strong>Upstream (feeds this group)</strong>: Data Acquisition &amp;
-Processing (<code>ssurgo-acquisition.R</code>,
-<code>ssurgo-processing.R</code>, <code>data-infilling.R</code>)
-supplies the <code>processed_data</code> consumed by
+Processing (<code>adapter-ssurgo-acquire.R</code>,
+<code>adapter-ssurgo-process.R</code>,
+<code>adapter-ssurgo-infill.R</code>) supplies the
+<code>processed_data</code> consumed by
 <code><a href="../reference/analyze_soil_statistics.html">analyze_soil_statistics()</a></code>. - <strong>Downstream/consumers
 (validated by this group, not fed by it)</strong>:
-<code><a href="../reference/validate_complete_workflow.html">validate_complete_workflow()</a></code> and its sub-validators are the
-quality gate for the Monte Carlo simulation group
-(<code>monte-carlo.R</code>), the GP depth-trend modeling group
-(<code>gp-modeling.R</code>), and the multivariate/correlation
-adjustment group (<code>multivariate-adjustment.R</code>) — this group
-consumes their <em>output</em> (<code>simulation_data</code>,
-<code>gp_models</code>, <code>correlation_matrices</code>) purely for
-assessment; it does not feed data back into them.</p>
+<code><a href="../reference/diagnose_workflow.html">diagnose_workflow()</a></code> and its sub-validators are the quality
+gate for the Monte Carlo simulation group
+(<code>core-montecarlo.R</code>), the GP depth-trend modeling group
+(<code>core-gp.R</code>), and the multivariate/correlation adjustment
+group (<code>core-gp.R</code>) — this group consumes their
+<em>output</em> (<code>simulation_data</code>, <code>gp_models</code>,
+<code>correlation_matrices</code>) purely for assessment; it does not
+feed data back into them.</p>
 </div>
 <div class="section level2">
 <h2 id="data-flow-inout">Data Flow In/Out<a class="anchor" aria-label="anchor" href="#data-flow-inout"></a>
@@ -1150,10 +1146,10 @@ assessment; it does not feed data back into them.</p>
 <p><strong>In</strong>: - <code><a href="../reference/analyze_soil_statistics.html">analyze_soil_statistics()</a></code> — a
 processed SSURGO data frame (post-infilling), with <code>cokey</code>,
 <code>hzdept_r</code>, and numeric <code>_r</code> property columns. -
-<code><a href="../reference/validate_complete_workflow.html">validate_complete_workflow()</a></code> — a
-<code>workflow_results</code> list assembled from one or more upstream
-stages: <code>simulation_data</code>/<code>integrated_data</code> (Monte
-Carlo or fusion output), <code>gp_models</code> (from GP modeling),
+<code><a href="../reference/diagnose_workflow.html">diagnose_workflow()</a></code> — a <code>workflow_results</code> list
+assembled from one or more upstream stages:
+<code>simulation_data</code>/<code>integrated_data</code> (Monte Carlo
+or fusion output), <code>gp_models</code> (from GP modeling),
 <code>correlation_matrices</code> (from correlation/multivariate
 adjustment), <code>training_data</code>; plus optionally
 <code>original_data</code> for before/after comparison.</p>
@@ -1162,14 +1158,13 @@ nested statistics report: correlation matrices (global + optionally
 stratified/texture-specific), distribution summaries, outlier
 flags/counts, per-property descriptive statistics with confidence
 intervals, a results-validation block, and an overall quality
-report/score. - <code><a href="../reference/validate_complete_workflow.html">validate_complete_workflow()</a></code> — a
-comprehensive validation report object: per-subsystem validation blocks
-(Monte Carlo, correlation, GP, soil science), workflow performance
-metrics, an overall weighted quality score/grade/pass-fail status,
-optional diagnostic plot objects/file paths, and a list of textual
-recommendations — suitable for passing directly into
-<code><a href="../reference/generate_validation_report.html">generate_validation_report()</a></code> to render as
-HTML/PDF/Markdown.</p>
+report/score. - <code><a href="../reference/diagnose_workflow.html">diagnose_workflow()</a></code> — a comprehensive
+validation report object: per-subsystem validation blocks (Monte Carlo,
+correlation, GP, soil science), workflow performance metrics, an overall
+weighted quality score/grade/pass-fail status, optional diagnostic plot
+objects/file paths, and a list of textual recommendations — suitable for
+passing directly into <code><a href="../reference/generate_validation_report.html">generate_validation_report()</a></code> to
+render as HTML/PDF/Markdown.</p>
 </div>
 <div class="section level2">
 <h2 id="usage-example">Usage Example<a class="anchor" aria-label="anchor" href="#usage-example"></a>
@@ -1187,7 +1182,7 @@ HTML/PDF/Markdown.</p>
 <span><span class="va">stats_result</span><span class="op">$</span><span class="va">quality_report</span><span class="op">$</span><span class="va">overall_quality_score</span></span>
 <span></span>
 <span><span class="co"># End-to-end validation of a completed simulation workflow</span></span>
-<span><span class="va">validation_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/validate_complete_workflow.html">validate_complete_workflow</a></span><span class="op">(</span></span>
+<span><span class="va">validation_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/diagnose_workflow.html">diagnose_workflow</a></span><span class="op">(</span></span>
 <span>  workflow_results <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>    simulation_data <span class="op">=</span> <span class="va">monte_carlo_output</span><span class="op">$</span><span class="va">simulation_data</span>,</span>
 <span>    gp_models <span class="op">=</span> <span class="va">gp_models</span>,</span>

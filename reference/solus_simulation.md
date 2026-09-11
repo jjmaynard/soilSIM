@@ -1,7 +1,7 @@
 # Raster SOLUS Percentile Likelihood
 
 The SOLUS100 half of the raster fusion prior/likelihood pipeline (see
-`R/raster-fusion.R`): fetches SOLUS100 low/prediction/high rasters via
+`R/core-fusion.R`): fetches SOLUS100 low/prediction/high rasters via
 [`soilDB::fetchSOLUS()`](http://ncss-tech.github.io/soilDB/reference/fetchSOLUS.md)
 for a requested depth window, in the `list(values=, probs=)` shape
 [`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md)

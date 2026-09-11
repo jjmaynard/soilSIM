@@ -5,7 +5,7 @@ Structural + fit-quality checks on
 output, in the
 [`validate_correlation_matrix()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrix.md)
 /
-[`validate_distribution_fidelity()`](https://jjmaynard.github.io/soilSIM/reference/validate_distribution_fidelity.md)
+[`diagnose_distribution_fidelity()`](https://jjmaynard.github.io/soilSIM/reference/diagnose_distribution_fidelity.md)
 per-item-`tryCatch` style. Flags: a property with no successful family
 fit; a nonzero `convergence` code; non-finite
 `aic`/`bic`/`loglik`/`param_sd`. Never errors - returns collected

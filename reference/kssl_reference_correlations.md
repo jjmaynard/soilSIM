@@ -2,8 +2,8 @@
 
 Static, pre-computed, genetic-horizon-keyed (O/A/E/B/C/Cr, plus R for
 the texture matrix) correlation matrices fit once from KSSL lab data.
-These functions let `monte-carlo.R`'s correlation-structure estimation
-optionally fall back to this reference data (via
+These functions let `core-montecarlo.R`'s correlation-structure
+estimation optionally fall back to this reference data (via
 `config$monte_carlo$correlation_fallback = "kssl_global"`) instead of a
 plain identity matrix when there isn't enough SSURGO data to estimate
 correlations empirically. The underlying matrices are stored internally

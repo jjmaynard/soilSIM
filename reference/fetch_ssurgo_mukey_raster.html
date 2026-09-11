@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -60,7 +60,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Fetch a Raster of SSURGO Map Unit Keys for an AOI</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/ssurgo-simulation.R" class="external-link"><code>R/ssurgo-simulation.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/adapter-ssurgo-simulate.R" class="external-link"><code>R/adapter-ssurgo-simulate.R</code></a></small>
       <div class="d-none name"><code>fetch_ssurgo_mukey_raster.Rd</code></div>
     </div>
 
@@ -79,7 +79,7 @@
 
 <dl><dt id="arg-aoi-vect">aoi_vect<a class="anchor" aria-label="anchor" href="#arg-aoi-vect"></a></dt>
 <dd><p>A <code><a href="https://rspatial.github.io/terra/reference/SpatVector-class.html" class="external-link">terra::SpatVector</a></code> (projected, e.g. EPSG:5070) - the AOI footprint itself,
-not widened to its bounding box (unlike <code>R/ssurgo-acquisition.R</code>'s
+not widened to its bounding box (unlike <code>R/adapter-ssurgo-acquire.R</code>'s
 <code><a href="process_aoi_and_get_mukeys_working.html">process_aoi_and_get_mukeys_working()</a></code>, which bbox-widens for its tabular by-mukey-list
 query - <code><a href="http://ncss-tech.github.io/soilDB/reference/mukey.wcs.html" class="external-link">soilDB::mukey.wcs()</a></code> bbox-clips internally regardless of input polygon shape, so
 both resolve to the same extent; passing the footprint here avoids widening the <em>cached</em>
@@ -98,7 +98,7 @@ the grid fetch returns nothing.</p>
 <p><code><a href="http://ncss-tech.github.io/soilDB/reference/mukey.wcs.html" class="external-link">soilDB::mukey.wcs()</a></code> returns a raster whose cell values are the mukey codes
 (<code>unique(values(res))</code>), so no separate polygon fetch/rasterize step is needed - the
 function issues exactly one network call per cache miss. The result is disk-cached
-(<code>raster-cache.R</code>, kind <code>"mukey_grid"</code>, depth-agnostic key via <code><a href="mukey_grid_cache_key.html">mukey_grid_cache_key()</a></code>) so
+(<code>cache.R</code>, kind <code>"mukey_grid"</code>, depth-agnostic key via <code><a href="mukey_grid_cache_key.html">mukey_grid_cache_key()</a></code>) so
 repeated calls for the same AOI across separate top-level user calls hit zero network calls.</p>
     </div>
 

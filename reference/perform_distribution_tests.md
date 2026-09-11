@@ -1,6 +1,6 @@
 # Goodness-of-fit tests across a property's candidate distributions
 
-Fits every candidate distribution (via get_appropriate_distributions() /
+Fits every candidate distribution (via distributions_for_properties() /
 fit_single_distribution()) and runs fitdistrplus::gofstat() across the
 successful fits, which returns KS/AD/CvM statistics (and, for the
 non-censored continuous case here, approximate goodness-of-fit

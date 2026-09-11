@@ -1,7 +1,7 @@
 # Percentile-Triplet Distribution Fitting, ILR Composition Utilities, and Matrix Utilities
 
-Shared foundation used by both `statistics.R` and `monte-carlo.R` (and,
-for the ILR pieces, `bayesian-updating.R`).
+Shared foundation used by both `statistics.R` and `core-montecarlo.R`
+(and, for the ILR pieces, `core-fusion.R`).
 
 The percentile-triplet fitting/quantile functions are closed-form base-R
 vector arithmetic. The Beta fit is a vectorized Newton-Raphson MLE

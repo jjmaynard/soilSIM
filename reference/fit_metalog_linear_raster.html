@@ -3,14 +3,14 @@
 (excluding p=0/p=1, where logit is undefined) equals the number of
 metalog terms, the fit is an EXACTLY-DETERMINED linear system
 (solve(Y, z)), not an optimization - same closed-form math as
-R/distributions.R's fit_metalog_linear(), vectorized here as raster
+R/core-distributions.R's fit_metalog_linear(), vectorized here as raster
 arithmetic: Y/Y_inv are computed once (fixed, non-spatial probability
 grid, via the existing metalog_basis_matrix()), then applied to
 different right-hand-side rasters per coefficient."><meta property="og:description" content="For a standard percentile setup where the number of interior percentiles
 (excluding p=0/p=1, where logit is undefined) equals the number of
 metalog terms, the fit is an EXACTLY-DETERMINED linear system
 (solve(Y, z)), not an optimization - same closed-form math as
-R/distributions.R's fit_metalog_linear(), vectorized here as raster
+R/core-distributions.R's fit_metalog_linear(), vectorized here as raster
 arithmetic: Y/Y_inv are computed once (fixed, non-spatial probability
 grid, via the existing metalog_basis_matrix()), then applied to
 different right-hand-side rasters per coefficient."></head><body>
@@ -21,7 +21,7 @@ different right-hand-side rasters per coefficient."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -74,7 +74,7 @@ different right-hand-side rasters per coefficient."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Fit a metalog distribution via linear solve, vectorized as raster arithmetic.</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/distribution-fitting-raster.R" class="external-link"><code>R/distribution-fitting-raster.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-distributions-raster.R" class="external-link"><code>R/core-distributions-raster.R</code></a></small>
       <div class="d-none name"><code>fit_metalog_linear_raster.Rd</code></div>
     </div>
 
@@ -83,7 +83,7 @@ different right-hand-side rasters per coefficient."></head><body>
 (excluding p=0/p=1, where logit is undefined) equals the number of
 metalog terms, the fit is an EXACTLY-DETERMINED linear system
 (<code>solve(Y, z)</code>), not an optimization - same closed-form math as
-<code>R/distributions.R</code>'s <code><a href="fit_metalog_linear.html">fit_metalog_linear()</a></code>, vectorized here as raster
+<code>R/core-distributions.R</code>'s <code><a href="fit_metalog_linear.html">fit_metalog_linear()</a></code>, vectorized here as raster
 arithmetic: <code>Y</code>/<code>Y_inv</code> are computed once (fixed, non-spatial probability
 grid, via the existing <code><a href="metalog_basis_matrix.html">metalog_basis_matrix()</a></code>), then applied to
 different right-hand-side rasters per coefficient.</p>
@@ -131,8 +131,45 @@ p=0/p=1 if present).</p></dd>
 itself takes when its solution is already feasible (implied density
 non-negative); <code>rmetalog</code> also has an LP-based feasibility-correction
 fallback for when it isn't - not reproduced here. Use
-<code><a href="check_metalog_feasibility_raster.html">check_metalog_feasibility_raster()</a></code> + <code><a href="quantile_metalog_linear_with_fallback.html">quantile_metalog_linear_with_fallback()</a></code>
+<code><a href="check_metalog_feasibility_raster.html">check_metalog_feasibility_raster()</a></code> + <code><a href="quantile_metalog_linear_with_fallback_raster.html">quantile_metalog_linear_with_fallback_raster()</a></code>
 below rather than trusting this fit unconditionally.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p>Other raster-fusion:
+<code><a href="align_percentile_probs.html">align_percentile_probs()</a></code>,
+<code><a href="build_cache_key.html">build_cache_key()</a></code>,
+<code><a href="cache_get.html">cache_get()</a></code>,
+<code><a href="cache_set.html">cache_set()</a></code>,
+<code><a href="check_metalog_feasibility_raster.html">check_metalog_feasibility_raster()</a></code>,
+<code><a href="fit_beta_mle_newton_raster.html">fit_beta_mle_newton_raster()</a></code>,
+<code><a href="fit_beta_mom_raster.html">fit_beta_mom_raster()</a></code>,
+<code><a href="fit_gamma_mom_raster.html">fit_gamma_mom_raster()</a></code>,
+<code><a href="fit_normal_raster.html">fit_normal_raster()</a></code>,
+<code><a href="fuse_adaptive.html">fuse_adaptive()</a></code>,
+<code><a href="percentiles_from_draws.html">percentiles_from_draws()</a></code>,
+<code><a href="quantile_metalog_linear_with_fallback_raster.html">quantile_metalog_linear_with_fallback_raster()</a></code>,
+<code><a href="remarginalize_awc.html">remarginalize_awc()</a></code>,
+<code><a href="remarginalize_ensemble_to_posterior.html">remarginalize_ensemble_to_posterior()</a></code>,
+<code><a href="resolve_property_dist.html">resolve_property_dist()</a></code>,
+<code><a href="wrap_nested_rasters.html">wrap_nested_rasters()</a></code></p>
+<p>Other raster-fusion:
+<code><a href="align_percentile_probs.html">align_percentile_probs()</a></code>,
+<code><a href="build_cache_key.html">build_cache_key()</a></code>,
+<code><a href="cache_get.html">cache_get()</a></code>,
+<code><a href="cache_set.html">cache_set()</a></code>,
+<code><a href="check_metalog_feasibility_raster.html">check_metalog_feasibility_raster()</a></code>,
+<code><a href="fit_beta_mle_newton_raster.html">fit_beta_mle_newton_raster()</a></code>,
+<code><a href="fit_beta_mom_raster.html">fit_beta_mom_raster()</a></code>,
+<code><a href="fit_gamma_mom_raster.html">fit_gamma_mom_raster()</a></code>,
+<code><a href="fit_normal_raster.html">fit_normal_raster()</a></code>,
+<code><a href="fuse_adaptive.html">fuse_adaptive()</a></code>,
+<code><a href="percentiles_from_draws.html">percentiles_from_draws()</a></code>,
+<code><a href="quantile_metalog_linear_with_fallback_raster.html">quantile_metalog_linear_with_fallback_raster()</a></code>,
+<code><a href="remarginalize_awc.html">remarginalize_awc()</a></code>,
+<code><a href="remarginalize_ensemble_to_posterior.html">remarginalize_ensemble_to_posterior()</a></code>,
+<code><a href="resolve_property_dist.html">resolve_property_dist()</a></code>,
+<code><a href="wrap_nested_rasters.html">wrap_nested_rasters()</a></code></p></div>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

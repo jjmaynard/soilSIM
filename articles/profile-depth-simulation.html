@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -116,7 +116,7 @@ function-level reference.</p>
 <div class="section level2">
 <h2 id="the-real-component">The real component<a class="anchor" aria-label="anchor" href="#the-real-component"></a>
 </h2>
-<p><code><a href="../reference/get_aws_data_by_mukey.html">get_aws_data_by_mukey()</a></code> queries NRCS Soil Data Access
+<p><code><a href="../reference/fetch_ssurgo_aws_data.html">fetch_ssurgo_aws_data()</a></code> queries NRCS Soil Data Access
 live for a given map unit key. This vignette’s cached data was produced
 by that real call (see “Where this data came from” below) for map unit
 <strong>462255</strong> within the Amador-area AOI, which resolves to a
@@ -141,13 +141,13 @@ component percentage of 75% (ranging NA-NA%).</p>
 <div class="section level2">
 <h2 id="step-1-simulate-component-composition">Step 1: Simulate component composition<a class="anchor" aria-label="anchor" href="#step-1-simulate-component-composition"></a>
 </h2>
-<p><code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code> draws <code>n_simulations</code>
-triangular samples from each component’s low/representative/high
-percentage and derives a single <code>sim_comppct</code> value - the
-number of Monte Carlo profile realizations to simulate for that
-component:</p>
+<p><code><a href="../reference/simulate_component_composition.html">simulate_component_composition()</a></code> draws
+<code>n_simulations</code> triangular samples from each component’s
+low/representative/high percentage and derives a single
+<code>sim_comppct</code> value - the number of Monte Carlo profile
+realizations to simulate for that component:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">component_sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/sim_component_comp.html">sim_component_comp</a></span><span class="op">(</span><span class="va">mu_data</span>, n_simulations <span class="op">=</span> <span class="fl">25</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">component_sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_component_composition.html">simulate_component_composition</a></span><span class="op">(</span><span class="va">mu_data</span>, n_simulations <span class="op">=</span> <span class="fl">25</span><span class="op">)</span></span>
 <span><span class="va">component_sim</span></span>
 <span><span class="co">#&gt;    mukey    cokey compname comppct_l comppct_r comppct_h sim_comppct</span></span>
 <span><span class="co">#&gt; 1 462255 26397825 Mariposa        73        75        77          19</span></span></code></pre></div>
@@ -158,16 +158,17 @@ replicates simulated in the next step.</p>
 <div class="section level2">
 <h2 id="step-2-simulate-horizon-depth-and-thickness-variability">Step 2: Simulate horizon depth and thickness variability<a class="anchor" aria-label="anchor" href="#step-2-simulate-horizon-depth-and-thickness-variability"></a>
 </h2>
-<p><code><a href="../reference/simulate_profile_depths_by_mukey.html">simulate_profile_depths_by_mukey()</a></code> orchestrates the full
+<p><code><a href="../reference/simulate_profile_depths.html">simulate_profile_depths()</a></code> orchestrates the full
 depth-simulation pipeline for a real mukey: it queries SSURGO, derives
-<code>sim_comppct</code> via <code><a href="../reference/sim_component_comp.html">sim_component_comp()</a></code> and joins
-it onto every horizon (internally - no manual join needed by the
-caller), fetches real Official Series Description boundary-distinctness
-data for the component name, and perturbs horizon thickness and boundary
-depths accordingly:</p>
+<code>sim_comppct</code> via
+<code><a href="../reference/simulate_component_composition.html">simulate_component_composition()</a></code> and joins it onto every
+horizon (internally - no manual join needed by the caller), fetches real
+Official Series Description boundary-distinctness data for the component
+name, and perturbs horizon thickness and boundary depths
+accordingly:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># The real call this vignette's cached data came from:</span></span>
-<span><span class="va">simulated_profiles</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_profile_depths_by_mukey.html">simulate_profile_depths_by_mukey</a></span><span class="op">(</span><span class="st">"462255"</span>, n_simulations <span class="op">=</span> <span class="fl">25</span>, seed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">simulated_profiles</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_profile_depths.html">simulate_profile_depths</a></span><span class="op">(</span><span class="st">"462255"</span>, n_simulations <span class="op">=</span> <span class="fl">25</span>, seed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">simulated_profiles</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/serialize.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"depth_sim_profiles_amador.rds"</span>, package <span class="op">=</span> <span class="st">"soilSIM"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">simulated_profiles</span></span>
@@ -299,11 +300,11 @@ actually present in the source data.</p>
 <code>inst/extdata/depth_sim_profiles_amador.rds</code>) was produced
 once by <code>data-raw/build_vignette_data.R</code>, which calls
 <code><a href="../reference/process_aoi_and_get_mukeys_working.html">process_aoi_and_get_mukeys_working()</a></code>,
-<code><a href="../reference/get_aws_data_by_mukey.html">get_aws_data_by_mukey()</a></code>, and
-<code><a href="../reference/simulate_profile_depths_by_mukey.html">simulate_profile_depths_by_mukey()</a></code> live against NRCS Soil
-Data Access and the Official Series Description database. Re-run that
-script to refresh it (the real mukey it resolves to may change if SSURGO
-data for this AOI is updated).</p>
+<code><a href="../reference/fetch_ssurgo_aws_data.html">fetch_ssurgo_aws_data()</a></code>, and
+<code><a href="../reference/simulate_profile_depths.html">simulate_profile_depths()</a></code> live against NRCS Soil Data
+Access and the Official Series Description database. Re-run that script
+to refresh it (the real mukey it resolves to may change if SSURGO data
+for this AOI is updated).</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

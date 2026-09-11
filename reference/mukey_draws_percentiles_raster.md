@@ -35,7 +35,7 @@ mukey_draws_percentiles_raster(mukey_raster, mukey_draws, probs)
 - mukey_draws:
 
   A
-  [`mukey_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md)
+  [`lookup_mukey_draws()`](https://jjmaynard.github.io/soilSIM/reference/lookup_mukey_draws.md)
   result - named list keyed by mukey (character), each element a numeric
   vector of real simulated draws for that mukey.
 

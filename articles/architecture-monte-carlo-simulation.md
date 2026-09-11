@@ -2,14 +2,14 @@
 
 ## Overview
 
-`R/monte-carlo.R` is the core correlated Monte Carlo simulation engine
-of `soilSIM`. It takes SSURGO (or other) soil property data expressed as
-low/representative/high (`_l`/`_r`/`_h`) percentile triplets - already
-fitted to per-property distribution families by the Distribution Fitting
-core group in `distributions.R` - and produces many correlated
-realizations of soil properties per horizon. It handles both ordinary
-independent/correlated numeric properties (e.g. `dbovendry`,
-`ph1to1h2o`) and the compositional texture group
+`R/core-montecarlo.R` is the core correlated Monte Carlo simulation
+engine of `soilSIM`. It takes SSURGO (or other) soil property data
+expressed as low/representative/high (`_l`/`_r`/`_h`) percentile
+triplets - already fitted to per-property distribution families by the
+Distribution Fitting core group in `core-distributions.R` - and produces
+many correlated realizations of soil properties per horizon. It handles
+both ordinary independent/correlated numeric properties
+(e.g. `dbovendry`, `ph1to1h2o`) and the compositional texture group
 (`sandtotal`/`silttotal`/`claytotal`), which is simulated jointly
 through an isometric-log-ratio (ILR) reparameterization so the
 sum-to-100% constraint holds exactly by construction rather than by
@@ -23,7 +23,7 @@ simulated values.
 ## Core Functions
 
 Functions are grouped in the pipeline order that
-[`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)
+[`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md)
 (the master orchestrator) calls them.
 
 ### 1. `validate_monte_carlo_config()` - Configuration Validation
@@ -56,7 +56,7 @@ checks `distribution_type` (one of
 (`identity`/`kssl_global`) via
 [`validate_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_parameters.md).
 
-### 2. `get_monte_carlo_defaults()` - Default Configuration
+### 2. `default_monte_carlo_config()` - Default Configuration
 
 **Purpose**: Returns the full default Monte Carlo configuration, merged
 (safely) on top of the package’s general default configuration.
@@ -64,7 +64,7 @@ checks `distribution_type` (one of
 
 ``` r
 
-get_monte_carlo_defaults()
+default_monte_carlo_config()
 ```
 
 **Returns**: A list with a `$monte_carlo` element containing every
@@ -99,7 +99,7 @@ Quality-control knobs: `min_quality_score = 0.6`,
 
 **Purpose**: Accepts either a flat `simulation_config`
 (e.g. `list(distribution_type = "normal")`, the shape shown in
-[`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)’s
+[`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md)’s
 own `@examples`) or an already-nested one
 (`list(monte_carlo = list(...))`), and normalizes to the nested shape
 [`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md)
@@ -112,7 +112,7 @@ normalize_monte_carlo_config(simulation_config, default_config)
 
 **Parameters**: - `simulation_config` - User-supplied config, flat or
 nested. - `default_config` - Result of
-[`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md),
+[`default_monte_carlo_config()`](https://jjmaynard.github.io/soilSIM/reference/default_monte_carlo_config.md),
 used only to recognize which flat key names belong under `monte_carlo`.
 
 **Returns**: `simulation_config`, wrapped under `$monte_carlo` if it was
@@ -125,7 +125,7 @@ merges strictly by key path, so a flat config key
 before
 [`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md)
 in
-[`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)
+[`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md)
 to lift flat keys into the `monte_carlo` sub-list.
 
 ### 4. `validate_monte_carlo_inputs()` - Input Validation
@@ -179,7 +179,7 @@ resolve_real_properties(properties, composition_plan = NULL)
 ```
 
 **Parameters**: `properties` - possibly including pseudo-properties;
-`composition_plan` - result of `distributions.R`’s
+`composition_plan` - result of `core-distributions.R`’s
 [`resolve_composition_groups()`](https://jjmaynard.github.io/soilSIM/reference/resolve_composition_groups.md),
 or `NULL` (pass-through). **Returns**: Character vector of real property
 names, deduplicated.
@@ -237,7 +237,7 @@ named list keyed by property, each value `list(family=, fit=, source=)`.
 [`extract_property_parameters()`](https://jjmaynard.github.io/soilSIM/reference/extract_property_parameters.md)
 per horizon per property. For each *active* composition group’s
 pseudo-properties (e.g. `ilr1`/`ilr2`), both are fit together, once per
-horizon, via `distributions.R`’s
+horizon, via `core-distributions.R`’s
 [`estimate_ilr_moments_mc()`](https://jjmaynard.github.io/soilSIM/reference/estimate_ilr_moments_mc.md)
 from the group’s real `_l/_r/_h` triplets (their joint covariance only
 makes sense computed jointly). Only the marginal SDs from that MC
@@ -270,7 +270,7 @@ falling back to `config$monte_carlo$distribution_type`, default
 
 **Returns**: `list(valid=, parameters=list(family=, fit=, source=))`.
 **Behavior**: If all three of `l`/`r`/`h` are finite, delegates to
-`distributions.R`’s
+`core-distributions.R`’s
 [`fit_percentile_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_percentile_triplet.md)
 with the resolved family, `lh_percentile`, and any registered `bounds`
 (`source = "complete"`). If only `r` is finite, falls back to a simple
@@ -290,7 +290,7 @@ family, so `"normal"`/`"beta"` requests silently produced downstream
 per-horizon prior (from
 [`prepare_simulation_parameters()`](https://jjmaynard.github.io/soilSIM/reference/prepare_simulation_parameters.md))
 against a caller-supplied observed-data likelihood, using
-`bayesian-updating.R`’s pure fusion primitives. **Signature**:
+`core-fusion.R`’s pure fusion primitives. **Signature**:
 
 ``` r
 
@@ -340,7 +340,7 @@ posterior stored as an exact empirical quantile function with
 `family = "linear_cdf"`); a family-native parameter list
 (`list(mean=, sd=)` or `list(shape1=, shape2=)`/`list(mean=, var=)`)
 routes through the closed-form
-[`bayes_fuse()`](https://jjmaynard.github.io/soilSIM/reference/bayes_fuse.md)-based
+[`fuse_distribution()`](https://jjmaynard.github.io/soilSIM/reference/fuse_distribution.md)-based
 path, supported only for prior families `normal`/`lognormal`/`beta` (the
 only families with a conjugate route) - any other prior family skips
 fusion for that (horizon, property) with a logged WARN. Note: this only
@@ -356,14 +356,14 @@ unnamed `c(low, rep, high)` triplet. -
 implements the per-property closed-form/general dispatch described
 above, handling `normal`, `lognormal` (converts the raw-space likelihood
 to log-space via
-[`normal_to_lognormal_params()`](https://jjmaynard.github.io/soilSIM/reference/normal_to_lognormal_params.md)
+[`convert_normal_to_lognormal()`](https://jjmaynard.github.io/soilSIM/reference/convert_normal_to_lognormal.md)
 before fusing, since the lognormal prior fit is already stored in
 log-space), and `beta` (rescales a raw-scale likelihood mean/var onto
 the prior’s own `[lower, upper]` support before fitting moments, since
 [`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)’s
 alpha/beta addition requires shared support; falls back to a
 Normal-moments round-trip via
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md)
 if the direct beta fusion is infeasible).
 
 ### 10. `configure_correlation_structure()` - Correlation Matrix Setup
@@ -434,13 +434,13 @@ via an internal `representative_value()` switch over distribution family
 (mode for triangular, midpoint for uniform, mean for normal, `exp(mean)`
 for lognormal, the Beta mean rescaled to `[lower, upper]`, the median
 for metalog/linear_cdf). Assembles these into a data frame and delegates
-to `distributions.R`‘s
+to `core-distributions.R`‘s
 [`estimate_correlation_matrix_robust()`](https://jjmaynard.github.io/soilSIM/reference/estimate_correlation_matrix_robust.md)
 ([`Hmisc::rcorr()`](https://rdrr.io/pkg/Hmisc/man/rcorr.html) plus
 positive-definiteness repair), grouped by `genhz` when available. When
 `config$monte_carlo$correlation_fallback == "kssl_global"` (default
 `"identity"`), a group that fails empirical estimation falls back to
-`kssl-reference-correlations.R`’s
+`core-correlations.R`’s
 [`build_kssl_fallback_matrix()`](https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.md)
 for that group instead of being dropped, the global fallback becomes a
 KSSL-pooled matrix, and `genhz` is auto-derived from `hzname` via
@@ -472,7 +472,7 @@ where `distributions` is a per-horizon list of per-property configs from
 **Behavior**: For each horizon and property with existing parameters,
 calls
 [`validate_distribution_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_distribution_parameters.md)
-(a thin wrapper over `distributions.R`’s
+(a thin wrapper over `core-distributions.R`’s
 [`validate_fit_parameters()`](https://jjmaynard.github.io/soilSIM/reference/validate_fit_parameters.md));
 on success wraps it via `create_distribution_config()`, on failure
 substitutes a `create_fallback_distribution()` (+/-20% triangular around
@@ -514,7 +514,7 @@ an independent uniform matrix (`n_properties x n_realizations`),
 transforms to standard normal (`qnorm`), applies the correlation
 structure (`chol_matrix %*% normal_matrix`), transforms back to
 correlated uniforms (`pnorm`), then for each property calls
-`distributions.R`’s
+`core-distributions.R`’s
 [`quantile_from_fit()`](https://jjmaynard.github.io/soilSIM/reference/quantile_from_fit.md)
 with that property’s own resolved `family`/`fit` (family travels with
 params - `config$monte_carlo$distribution_type` is only ever consulted
@@ -590,7 +590,7 @@ for an overall quality summary, an overall `success_rate` across all
 properties/horizons/realizations, and sets `valid = FALSE` if that
 overall rate falls below `min_success_rate`.
 
-### 16. `generate_monte_carlo_realizations()` - Master Pipeline
+### 16. `simulate_monte_carlo()` - Master Pipeline
 
 **Purpose**: The top-level, end-to-end orchestrator: validates inputs
 and config, prepares data and parameters, optionally fuses observed
@@ -601,7 +601,7 @@ assessment. **Signature**:
 
 ``` r
 
-generate_monte_carlo_realizations(soil_data,
+simulate_monte_carlo(soil_data,
                                    properties,
                                    correlation_matrix = NULL,
                                    n_realizations = 1000,
@@ -662,9 +662,9 @@ wholesale and would otherwise silently discard fused posteriors.
 
 ### Other exported/minor helpers
 
-- `sim_component_compositions(component_data, n_realizations = 1000, config = NULL)` -
+- `simulate_component_compositions_batch(component_data, n_realizations = 1000, config = NULL)` -
   A separate, self-contained pipeline (not called by
-  [`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md))
+  [`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md))
   for simulating SSURGO *component* percent composition
   (`comppct_l/_r/_h`), independent of the horizon-property engine above.
   Validates via
@@ -732,10 +732,10 @@ wholesale and would otherwise silently discard fused posteriors.
 
 ## Internal Connections
 
-    generate_monte_carlo_realizations()  [MASTER PIPELINE]
+    simulate_monte_carlo()  [MASTER PIPELINE]
     ├── setup_logging()                                  [utils.R]        (if not already configured)
     ├── set.seed(seed)                                    (if seed supplied)
-    ├── get_monte_carlo_defaults()
+    ├── default_monte_carlo_config()
     ├── normalize_monte_carlo_config()
     ├── merge_configurations()                            [utils.R]
     ├── validate_monte_carlo_config()
@@ -765,9 +765,9 @@ wholesale and would otherwise silently discard fused posteriors.
     │   └── fuse_one_property_prior()                      (ordinary properties)
     │       ├── quantile_from_fit()                        [distributions.R]
     │       ├── fuse_property()                            [bayesian-updating.R]
-    │       ├── bayes_update_normal_normal()                [bayesian-updating.R]
-    │       ├── normal_to_lognormal_params()                [bayesian-updating.R]
-    │       └── fuse_beta() / moments_to_beta() / beta_to_moments()  [bayesian-updating.R]
+    │       ├── fuse_normal_normal()                [bayesian-updating.R]
+    │       ├── convert_normal_to_lognormal()                [bayesian-updating.R]
+    │       └── fuse_beta() / convert_moments_to_beta() / convert_beta_to_moments()  [bayesian-updating.R]
     ├── Step 5: configure_correlation_structure()
     │   ├── validate_correlation_matrix()                  [distributions.R]  (user-provided path)
     │   ├── estimate_property_correlations()                (auto_correlation path)
@@ -801,7 +801,7 @@ wholesale and would otherwise silently discard fused posteriors.
 
 ## Dependencies
 
-**From `distributions.R`** (percentile-triplet fitting, ILR
+**From `core-distributions.R`** (percentile-triplet fitting, ILR
 compositional machinery, correlation-matrix utilities):
 [`fit_percentile_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_percentile_triplet.md),
 [`quantile_from_fit()`](https://jjmaynard.github.io/soilSIM/reference/quantile_from_fit.md),
@@ -813,19 +813,19 @@ compositional machinery, correlation-matrix utilities):
 [`validate_correlation_matrix()`](https://jjmaynard.github.io/soilSIM/reference/validate_correlation_matrix.md),
 [`estimate_correlation_matrix_robust()`](https://jjmaynard.github.io/soilSIM/reference/estimate_correlation_matrix_robust.md).
 
-**From `bayesian-updating.R`** (only exercised when `observed_data` is
+**From `core-fusion.R`** (only exercised when `observed_data` is
 supplied to
-[`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)):
-[`bayes_fuse()`](https://jjmaynard.github.io/soilSIM/reference/bayes_fuse.md),
+[`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md)):
+[`fuse_distribution()`](https://jjmaynard.github.io/soilSIM/reference/fuse_distribution.md),
 [`fuse_property()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property.md),
 [`fuse_texture_group_from_triplets()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_from_triplets.md),
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md),
-[`normal_to_lognormal_params()`](https://jjmaynard.github.io/soilSIM/reference/normal_to_lognormal_params.md),
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md),
+[`convert_normal_to_lognormal()`](https://jjmaynard.github.io/soilSIM/reference/convert_normal_to_lognormal.md),
 [`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md),
-[`moments_to_beta()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_beta.md),
-[`beta_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/beta_to_moments.md).
+[`convert_moments_to_beta()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_beta.md),
+[`convert_beta_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/convert_beta_to_moments.md).
 
-**From `kssl-reference-correlations.R`** (only exercised when
+**From `core-correlations.R`** (only exercised when
 `config$monte_carlo$correlation_fallback == "kssl_global"`):
 [`build_kssl_fallback_matrix()`](https://jjmaynard.github.io/soilSIM/reference/build_kssl_fallback_matrix.md),
 [`classify_genhz()`](https://jjmaynard.github.io/soilSIM/reference/classify_genhz.md).
@@ -840,31 +840,30 @@ supplied to
 [`validate_data_quality()`](https://jjmaynard.github.io/soilSIM/reference/validate_data_quality.md),
 [`is_unsuitable()`](https://jjmaynard.github.io/soilSIM/reference/is_unsuitable.md),
 [`detect_outliers()`](https://jjmaynard.github.io/soilSIM/reference/detect_outliers.md),
-[`get_default_configuration()`](https://jjmaynard.github.io/soilSIM/reference/get_default_configuration.md),
+[`default_config()`](https://jjmaynard.github.io/soilSIM/reference/default_config.md),
 [`merge_configurations()`](https://jjmaynard.github.io/soilSIM/reference/merge_configurations.md).
 
 **External packages**: base `stats` (`qnorm`, `pnorm`, `runif`, `chol`,
 `sd`, `setNames`, etc.), `parallel` (`detectCores`,
 `makeCluster`/`stopCluster`/`clusterExport`/`clusterEvalQ`/`parLapply`
-on Windows, `mclapply` elsewhere). `distributions.R`’s
+on Windows, `mclapply` elsewhere). `core-distributions.R`’s
 [`estimate_correlation_matrix_robust()`](https://jjmaynard.github.io/soilSIM/reference/estimate_correlation_matrix_robust.md)
 in turn depends on
 [`Hmisc::rcorr()`](https://rdrr.io/pkg/Hmisc/man/rcorr.html).
 
 **Downstream consumers of this file’s output**: - **GP depth modeling &
-multivariate adjustment** (`gp-modeling.R`,
-`multivariate-adjustment.R`) - call
-[`generate_monte_carlo_realizations()`](https://jjmaynard.github.io/soilSIM/reference/generate_monte_carlo_realizations.md)
+multivariate adjustment** (`core-gp.R`, `core-gp.R`) - call
+[`simulate_monte_carlo()`](https://jjmaynard.github.io/soilSIM/reference/simulate_monte_carlo.md)
 directly per cokey (choosing a single flat correlation matrix via
 [`select_simulation_correlation_matrix()`](https://jjmaynard.github.io/soilSIM/reference/select_simulation_correlation_matrix.md)
 from a genhz-keyed set), then flatten the resulting
 `[horizon, property, realization]` array to long format
 (`result$simulation_data`) for depth-trend and NRCS/local GP
-adjustment. - **Statistics & Diagnostics**
-(`validation-diagnostics.R`) - consumes the long-format simulation data
-(columns per property plus `simulation_number`, `hzdept_r`, `cokey`,
-etc.) for quality-assessment reporting, depth-binned summaries, and
-cross-property/cross-depth diagnostics.
+adjustment. - **Statistics & Diagnostics** (`diagnostics.R`) - consumes
+the long-format simulation data (columns per property plus
+`simulation_number`, `hzdept_r`, `cokey`, etc.) for quality-assessment
+reporting, depth-binned summaries, and cross-property/cross-depth
+diagnostics.
 
 ## Data Flow In/Out
 
@@ -898,7 +897,7 @@ and `metadata` (timing, counts, config, success rate).
 ## Known Limitations
 
 - `generate_component_values()` (used by
-  [`sim_component_compositions()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_compositions.md))
+  [`simulate_component_compositions_batch()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_compositions_batch.md))
   is a placeholder: it always draws from a `runif(min, max)`
   distribution regardless of the requested `distribution_type` - the
   component-composition pipeline is not yet family-aware in the way the
@@ -908,7 +907,7 @@ and `metadata` (timing, counts, config, success rate).
 
 ``` r
 
-mc_results <- generate_monte_carlo_realizations(
+mc_results <- simulate_monte_carlo(
   soil_data = soil_data,                 # data frame with cokey + _l/_r/_h columns
   properties = c("sandtotal", "claytotal", "silttotal", "dbovendry"),
   n_realizations = 5000,

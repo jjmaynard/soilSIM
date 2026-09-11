@@ -19,7 +19,7 @@ horizon, the function simply replicates the profile."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -72,7 +72,7 @@ horizon, the function simply replicates the profile."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Simulate and Perturb Soil Profiles</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/depth-simulation.R" class="external-link"><code>R/depth-simulation.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-simulation.R" class="external-link"><code>R/core-simulation.R</code></a></small>
       <div class="d-none name"><code>simulate_and_perturb_soil_profiles.Rd</code></div>
     </div>
 
@@ -109,10 +109,10 @@ horizon, the function simply replicates the profile.</p>
 
 <p>This function requires <code>soil_profile</code>'s horizons to already carry a
 <code>sim_comppct</code> column (it derives the number of simulations to run from
-<code>unique(horizons(soil_profile)$sim_comppct)</code>). <code><a href="sim_component_comp.html">sim_component_comp()</a></code>
-(<code>R/property-simulation.R</code>) produces this column, but at component
+<code>unique(horizons(soil_profile)$sim_comppct)</code>). <code><a href="simulate_component_composition.html">simulate_component_composition()</a></code>
+(<code>R/core-simulation.R</code>) produces this column, but at component
 (<code>cokey</code>) grain, not horizon grain - callers must
-<code>dplyr::left_join(horizon_data, sim_component_comp(component_data), by = "cokey")</code>
+<code>dplyr::left_join(horizon_data, simulate_component_composition(component_data), by = "cokey")</code>
 before calling this function; it will still error with a missing-column
 condition if that join hasn't been done first.</p>
     </div>

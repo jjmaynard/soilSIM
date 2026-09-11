@@ -25,7 +25,7 @@ cell count."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -78,7 +78,7 @@ cell count."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Per-unique-mukey closed-form family fit from real Monte Carlo draws, broadcast to a raster</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/raster-fusion.R" class="external-link"><code>R/raster-fusion.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-fusion.R" class="external-link"><code>R/core-fusion.R</code></a></small>
       <div class="d-none name"><code>mukey_draws_closed_form_fit_raster.Rd</code></div>
     </div>
 
@@ -114,7 +114,7 @@ cell count.</p>
 
 
 <dt id="arg-mukey-draws">mukey_draws<a class="anchor" aria-label="anchor" href="#arg-mukey-draws"></a></dt>
-<dd><p>A <code><a href="mukey_draws_lookup.html">mukey_draws_lookup()</a></code> result - named list keyed by mukey (character), each
+<dd><p>A <code><a href="lookup_mukey_draws.html">lookup_mukey_draws()</a></code> result - named list keyed by mukey (character), each
 element a numeric vector of real simulated draws for that mukey.</p></dd>
 
 
@@ -122,7 +122,7 @@ element a numeric vector of real simulated draws for that mukey.</p></dd>
 <dd><p>One of "normal", "beta", "gamma", "lognormal". <code>"lognormal"</code> (added
 ) fits <code>mu</code>/<code>sigma</code> directly from
 <code>log(draws)</code> - the same LOG-SPACE parameterization <code><a href="fuse_lognormal_adaptive.html">fuse_lognormal_adaptive()</a></code>'s large-AOI
-branch already uses internally (<code><a href="normal_to_lognormal_params.html">normal_to_lognormal_params()</a></code>'s output shape), so the merge
+branch already uses internally (<code><a href="convert_normal_to_lognormal.html">convert_normal_to_lognormal()</a></code>'s output shape), so the merge
 there is a drop-in replacement of the percentile-triplet-derived log-space fit, not a new
 shape. Non-positive draws are dropped before taking <code><a href="https://rdrr.io/r/base/Log.html" class="external-link">log()</a></code> (a real lognormal draw is always
 positive; any non-positive value reflects upstream noise, not signal) - a mukey left with fewer

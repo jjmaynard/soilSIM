@@ -49,7 +49,7 @@ apply_local_depth_trends(
   lets `config$monte_carlo$vertical_correlation_method`
   (`"joint_copula"` default, or `"gp_quantile_retrofit"`) reach this
   call site. `NULL` (default) resolves to `"joint_copula"`, matching
-  [`get_monte_carlo_defaults()`](https://jjmaynard.github.io/soilSIM/reference/get_monte_carlo_defaults.md).
+  [`default_monte_carlo_config()`](https://jjmaynard.github.io/soilSIM/reference/default_monte_carlo_config.md).
 
 - gp_models:
 

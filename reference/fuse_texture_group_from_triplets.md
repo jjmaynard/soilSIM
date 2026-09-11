@@ -1,6 +1,6 @@
 # Fuse two full clay/sand/silt low-rep-high triplets jointly via ILR fusion
 
-Wraps `distributions.R`'s
+Wraps `core-distributions.R`'s
 [`estimate_ilr_moments_mc()`](https://jjmaynard.github.io/soilSIM/reference/estimate_ilr_moments_mc.md)
 (once per side) +
 [`fuse_bivariate_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_bivariate_normal.md) +
@@ -35,9 +35,9 @@ fuse_texture_group_from_triplets(
   placeholders matching
   [`estimate_ilr_moments_mc()`](https://jjmaynard.github.io/soilSIM/reference/estimate_ilr_moments_mc.md)'s
   `low_clay`/`low_sand`/`low_silt` parameter naming (position 1/2/3 of
-  the ILR sequential binary partition - see `distributions.R`'s ILR
+  the ILR sequential binary partition - see `core-distributions.R`'s ILR
   section header), not an identity requirement; callers (e.g.
-  `monte-carlo.R`'s
+  `core-montecarlo.R`'s
   [`fuse_observed_data_into_priors()`](https://jjmaynard.github.io/soilSIM/reference/fuse_observed_data_into_priors.md))
   build them from `composition_groups$texture$members` in configured
   order.

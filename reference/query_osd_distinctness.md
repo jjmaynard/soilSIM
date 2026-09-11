@@ -26,16 +26,3 @@ for the soil profile (the component name). - `hzname`: The name of the
 soil horizon. - `distinctness`: The distinctness code for the horizon
 (e.g., A, C, G, D). - `genhz`: The generalized horizon designation. -
 `bound_sd`: The calculated offset value from the distinctness code.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-  horizon_data <- data.frame(
-    compname = c("amador", "pentz", "pardee", "auburn", "loafercreek", "millvilla"),
-    hzname = c("A", "Bt", "R", "A", "Bw", "C")
-  )
-  result <- query_osd_distinctness(horizon_data)
-  head(result)
-} # }
-```

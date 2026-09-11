@@ -36,7 +36,7 @@ mukey_draws_closed_form_fit_raster(
 - mukey_draws:
 
   A
-  [`mukey_draws_lookup()`](https://jjmaynard.github.io/soilSIM/reference/mukey_draws_lookup.md)
+  [`lookup_mukey_draws()`](https://jjmaynard.github.io/soilSIM/reference/lookup_mukey_draws.md)
   result - named list keyed by mukey (character), each element a numeric
   vector of real simulated draws for that mukey.
 
@@ -47,7 +47,7 @@ mukey_draws_closed_form_fit_raster(
   parameterization
   [`fuse_lognormal_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_lognormal_adaptive.md)'s
   large-AOI branch already uses internally
-  ([`normal_to_lognormal_params()`](https://jjmaynard.github.io/soilSIM/reference/normal_to_lognormal_params.md)'s
+  ([`convert_normal_to_lognormal()`](https://jjmaynard.github.io/soilSIM/reference/convert_normal_to_lognormal.md)'s
   output shape), so the merge there is a drop-in replacement of the
   percentile-triplet-derived log-space fit, not a new shape.
   Non-positive draws are dropped before taking

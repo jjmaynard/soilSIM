@@ -4,14 +4,14 @@
 
 `raster-fusion-ssurgo-solus.Rmd` shows the *pipeline* view of soilSIM’s
 multi-source raster fusion: call
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)/[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)/[`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md)
 and get back a fused posterior. This vignette opens the hood.
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 is a thin fetch-and-cache wrapper around a handful of small, composable,
 raster-native building blocks - distribution fitting functions
-(`R/distribution-fitting-raster.R`), a fusion core
-(`R/raster-fusion.R`), and a disk cache (`R/raster-cache.R`) - each of
-which does exactly one thing to a
+(`R/core-distributions-raster.R`), a fusion core (`R/core-fusion.R`),
+and a disk cache (`R/cache.R`) - each of which does exactly one thing to
+a
 [`terra::SpatRaster`](https://rspatial.github.io/terra/reference/SpatRaster-class.html)
 (or list of them) and can be called directly. Understanding these
 individually is what makes the pipeline’s behavior (which route it took,
@@ -43,7 +43,7 @@ for reference only and not evaluated here:
 salinas_wkt <- "POLYGON((-121.66 36.60, -121.64 36.60, -121.64 36.62, -121.66 36.62, -121.66 36.60))"
 aoi <- terra::project(terra::vect(salinas_wkt, crs = "epsg:4326"), "epsg:5070")
 property_config <- list(id = "clay", solus_variable = "claytotal", dist = "normal")
-fusion_clay <- run_stage1_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5)
+fusion_clay <- run_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5)
 ```
 
 ``` r
@@ -243,7 +243,7 @@ terra::plot(infeasible, main = "Infeasible metalog fit (TRUE = non-monotonic)",
 A substantial fraction of cells are infeasible here - not a bug, just a
 real consequence of fitting only 4 of the 5 available percentiles to a
 family with no correction step of its own.
-[`quantile_metalog_linear_with_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_with_fallback.md)
+[`quantile_metalog_linear_with_fallback_raster()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_with_fallback_raster.md)
 is the function every real caller should use instead of
 [`quantile_metalog_linear_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear_raster.md)
 directly: it evaluates the raw metalog quantile function, and for
@@ -256,7 +256,7 @@ set, not just the interior ones used to fit the metalog) instead:
 
 ``` r
 
-fallback_result <- quantile_metalog_linear_with_fallback(
+fallback_result <- quantile_metalog_linear_with_fallback_raster(
   fit_ml, infeasible, full_value_rasters = prior_values, full_probs = prior_probs,
   q = 0.5, bounds = bounds, boundedness = "b"
 )
@@ -274,9 +274,9 @@ terra::plot(blend_stack, col = grDevices::hcl.colors(50, "viridis"), nc = 3)
 [`fit_gamma_mom_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_gamma_mom_raster.md)
 is a thin raster wrapper: it computes mean/variance rasters across a
 list of percentile-value rasters (the only genuinely raster-specific
-step, via `Reduce(+, ...)`), then delegates to `R/bayesian-updating.R`’s
+step, via `Reduce(+, ...)`), then delegates to `R/core-fusion.R`’s
 existing scalar
-[`moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_gamma.md),
+[`convert_moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_gamma.md),
 which is pure elementwise arithmetic and therefore already works
 unchanged on `SpatRaster` inputs:
 
@@ -392,17 +392,17 @@ resolve_property_dist(list(dist = "normal"), prior_values, prior_probs)$dist_sou
 is the size-adaptive engine
 [`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md)
 (and therefore
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md))
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md))
 delegates to for `"normal"`/`"beta"`/`"gamma"` families. It picks the
 fusion *route* from the AOI’s own cell count rather than requiring the
 caller to choose: at or below `threshold_cells` (default 80,000), it
 uses a fully general per-cell KDE route
-([`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
+([`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)
 on samples drawn from each side’s percentiles); above it, a much faster
 closed-form route built directly on the fitting functions from Sections
 1-4 above (e.g.
 [`fit_normal_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_normal_raster.md) +
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md)
 for `family = "normal"`).
 
 This AOI is small (598 cells), so it naturally takes the general route.
@@ -440,7 +440,7 @@ general route makes no distributional assumption about the *fusion* step
 itself (only about the requested output family), while the closed-form
 route fits both sides Normal first (Section 1) and fuses via the
 closed-form
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md)
 update - much cheaper per cell, at the cost of that Normal assumption.
 
 ``` r
@@ -472,7 +472,7 @@ sharpened by combining them? `fusion_clay` (loaded back in “Reusing real
 data instead of fetching”) already holds the real, full-pipeline answer
 for this AOI - its `prior`/`likelihood`/`posterior` are the actual
 objects
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 produced, not the toy
 `aligned`/[`fuse_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_adaptive.md)
 example from Section 7:
@@ -561,13 +561,12 @@ SOLUS100’s raw 95% prediction interval (`P025`-`P975`) implies a mean
 this AOI - a real, known characteristic of SOLUS100’s output (its stated
 prediction intervals are often wide), not an artifact of this pipeline.
 Since fusion weights each side by *precision* (`1/sigma^2`, see
-`bayesian-updating.Rmd`’s worked scalar examples of this exact
-tug-of-war), a 4x wider sigma means roughly a 18x lower precision - so
-the posterior mean above (14.08) landing close to the prior’s mean
-(13.75) rather than the likelihood’s (21.28) is the fusion math doing
-exactly what it should with these particular inputs, confirmed by
-manually recomputing
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)
+`core-fusion.Rmd`’s worked scalar examples of this exact tug-of-war), a
+4x wider sigma means roughly a 18x lower precision - so the posterior
+mean above (14.08) landing close to the prior’s mean (13.75) rather than
+the likelihood’s (21.28) is the fusion math doing exactly what it should
+with these particular inputs, confirmed by manually recomputing
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md)
 on these two independently-fit sides and getting (within
 floating-point/per-cell alignment differences) the same answer the
 pipeline’s own route produced. A different AOI/property where the two
@@ -700,7 +699,7 @@ including pixels where the likelihood dominates instead.
 
 ## 10. Caching internals
 
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)/[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)/[`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md)
 disk-cache every fetch step under
 `tools::R_user_dir("soilSIM", "cache")`, keyed by AOI + property/group
 id + depth window + kind.
@@ -1404,7 +1403,7 @@ helpers cover the two result shapes this pipeline actually caches:
 - [`wrap_nested_rasters()`](https://jjmaynard.github.io/soilSIM/reference/wrap_nested_rasters.md)/[`unwrap_nested_rasters()`](https://jjmaynard.github.io/soilSIM/reference/wrap_nested_rasters.md) -
   a fully generic version for result structures whose shape isn’t that
   fixed form,
-  e.g. [`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)’s
+  e.g. [`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)’s
   own return value, which nests `SpatRaster`s at `prior$values`,
   `likelihood$values`, and inside `posterior` (whose shape varies by
   `dist`). It recurses into every list element, replacing each

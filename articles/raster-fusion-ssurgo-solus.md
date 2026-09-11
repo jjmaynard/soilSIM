@@ -6,7 +6,7 @@ This vignette is the clearest example of soilSIM’s core architecture: a
 generic, data-source-agnostic raster fusion **core**
 ([`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md),
 built on the same Bayesian-updating primitives as the scalar
-`bayesian-updating.R` toolkit) combined with two concrete data-source
+`core-fusion.R` toolkit) combined with two concrete data-source
 **adapters** - SSURGO (supplying the prior) and SOLUS100 (supplying the
 likelihood) - over a shared, real area of interest (AOI). The
 architecture is designed so future data sources (e.g. HWSD, SoilGrids)
@@ -34,7 +34,7 @@ aoi <- terra::project(aoi, "epsg:5070")
 
 ## Step 1: Fuse a single property (clay content)
 
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 is the top-level orchestrator: it fetches (and disk-caches) SSURGO
 percentile rasters as the prior, SOLUS100 percentile rasters as the
 likelihood, resamples the SSURGO prior onto SOLUS100’s coarser grid, and
@@ -47,7 +47,7 @@ depending on the property’s distributional shape:
 
 # The real call this vignette's cached data came from:
 property_config <- list(id = "clay", solus_variable = "claytotal", dist = "normal")
-fusion_clay <- run_stage1_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5)
+fusion_clay <- run_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5)
 ```
 
 ``` r
@@ -113,7 +113,7 @@ likelihood_r <- fusion_clay$likelihood$values[["P50"]]
 posterior_r <- fusion_clay$posterior$mu
 ```
 
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 already resampled the SSURGO prior onto SOLUS100’s grid before fusing,
 so all three rasters share the same extent/resolution and combine
 directly with [`c()`](https://rdrr.io/r/base/c.html) - no separate
@@ -271,7 +271,7 @@ replacing it.
 
 Fusing clay/sand/silt independently can break the sum-to-100 constraint
 texture fractions must satisfy.
-[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
+[`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md)
 fuses a whole compositional group jointly, in isometric log-ratio (ILR)
 space, guaranteeing every cell’s fused clay + sand + silt sums to 100:
 
@@ -284,7 +284,7 @@ property_configs <- list(
   sand = list(id = "sand", solus_variable = "sandtotal", composition_group = "texture"),
   silt = list(id = "silt", solus_variable = "silttotal", composition_group = "texture")
 )
-fusion_texture <- run_stage1_fusion_group(
+fusion_texture <- run_fusion_group(
   aoi, "texture", composition_groups, property_configs, top_depth = 0, bottom_depth = 5
 )
 ```
@@ -358,14 +358,14 @@ second composition that should also sum to 100.
 ## Under the hood: scalar Bayesian updating
 
 Both fusion routes above ultimately reduce to elementwise arithmetic on
-`bayesian-updating.R`’s scalar fusion functions
-([`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md),
+`core-fusion.R`’s scalar fusion functions
+([`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md),
 [`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)/[`fuse_gamma()`](https://jjmaynard.github.io/soilSIM/reference/fuse_gamma.md),
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)’s
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)’s
 general grid-KDE fusion) - they already work unchanged on `SpatRaster`
 inputs via `terra`’s operator overloading, so the raster-native code in
-`raster-fusion.R` reuses them directly rather than reimplementing the
-same math per-cell. See the “Bayesian Updating” architecture article for
+`core-fusion.R` reuses them directly rather than reimplementing the same
+math per-cell. See the “Bayesian Updating” architecture article for
 these building blocks used directly on scalar prior/likelihood pairs,
 independent of any raster or AOI.
 
@@ -375,12 +375,12 @@ The cached data this vignette loads
 (`inst/extdata/fusion_clay_salinas.rds`,
 `inst/extdata/fusion_texture_salinas.rds`) was produced once by
 `data-raw/build_vignette_data.R`, which calls
-[`run_stage1_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion.md)/[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
+[`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)/[`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md)
 live against NRCS Soil Data Access (SSURGO) and
 [`soilDB::fetchSOLUS()`](http://ncss-tech.github.io/soilDB/reference/fetchSOLUS.md)
 (SOLUS100) for the AOI above. Re-run that script to refresh it.
 Producing this vignette’s data surfaced and fixed a real caching bug in
-[`run_stage1_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_stage1_fusion_group.md)
+[`run_fusion_group()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_group.md)
 (it wasn’t wrapping/unwrapping `SpatRaster`s around its disk cache,
 silently corrupting the cached texture-group result on a second read) -
-fixed in `R/raster-fusion.R`.
+fixed in `R/core-fusion.R`.

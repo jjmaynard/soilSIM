@@ -3,9 +3,9 @@
 ## Overview
 
 This functional group is soilSIM’s generic, **data-source-agnostic
-statistical core**. Nothing in `R/distributions.R`,
-`R/percentile-sampling.R`, or `R/kssl-reference-correlations.R` knows or
-cares whether a low/representative/high (or arbitrary-count) percentile
+statistical core**. Nothing in `R/core-distributions.R`,
+`R/core-distributions.R`, or `R/core-correlations.R` knows or cares
+whether a low/representative/high (or arbitrary-count) percentile
 triplet came from SSURGO, SOLUS, a KSSL lab table, or a
 fused/Bayesian-updated posterior - these files take plain numeric
 percentile values and physical bounds as input and hand back
@@ -13,17 +13,17 @@ fitted-distribution objects, quantile functions, ILR-transformed
 compositional coordinates, and repaired positive-definite correlation
 matrices. Because of that neutrality, this group is consumed directly by
 every downstream simulation/fusion function in the package
-(`statistics.R`, `monte-carlo.R`, `bayesian-updating.R`,
-`gp-modeling.R`, `raster-fusion.R`, `depth-simulation.R`) regardless of
-where the percentile data originated. It is the single place where the
-package’s core probability-distribution math and compositional-data math
-live, so it is validated once (against `fitdistrplus`, `rmetalog`, and
-`compositions` reference implementations, per the file-header provenance
-notes) and reused everywhere rather than re-derived per data source.
+(`statistics.R`, `core-montecarlo.R`, `core-fusion.R`, `core-gp.R`,
+`core-fusion.R`, `core-simulation.R`) regardless of where the percentile
+data originated. It is the single place where the package’s core
+probability-distribution math and compositional-data math live, so it is
+validated once (against `fitdistrplus`, `rmetalog`, and `compositions`
+reference implementations, per the file-header provenance notes) and
+reused everywhere rather than re-derived per data source.
 
 ## Core Functions
 
-### A. Percentile-Triplet Distribution Fitting (`distributions.R`, section 1)
+### A. Percentile-Triplet Distribution Fitting (`core-distributions.R`, section 1)
 
 #### 1. **`fit_normal_triplet()` / `quantile_normal()`** - Exact closed-form Normal fit
 
@@ -143,10 +143,10 @@ is a separately-maintained random-draw implementation kept distinct from
 [`quantile_triangular()`](https://jjmaynard.github.io/soilSIM/reference/quantile_triangular.md)
 specifically to preserve its own edge-case contract: it errors on
 invalid `n` but returns `NaN` (not an error) when `a > c`, `b < c`, or
-any parameter is infinite/`NA`. Used by `R/depth-simulation.R`’s
+any parameter is infinite/`NA`. Used by `R/core-simulation.R`’s
 profile-depth simulators.
 
-#### 5. **Metalog fitting: `fit_metalog_linear()` / `quantile_metalog_linear()` / `check_metalog_feasible()` / `quantile_metalog_with_fallback()`**
+#### 5. **Metalog fitting: `fit_metalog_linear()` / `quantile_metalog_linear()` / `check_metalog_feasible()` / `quantile_metalog_linear_fallback()`**
 
 **Purpose**: A dependency-free (no `rmetalog`) closed-form metalog
 distribution fitter, used when the number of interior percentiles equals
@@ -157,7 +157,7 @@ the number of desired metalog terms. **Signatures**:
 fit_metalog_linear(interior_values, interior_probs, bounds = NULL, boundedness = "u")
 quantile_metalog_linear(fit, q)
 check_metalog_feasible(fit, y_grid = seq(0.02, 0.98, by = 0.02))
-quantile_metalog_with_fallback(fit, infeasible, full_probs, full_values, q)
+quantile_metalog_linear_fallback(fit, infeasible, full_probs, full_values, q)
 ```
 
 **Parameters**: `interior_values`/`interior_probs` - percentile
@@ -176,7 +176,7 @@ percentile set (including p=0/p=1 if available) used for the fallback.
 returns `list(a=, term=, bounds=, boundedness=)`;
 [`quantile_metalog_linear()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear.md)
 and
-[`quantile_metalog_with_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_with_fallback.md)
+[`quantile_metalog_linear_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_fallback.md)
 return numeric vectors;
 [`check_metalog_feasible()`](https://jjmaynard.github.io/soilSIM/reference/check_metalog_feasible.md)
 returns `TRUE` if infeasible (non-monotonic quantile function), else
@@ -196,7 +196,7 @@ and maps back from z-space (`metalog_from_z()`).
 probes the quantile function across `y_grid` and flags non-monotonicity
 (equivalent to the implied density going negative) - a cheap probe, not
 a proof.
-[`quantile_metalog_with_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_with_fallback.md)
+[`quantile_metalog_linear_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_fallback.md)
 is the safety net
 [`fit_percentile_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_percentile_triplet.md)/[`quantile_from_fit()`](https://jjmaynard.github.io/soilSIM/reference/quantile_from_fit.md)
 rely on: if `infeasible` is `TRUE`, it evaluates
@@ -226,7 +226,7 @@ choice.
 
 #### 7. **`fit_percentile_triplet()`** - MASTER percentile-triplet dispatcher
 
-**Purpose**: The single entry point `monte-carlo.R`’s
+**Purpose**: The single entry point `core-montecarlo.R`’s
 [`extract_property_parameters()`](https://jjmaynard.github.io/soilSIM/reference/extract_property_parameters.md)
 calls to turn a SSURGO-style `_l/_r/_h` triplet into a
 family-appropriate fit. **Signature**:
@@ -273,7 +273,7 @@ non-positive; `beta` requires `bounds` (errors otherwise) and calls
 and immediately attaches `infeasible` (via
 [`check_metalog_feasible()`](https://jjmaynard.github.io/soilSIM/reference/check_metalog_feasible.md))
 plus the full `fallback_probs`/`fallback_values` needed by
-[`quantile_metalog_with_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_with_fallback.md);
+[`quantile_metalog_linear_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_fallback.md);
 `linear_cdf` stores the raw `probs`/`values`; any other family string
 errors.
 
@@ -297,7 +297,7 @@ return value. **Returns**: Numeric vector, same length as `u`;
 `exp(quantile_normal(...))` (lognormal),
 [`quantile_beta()`](https://jjmaynard.github.io/soilSIM/reference/quantile_beta.md)
 rescaled by `bounds`,
-[`quantile_metalog_with_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_with_fallback.md),
+[`quantile_metalog_linear_fallback()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_fallback.md),
 or
 [`quantile_linear_cdf()`](https://jjmaynard.github.io/soilSIM/reference/quantile_linear_cdf.md)
 as appropriate.
@@ -320,15 +320,15 @@ infeasible metalog fit still produces correct output via the automatic
 discard a usable fit in favor of a cruder guess; `linear_cdf` requires
 \>= 2 matching `probs`/`values`.
 
-### B. ILR (Isometric Log-Ratio) Compositional Transforms (`distributions.R`, section 2)
+### B. ILR (Isometric Log-Ratio) Compositional Transforms (`core-distributions.R`, section 2)
 
 These formulas match `compositions::ilr()` exactly and round-trip to
 ~1e-14. The balance hierarchy (position 1 vs. {2,3}, then 2 vs. 3) is
 fixed by these formulas; the `clay`/`sand`/`silt` parameter and output
 names are **positional-role placeholders** (position 1/2/3 of the
 sequential binary partition), not an identity requirement - callers (via
-`monte-carlo.R`’s `composition_groups$texture$members`) determine which
-real property occupies which position.
+`core-montecarlo.R`’s `composition_groups$texture$members`) determine
+which real property occupies which position.
 
 #### 10. **`ilr_forward()` / `ilr_inverse()`** - Forward/inverse ILR transform
 
@@ -402,12 +402,13 @@ every draw back to composition space via
 guaranteed to sum to `total` and stay in `[0, total]` for every draw by
 construction.
 
-#### 13. **Composition-group orchestration: `resolve_composition_groups()` / `restore_composition_properties()`** (`distributions.R`, section 4)
+#### 13. **Composition-group orchestration: `resolve_composition_groups()` / `restore_composition_properties()`** (`core-distributions.R`, section 4)
 
-**Purpose**: Let `monte-carlo.R`’s generic Cholesky-copula simulation
-engine treat a 3-part composition (e.g. sand/silt/clay) as two ordinary
-simulated pseudo-properties (`ilr1`/`ilr2`) instead of needing bespoke
-compositional logic in the simulation core. **Signatures**:
+**Purpose**: Let `core-montecarlo.R`’s generic Cholesky-copula
+simulation engine treat a 3-part composition (e.g. sand/silt/clay) as
+two ordinary simulated pseudo-properties (`ilr1`/`ilr2`) instead of
+needing bespoke compositional logic in the simulation core.
+**Signatures**:
 
 ``` r
 
@@ -446,7 +447,7 @@ is applied per horizon (vectorized over realizations) and the resulting
 the `members` declaration is what fixes which real property occupies
 each ILR position.
 
-### C. Correlation-Matrix Estimation & Repair (`distributions.R`, section 3)
+### C. Correlation-Matrix Estimation & Repair (`core-distributions.R`, section 3)
 
 #### 14. **`ensure_positive_definite_matrix()`** - Eigenvalue-floor PD repair
 
@@ -527,17 +528,17 @@ again, and `method` is set to `"empirical_grouped"` (all empirical),
 pooled data (`method = "empirical_pooled"`). If that also fails, returns
 `global_fallback` with `method = global_fallback_method`.
 
-### D. Arbitrary-Percentile-Count Sampling (`percentile-sampling.R`)
+### D. Arbitrary-Percentile-Count Sampling (`core-distributions.R`)
 
 This file consolidates several “simulate a distribution from summary
 percentiles” approaches behind one dispatcher, generalizing
-`distributions.R`’s fixed 3-point
+`core-distributions.R`’s fixed 3-point
 ([`fit_percentile_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_percentile_triplet.md))
 machinery to an arbitrary number of known percentiles
 (e.g. P0/P5/P50/P95/P100, or any other set). `method = "metalog"` is
 deliberately not offered here (it would require the `rmetalog` package,
 which the project avoids per validated hang/segfault history) -
-`distributions.R`’s own dependency-free
+`core-distributions.R`’s own dependency-free
 [`fit_metalog_linear()`](https://jjmaynard.github.io/soilSIM/reference/fit_metalog_linear.md)
 covers that need instead.
 
@@ -610,7 +611,7 @@ actually present).
 **Returns**: `list(samples=, summary=)` - `samples` a named list of
 numeric vectors (one per method, `NA_real_` with a warning if a method
 errors), `summary` a data frame of summary statistics (via
-[`calculate_summary_statistics()`](https://jjmaynard.github.io/soilSIM/reference/calculate_summary_statistics.md))
+[`compute_summary_statistics()`](https://jjmaynard.github.io/soilSIM/reference/compute_summary_statistics.md))
 with one row per method. **Algorithm**: Runs
 [`simulate_from_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/simulate_from_percentiles.md)
 once per requested method on the same `quantile_df`, catching per-method
@@ -618,10 +619,10 @@ errors so one failing method doesn’t abort the comparison, then
 tabulates statistics for eyeballing or KS-testing method pairs against
 each other.
 
-#### 20. **`calculate_summary_statistics()`** - Generic summary-statistics table
+#### 20. **`compute_summary_statistics()`** - Generic summary-statistics table
 
 **Signature**:
-`calculate_summary_statistics(data, percentile_probs = seq(0.1, 0.9, by = 0.1))`
+`compute_summary_statistics(data, percentile_probs = seq(0.1, 0.9, by = 0.1))`
 **Parameters**: `data` - a numeric vector; `percentile_probs` -
 probabilities (0-1) to compute as dynamically-named percentile columns.
 **Returns**: A one-row data frame: `Num`, `Mean`, `STD`, `CV`, `Median`,
@@ -649,11 +650,11 @@ mean/SD error); scores are averaged across `n_reps` replicates and
 sorted by KS statistic. Used to empirically justify which method to
 prefer for a given data shape.
 
-### E. KSSL Reference Correlations (`kssl-reference-correlations.R`)
+### E. KSSL Reference Correlations (`core-correlations.R`)
 
 Static, pre-computed, genetic-horizon-keyed (O/A/E/B/C/Cr, plus R for
 the texture matrix) correlation matrices fit once from KSSL lab data,
-stored internally as package sysdata. These let `monte-carlo.R`’s
+stored internally as package sysdata. These let `core-montecarlo.R`’s
 correlation-structure estimation optionally fall back to real
 lab-derived correlations
 (`config$monte_carlo$correlation_fallback = "kssl_global"`) instead of a
@@ -742,7 +743,7 @@ anywhere that calls it.
 
 ## Internal Connections
 
-    distributions.R
+    core-distributions.R
     ├── fit_percentile_triplet() [MASTER FITTER]
     │   ├── resolve_property_family()               (family = "auto")
     │   ├── fit_normal_triplet()                    (normal / lognormal)
@@ -760,7 +761,7 @@ anywhere that calls it.
     │   ├── quantile_triangular()
     │   ├── quantile_normal()                       (normal / lognormal, via exp())
     │   ├── quantile_beta()
-    │   ├── quantile_metalog_with_fallback()
+    │   ├── quantile_metalog_linear_fallback()
     │   │   ├── quantile_metalog_linear()           (feasible fit)
     │   │   └── quantile_linear_cdf()               (infeasible fit -> fallback)
     │   └── quantile_linear_cdf()                   (linear_cdf family)
@@ -786,7 +787,7 @@ anywhere that calls it.
         └── does NOT call ensure_positive_definite_matrix() - it uses its own
             chol()/nearPD()-based repair path instead
 
-    percentile-sampling.R
+    core-distributions.R
     ├── simulate_from_percentiles() [MASTER DISPATCH]
     │   ├── extract_percentile_pairs()  [internal, shared front end]
     │   ├── sim_linear_cdf()   [internal]
@@ -797,16 +798,16 @@ anywhere that calls it.
     ├── generate_inverse_cdf_distribution() --> simulate_from_percentiles(method="linear_cdf")
     ├── compare_percentile_methods()
     │   ├── simulate_from_percentiles()   (once per method)
-    │   └── calculate_summary_statistics()
-    ├── calculate_summary_statistics()  [standalone]
+    │   └── compute_summary_statistics()
+    ├── compute_summary_statistics()  [standalone]
     └── validate_percentile_methods_synthetic() --> simulate_from_percentiles() (per method, per replicate)
 
-    kssl-reference-correlations.R
+    core-correlations.R
     ├── classify_genhz()  [standalone]
     └── build_kssl_fallback_matrix() [MASTER]
         ├── .kssl_property_matrices()      [internal accessor, this file]
         ├── .kssl_property_name_map        [internal lookup vector, this file]
-        └── ensure_positive_definite_matrix()  [CROSS-FILE call into distributions.R]
+        └── ensure_positive_definite_matrix()  [CROSS-FILE call into core-distributions.R]
 
 ## Pipeline (representative call path through this functional group)
 
@@ -817,7 +818,7 @@ anywhere that calls it.
     +-------------------------------+       +--------------------------------------+
     | fit_percentile_triplet()      |  OR   | simulate_from_percentiles()          |
     | (fixed 3-point: l/r/h)        |       | (arbitrary percentile count)         |
-    | distributions.R               |       | percentile-sampling.R                |
+    | core-distributions.R               |       | core-distributions.R                |
     +-------------------------------+       +--------------------------------------+
             |                                          |
             v                                          v
@@ -868,7 +869,7 @@ anywhere that calls it.
 
 ``` r
 
-# monte-carlo.R's extract_property_parameters() calls the master fitter,
+# core-montecarlo.R's extract_property_parameters() calls the master fitter,
 # then quantile_from_fit() turns correlated uniform draws into simulated values
 triplet_fit <- fit_percentile_triplet(l, r, h, family = "auto", bounds = bounds)
 simulated_values <- quantile_from_fit(correlated_uniforms, triplet_fit$family, triplet_fit$fit)
@@ -890,7 +891,7 @@ composition <- sample_ilr_posterior(ilr_moments$mu, ilr_moments$Sigma, n = 1000)
 
 ``` r
 
-# monte-carlo.R builds group_fallback_matrices from KSSL data before calling
+# core-montecarlo.R builds group_fallback_matrices from KSSL data before calling
 # the robust estimator, so sparse SSURGO groups borrow real lab correlations
 # instead of an uninformative identity matrix
 kssl_fallbacks <- setNames(
@@ -935,12 +936,12 @@ final_matrix <- ensure_positive_definite_matrix(candidate_matrix, min_eigenvalue
   [`aggregate()`](https://rdrr.io/r/stats/aggregate.html) - the base
   probability/statistics machinery nearly every function in this group
   is built on.
-- **`fitdistrplus`** - `fitdist()`, used by `percentile-sampling.R`’s
+- **`fitdistrplus`** - `fitdist()`, used by `core-distributions.R`’s
   [`sim_beta()`](https://jjmaynard.github.io/soilSIM/reference/sim_beta.md)
   for a general MLE Beta fit (loaded lazily via
   [`requireNamespace()`](https://rdrr.io/r/base/ns-load.html); not used
-  by `distributions.R`’s own closed-form Beta fitter, which needs no
-  external package).
+  by `core-distributions.R`’s own closed-form Beta fitter, which needs
+  no external package).
 - **`Matrix`** - `nearPD()`, used inside
   [`estimate_correlation_matrix_robust()`](https://jjmaynard.github.io/soilSIM/reference/estimate_correlation_matrix_robust.md)’s
   repair closure as the fallback when
@@ -949,7 +950,7 @@ final_matrix <- ensure_positive_definite_matrix(candidate_matrix, min_eigenvalue
 - **`Hmisc`** - `rcorr()`, used inside
   [`estimate_correlation_matrix_robust()`](https://jjmaynard.github.io/soilSIM/reference/estimate_correlation_matrix_robust.md)
   to compute empirical Pearson correlations per group/pooled dataset.
-- **`truncnorm`** - `rtruncnorm()`, used by `percentile-sampling.R`’s
+- **`truncnorm`** - `rtruncnorm()`, used by `core-distributions.R`’s
   [`sim_kde()`](https://jjmaynard.github.io/soilSIM/reference/sim_kde.md)
   (loaded lazily via
   [`requireNamespace()`](https://rdrr.io/r/base/ns-load.html)) to seed
@@ -957,7 +958,7 @@ final_matrix <- ensure_positive_definite_matrix(candidate_matrix, min_eigenvalue
 
 ### Consumers within soilSIM (this group is upstream of essentially everything)
 
-- **`monte-carlo.R`** - the primary consumer:
+- **`core-montecarlo.R`** - the primary consumer:
   [`fit_percentile_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_percentile_triplet.md)/[`quantile_from_fit()`](https://jjmaynard.github.io/soilSIM/reference/quantile_from_fit.md)
   drive its Cholesky-copula property simulation;
   [`resolve_composition_groups()`](https://jjmaynard.github.io/soilSIM/reference/resolve_composition_groups.md)/[`restore_composition_properties()`](https://jjmaynard.github.io/soilSIM/reference/restore_composition_properties.md)/[`ilr_inverse()`](https://jjmaynard.github.io/soilSIM/reference/ilr_inverse.md)
@@ -968,18 +969,18 @@ final_matrix <- ensure_positive_definite_matrix(candidate_matrix, min_eigenvalue
   [`ensure_positive_definite_matrix()`](https://jjmaynard.github.io/soilSIM/reference/ensure_positive_definite_matrix.md)
   and (per the file header) other matrix/fit utilities for its own
   summary-statistics and correlation work.
-- **`bayesian-updating.R`** - uses the ILR transform pieces
+- **`core-fusion.R`** - uses the ILR transform pieces
   ([`ilr_forward()`](https://jjmaynard.github.io/soilSIM/reference/ilr_forward.md)/[`ilr_inverse()`](https://jjmaynard.github.io/soilSIM/reference/ilr_inverse.md)/[`sample_ilr_posterior()`](https://jjmaynard.github.io/soilSIM/reference/sample_ilr_posterior.md))
   for compositional posterior updates.
-- **`gp-modeling.R`** - consumes fitted-distribution/quantile machinery
-  for Gaussian-process-based property prediction workflows.
-- **`raster-fusion.R`** - fuses percentile rasters from multiple
-  sources, relying on this group’s percentile-triplet/quantile-function
-  machinery at the per-cell level.
-- **`depth-simulation.R`** - uses
+- **`core-gp.R`** - consumes fitted-distribution/quantile machinery for
+  Gaussian-process-based property prediction workflows.
+- **`core-fusion.R`** - fuses percentile rasters from multiple sources,
+  relying on this group’s percentile-triplet/quantile-function machinery
+  at the per-cell level.
+- **`core-simulation.R`** - uses
   [`tri_dist()`](https://jjmaynard.github.io/soilSIM/reference/tri_dist.md)
   directly for profile-depth simulation.
-- **`distribution-fitting-raster.R`** - the
+- **`core-distributions-raster.R`** - the
   [`terra::SpatRaster`](https://rspatial.github.io/terra/reference/SpatRaster-class.html)-native
   sibling implementation of this file’s closed-form fitters.
 

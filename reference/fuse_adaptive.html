@@ -9,7 +9,7 @@ route by AOI size rather than requiring the caller to pick."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -62,7 +62,7 @@ route by AOI size rather than requiring the caller to pick."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Fuse a prior and likelihood belief distribution, choosing the fusion route by AOI size rather than requiring the caller to pick.</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/raster-fusion.R" class="external-link"><code>R/raster-fusion.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-fusion.R" class="external-link"><code>R/core-fusion.R</code></a></small>
       <div class="d-none name"><code>fuse_adaptive.Rd</code></div>
     </div>
 
@@ -117,7 +117,7 @@ contract across routes.</p></dd>
 
 <dt id="arg-threshold-cells">threshold_cells<a class="anchor" aria-label="anchor" href="#arg-threshold-cells"></a></dt>
 <dd><p>AOI cell count at or below which the general
-<code><a href="bayesian_update.html">bayesian_update()</a></code> route is used; above it, the closed-form route.</p></dd>
+<code><a href="update_prior.html">update_prior()</a></code> route is used; above it, the closed-form route.</p></dd>
 
 
 <dt id="arg-n-samples">n_samples<a class="anchor" aria-label="anchor" href="#arg-n-samples"></a></dt>
@@ -125,9 +125,9 @@ contract across routes.</p></dd>
 
 
 <dt id="arg-grid-resolution">grid_resolution<a class="anchor" aria-label="anchor" href="#arg-grid-resolution"></a></dt>
-<dd><p>Passed to <code><a href="bayesian_update.html">bayesian_update()</a></code> for the general route. <code>NULL</code> (default)
+<dd><p>Passed to <code><a href="update_prior.html">update_prior()</a></code> for the general route. <code>NULL</code> (default)
 resolves to <a href="FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION.html">FUSE_GENERAL_KDE_DEFAULT_GRID_RESOLUTION</a> (<code>0.1</code>) - see that constant's docs for
-the profiling/accuracy justification for why this differs from <code><a href="bayesian_update.html">bayesian_update()</a></code>'s own
+the profiling/accuracy justification for why this differs from <code><a href="update_prior.html">update_prior()</a></code>'s own
 standalone default of <code>0.01</code>.</p></dd>
 
 
@@ -148,7 +148,7 @@ preserves original behavior exactly on both routes.</p></dd>
 <dd><p>Passed through to whichever route runs (<code><a href="fuse_general_kde.html">fuse_general_kde()</a></code> for the
 general route, <code><a href="fuse_closed_form.html">fuse_closed_form()</a></code> for the closed-form route - see <a href="FUSE_POSTERIOR_DEFAULT_PROBS.html">FUSE_POSTERIOR_DEFAULT_PROBS</a>).
 <code>NULL</code> (default) resolves to the same rich default on both routes. The general route computes
-percentiles from <code><a href="bayesian_update.html">bayesian_update()</a></code>'s discretized posterior (exact relative to
+percentiles from <code><a href="update_prior.html">update_prior()</a></code>'s discretized posterior (exact relative to
 <code>grid_resolution</code>, but tail percentiles are limited by how well the KDE approximates the tails
 from a finite sample); the closed-form route computes them analytically (<code>qnorm</code>/<code>qbeta</code>/
 <code>qgamma</code> at the fused family parameters - exact regardless of how extreme the probability).</p></dd>
@@ -169,6 +169,26 @@ closed-form route, a <code>SpatRaster</code> of 1 (native same-family fusion) /
 <li><p><code>n_fallback_cells</code>: count of cells that used the fallback.</p></li>
 <li><p><code>diagnostics</code>: <code>list(ncell=, threshold_cells=, family=, elapsed_sec=)</code>.</p></li>
 </ul></div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p>Other raster-fusion:
+<code><a href="align_percentile_probs.html">align_percentile_probs()</a></code>,
+<code><a href="build_cache_key.html">build_cache_key()</a></code>,
+<code><a href="cache_get.html">cache_get()</a></code>,
+<code><a href="cache_set.html">cache_set()</a></code>,
+<code><a href="check_metalog_feasibility_raster.html">check_metalog_feasibility_raster()</a></code>,
+<code><a href="fit_beta_mle_newton_raster.html">fit_beta_mle_newton_raster()</a></code>,
+<code><a href="fit_beta_mom_raster.html">fit_beta_mom_raster()</a></code>,
+<code><a href="fit_gamma_mom_raster.html">fit_gamma_mom_raster()</a></code>,
+<code><a href="fit_metalog_linear_raster.html">fit_metalog_linear_raster()</a></code>,
+<code><a href="fit_normal_raster.html">fit_normal_raster()</a></code>,
+<code><a href="percentiles_from_draws.html">percentiles_from_draws()</a></code>,
+<code><a href="quantile_metalog_linear_with_fallback_raster.html">quantile_metalog_linear_with_fallback_raster()</a></code>,
+<code><a href="remarginalize_awc.html">remarginalize_awc()</a></code>,
+<code><a href="remarginalize_ensemble_to_posterior.html">remarginalize_ensemble_to_posterior()</a></code>,
+<code><a href="resolve_property_dist.html">resolve_property_dist()</a></code>,
+<code><a href="wrap_nested_rasters.html">wrap_nested_rasters()</a></code></p></div>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

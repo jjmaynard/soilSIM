@@ -36,24 +36,3 @@ name. - `top`: The representative top depth of the horizon (from
 `hzdept_r`). - `bottom`: The representative bottom depth of the horizon
 (from `hzdepb_r`). - `thickness_sd`: The standard deviation of the
 horizon thickness (bottom - top) across the simulations.
-
-## Examples
-
-``` r
-horizon_data <- data.frame(
-  hzname = c("A", "B", "C"),
-  hzdept_r = c(0, 20, 35),
-  hzdepb_r = c(20, 35, 50),
-  hzdept_l = c(0, 15, 30),
-  hzdept_h = c(0, 25, 40),
-  hzdepb_l = c(15, 30, 45),
-  hzdepb_h = c(25, 40, 60)
-)
-set.seed(123)
-summarized_results <- simulate_soil_profile_thickness(horizon_data, n_simulations = 500)
-print(summarized_results)
-#>   hzname top bottom thickness_sd
-#> 1      A   0     20         2.00
-#> 2      B  20     35         2.91
-#> 3      C  35     50         3.69
-```

@@ -13,7 +13,7 @@ a time - see fuse_texture_group()'s PERF comment at its call site."></head><body
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -66,7 +66,7 @@ a time - see fuse_texture_group()'s PERF comment at its call site."></head><body
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Vectorized per-chunk core of <code>fuse_texture_group()</code></h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/raster-fusion.R" class="external-link"><code>R/raster-fusion.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/core-fusion.R" class="external-link"><code>R/core-fusion.R</code></a></small>
       <div class="d-none name"><code>fuse_texture_group_batch.Rd</code></div>
     </div>
 
@@ -144,7 +144,7 @@ cell-major) so results are unaffected.</p></dd>
 . A named list, keyed by mukey (as
 character), each element an <code>n_mc x 3</code> matrix (columns <code>clay_total</code>/<code>sand_total</code>/
 <code>silt_total</code>) of real joint texture draws for that mukey - see
-<code><a href="mukey_texture_draws_lookup.html">mukey_texture_draws_lookup()</a></code>. When supplied, <code>row_mat</code>'s last column must be the per-cell
+<code><a href="lookup_mukey_texture_draws.html">lookup_mukey_texture_draws()</a></code>. When supplied, <code>row_mat</code>'s last column must be the per-cell
 mukey code. <code>NULL</code> (default) preserves original behavior exactly.</p></dd>
 
 </dl></div>

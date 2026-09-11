@@ -4,22 +4,22 @@
 
 This functional group covers two source files that together simulate the
 compositional and morphological variability of SSURGO soil components
-and profiles. `R/property-simulation.R` simulates component-composition
+and profiles. `R/core-simulation.R` simulates component-composition
 percentages
-([`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md))
+([`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md))
 and per-cokey correlated soil properties - including compositional
 sand/silt/clay texture via the package’s ILR core - from
 low/representative/high (`_l/_r/_h`) triplets
 ([`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md),
 built on
 [`simulate_correlated_triangular()`](https://jjmaynard.github.io/soilSIM/reference/simulate_correlated_triangular.md)).
-`R/depth-simulation.R` simulates horizon depths, horizon-thickness
+`R/core-simulation.R` simulates horizon depths, horizon-thickness
 variability, and boundary distinctness for whole
 [`aqp::SoilProfileCollection`](https://ncss-tech.github.io/aqp/reference/SoilProfileCollection-class.html)
 profiles, using OSD (Official Series Description) data to inform
 boundary perturbation, with sequential, parallel
 (`future`/`future.apply`), and by-mukey orchestration entry points.
-`property-simulation.R` also holds two smaller standalone horizon-data
+`core-simulation.R` also holds two smaller standalone horizon-data
 helpers,
 [`remove_organic_layer()`](https://jjmaynard.github.io/soilSIM/reference/remove_organic_layer.md)
 and
@@ -28,7 +28,7 @@ which are not tied to the compositional-simulation machinery.
 
 ## Core Functions
 
-### property-simulation.R
+### core-simulation.R
 
 #### `remove_organic_layer(df)`
 
@@ -68,7 +68,7 @@ which are not tied to the compositional-simulation machinery.
   sliced depth if data ran out before reaching `bottom`. Carries
   `compname` through untransformed if present.
 
-#### `sim_component_comp(data, n_simulations = 1000)`
+#### `simulate_component_composition(data, n_simulations = 1000)`
 
 - **Parameters**:
   - `data` - a data frame with `mukey`, `cokey`, `compname`,
@@ -118,7 +118,7 @@ which are not tied to the compositional-simulation machinery.
   for a given parameter, that column is filled with the constant `a`
   (degenerate triangular).
 
-#### `calculate_mode(x)`
+#### `compute_mode(x)`
 
 - **Parameters**: `x` - a numeric vector.
 - **Returns**: The most frequently-occurring value in `x` (via
@@ -134,7 +134,7 @@ which are not tied to the compositional-simulation machinery.
   - `sim_cokey` - a data frame of horizon rows for one cokey, with a
     `genhz` column and a `sim_comppct` column (the number of
     realizations to simulate for that row - see
-    [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)).
+    [`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)).
   - `correlation_matrices` - a list of correlation matrices keyed by
     `genhz`, with row/column names drawn from (a subset of)
     `c("db", "wr_3b", "wr_15b", "ilr1", "ilr2", "rfv", "ph", "cec", "soc")`.
@@ -162,7 +162,7 @@ which are not tied to the compositional-simulation machinery.
   correlation matrix, these are converted to ILR coordinates via
   [`ilr_forward()`](https://jjmaynard.github.io/soilSIM/reference/ilr_forward.md),
   and the resulting `ilr1`/`ilr2` vectors are collapsed to
-  `(min, calculate_mode(), max)` triples to serve as ordinary
+  `(min, compute_mode(), max)` triples to serve as ordinary
   triangular-distribution parameters for the *main* simulation. All
   recognized parameters (property triplets plus, if present,
   `ilr1`/`ilr2`) are then simulated jointly in a single
@@ -180,9 +180,9 @@ which are not tied to the compositional-simulation machinery.
   [`rbind()`](https://rdrr.io/r/base/cbind.html)-ed into the final data
   frame.
 
-### depth-simulation.R
+### core-simulation.R
 
-#### `get_aws_data_by_mukey(mukeys)`
+#### `fetch_ssurgo_aws_data(mukeys)`
 
 - **Parameters**: `mukeys` - a vector of string or numeric map unit
   keys.
@@ -199,7 +199,7 @@ which are not tied to the compositional-simulation machinery.
   re-merged onto the main result and deduplicated. Deliberately does
   *not* reuse
   [`execute_ssurgo_query_working()`](https://jjmaynard.github.io/soilSIM/reference/execute_ssurgo_query_working.md)
-  (`R/ssurgo-acquisition.R`): that function only selects
+  (`R/adapter-ssurgo-acquire.R`): that function only selects
   `chf.fragsize_r`, never `chf.fragvol_l/r/h`, so its rock fragment path
   produces no data - delegating to it here would silently drop rock
   fragment volume.
@@ -268,7 +268,7 @@ which are not tied to the compositional-simulation machinery.
   fixtures) where a naive exact-case join against `hz_data$compname`
   silently produced all-`NA` `bound_sd` for every row. Wired into
   [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
-  (`ssurgo-simulation.R`) immediately after
+  (`adapter-ssurgo-simulate.R`) immediately after
   [`classify_genhz()`](https://jjmaynard.github.io/soilSIM/reference/classify_genhz.md);
   unconditional, so `bound_sd` (all-`NA` or resolved) is always present
   in that pipeline’s output regardless of whether the joint-copula
@@ -401,7 +401,7 @@ which are not tied to the compositional-simulation machinery.
       perturbation cannot push a horizon boundary outside its originally
       observed low/high range.
 
-#### `simulate_profile_depths_by_collection(soil_collection, seed = 123)`
+#### `simulate_profile_depths(soil_collection, seed = 123)`
 
 - **Parameters**:
   - `soil_collection` - a multi-profile
@@ -415,7 +415,7 @@ which are not tied to the compositional-simulation machinery.
   on each one-profile subset and combining all results via
   [`aqp::combine()`](https://ncss-tech.github.io/aqp/reference/combine-SoilProfileCollection-method.html).
 
-#### `simulate_profile_depths_by_collection_parallel(soil_collection, seed = 123, n_cores = 6)`
+#### `simulate_profile_depths(soil_collection, seed = 123, n_cores = 6)`
 
 - **Parameters**:
   - `soil_collection` - a multi-profile
@@ -443,7 +443,7 @@ which are not tied to the compositional-simulation machinery.
   if `soilSIM` is installed and attached in the calling session (not
   merely `devtools::load_all()`’d).
 
-#### `simulate_profile_depths_by_mukey(mukey, n_simulations = 100, seed = 123)`
+#### `simulate_profile_depths(mukey, n_simulations = 100, seed = 123)`
 
 - **Parameters**:
   - `mukey` - string or numeric map unit key to query.
@@ -453,7 +453,7 @@ which are not tied to the compositional-simulation machinery.
 - **Returns**: A combined `SoilProfileCollection` of simulated/perturbed
   profiles for every component in the mukey.
 - **Behavior**: Queries
-  [`get_aws_data_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/get_aws_data_by_mukey.md)
+  [`fetch_ssurgo_aws_data()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_aws_data.md)
   for the mukey, errors if no data is returned, sets the seed, derives
   an `id` column from `compname` (required because
   [`query_osd_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/query_osd_distinctness.md)
@@ -491,13 +491,13 @@ which are not tied to the compositional-simulation machinery.
 
 ## Internal Connections
 
-    property-simulation.R
+    core-simulation.R
     ======================
-    tri_dist() [R/distributions.R]
+    tri_dist() [R/core-distributions.R]
         │
-        ├──► sim_component_comp() ──► one row per cokey, + sim_comppct
+        ├──► simulate_component_composition() ──► one row per cokey, + sim_comppct
         │
-        └──► simulate_correlated_triangular() ◄── ilr_forward()/ilr_inverse() [R/distributions.R]
+        └──► simulate_correlated_triangular() ◄── ilr_forward()/ilr_inverse() [R/core-distributions.R]
                       │                                (texture only)
                       ▼
              simulate_cokey_generalized() ──► one row per horizon x realization,
@@ -506,40 +506,40 @@ which are not tied to the compositional-simulation machinery.
 
     remove_organic_layer() ─────────────────► standalone horizon-cleanup helper
     slice_and_aggregate_soil_data() ────────► standalone depth-binning helper
-    calculate_mode() ────────────────────────► used inside simulate_cokey_generalized()
+    compute_mode() ────────────────────────► used inside simulate_cokey_generalized()
                                                 (collapses simulated ILR draws to a
                                                 triangular-mode parameter)
 
 
-        sim_component_comp() output (per-cokey sim_comppct)
+        simulate_component_composition() output (per-cokey sim_comppct)
                       │
-                      │   dplyr::left_join(horizon_data, sim_component_comp(component_data),
+                      │   dplyr::left_join(horizon_data, simulate_component_composition(component_data),
                       │                    by = "cokey")
                       ▼
         horizon-level data now carrying sim_comppct on every row
                       │
                       ▼
 
-    depth-simulation.R
+    core-simulation.R
     ======================
-    get_aws_data_by_mukey() ──► raw SSURGO horizon data (SDA_query)
+    fetch_ssurgo_aws_data() ──► raw SSURGO horizon data (SDA_query)
                       │
                       ▼
-       sim_component_comp() + dplyr::left_join(by = "cokey")   (performed internally
-                      │                                         by simulate_profile_depths_by_mukey()
+       simulate_component_composition() + dplyr::left_join(by = "cokey")   (performed internally
+                      │                                         by simulate_profile_depths()
                       ▼                                         as of the sim_comppct integration fix)
-       simulate_profile_depths_by_mukey()  ──┐
+       simulate_profile_depths()  ──┐
                       │                       │  (per-component profile loop)
                       ▼                       │
-       simulate_profile_depths_by_collection()│
-       simulate_profile_depths_by_collection_parallel()
+       simulate_profile_depths()│
+       simulate_profile_depths()
                       │                       │
                       └───────────────────────┘
                       ▼
           simulate_and_perturb_soil_profiles()   *** still requires horizons$sim_comppct
                                                       to already be present - callers who use
                                                       this function directly (not via
-                                                      simulate_profile_depths_by_mukey()) must
+                                                      simulate_profile_depths()) must
                                                       still perform the join themselves ***
                       │
                       ├──► simulate_soil_profile_thickness()
@@ -570,80 +570,80 @@ which are not tied to the compositional-simulation machinery.
   [`aqp::hzDistinctnessCodeToOffset()`](https://ncss-tech.github.io/aqp/reference/hzDistinctnessCodeToOffset.html),
   [`aqp::perturb()`](https://ncss-tech.github.io/aqp/reference/perturb.html),
   [`aqp::combine()`](https://ncss-tech.github.io/aqp/reference/combine-SoilProfileCollection-method.html),
-  `aqp::profile_id<-`) - used throughout `depth-simulation.R` only;
-  `property-simulation.R` has no `aqp` dependency.
+  `aqp::profile_id<-`) - used throughout `core-simulation.R` only;
+  `core-simulation.R` has no `aqp` dependency.
 - **`soilDB`** -
   [`soilDB::SDA_query()`](http://ncss-tech.github.io/soilDB/reference/SDA_query.md)
-  ([`get_aws_data_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/get_aws_data_by_mukey.md))
+  ([`fetch_ssurgo_aws_data()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_aws_data.md))
   and
   [`soilDB::fetchOSD()`](http://ncss-tech.github.io/soilDB/reference/fetchOSD.md)
   ([`query_osd_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/query_osd_distinctness.md))
   for live SSURGO/OSD database access.
 - **`future` / `future.apply`** - parallel dispatch backend for
-  [`simulate_profile_depths_by_collection_parallel()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths_by_collection_parallel.md)
+  [`simulate_profile_depths()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths.md)
   (`future::plan(future::multisession)`,
   [`future.apply::future_lapply()`](https://future.apply.futureverse.org/reference/future_lapply.html)).
 - **`dplyr`** - data manipulation throughout both files (`group_by`,
   `mutate`, `left_join`, `select`, `summarise`, `rowwise`, etc.).
-- **`R/distributions.R`** (soilSIM internal) -
+- **`R/core-distributions.R`** (soilSIM internal) -
   [`tri_dist()`](https://jjmaynard.github.io/soilSIM/reference/tri_dist.md)
   (used by both files:
-  [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)/[`simulate_correlated_triangular()`](https://jjmaynard.github.io/soilSIM/reference/simulate_correlated_triangular.md)
-  in `property-simulation.R`; all four depth-simulation functions in
-  `depth-simulation.R`) and
+  [`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)/[`simulate_correlated_triangular()`](https://jjmaynard.github.io/soilSIM/reference/simulate_correlated_triangular.md)
+  in `core-simulation.R`; all four depth-simulation functions in
+  `core-simulation.R`) and
   [`ilr_forward()`](https://jjmaynard.github.io/soilSIM/reference/ilr_forward.md)/[`ilr_inverse()`](https://jjmaynard.github.io/soilSIM/reference/ilr_inverse.md)
   (used only by
   [`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md)
   for compositional texture handling).
-- **`R/ssurgo-acquisition.R` / `R/ssurgo-processing.R`** (soilSIM
-  internal) - upstream SSURGO data-source adapters;
-  [`get_aws_data_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/get_aws_data_by_mukey.md)
+- **`R/adapter-ssurgo-acquire.R` / `R/adapter-ssurgo-process.R`**
+  (soilSIM internal) - upstream SSURGO data-source adapters;
+  [`fetch_ssurgo_aws_data()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_aws_data.md)
   in this group duplicates rather than reuses
   [`execute_ssurgo_query_working()`](https://jjmaynard.github.io/soilSIM/reference/execute_ssurgo_query_working.md)’s
   query (see that function’s docs for why), but both ultimately query
   the same underlying SSURGO tables.
 - **Downstream consumers**:
-  - **`R/ssurgo-simulation.R`’s
+  - **`R/adapter-ssurgo-simulate.R`’s
     [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)**
     is a real, live in-package consumer of this group: it calls
     [`remove_organic_layer()`](https://jjmaynard.github.io/soilSIM/reference/remove_organic_layer.md)
     and
-    [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
+    [`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)
     directly, performs the `sim_comppct` component-to-horizon join
     itself, then calls
     [`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md)
-    per cokey - i.e. it exercises exactly the `property-simulation.R`
-    half of this group (component composition + per-cokey property
+    per cokey - i.e. it exercises exactly the `core-simulation.R` half
+    of this group (component composition + per-cokey property
     simulation) as part of the multi-source raster fusion pipeline’s
-    SSURGO adapter (prior-side data for `R/raster-fusion.R`’s
+    SSURGO adapter (prior-side data for `R/core-fusion.R`’s
     [`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md)/[`fuse_texture_group()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group.md)).
-    It does **not** call anything in `depth-simulation.R`.
-  - **AWS / van Genuchten modeling** (`R/aws-simulation.R`) is
-    documented in `R/soilSIM-package.R` as conceptually downstream in
-    the pipeline (depth- sliced, depth-simulated profiles feeding
+    It does **not** call anything in `core-simulation.R`.
+  - **AWS / van Genuchten modeling** (`R/model-aws.R`) is documented in
+    `R/soilSIM-package.R` as conceptually downstream in the pipeline
+    (depth- sliced, depth-simulated profiles feeding
     available-water-storage estimation), but there is no direct
-    function-level call between `depth-simulation.R` and
-    `aws-simulation.R` in the current codebase - `aws-simulation.R`’s
-    own header notes it is self-contained and does not depend on
-    [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
+    function-level call between `core-simulation.R` and `model-aws.R` in
+    the current codebase - `model-aws.R`’s own header notes it is
+    self-contained and does not depend on
+    [`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)
     or any other helper from this group.
 
 ## Data Flow In/Out
 
 **In:** - SSURGO component data (`mukey`, `cokey`, `compname`,
 `comppct_l/r/h`) - input to
-[`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md). -
+[`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md). -
 SSURGO horizon data (`hzname`, texture/bulk-density/water-retention/RFV/
 pH/CEC/OM `_l/_r/_h` triplets, `genhz`) - input to
 [`simulate_cokey_generalized()`](https://jjmaynard.github.io/soilSIM/reference/simulate_cokey_generalized.md),
-[`get_aws_data_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/get_aws_data_by_mukey.md),
+[`fetch_ssurgo_aws_data()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_aws_data.md),
 and the depth- simulation functions. - OSD (Official Series Description)
 horizon distinctness data, fetched live via
 [`soilDB::fetchOSD()`](http://ncss-tech.github.io/soilDB/reference/fetchOSD.md)
 inside
 [`query_osd_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/query_osd_distinctness.md). -
 A `mukey` (string/numeric) - sole input to
-[`simulate_profile_depths_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths_by_mukey.md),
+[`simulate_profile_depths()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths.md),
 which internally queries SSURGO. - An existing
 [`aqp::SoilProfileCollection`](https://ncss-tech.github.io/aqp/reference/SoilProfileCollection-class.html) -
 input to
@@ -652,7 +652,7 @@ and the collection-level orchestration functions.
 
 **Out:** - Simulated component percentages: one row per component with a
 `sim_comppct` column
-([`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)). -
+([`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)). -
 Simulated per-cokey property realizations: one row per horizon x
 realization, with simulated bulk density/water retention/texture/RFV/pH/
 CEC/OM columns plus identifying columns
@@ -672,27 +672,28 @@ out-of-range simulated depths
 - **[`simulate_and_perturb_soil_profiles()`](https://jjmaynard.github.io/soilSIM/reference/simulate_and_perturb_soil_profiles.md)** -
   requires `soil_profile`’s horizons to already carry a `sim_comppct`
   column (used to derive `n_simulations`);
-  [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
+  [`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)
   produces this column but at per-**component** grain, not
   per-**horizon** grain, so callers who use this function *directly*
   (not via
-  [`simulate_profile_depths_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths_by_mukey.md))
+  [`simulate_profile_depths()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths.md))
   must still
   [`dplyr::left_join()`](https://dplyr.tidyverse.org/reference/mutate-joins.html)
   the two by `cokey` before calling it, or it errors with a
   missing-column condition. This part of the contract is unchanged.
-- ~~**[`simulate_profile_depths_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths_by_mukey.md)** -
+- ~~**[`simulate_profile_depths()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths.md)** -
   has the same underlying `sim_comppct` requirement but does not itself
   call
-  [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)
+  [`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)
   or perform the component-to-horizon join~~ **Fixed**: this function
-  now calls `sim_component_comp(mu_data, n_simulations = n_simulations)`
+  now calls
+  `simulate_component_composition(mu_data, n_simulations = n_simulations)`
   and left-joins the result onto every horizon row by `cokey`
-  internally, mirroring the same pattern `R/ssurgo-simulation.R`’s
+  internally, mirroring the same pattern `R/adapter-ssurgo-simulate.R`’s
   [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
   uses for the property-simulation path. Its `n_simulations` parameter
   flows into
-  [`sim_component_comp()`](https://jjmaynard.github.io/soilSIM/reference/sim_component_comp.md)’s
+  [`simulate_component_composition()`](https://jjmaynard.github.io/soilSIM/reference/simulate_component_composition.md)’s
   own `n_simulations` argument (number of triangular draws per
   component).
 
@@ -700,17 +701,17 @@ out-of-range simulated depths
 
 ``` r
 
-# simulate_profile_depths_by_mukey() now derives and joins sim_comppct
-# internally (sim_component_comp() -> left_join by cokey), so a direct call
+# simulate_profile_depths() now derives and joins sim_comppct
+# internally (simulate_component_composition() -> left_join by cokey), so a direct call
 # is sufficient - no manual join step required:
-simulated_profiles <- simulate_profile_depths_by_mukey(
+simulated_profiles <- simulate_profile_depths(
   mukey = "123456", n_simulations = 1000, seed = 123
 )
 
 # Calling simulate_and_perturb_soil_profiles() directly (bypassing
-# simulate_profile_depths_by_mukey()) still requires the manual join, since
+# simulate_profile_depths()) still requires the manual join, since
 # that lower-level function's own contract hasn't changed:
-component_data <- sim_component_comp(ssurgo_component_data, n_simulations = 1000)
+component_data <- simulate_component_composition(ssurgo_component_data, n_simulations = 1000)
 horizon_data <- dplyr::left_join(
   ssurgo_horizon_data,
   component_data[, c("cokey", "sim_comppct")],

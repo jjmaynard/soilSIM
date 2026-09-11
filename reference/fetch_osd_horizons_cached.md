@@ -3,16 +3,16 @@
 [`soilDB::fetchOSD()`](http://ncss-tech.github.io/soilDB/reference/fetchOSD.md)
 is a live network call. Multiple profiles/components in the same
 mukey/AOI frequently share the same series name (e.g.
-[`simulate_profile_depths_by_mukey()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths_by_mukey.md)
+[`simulate_profile_depths()`](https://jjmaynard.github.io/soilSIM/reference/simulate_profile_depths.md)
 calls
 [`query_osd_distinctness()`](https://jjmaynard.github.io/soilSIM/reference/query_osd_distinctness.md)
 once per component), so fetching unconditionally on every call
 re-requests identical data redundantly. This wrapper caches each series'
 raw `id`/`hzname`/`distinctness` rows on disk - the same
 [`cache_get()`](https://jjmaynard.github.io/soilSIM/reference/cache_get.md)/[`cache_set()`](https://jjmaynard.github.io/soilSIM/reference/cache_set.md)
-mechanism `R/raster-cache.R` already uses for AOI-keyed raster fetches,
-just with a series-name-keyed cache key instead - fetching only the
-series not already cached.
+mechanism `R/cache.R` already uses for AOI-keyed raster fetches, just
+with a series-name-keyed cache key instead - fetching only the series
+not already cached.
 
 ## Usage
 

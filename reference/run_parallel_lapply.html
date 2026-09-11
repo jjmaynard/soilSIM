@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">soilSIM</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -60,7 +60,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Run a Function Over a List/Vector, in Parallel via <code>future.apply</code>, with Sequential Fallback</h1>
-      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/parallel-utils.R" class="external-link"><code>R/parallel-utils.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/jjmaynard/soilSIM/blob/main/R/parallel.R" class="external-link"><code>R/parallel.R</code></a></small>
       <div class="d-none name"><code>run_parallel_lapply.Rd</code></div>
     </div>
 
@@ -132,7 +132,7 @@ Ignored when <code>catch_errors = FALSE</code>.</p></dd>
 <code>sequential_fallback</code> contract above on error. If <code>FALSE</code>, dispatch errors propagate to the
 caller's own error handling instead (plan setup/restoration via <code><a href="https://rdrr.io/r/base/on.exit.html" class="external-link">on.exit()</a></code> still happens
 regardless) - needed for callers whose own contract is "no sequential fallback, propagate/
-convert the error myself" (e.g. <code><a href="simulate_profile_depths_by_collection_parallel.html">simulate_profile_depths_by_collection_parallel()</a></code>, which
+convert the error myself" (e.g. <code>simulate_profile_depths(parallel = TRUE)</code>, which
 returns <code>NULL</code> on error via its own outer <code><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch()</a></code>).</p></dd>
 
 </dl></div>

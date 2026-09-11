@@ -28,12 +28,3 @@ evaluate_simulated_depths(simulated_profiles, horizon_data)
 
 A data frame containing rows (horizons) where the simulated depths are
 out of range.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-  out_of_range <- evaluate_simulated_depths(simulated_profiles, horizon_data)
-  head(out_of_range)
-} # }
-```

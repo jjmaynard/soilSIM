@@ -5,19 +5,18 @@
 The other vignettes in this package (`getting-started-monte-carlo.Rmd`,
 `raster-fusion-ssurgo-solus.Rmd`) walk through top-level *pipeline*
 functions end to end. This vignette instead zooms in on a single
-thematic group of low-level, pure-math functions -
-`R/bayesian-updating.R` - and works through each one individually: what
-it computes, what each parameter controls, and how varying that
-parameter changes the result. It is the finer-grained, “read the
-primitives” companion to `raster-fusion-ssurgo-solus.Rmd`, which
-exercises this exact math implicitly (raster-native, cell by cell)
-inside its fusion pipeline but never isolates it. See the “Bayesian
-Updating” architecture article for the full function-level reference
-this vignette is based on.
+thematic group of low-level, pure-math functions - `R/core-fusion.R` -
+and works through each one individually: what it computes, what each
+parameter controls, and how varying that parameter changes the result.
+It is the finer-grained, “read the primitives” companion to
+`raster-fusion-ssurgo-solus.Rmd`, which exercises this exact math
+implicitly (raster-native, cell by cell) inside its fusion pipeline but
+never isolates it. See the “Bayesian Updating” architecture article for
+the full function-level reference this vignette is based on.
 
-`bayesian-updating.R` fuses a **prior** belief about a soil property
-(e.g. an SSURGO-derived estimate) with a **likelihood** - newly observed
-data (e.g. lab or field measurements) - into a **posterior** belief that
+`core-fusion.R` fuses a **prior** belief about a soil property (e.g. an
+SSURGO-derived estimate) with a **likelihood** - newly observed data
+(e.g. lab or field measurements) - into a **posterior** belief that
 combines both, weighted by how confident (precise) each side is. All
 examples below use small, clearly-labeled synthetic prior/likelihood
 values - no network access or real SSURGO/SOLUS data is needed for this
@@ -25,12 +24,12 @@ vignette.
 
 Steps:
 
-1.  [`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md) -
+1.  [`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md) -
     exact closed-form Normal-Normal fusion, worked example plus a
     sensitivity sweep over relative precision.
-2.  [`normal_to_lognormal_params()`](https://jjmaynard.github.io/soilSIM/reference/normal_to_lognormal_params.md)
+2.  [`convert_normal_to_lognormal()`](https://jjmaynard.github.io/soilSIM/reference/convert_normal_to_lognormal.md)
     /
-    [`lognormal_to_normal_params()`](https://jjmaynard.github.io/soilSIM/reference/lognormal_to_normal_params.md) -
+    [`convert_lognormal_to_normal()`](https://jjmaynard.github.io/soilSIM/reference/convert_lognormal_to_normal.md) -
     fusing a right-skewed, strictly positive property (organic matter)
     safely, in log-space.
 3.  [`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)
@@ -43,8 +42,8 @@ Steps:
     the 2D generalization, illustrated on a joint clay/sand/silt (ILR)
     example.
 5.  The dispatchers
-    [`bayes_fuse()`](https://jjmaynard.github.io/soilSIM/reference/bayes_fuse.md),
-    [`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md),
+    [`fuse_distribution()`](https://jjmaynard.github.io/soilSIM/reference/fuse_distribution.md),
+    [`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md),
     and
     [`fuse_property()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property.md) -
     how they route to the right method.
@@ -55,7 +54,7 @@ library(soilSIM)
 library(ggplot2)
 ```
 
-## Step 1: `bayes_update_normal_normal()` - exact Normal-Normal fusion
+## Step 1: `fuse_normal_normal()` - exact Normal-Normal fusion
 
 **Purpose**: fuse a Normal prior `N(prior_mu, prior_sigma)` with a
 Normal likelihood `N(lik_mu, lik_sigma)` into a Normal posterior, via
@@ -70,7 +69,7 @@ precision, i.e. it represents a more confident belief.
   in the same units.
 
 All four arguments are plain numeric scalars or equal-length vectors
-(the function is fully vectorized, which is what lets `raster-fusion.R`
+(the function is fully vectorized, which is what lets `core-fusion.R`
 reuse it unchanged across every cell of a `SpatRaster`).
 
 ### A worked example
@@ -84,7 +83,7 @@ of new samples at the same location:
 prior_clay <- list(mu = 22, sigma = 6)   # SSURGO-derived prior belief
 lik_clay   <- list(mu = 30, sigma = 3)   # hypothetical lab observation, more precise than the prior
 
-posterior_clay <- bayes_update_normal_normal(
+posterior_clay <- fuse_normal_normal(
   prior_mu = prior_clay$mu, prior_sigma = prior_clay$sigma,
   lik_mu = lik_clay$mu, lik_sigma = lik_clay$sigma
 )
@@ -116,7 +115,7 @@ labels, only the (mu, sigma) pairs:
 
 ``` r
 
-swapped <- bayes_update_normal_normal(
+swapped <- fuse_normal_normal(
   prior_mu = lik_clay$mu, prior_sigma = lik_clay$sigma,
   lik_mu = prior_clay$mu, lik_sigma = prior_clay$sigma
 )
@@ -180,7 +179,7 @@ sweep_cases <- data.frame(
 )
 
 sweep_results <- do.call(rbind, lapply(seq_len(nrow(sweep_cases)), function(i) {
-  post <- bayes_update_normal_normal(prior_mu, prior_sigma, lik_mu, sweep_cases$lik_sigma[i])
+  post <- fuse_normal_normal(prior_mu, prior_sigma, lik_mu, sweep_cases$lik_sigma[i])
   data.frame(
     case = sweep_cases$case[i],
     lik_sigma = sweep_cases$lik_sigma[i],
@@ -219,21 +218,21 @@ ggplot(sweep_results, aes(x = reorder(case, lik_sigma), y = posterior_mu)) +
 
 ![](bayesian-updating_files/figure-html/unnamed-chunk-7-1.png)
 
-## Step 2: fusing a right-skewed property safely - `normal_to_lognormal_params()` / `lognormal_to_normal_params()`
+## Step 2: fusing a right-skewed property safely - `convert_normal_to_lognormal()` / `convert_lognormal_to_normal()`
 
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md)
 assumes both sides are Normal. That’s a problem for strictly-positive,
 right-skewed properties like organic matter (OM) or CEC: if a property’s
 sigma is large relative to its mean, treating it as Normal and fusing
 directly can place real posterior probability mass *below zero*, which
 is physically impossible for a percentage or concentration.
 
-`normal_to_lognormal_params(mu, sigma)` moment-matches a raw-space
+`convert_normal_to_lognormal(mu, sigma)` moment-matches a raw-space
 Lognormal’s mean/sd onto the `mu`/ `sigma` of its underlying (log-space)
 Normal, so
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md)
 can be reused unchanged in log-space;
-`lognormal_to_normal_params(mu_log, sigma_log)` is its exact algebraic
+`convert_lognormal_to_normal(mu_log, sigma_log)` is its exact algebraic
 inverse, converting the fused log-space posterior back to raw-space
 mean/sd.
 
@@ -254,8 +253,8 @@ first:
 
 ``` r
 
-prior_om_log <- normal_to_lognormal_params(prior_om$mu, prior_om$sigma)
-lik_om_log <- normal_to_lognormal_params(lik_om$mu, lik_om$sigma)
+prior_om_log <- convert_normal_to_lognormal(prior_om$mu, prior_om$sigma)
+lik_om_log <- convert_normal_to_lognormal(lik_om$mu, lik_om$sigma)
 prior_om_log
 #> $mu
 #> [1] 0.9147499
@@ -276,10 +275,10 @@ space:
 
 ``` r
 
-posterior_om_log <- bayes_update_normal_normal(
+posterior_om_log <- fuse_normal_normal(
   prior_om_log$mu, prior_om_log$sigma, lik_om_log$mu, lik_om_log$sigma
 )
-posterior_om <- lognormal_to_normal_params(posterior_om_log$mu, posterior_om_log$sigma)
+posterior_om <- convert_lognormal_to_normal(posterior_om_log$mu, posterior_om_log$sigma)
 posterior_om
 #> $mu
 #> [1] 5.15803
@@ -288,15 +287,15 @@ posterior_om
 #> [1] 0.898317
 ```
 
-[`lognormal_to_normal_params()`](https://jjmaynard.github.io/soilSIM/reference/lognormal_to_normal_params.md)
+[`convert_lognormal_to_normal()`](https://jjmaynard.github.io/soilSIM/reference/convert_lognormal_to_normal.md)
 is the exact inverse of
-[`normal_to_lognormal_params()`](https://jjmaynard.github.io/soilSIM/reference/normal_to_lognormal_params.md) -
+[`convert_normal_to_lognormal()`](https://jjmaynard.github.io/soilSIM/reference/convert_normal_to_lognormal.md) -
 round-tripping raw-space parameters through both functions returns the
 original values, up to floating-point precision:
 
 ``` r
 
-roundtrip <- lognormal_to_normal_params(prior_om_log$mu, prior_om_log$sigma)
+roundtrip <- convert_lognormal_to_normal(prior_om_log$mu, prior_om_log$sigma)
 all.equal(roundtrip, prior_om)
 #> [1] TRUE
 ```
@@ -322,7 +321,7 @@ om_dist_df <- rbind(
 om_dist_df$source <- factor(om_dist_df$source,
   levels = c("Prior (Lognormal)", "Likelihood (Lognormal)", "Posterior (Lognormal)"))
 
-naive_posterior_om <- bayes_update_normal_normal(prior_om$mu, prior_om$sigma, lik_om$mu, lik_om$sigma)
+naive_posterior_om <- fuse_normal_normal(prior_om$mu, prior_om$sigma, lik_om$mu, lik_om$sigma)
 
 ggplot(om_dist_df, aes(x = x, y = density, color = source, fill = source)) +
   geom_area(alpha = 0.25, position = "identity") +
@@ -376,7 +375,7 @@ requirement for the result to remain a valid distribution.
 
 A hypothetical prior and likelihood belief about water-saturation
 fraction, both expressed as Beta parameters (moment-matched via
-[`moments_to_beta()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_beta.md)
+[`convert_moments_to_beta()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_beta.md)
 from an assumed mean/variance, so the shapes are concrete and
 interpretable):
 
@@ -385,8 +384,8 @@ interpretable):
 prior_sat_moments <- list(mean = 0.35, var = 0.02^2)
 lik_sat_moments <- list(mean = 0.50, var = 0.01^2)
 
-prior_sat_beta <- moments_to_beta(prior_sat_moments$mean, prior_sat_moments$var)
-lik_sat_beta <- moments_to_beta(lik_sat_moments$mean, lik_sat_moments$var)
+prior_sat_beta <- convert_moments_to_beta(prior_sat_moments$mean, prior_sat_moments$var)
+lik_sat_beta <- convert_moments_to_beta(lik_sat_moments$mean, lik_sat_moments$var)
 prior_sat_beta
 #> $alpha
 #> [1] 198.7125
@@ -414,7 +413,7 @@ posterior_sat_beta
 #> [1] TRUE
 ```
 
-[`beta_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/beta_to_moments.md)
+[`convert_beta_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/convert_beta_to_moments.md)
 converts the fused shape parameters back to an interpretable
 mean/variance, and is also the function used (on the *inputs*) if
 `feasible` had come back `FALSE`, to fall back to fusing in
@@ -422,7 +421,7 @@ Normal-moment space instead:
 
 ``` r
 
-beta_to_moments(posterior_sat_beta$alpha, posterior_sat_beta$beta)
+convert_beta_to_moments(posterior_sat_beta$alpha, posterior_sat_beta$beta)
 #> $mean
 #> [1] 0.4722123
 #> 
@@ -473,15 +472,15 @@ alpha/beta).
 A hypothetical prior/likelihood for saturated hydraulic conductivity
 (strictly positive, long right tail), again built via the Gamma
 method-of-moments helper
-[`moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_gamma.md):
+[`convert_moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_gamma.md):
 
 ``` r
 
 prior_ksat_moments <- list(mean = 15, var = 6^2)
 lik_ksat_moments <- list(mean = 8, var = 2^2)
 
-prior_ksat_gamma <- moments_to_gamma(prior_ksat_moments$mean, prior_ksat_moments$var)
-lik_ksat_gamma <- moments_to_gamma(lik_ksat_moments$mean, lik_ksat_moments$var)
+prior_ksat_gamma <- convert_moments_to_gamma(prior_ksat_moments$mean, prior_ksat_moments$var)
+lik_ksat_gamma <- convert_moments_to_gamma(lik_ksat_moments$mean, lik_ksat_moments$var)
 prior_ksat_gamma
 #> $shape
 #> [1] 6.25
@@ -507,7 +506,7 @@ posterior_ksat_gamma
 #> 
 #> $feasible
 #> [1] TRUE
-gamma_to_moments(posterior_ksat_gamma$shape, posterior_ksat_gamma$rate)
+convert_gamma_to_moments(posterior_ksat_gamma$shape, posterior_ksat_gamma$rate)
 #> $mean
 #> [1] 8.793103
 #> 
@@ -549,11 +548,11 @@ and
 are only valid when the fused shape parameters stay positive - if
 `feasible` comes back `FALSE` for some cell/case, the documented
 fallback is to re-express both sides as Normal moments
-([`beta_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/beta_to_moments.md)/[`gamma_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/gamma_to_moments.md)),
+([`convert_beta_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/convert_beta_to_moments.md)/[`convert_gamma_to_moments()`](https://jjmaynard.github.io/soilSIM/reference/convert_gamma_to_moments.md)),
 fuse with
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md),
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md),
 and convert the result back
-([`moments_to_beta()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_beta.md)/[`moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/moments_to_gamma.md)).
+([`convert_moments_to_beta()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_beta.md)/[`convert_moments_to_gamma()`](https://jjmaynard.github.io/soilSIM/reference/convert_moments_to_gamma.md)).
 This fallback is not automatic - a caller hitting `feasible == FALSE`
 must invoke it explicitly.
 
@@ -565,7 +564,7 @@ separate
 calls) measurably breaks that constraint.
 [`fuse_bivariate_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_bivariate_normal.md)
 is the direct multivariate generalization of
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md):
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md):
 precision *matrices* add instead of scalar precisions, which is what
 lets soilSIM fuse clay/sand/silt jointly in 2D isometric-log-ratio (ILR)
 space and get a fused composition that sums to 100 by construction.
@@ -579,7 +578,7 @@ space and get a fused composition that sums to 100 by construction.
 A small, illustrative example directly in ILR-coordinate space (not full
 clay/sand/silt triplets - that full workflow is
 [`fuse_texture_group_from_triplets()`](https://jjmaynard.github.io/soilSIM/reference/fuse_texture_group_from_triplets.md),
-which wraps this function together with `distributions.R`’s
+which wraps this function together with `core-distributions.R`’s
 [`estimate_ilr_moments_mc()`](https://jjmaynard.github.io/soilSIM/reference/estimate_ilr_moments_mc.md)/[`sample_ilr_posterior()`](https://jjmaynard.github.io/soilSIM/reference/sample_ilr_posterior.md);
 see the “Bayesian Updating” architecture article for that whole chain).
 Here we fuse two independent bivariate Normal beliefs about a 2D ILR
@@ -630,14 +629,14 @@ guaranteed, by construction, to sum to 100.
 `raster-fusion-ssurgo-solus.Rmd`’s “Step 2: Fuse a compositional group”
 demonstrates this full chain on real SSURGO/SOLUS100 rasters.
 
-## Step 5: the dispatchers - `bayes_fuse()`, `bayesian_update()`, `fuse_property()`
+## Step 5: the dispatchers - `fuse_distribution()`, `update_prior()`, `fuse_property()`
 
 Rather than calling
-[`bayes_update_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/bayes_update_normal_normal.md)/[`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)/[`fuse_gamma()`](https://jjmaynard.github.io/soilSIM/reference/fuse_gamma.md)
+[`fuse_normal_normal()`](https://jjmaynard.github.io/soilSIM/reference/fuse_normal_normal.md)/[`fuse_beta()`](https://jjmaynard.github.io/soilSIM/reference/fuse_beta.md)/[`fuse_gamma()`](https://jjmaynard.github.io/soilSIM/reference/fuse_gamma.md)
 directly, code often goes through one of three dispatchers that route to
 the right method automatically.
 
-### `bayes_fuse()` - same-family dispatcher
+### `fuse_distribution()` - same-family dispatcher
 
 **Purpose**: pick the right closed-form `fuse_*()` function based on a
 `family` argument, given both sides’ parameters as named lists.
@@ -650,13 +649,13 @@ the right method automatically.
 
 ``` r
 
-bayes_fuse(prior_clay, lik_clay, family = "normal")
+fuse_distribution(prior_clay, lik_clay, family = "normal")
 #> $mu
 #> [1] 28.4
 #> 
 #> $sigma
 #> [1] 2.683282
-bayes_fuse(list(alpha = prior_sat_beta$alpha, beta = prior_sat_beta$beta),
+fuse_distribution(list(alpha = prior_sat_beta$alpha, beta = prior_sat_beta$beta),
            list(alpha = lik_sat_beta$alpha, beta = lik_sat_beta$beta),
            family = "beta")
 #> $alpha
@@ -674,11 +673,11 @@ It is a plain [`switch()`](https://rdrr.io/r/base/switch.html) on
 be fit in the same family; there’s no closed form for fusing mismatched
 families.
 
-### `bayesian_update()` - fully general grid-KDE fusion
+### `update_prior()` - fully general grid-KDE fusion
 
 **Purpose**: when no distributional family fits cleanly, or the two
 sides are in different families,
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)
 fuses raw samples (not parameters) on a shared value grid via kernel
 density estimation - fully general, at higher computational cost than
 the closed-form tiers.
@@ -695,7 +694,7 @@ set.seed(42)
 prior_samples <- rnorm(500, mean = prior_clay$mu, sd = prior_clay$sigma)
 lik_samples <- rnorm(30, mean = lik_clay$mu, sd = lik_clay$sigma)
 
-posterior_samples <- bayesian_update(prior_samples, lik_samples, grid_resolution = 0.01, n = 1000)
+posterior_samples <- update_prior(prior_samples, lik_samples, grid_resolution = 0.01, n = 1000)
 mean(posterior_samples)
 #> [1] 28.17379
 sd(posterior_samples)
@@ -715,7 +714,7 @@ posterior_clay$sigma
 
 The sample-based mean/sd approximate the closed-form values, as
 expected -
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)
 is the fully general fallback for cases the closed-form tiers can’t
 handle (arbitrary shapes, mismatched families), not a routine substitute
 for them.
@@ -733,16 +732,16 @@ parameter-list route; `bounds` - unused, kept for interface symmetry;
 `method` - optional assertion (`"general"` or `"closed_form"`); errors
 if it doesn’t match what the input shape implies. `n_samples`,
 `grid_resolution` - passed through to
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md).
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md).
 
 ``` r
 
-# Vector inputs -> routes to bayesian_update() (the general route)
+# Vector inputs -> routes to update_prior() (the general route)
 fuse_property(prior_samples, lik_samples, n_samples = 500) |> (\(s) c(mean = mean(s), sd = sd(s)))()
 #>     mean       sd 
 #> 28.06634  2.80318
 
-# Parameter-list inputs -> routes to bayes_fuse() (the closed-form route)
+# Parameter-list inputs -> routes to fuse_distribution() (the closed-form route)
 fuse_property(prior_clay, lik_clay, family = "normal")
 #> $mu
 #> [1] 28.4
@@ -760,16 +759,16 @@ is an error rather than a silent override:
 ``` r
 
 fuse_property(prior_clay, lik_clay, family = "normal", method = "general")
-#> Error in `fuse_property()`:
+#> Error in `fuse_property.default()`:
 #> ! fuse_property(): method = 'general' was requested but the input shape implies 'closed_form' - pass matching inputs or omit method.
 ```
 
 ## Where this fits in soilSIM
 
-`bayesian-updating.R` is a standalone toolkit, intentionally not called
-anywhere in `monte-carlo.R` - these are independently-tested building
-blocks for a future “update an SSURGO-derived prior against
-observed/field data” feature. `R/raster-fusion.R` is the one place these
+`core-fusion.R` is a standalone toolkit, intentionally not called
+anywhere in `core-montecarlo.R` - these are independently-tested
+building blocks for a future “update an SSURGO-derived prior against
+observed/field data” feature. `R/core-fusion.R` is the one place these
 exact functions are already assembled into a complete pipeline, applying
 them unchanged to `SpatRaster` cell values (via `terra`’s operator
 overloading) rather than plain scalars/vectors - see

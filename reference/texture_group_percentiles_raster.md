@@ -2,7 +2,7 @@
 
 Draws `n_mc` bivariate-Normal ILR-space samples per cell from the fused
 `(mu1, mu2, S11, S12, S22)` posterior - the same distribution
-`R/distributions.R`'s
+`R/core-distributions.R`'s
 [`sample_ilr_posterior()`](https://jjmaynard.github.io/soilSIM/reference/sample_ilr_posterior.md)
 draws from in the scalar case, here vectorized raster-wide via
 [`terra::app()`](https://rspatial.github.io/terra/reference/app.html) -
@@ -14,7 +14,7 @@ convention exactly),
 the result to `(clay, sand, silt)` triples, then computes
 [`quantile()`](https://rdrr.io/r/stats/quantile.html) across draws per
 cell per fraction. Unlike
-[`bayesian_update()`](https://jjmaynard.github.io/soilSIM/reference/bayesian_update.md)'s
+[`update_prior()`](https://jjmaynard.github.io/soilSIM/reference/update_prior.md)'s
 grid-based routes, this posterior has no discretized-grid shortcut -
 it's a genuine bivariate Monte Carlo sampler, so `n_mc` is the only
 lever on percentile reliability here.
