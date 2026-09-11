@@ -23,3 +23,4 @@ water retention, RFV, pH, CEC, SOC, optional van Genuchten params), and, when te
 the optional \code{soiltexture} package are both available, the most probable USDA soil texture
 class.
 }
+\keyword{internal}

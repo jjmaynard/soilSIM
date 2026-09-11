@@ -16,3 +16,4 @@ Character string indicating category: "none", "low", "moderate",
 \description{
 Categorizes a rock fragment volume (RFV) percentage into standard ranges.
 }
+\keyword{internal}

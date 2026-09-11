@@ -26,3 +26,4 @@ Loaded configuration
 \description{
 Loads configuration from JSON or R files with validation and defaults.
 }
+\keyword{internal}

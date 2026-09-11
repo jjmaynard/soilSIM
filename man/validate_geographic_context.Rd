@@ -17,3 +17,4 @@ Geographic validation results
 \description{
 Additional validations specific to geographic (lat/lon) coordinates
 }
+\keyword{internal}

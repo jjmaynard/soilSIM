@@ -72,42 +72,23 @@ reference:
   desc: >
     The SSURGO adapter's tabular acquisition, cleaning, and infilling pipeline.
   contents:
-  - download_ssurgo_tabular
-  - build_ssurgo_property_lookup
-  - validate_download_inputs_ssurgo
-  - validate_download_inputs_ssurgo_with_config
-  - diagnose_ssurgo_download
-  - check_ssurgo_cache
-  - cache_ssurgo_data
-  - fetch_ssurgo_data
   - process_ssurgo_data
   - process_ssurgo_horizons
   - process_ssurgo_components
-  - prepare_ssurgo_for_infill
-  - clean_ssurgo_property_data
-  - compute_mukey_horizon_quantiles
   - process_soil_properties_comprehensive
-  - infill_soil_property
   - clean_property_data
   - default_property_config
   - create_custom_property_config
-  - validate_property_config
-  - rfv_range_category
-  - apply_property_constraints
   - create_validation_config
   - add_range_rule
   - add_relationship_rule
   - apply_validation_rules
   - summarize_unsuitable_horizons
-  - infill_property_range_values
   - learn_property_ranges
   - property_contextual_ranges
   - infill_missing_property_data
-  - infill_property_by_horizon_name
-  - infill_rfv_property_integrated
   - infill_water_retention_saxton_rawls_integrated
   - impute_rfv_values
-  - compute_saxton_rawls
 
 - title: Statistics & Diagnostics
   desc: Descriptive statistics, correlation analysis, and end-to-end workflow QA.
@@ -126,137 +107,61 @@ reference:
   - compute_property_statistics
   - distributions_for_properties
   - analyze_texture_correlations
-  - diagnose_workflow
-  - generate_validation_report
-  - assess_workflow_quality
-  - diagnose_simulation
-  - diagnose_simulation_coverage
-  - diagnose_distribution_fidelity
-  - diagnose_correlation_structures
-  - diagnose_correlation_preservation
-  - diagnose_within_depth_correlations
-  - diagnose_cholesky
-  - diagnose_gp_models
-  - diagnose_gp_performance
-  - diagnose_depth_trend_realism
-  - diagnose_gp_predictions
-  - diagnose_soil_science_realism
-  - diagnose_property_constraints
 
 - title: Distribution Fitting & Correlations
   desc: Percentile-triplet and arbitrary-percentile fitting, ILR transforms, correlation matrices (core).
   contents:
   - fit_normal_triplet
   - quantile_normal
-  - fit_beta_mom
   - fit_beta_mle_newton
-  - fit_beta_mle_newton_vec
   - quantile_beta
   - quantile_linear_cdf
   - quantile_triangular
-  - tri_dist
   - fit_metalog_linear
   - quantile_metalog_linear
-  - check_metalog_feasible
-  - quantile_metalog_with_fallback
   - resolve_property_family
   - fit_percentile_triplet
   - quantile_from_fit
-  - validate_fit_parameters
   - ilr_forward
   - ilr_inverse
-  - estimate_ilr_moments_mc
-  - sample_ilr_posterior
   - ensure_positive_definite_matrix
   - validate_correlation_matrix
-  - estimate_correlation_matrix_robust
-  - resolve_composition_groups
-  - restore_composition_properties
-  - simulate_from_percentiles
-  - generate_inverse_cdf_distribution
   - compare_percentile_methods
-  - compute_summary_statistics
-  - validate_percentile_methods_synthetic
   - classify_genhz
-  - build_kssl_fallback_matrix
 
 - title: Monte Carlo Simulation
   desc: Correlated Monte Carlo simulation engine (core).
   contents:
   - simulate_monte_carlo
-  - simulate_correlated_properties
-  - simulate_component_compositions_batch
-  - setup_distributions
-  - prepare_simulation_parameters
-  - fuse_observed_data_into_priors
-  - configure_correlation_structure
-  - apply_simulation_constraints
-  - validate_monte_carlo_inputs
-  - validate_simulation_output
   - default_monte_carlo_config
-  - normalize_monte_carlo_config
-  - validate_monte_carlo_config
-  - prepare_simulation_data
-  - extract_property_parameters
-  - estimate_property_correlations
 
 - title: GP Depth Modeling & Multivariate Adjustment
   desc: Gaussian-process depth-trend modeling and Monte Carlo/GP integration (core).
   contents:
   - prepare_nrcs_training_data
   - select_optimal_grouping
-  - validate_training_groups
   - fit_depth_gp_models
   - fit_individual_gp_model
   - adjust_simulation_depthwise
-  - validate_correlation_preservation
-  - simulate_soil_properties
-  - match_soils_to_gp_models
   - predict_gp_depth_trends
   - validate_gp_models
-  - apply_depth_gp_to_simulation
   - apply_gp_depth_trends
-  - preserve_correlation_structure
   - apply_nrcs_trend_adjustments
-  - match_simulations_to_nrcs_models
-  - extract_nrcs_depth_trends
   - apply_local_gp_adjustments
-  - fit_local_gp_models
   - fit_local_gp_model_single
-  - apply_local_depth_trends
   - convert_to_property_matrices
-  - convert_to_long_format
-  - validate_integration_results
-  - correct_distribution_shapes
 
 - title: Profile, Component & Depth Simulation
   desc: Component composition and horizon depth/thickness simulation.
   contents:
-  - remove_organic_layer
-  - slice_and_aggregate_soil_data
   - simulate_component_composition
-  - simulate_correlated_triangular
-  - compute_mode
-  - simulate_cokey_generalized
-  - fetch_ssurgo_aws_data
-  - query_osd_distinctness
-  - infill_missing_distinctness
-  - infill_missing_depth_variability
-  - simulate_soil_profile_top_down
-  - simulate_soil_profile_bottom_up
-  - simulate_soil_profile_thickness
-  - simulate_and_perturb_soil_profiles
   - simulate_profile_depths_by_collection
   - simulate_profile_depths_by_collection_parallel
-  - simulate_profile_depths_by_mukey
-  - evaluate_simulated_depths
 
 - title: AWS / Van Genuchten Modeling
   desc: Available water storage via ROSETTA pedotransfer parameters.
   contents:
   - van_genuchten
-  - simulate_vg_aws
-  - compute_aws
 
 - title: Bayesian Updating
   desc: Scalar Bayesian updating/fusion of a prior and observed data (core).
@@ -273,7 +178,6 @@ reference:
   - fuse_distribution
   - update_prior
   - fuse_bivariate_normal
-  - fuse_texture_group_from_triplets
   - fuse_property
 
 - title: Multi-Source Raster Fusion
@@ -281,7 +185,6 @@ reference:
   contents:
   - fit_normal_raster
   - quantile_normal_raster
-  - quantile_linear_cdf_raster
   - fit_beta_mom_raster
   - quantile_beta_mom_raster
   - fit_beta_mle_newton_raster
@@ -293,39 +196,12 @@ reference:
   - fit_gamma_mom_raster
   - align_percentile_probs
   - fuse_adaptive
-  - metalog_moments_raster
   - resolve_property_dist
-  - fuse_property_adaptive
-  - group_members
-  - fuse_texture_group
-  - run_fusion
-  - run_fusion_group
-  - run_fusion_multiproperty
-  - CACHE_TTL_SECONDS
   - build_cache_key
   - cache_get
   - cache_set
-  - wrap_nested_rasters
   - unwrap_nested_rasters
-  - fetch_ssurgo_mukey_raster
-  - infill_ssurgo_data
-  - maybe_adjust_soil_data_depth_trend
-  - aggregate_depth_window_by_replicate
-  - property_to_sim_column
-  - simulate_ssurgo_mapunit_draws
-  - SSURGO_SIM_PROPERTY_COLUMNS
-  - rasterize_mukey_percentiles
-  - fetch_ssurgo_percentiles
   - percentiles_from_draws
-  - closest_solus_depth_slice
-  - solus_depth_window_weights
-  - fetch_solus_low_pred_high
-  - fetch_solus_low_pred_high_multiproperty
-  - fetch_solus_percentiles
-  - fetch_solus_percentiles_multiproperty
-  - fetch_solus_restriction_depth
-  - fetch_solus_site_level
-  - extract_mukey_joint_ensemble
   - remarginalize_ensemble_to_posterior
   - remarginalized_awc
 
@@ -334,46 +210,11 @@ reference:
   contents:
   - is_unsuitable
   - validate_data_quality
-  - check_required_columns
-  - validate_numeric_ranges
-  - standardize_property_names
-  - convert_depth_units
-  - safe_coalesce
-  - handle_missing_values
-  - read_soil_data
-  - write_soil_data
-  - backup_data
-  - load_configuration
-  - safe_correlation
-  - compute_confidence_intervals
-  - normalize_values
-  - detect_outliers
-  - setup_logging
-  - log_message
-  - handle_workflow_error
-  - track_progress
   - default_config
-  - validate_parameters
-  - merge_configurations
-  - export_workflow_metadata
-  - validate_properties
   - available_properties
   - predefined_properties
-  - extract_properties_from_dataframe
-  - validate_properties_with_synonyms
   - default_property_synonyms
-  - create_property_lookup
-  - validate_wkt_geometry
-  - validate_wkt_string
-  - parse_wkt_geometry
-  - validate_geometry_validity
-  - validate_geometry_area
-  - validate_geometry_complexity
-  - validate_coordinate_bounds
   - default_diagnostics_config
-  - compute_complexity_score
-  - validate_geographic_context
-  - validate_projected_context
 
 - title: Internal Implementation Details
   desc: >
@@ -536,15 +377,7 @@ reference:
   - vectorized_type_conversion
   - within_component_property_interpolation
   - wrap_percentile_list
-  - apply_copula_to_marginals
-  - attach_osd_boundary_distinctness
-  - build_depth_correlation_kernel
-  - extract_depth_length_scale
-  - lookup_mukey_draws
-  - lookup_mukey_texture_draws
-  - preserve_correlation_structure_joint
   - raster_fusion_bridge
-  - sample_joint_depth_property_copula
   - validate_joint_correlation_structure
 
 - title: Deprecated

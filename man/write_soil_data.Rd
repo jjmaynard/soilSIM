@@ -40,3 +40,4 @@ source grep) - standalone public API for callers who need it, not
 dead/broken code. See also \code{\link{read_soil_data}}.
 }
 
+\keyword{internal}

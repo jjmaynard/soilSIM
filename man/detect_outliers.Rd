@@ -21,3 +21,4 @@ Outlier indicators or indices
 \description{
 Outlier detection using multiple methods.
 }
+\keyword{internal}

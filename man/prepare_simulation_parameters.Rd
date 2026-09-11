@@ -42,3 +42,4 @@ ilr1<->ilr2 correlation instead, so the two sources of correlation
 (per-observation uncertainty propagation vs. cross-sample empirical
 correlation) are never double-counted.
 }
+\keyword{internal}

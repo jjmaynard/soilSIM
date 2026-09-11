@@ -41,3 +41,4 @@ Calling this without internet connectivity, or if \code{handbook60.org} is
 unreachable, will fail.
 }
 
+\keyword{internal}

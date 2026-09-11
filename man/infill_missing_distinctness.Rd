@@ -28,14 +28,4 @@ based on typical boundary characteristics observed in the field.
 }
 }
 }
-\examples{
-\dontrun{
-  df <- data.frame(
-    hzname = c("A", "B", "C", "R", "O", "Cr"),
-    distinctness = c(NA, "gradual", NA, NA, "diffuse", NA),
-    stringsAsFactors = FALSE
-  )
-  df <- infill_missing_distinctness(df)
-  print(df)
-}
-}
+\keyword{internal}

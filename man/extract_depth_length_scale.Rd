@@ -39,3 +39,4 @@ kernels), then rescales \code{h} back to real depth units (cm) using the same \c
 \code{fit_local_gp_model_single()} stored alongside the model - so no separate/new length-scale
 estimation step is introduced; the value is entirely derived from the already-validated GP fit.
 }
+\keyword{internal}

@@ -33,3 +33,4 @@ before calling this function; it will still error with a missing-column
 condition if that join hasn't been done first.
 }
 
+\keyword{internal}

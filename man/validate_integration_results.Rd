@@ -32,3 +32,4 @@ Validation results list
 Checks row-count preservation, within-depth correlation preservation, and
 depth-trend realism of an integration result, and returns an overall score.
 }
+\keyword{internal}

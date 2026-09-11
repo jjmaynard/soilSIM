@@ -35,16 +35,4 @@ bottom and top depths are simulated using a triangular distribution via
 \code{tri_dist()}. The function ensures that there are no gaps between horizons
 and that the top of the uppermost horizon is set to 0.
 }
-\examples{
-horizon_data <- data.frame(
-  hzname = c("A", "B", "C"),
-  hzdept_l = c(0, 20, 40),
-  hzdept_r = c(0, 25, 45),
-  hzdept_h = c(0, 30, 50),
-  hzdepb_l = c(20, 40, 60),
-  hzdepb_r = c(25, 45, 65),
-  hzdepb_h = c(30, 50, 70)
-)
-profile <- simulate_soil_profile_bottom_up(horizon_data)
-print(profile)
-}
+\keyword{internal}

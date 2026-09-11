@@ -34,3 +34,4 @@ comment in the ILR section of this file). \code{restore_composition_properties()
 maps \code{ilr_inverse()}'s fixed \code{clay}/\code{sand}/\code{silt} output columns onto
 \code{members[1]}/\code{members[2]}/\code{members[3]} by POSITION, not by name matching.
 }
+\keyword{internal}

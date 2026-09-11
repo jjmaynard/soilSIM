@@ -19,3 +19,4 @@ Projected validation results
 \description{
 Additional validations for projected coordinate systems
 }
+\keyword{internal}

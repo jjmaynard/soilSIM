@@ -45,3 +45,4 @@ separate \code{fuse_beta()} calls) measurably breaks sum-to-100 (documented
 upstream: up to 10.5 percentage points on realistic synthetic data) -
 this is why the fusion happens jointly, in ILR space, instead.
 }
+\keyword{internal}

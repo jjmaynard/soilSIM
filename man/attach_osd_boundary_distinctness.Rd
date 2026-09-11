@@ -27,3 +27,4 @@ value on arbitrary horizon data (via the same
 \code{dplyr::group_by(id, genhz) |> dplyr::summarise(bound_sd = mean(bound_sd, na.rm = TRUE))}
 pattern), so it can also gate the vertical-correlation depth kernel.
 }
+\keyword{internal}

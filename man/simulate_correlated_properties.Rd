@@ -34,3 +34,4 @@ Array of simulated values, dimensioned horizons by properties by realizations
 \description{
 Core simulation function
 }
+\keyword{internal}

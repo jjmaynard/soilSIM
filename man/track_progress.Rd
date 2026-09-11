@@ -26,3 +26,4 @@ track_progress(
 \description{
 Progress tracking utilities for long-running operations.
 }
+\keyword{internal}

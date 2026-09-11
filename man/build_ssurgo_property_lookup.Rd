@@ -12,3 +12,4 @@ Data frame with property mappings for low, representative, and high values
 \description{
 Creates lookup table exactly as used in the working soil_infill_functions.R
 }
+\keyword{internal}

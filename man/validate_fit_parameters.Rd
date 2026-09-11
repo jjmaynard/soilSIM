@@ -18,3 +18,4 @@ validate_fit_parameters(family, fit)
 Checks that a fitted distribution's parameters are structurally complete and in range
 for its family.
 }
+\keyword{internal}

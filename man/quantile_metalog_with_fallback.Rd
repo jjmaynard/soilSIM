@@ -19,3 +19,4 @@ if available) used for the \code{linear_cdf} fallback.}
 \description{
 Metalog quantile with automatic fallback to \code{linear_cdf}
 }
+\keyword{internal}

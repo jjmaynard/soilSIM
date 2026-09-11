@@ -28,14 +28,4 @@ replacing missing top and bottom depth bounds with the representative
 depth value plus or minus 2, ensuring that the resulting values are not
 negative.
 }
-\examples{
-data <- data.frame(
-  hzdept_r = c(10, 20),
-  hzdept_l = c(NA, 18),
-  hzdept_h = c(NA, NA),
-  hzdepb_r = c(30, 40),
-  hzdepb_l = c(NA, NA),
-  hzdepb_h = c(NA, 42)
-)
-infill_missing_depth_variability(data)
-}
+\keyword{internal}

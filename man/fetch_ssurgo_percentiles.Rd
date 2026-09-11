@@ -51,3 +51,4 @@ The top-level SSURGO "prior" entry point for \code{R/core-fusion.R}'s \code{fuse
 rasterizes map units, Monte Carlo-simulates the requested property, and returns per-cell
 percentile-value rasters in the \code{list(values=, probs=)} shape \code{fuse_property_adaptive()} expects.
 }
+\keyword{internal}

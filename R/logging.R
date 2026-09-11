@@ -10,7 +10,7 @@
 #' @param include_timestamp Whether to include timestamps
 #' @param max_log_size Maximum log file size in MB
 #' @return Logging configuration
-#' @export
+#' @keywords internal
 setup_logging <- function(log_file = NULL,
                           log_level = "INFO",
                           include_timestamp = TRUE,
@@ -51,7 +51,7 @@ setup_logging <- function(log_file = NULL,
 #' @param message Log message
 #' @param category Message category (optional)
 #' @param details Additional details (optional)
-#' @export
+#' @keywords internal
 log_message <- function(level, message, category = NULL, details = NULL) {
 
   # Get logging configuration. Ambient fallback (used whenever setup_logging()
@@ -164,7 +164,7 @@ set_verbose_logging <- function(verbose, raised_level = "INFO") {
 #' @param recovery_action Recovery action ("stop", "warn", "continue", "retry")
 #' @param max_retries Maximum number of retries
 #' @return Recovery action result
-#' @export
+#' @keywords internal
 handle_workflow_error <- function(error,
                                   context = "Unknown",
                                   recovery_action = "stop",
@@ -217,7 +217,7 @@ handle_workflow_error <- function(error,
 #' @param message Progress message
 #' @param update_frequency Update frequency (every nth call)
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
-#' @export
+#' @keywords internal
 track_progress <- function(current, total, message = "Processing", update_frequency = 10,
                            verbose = getOption("ssurgo.verbose", FALSE)) {
   .old_log_cfg <- set_verbose_logging(verbose)

@@ -26,3 +26,4 @@ handful of quantiles. This is what lets raster-fusion routes (\code{R/core-fusio
 computed once per unique mukey, rather than resampling a lower-fidelity reconstruction from
 just a few percentile values.
 }
+\keyword{internal}

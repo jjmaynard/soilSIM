@@ -24,3 +24,4 @@ every cell, only the two value-rasters bracketing \code{q} and a single scalar
 interpolation weight are needed - no per-cell branching required since
 the bracket is resolved once, outside the raster arithmetic.
 }
+\keyword{internal}

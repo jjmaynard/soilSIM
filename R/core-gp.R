@@ -259,7 +259,7 @@ select_optimal_grouping <- function(data, min_profiles, min_obs, target_groups,
 #' @param min_observations Minimum observations per group
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Validation results list
-#' @export
+#' @keywords internal
 validate_training_groups <- function(processed_data,
                                      properties = c("clay_pct", "sand_pct", "pH", "organic_matter"),
                                      min_profiles = 3,
@@ -773,7 +773,7 @@ adjust_simulation_depthwise <- function(simulated_list, gp_models, depths,
 #' @param depths Depth vector
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #'
-#' @export
+#' @keywords internal
 validate_correlation_preservation <- function(original_list, adjusted_list, depths,
                                               verbose = getOption("ssurgo.verbose", FALSE)) {
 
@@ -1006,7 +1006,7 @@ validate_joint_correlation_structure <- function(simulated_list,
 #'   fitted model (mirrors `fit_local_gp_model_single()`'s own `NULL`-on-failure contract - callers
 #'   should treat `NA_real_` the same way they'd treat a `NULL` GP model).
 #'
-#' @export
+#' @keywords internal
 extract_depth_length_scale <- function(gp_model_list, depth_scaling = NULL, target_corr = exp(-1)) {
 
   gp_model <- if (is.list(gp_model_list) && "gp_model" %in% names(gp_model_list)) {
@@ -1095,7 +1095,7 @@ extract_depth_length_scale <- function(gp_model_list, depth_scaling = NULL, targ
 #'   correlation matrix (repaired via `ensure_positive_definite_matrix()` if numerical
 #'   floating-point asymmetry from the distance-matrix/gating construction pushes it slightly off).
 #'
-#' @export
+#' @keywords internal
 build_depth_correlation_kernel <- function(depths, length_scale,
                                            kernel = c("exponential", "matern"), nu = 1.5,
                                            boundary_distinctness = NULL,
@@ -1289,7 +1289,7 @@ flatten_simulation_array_to_long <- function(sim_array, cokey_data) {
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #'
 #' @return simulation results with realistic depth trends and preserved correlations
-#' @export
+#' @keywords internal
 simulate_soil_properties <- function(target_cokey,
                                               nrcs_gp_models = NULL,
                                               cokey_mapping = NULL,
@@ -1417,7 +1417,7 @@ simulate_soil_properties <- function(target_cokey,
 #' @param matching_strategy Matching approach (default = "exact_cokey")
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Data frame mapping cokeys to GP model groups
-#' @export
+#' @keywords internal
 match_soils_to_gp_models <- function(simulated_cokeys,
                                      nrcs_combined_data,
                                      gp_models,
@@ -2416,7 +2416,7 @@ NULL
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Integrated simulation results with realistic depth trends
-#' @export
+#' @keywords internal
 apply_depth_gp_to_simulation <- function(simulation_results,
                                           gp_models = NULL,
                                           cokey_mapping = NULL,
@@ -2756,7 +2756,7 @@ apply_gp_depth_trends <- function(cokey_data,
 #' @return A `c(n_depths, k, n_sims)` array of standard-normal values (mean 0, variance 1
 #'   marginally), jointly correlated across both the depth and property dimensions as specified.
 #'
-#' @export
+#' @keywords internal
 sample_joint_depth_property_copula <- function(R_depth, R_prop, n_sims, seed = NULL) {
   if (!is.null(seed)) {
     set.seed(seed)
@@ -2815,7 +2815,7 @@ sample_joint_depth_property_copula <- function(R_depth, R_prop, n_sims, seed = N
 #'
 #' @return A named list of `n_depths x n_sims` matrices, same shape/names as `property_matrices`.
 #'
-#' @export
+#' @keywords internal
 apply_copula_to_marginals <- function(Z, property_matrices, gp_predictions = NULL) {
   property_names <- names(property_matrices)
 
@@ -2891,7 +2891,7 @@ apply_copula_to_marginals <- function(Z, property_matrices, gp_predictions = NUL
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return List of adjusted property matrices
-#' @export
+#' @keywords internal
 preserve_correlation_structure <- function(property_matrices,
                                            gp_predictions,
                                            depths,
@@ -3024,7 +3024,7 @@ preserve_correlation_structure <- function(property_matrices,
 #'   `preserve_correlation_structure()`'s return value. Degrades gracefully to the
 #'   unadjusted `property_matrices` (with a warning) on insufficient dimensions or a sampling/
 #'   mapping failure, matching `preserve_correlation_structure()`'s own graceful-failure contract.
-#' @export
+#' @keywords internal
 preserve_correlation_structure_joint <- function(property_matrices,
                                                  gp_predictions,
                                                  depths,
@@ -3235,7 +3235,7 @@ apply_nrcs_trend_adjustments <- function(cokey_data,
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Model group name
-#' @export
+#' @keywords internal
 match_simulations_to_nrcs_models <- function(cokey, cokey_mapping, fallback_group = "general_pool",
                                              verbose = getOption("ssurgo.verbose", FALSE)) {
 
@@ -3277,7 +3277,7 @@ match_simulations_to_nrcs_models <- function(cokey, cokey_mapping, fallback_grou
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return List of depth trends by property and group
-#' @export
+#' @keywords internal
 extract_nrcs_depth_trends <- function(gp_models, properties, depths = seq(0, 200, by = 10),
                                       verbose = getOption("ssurgo.verbose", FALSE)) {
 
@@ -3422,7 +3422,7 @@ apply_local_gp_adjustments <- function(cokey_data,
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return List of fitted local GP models
-#' @export
+#' @keywords internal
 fit_local_gp_models <- function(cokey_data, properties, config = NULL, gp_control = c(20, 10, 2),
                                 verbose = getOption("ssurgo.verbose", FALSE)) {
 
@@ -3496,7 +3496,7 @@ fit_local_gp_models <- function(cokey_data, properties, config = NULL, gp_contro
 #'   `apply_gp_depth_trends()` so the joint-copula depth kernel can reuse their fitted
 #'   length-scales. Ignored under `"gp_quantile_retrofit"`.
 #' @return Adjusted simulation data
-#' @export
+#' @keywords internal
 apply_local_depth_trends <- function(cokey_data,
                                      local_predictions,
                                      unique_depths,
@@ -3614,7 +3614,7 @@ convert_to_property_matrices <- function(simulation_data,
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Data frame in long format
-#' @export
+#' @keywords internal
 convert_to_long_format <- function(adjusted_matrices,
                                    unique_depths,
                                    sim_numbers,
@@ -3690,7 +3690,7 @@ convert_to_long_format <- function(adjusted_matrices,
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Validation results list
-#' @export
+#' @keywords internal
 validate_integration_results <- function(original_data,
                                          integrated_data,
                                          properties,
@@ -3744,7 +3744,7 @@ validate_integration_results <- function(original_data,
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Corrected simulation data
-#' @export
+#' @keywords internal
 correct_distribution_shapes <- function(adjusted_data, original_data, properties, config = NULL,
                                         verbose = getOption("ssurgo.verbose", FALSE)) {
 

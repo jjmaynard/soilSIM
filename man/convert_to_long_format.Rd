@@ -35,3 +35,4 @@ Data frame in long format
 Reshapes a named list of adjusted depth-by-simulation property matrices back into
 long format, re-attaching component metadata.
 }
+\keyword{internal}

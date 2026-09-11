@@ -29,3 +29,4 @@ validation results
 \description{
 Convenience wrapper that provides additional configuration options.
 }
+\keyword{internal}

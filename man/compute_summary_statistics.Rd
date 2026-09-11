@@ -18,3 +18,4 @@ percentile columns (e.g. P10, P20, ...).
 \description{
 Compute summary statistics (mean, SD, CV, percentiles, quartiles) for a numeric vector
 }
+\keyword{internal}

@@ -27,3 +27,4 @@ Data with standardized property names
 Standardizes soil property names across different data sources using
 a comprehensive mapping system.
 }
+\keyword{internal}

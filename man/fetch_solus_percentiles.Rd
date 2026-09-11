@@ -20,3 +20,4 @@ fetch_solus_percentiles(aoi_vect, solus_variable, top_depth, bottom_depth)
 The top-level SOLUS "likelihood" entry point for \code{R/core-fusion.R}'s
 \code{fuse_property_adaptive()}.
 }
+\keyword{internal}

@@ -15,3 +15,4 @@ Vector of property names
 \description{
 Extracts property names from a data frame using common column names
 }
+\keyword{internal}

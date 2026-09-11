@@ -26,3 +26,4 @@ Logging configuration
 \description{
 Initializes comprehensive logging system for the workflow.
 }
+\keyword{internal}

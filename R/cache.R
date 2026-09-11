@@ -202,7 +202,7 @@ cache_get_valid_percentiles <- function(key, ttl_seconds = CACHE_TTL_SECONDS) {
 #'
 #' @param x A list, arbitrarily nested, that may contain `SpatRaster` objects at any depth.
 #' @return `x`, with every `SpatRaster` replaced by its wrapped/unwrapped equivalent.
-#' @export
+#' @keywords internal
 wrap_nested_rasters <- function(x) {
   if (inherits(x, "SpatRaster")) {
     terra::wrap(x)

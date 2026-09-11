@@ -60,3 +60,4 @@ adjacent-lag steps), via an exponential or Matern kernel with a given \code{leng
 This is the depth half of a Kronecker-separable \verb{R_depth (x) R_property} joint covariance
 (see \code{sample_joint_depth_property_copula()}).
 }
+\keyword{internal}

@@ -31,3 +31,4 @@ Generates \code{n} correlated samples from \code{length(params)} triangular dist
 Cholesky decomposition of \code{correlation_matrix} applied to standard-normal draws, then
 transforms each column to its own triangular distribution via the inverse CDF.
 }
+\keyword{internal}

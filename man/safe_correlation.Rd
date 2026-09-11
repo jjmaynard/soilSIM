@@ -29,3 +29,4 @@ Correlation coefficient or matrix
 \description{
 Numerically stable correlation calculation with handling for edge cases.
 }
+\keyword{internal}

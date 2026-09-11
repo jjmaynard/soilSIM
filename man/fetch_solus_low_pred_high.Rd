@@ -31,3 +31,4 @@ The same window weights are applied to the \code{prediction} raster and both \ve
 depth-correlated (comonotone) - a mildly conservative (wider) choice for a likelihood, and the
 opposite assumption (depth-independence, narrow by ~sqrt(n)) is equally wrong the other way.
 }
+\keyword{internal}

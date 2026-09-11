@@ -68,7 +68,7 @@ NULL
 #' not the full data frames, are persisted via `metadata`). Clear the cache to pick up recovered
 #' components.
 #'
-#' @export
+#' @keywords internal
 download_ssurgo_tabular <- function(aoi_wkt,
                                     properties = c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o",
                                                    "cec7", "om", "wthirdbar", "wfifteenbar",
@@ -313,7 +313,7 @@ download_ssurgo_tabular <- function(aoi_wkt,
 #'
 #' @return Data frame with property mappings for low, representative, and high values
 #'
-#' @export
+#' @keywords internal
 build_ssurgo_property_lookup <- function() {
   # Replace with:
   data.frame(
@@ -922,7 +922,7 @@ add_restriction_indicators_working <- function(ssurgo_data, verbose = FALSE) {
 #'
 #' @return List with validation results including shared metadata
 #'
-#' @export
+#' @keywords internal
 validate_download_inputs_ssurgo <- function(aoi_wkt,
                                             properties,
                                             include_restrictions = TRUE,
@@ -1149,7 +1149,7 @@ validate_download_inputs_ssurgo <- function(aoi_wkt,
 #'
 #' @return validation results
 #'
-#' @export
+#' @keywords internal
 validate_download_inputs_ssurgo_with_config <- function(aoi_wkt,
                                                      properties,
                                                      include_restrictions = TRUE,
@@ -1328,7 +1328,7 @@ validate_download_inputs_ssurgo_with_config <- function(aoi_wkt,
 #'
 #' @return Validation report
 #'
-#' @export
+#' @keywords internal
 diagnose_ssurgo_download <- function(validation_results) {
 
   tryCatch({
@@ -1425,7 +1425,7 @@ diagnose_ssurgo_download <- function(validation_results) {
 #'
 #' @return List with cache check results or NULL if no valid cache
 #'
-#' @export
+#' @keywords internal
 check_ssurgo_cache <- function(aoi_wkt, properties, include_restrictions,
                                         cache_dir, max_age_days = 30, verbose = FALSE) {
 
@@ -1499,7 +1499,7 @@ check_ssurgo_cache <- function(aoi_wkt, properties, include_restrictions,
 #'
 #' @return List with cache operation results
 #'
-#' @export
+#' @keywords internal
 cache_ssurgo_data <- function(data, mu, aoi_wkt, properties, include_restrictions,
                                        cache_dir, compress = TRUE, verbose = FALSE) {
 
@@ -1660,7 +1660,7 @@ create_download_metadata <- function(start_time, end_time, aoi_wkt, properties, 
 #' @return The same list [download_ssurgo_tabular()] returns, with `ssurgo_data`
 #'   depth-filtered and a `preparation_metadata` element added.
 #'
-#' @export
+#' @keywords internal
 fetch_ssurgo_data <- function(aoi_wkt,
                                         properties = c("clay", "sand", "silt", "db", "ph", "cec", "rfv", "w3b", "w15b"),
                                         max_depth = DEFAULT_MAX_DEPTH_CM,

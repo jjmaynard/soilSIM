@@ -44,3 +44,4 @@ Adjusted simulation data
 Applies locally fitted GP depth-trend predictions to a component's simulation
 data via apply_gp_depth_trends().
 }
+\keyword{internal}

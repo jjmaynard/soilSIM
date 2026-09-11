@@ -31,3 +31,4 @@ factors of \code{R_depth}/\code{R_prop} and \code{Eps} is iid standard normal), 
 \verb{(n_depths*k) x (n_depths*k)} matrix. Vectorized across all \code{n_sims} realizations at once via
 array reshaping (no explicit per-realization loop).
 }
+\keyword{internal}

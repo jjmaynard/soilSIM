@@ -74,3 +74,4 @@ member (default) uses the percentile-reconstruction path; unlike \code{run_fusio
 joint texture-group route does not default to raw draws.
 }
 
+\keyword{internal}

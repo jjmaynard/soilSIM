@@ -24,13 +24,4 @@ Retrieves Official Series Description (OSD) data for the soil series
 and converts the distinctness codes into boundary-offset values via
 \code{aqp::hzDistinctnessCodeToOffset()}.
 }
-\examples{
-\dontrun{
-  horizon_data <- data.frame(
-    compname = c("amador", "pentz", "pardee", "auburn", "loafercreek", "millvilla"),
-    hzname = c("A", "Bt", "R", "A", "Bw", "C")
-  )
-  result <- query_osd_distinctness(horizon_data)
-  head(result)
-}
-}
+\keyword{internal}

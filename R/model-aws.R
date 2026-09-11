@@ -60,7 +60,7 @@ van_genuchten <- function(h, alpha, n, theta_r, theta_s) {
 #'   `AWHC`. Rows with any missing van Genuchten parameter are skipped
 #'   (absent from the result).
 #'
-#' @export
+#' @keywords internal
 simulate_vg_aws <- function(data, n_simulations = 100) {
 
   # Initialize result list to store the simulations for each component
@@ -170,7 +170,7 @@ simulate_vg_aws <- function(data, n_simulations = 100) {
 #'   collapse depth slabs into columns - it exists to match `aqp::slab()`'s
 #'   long output shape to a plain `value`-column contract.
 #'
-#' @export
+#' @keywords internal
 compute_aws <- function(sim_data_df) {
   if (!requireNamespace("httr", quietly = TRUE)) {
     stop("compute_aws() requires the 'httr' package (used internally by soilDB::ROSETTA()) to be installed.")

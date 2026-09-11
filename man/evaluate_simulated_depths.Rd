@@ -24,10 +24,4 @@ specified range. Extracts the simulated top and bottom depths from a
 flags horizons where the simulated top is less than the lower bound or
 the simulated bottom exceeds the upper bound.
 }
-\examples{
-\dontrun{
-  out_of_range <- evaluate_simulated_depths(simulated_profiles, horizon_data)
-  head(out_of_range)
-}
-
-}
+\keyword{internal}

@@ -33,3 +33,4 @@ callers that want a single nearest slice.
 \seealso{
 \code{solus_depth_window_weights()}
 }
+\keyword{internal}

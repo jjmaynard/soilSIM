@@ -34,3 +34,4 @@ requests restriction data and validation, then filters the result to
 \code{max_depth} - a one-call entry point for the common "download, ready for
 simulation" path.
 }
+\keyword{internal}

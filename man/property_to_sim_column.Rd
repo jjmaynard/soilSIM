@@ -20,3 +20,4 @@ The corresponding column name in \code{simulate_cokey_generalized()}'s output.
 \description{
 Map a Property Id to its Simulated-Data Column Name
 }
+\keyword{internal}

@@ -29,3 +29,4 @@ Model group name
 Looks up the NRCS GP model group for a cokey in cokey_mapping, returning
 fallback_group when no mapping is found.
 }
+\keyword{internal}

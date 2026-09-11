@@ -47,3 +47,4 @@ Integrated simulation results with realistic depth trends
 Master function that integrates Monte Carlo simulation results with GP models
 to apply realistic depth trends while preserving within-depth correlations.
 }
+\keyword{internal}

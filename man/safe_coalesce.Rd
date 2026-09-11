@@ -22,3 +22,4 @@ Coalesced values
 Safely coalesces values from multiple columns, handling different data types
 and missing values.
 }
+\keyword{internal}

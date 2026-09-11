@@ -95,3 +95,4 @@ kept). That simulation still runs at most once per call regardless of cache stat
 with the percentile-cache-population step when both are needed in the same call.
 }
 
+\keyword{internal}

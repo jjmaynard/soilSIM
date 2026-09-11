@@ -32,3 +32,4 @@ Resolves the property's distribution family - from
 family-appropriate parameters from its SSURGO \verb{_l/_r/_h} triplet via
 \code{core-distributions.R}'s \code{fit_percentile_triplet()}.
 }
+\keyword{internal}

@@ -27,7 +27,7 @@
 #' `geometry_stats$complexity_validation$complexity_stats` shape that
 #' `adapter-ssurgo-acquire.R`'s downstream code expects.
 #'
-#' @export
+#' @keywords internal
 validate_wkt_geometry <- function(wkt_string,
                                   crs = "epsg:4326",
                                   validation_context = "geographic",
@@ -212,7 +212,7 @@ validate_wkt_geometry <- function(wkt_string,
 #'
 #' @return String validation results
 #'
-#' @export
+#' @keywords internal
 validate_wkt_string <- function(wkt_string) {
 
   validation_results <- list(
@@ -297,7 +297,7 @@ validate_wkt_string <- function(wkt_string) {
 #' \code{terra::expanse()}, then converts to degrees^2 - see that
 #' function's own comments).
 #'
-#' @export
+#' @keywords internal
 parse_wkt_geometry <- function(wkt_string, crs) {
 
   parsing_results <- list(
@@ -378,7 +378,7 @@ parse_wkt_geometry <- function(wkt_string, crs) {
 #'
 #' @return Validity validation results
 #'
-#' @export
+#' @keywords internal
 validate_geometry_validity <- function(geom, strict_mode = TRUE) {
 
   validity_results <- list(
@@ -434,7 +434,7 @@ validate_geometry_validity <- function(geom, strict_mode = TRUE) {
 #' same distinction) and its `area_limits$max_action` semantics (warn vs.
 #' error) predate this function.
 #'
-#' @export
+#' @keywords internal
 validate_geometry_area <- function(geom, area_limits, context = "general") {
 
   area_results <- list(
@@ -498,7 +498,7 @@ validate_geometry_area <- function(geom, area_limits, context = "general") {
 #'
 #' @return Complexity validation results
 #'
-#' @export
+#' @keywords internal
 validate_geometry_complexity <- function(geom, complexity_limits) {
 
   complexity_results <- list(
@@ -553,7 +553,7 @@ validate_geometry_complexity <- function(geom, complexity_limits) {
 #' there would be a real behavior change for existing callers, not a pure
 #' cleanup.
 #'
-#' @export
+#' @keywords internal
 validate_coordinate_bounds <- function(geom, bounds_check, context = "general") {
 
   bounds_results <- list(
@@ -646,7 +646,7 @@ default_diagnostics_config <- function(context, crs) {
 #'
 #' @return Complexity score
 #'
-#' @export
+#' @keywords internal
 compute_complexity_score <- function(n_vertices, n_parts, geometry_type) {
 
   # Base score from vertices and parts
@@ -679,7 +679,7 @@ compute_complexity_score <- function(n_vertices, n_parts, geometry_type) {
 #'
 #' @return Geographic validation results
 #'
-#' @export
+#' @keywords internal
 validate_geographic_context <- function(geom, strict_mode = TRUE) {
 
   geo_results <- list(
@@ -727,7 +727,7 @@ validate_geographic_context <- function(geom, strict_mode = TRUE) {
 #'
 #' @return Projected validation results
 #'
-#' @export
+#' @keywords internal
 validate_projected_context <- function(geom, crs, strict_mode = TRUE) {
 
   proj_results <- list(

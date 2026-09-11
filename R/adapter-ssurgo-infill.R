@@ -167,7 +167,7 @@ process_soil_properties_comprehensive <- function(df,
 #'
 #' @return Data frame with infilled property data
 #'
-#' @export
+#' @keywords internal
 infill_soil_property <- function(df,
                                  property_name,
                                  property_config = NULL,
@@ -641,7 +641,7 @@ create_custom_property_config <- function(property_name,
 #'
 #' @return `TRUE` if valid; stops with an error if invalid
 #'
-#' @export
+#' @keywords internal
 validate_property_config <- function(config, property_name) {
 
   if (!is.list(config)) {
@@ -680,7 +680,7 @@ validate_property_config <- function(config, property_name) {
 #' @return Character string indicating category: "none", "low", "moderate",
 #'   "high", "very_high", or "extreme"
 #'
-#' @export
+#' @keywords internal
 rfv_range_category <- function(rfv_value) {
 
   if (is.na(rfv_value) || rfv_value <= 0) {
@@ -708,7 +708,7 @@ rfv_range_category <- function(rfv_value) {
 #'
 #' @return Constrained values
 #'
-#' @export
+#' @keywords internal
 apply_property_constraints <- function(values, property_config) {
 
   if (is.null(values) || all(is.na(values))) {
@@ -884,7 +884,7 @@ summarize_unsuitable_horizons <- function(df, hzname_col = "hzname") {
 #'
 #' @return Data frame with infilled range values
 #'
-#' @export
+#' @keywords internal
 infill_property_range_values <- function(df, property_name, property_config) {
 
   # Learn from existing complete ranges (only suitable horizons)
@@ -1271,7 +1271,7 @@ apply_group_fallback_mean <- function(group, property_col, problematic_mask) {
 #'
 #' @return Data frame with infilled values
 #'
-#' @export
+#' @keywords internal
 infill_property_by_horizon_name <- function(group, property_col, problematic_mask) {
 
   if (!property_col %in% names(group) || !"hzname" %in% names(group)) {
@@ -1386,7 +1386,7 @@ infill_property_by_horizon_name <- function(group, property_col, problematic_mas
 #'
 #' @return Data frame with infilled RFV values
 #'
-#' @export
+#' @keywords internal
 infill_rfv_property_integrated <- function(df, max_depth = DEFAULT_MAX_DEPTH_CM, verbose = FALSE) {
 
   if (verbose) {
@@ -2502,7 +2502,7 @@ impute_rfv_values <- function(row) {
 #' @return A list of estimated water retention values (field capacity,
 #'   wilting point, and their `_l/_h` spread) - see the function body for
 #'   the exact returned fields.
-#' @export
+#' @keywords internal
 compute_saxton_rawls <- function(sand_pct, clay_pct, silt_pct, bulk_density, rfv_pct = 0, om_pct = 2) {
 
   # Input validation

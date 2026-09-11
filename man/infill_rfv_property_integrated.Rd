@@ -24,3 +24,4 @@ Data frame with infilled RFV values
 Specialized infilling for rock fragment volume with context-aware estimation
 and integration with the main workflow.
 }
+\keyword{internal}

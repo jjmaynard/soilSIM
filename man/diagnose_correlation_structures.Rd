@@ -26,3 +26,4 @@ Correlation validation results
 \description{
 Validate Correlation Structures
 }
+\keyword{internal}

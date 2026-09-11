@@ -23,10 +23,4 @@ database, sets up the corresponding soil profile data, and then simulates
 and perturbs the soil profiles for that mukey via
 \code{simulate_and_perturb_soil_profiles()}.
 }
-\examples{
-\dontrun{
-  simulated_profiles <- simulate_profile_depths_by_mukey("123456", n_simulations = 100, seed = 123)
-  print(simulated_profiles)
-}
-
-}
+\keyword{internal}

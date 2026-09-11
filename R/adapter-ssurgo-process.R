@@ -395,7 +395,7 @@ process_ssurgo_components <- function(raw_data,
 #'
 #' @return Data frame compatible with existing infill workflow
 #'
-#' @export
+#' @keywords internal
 prepare_ssurgo_for_infill <- function(raw_data,
                                              horizon_processing,
                                              component_processing,
@@ -471,7 +471,6 @@ prepare_ssurgo_for_infill <- function(raw_data,
 #' @return List containing cleaned data and (by default) a quality report.
 #' @seealso [clean_property_data()]
 #' @keywords internal
-#' @export
 clean_ssurgo_property_data <- function(df, property_name,
                                                   validation_config = NULL,
                                                   generate_report = TRUE,
@@ -811,7 +810,7 @@ generate_processing_quality_report <- function(original_data, processed_data,
 #' @return A data frame with one row per `mukey`/depth, quantile statistics (`_05`/`_50`/`_95`/
 #'   `_PIW90` suffixed columns), and - when texture data and `soiltexture` are available - the
 #'   most probable texture class and its simulation-frequency probability.
-#' @export
+#' @keywords internal
 compute_mukey_horizon_quantiles <- function(hz_data) {
   q <- c(0.05, 0.5, 0.95)
 

@@ -33,3 +33,4 @@ else in the package (confirmed by source grep) - standalone public API
 for callers who need it, not dead/broken code.
 }
 
+\keyword{internal}

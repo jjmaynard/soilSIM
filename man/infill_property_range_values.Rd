@@ -20,3 +20,4 @@ Data frame with infilled range values
 Infills missing _l and _h values using data-driven approaches and
 pedological knowledge, excluding unsuitable horizons.
 }
+\keyword{internal}

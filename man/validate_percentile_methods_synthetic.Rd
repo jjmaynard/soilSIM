@@ -42,3 +42,4 @@ method, then scores the reconstruction against the true draws via the
 Kolmogorov-Smirnov statistic and relative mean/SD error. Averages scores
 across replicates.
 }
+\keyword{internal}

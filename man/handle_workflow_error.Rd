@@ -26,3 +26,4 @@ Recovery action result
 \description{
 Comprehensive error handling and recovery for workflow components.
 }
+\keyword{internal}

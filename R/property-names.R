@@ -14,7 +14,7 @@
 #'
 #' @return Simple validation results list
 #'
-#' @export
+#' @keywords internal
 validate_properties <- function(properties,
                                 property_lookup = "ssurgo",
                                 strict_mode = TRUE,
@@ -193,7 +193,7 @@ predefined_properties <- function(source_name) {
 #'
 #' @return Vector of property names
 #'
-#' @export
+#' @keywords internal
 extract_properties_from_dataframe <- function(df) {
 
   # Try common column names for properties
@@ -221,7 +221,7 @@ extract_properties_from_dataframe <- function(df) {
 #'
 #' @return validation results with synonym matching
 #'
-#' @export
+#' @keywords internal
 validate_properties_with_synonyms <- function(properties,
                                               property_lookup = "ssurgo",
                                               strict_mode = TRUE,
@@ -405,7 +405,7 @@ default_property_synonyms <- function(property_lookup) {
 #' else in the package (confirmed by source grep) - standalone public API
 #' for callers who need it, not dead/broken code.
 #'
-#' @export
+#' @keywords internal
 create_property_lookup <- function(properties, synonyms = NULL, metadata = NULL) {
 
   lookup <- list(

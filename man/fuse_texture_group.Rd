@@ -51,3 +51,4 @@ measurably breaks sum-to-100 (up to 10.5 percentage points on realistic
 synthetic data). The raster counterpart of the
 already-ported scalar \code{fuse_texture_group_from_triplets()}.
 }
+\keyword{internal}

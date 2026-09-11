@@ -33,3 +33,4 @@ true bedrock.
 \code{SOLUS_RESTRICTION_CENSOR_CM}, \code{fetch_solus_site_level()},
 \link[=remarginalized_awc]{remarginalized_awc()}'s \code{restriction_depth} argument
 }
+\keyword{internal}

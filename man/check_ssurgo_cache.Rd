@@ -32,3 +32,4 @@ List with cache check results or NULL if no valid cache
 \description{
 Check SSURGO Data Cache
 }
+\keyword{internal}

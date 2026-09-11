@@ -32,18 +32,4 @@ simulations and calculates the standard deviation of horizon thickness
 (i.e., the difference between representative bottom and top depths)
 across the simulations.
 }
-\examples{
-horizon_data <- data.frame(
-  hzname = c("A", "B", "C"),
-  hzdept_r = c(0, 20, 35),
-  hzdepb_r = c(20, 35, 50),
-  hzdept_l = c(0, 15, 30),
-  hzdept_h = c(0, 25, 40),
-  hzdepb_l = c(15, 30, 45),
-  hzdepb_h = c(25, 40, 60)
-)
-set.seed(123)
-summarized_results <- simulate_soil_profile_thickness(horizon_data, n_simulations = 500)
-print(summarized_results)
-
-}
+\keyword{internal}

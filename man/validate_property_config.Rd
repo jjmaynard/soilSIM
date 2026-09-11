@@ -18,3 +18,4 @@ validate_property_config(config, property_name)
 Validates that a property configuration list has the required fields and
 that they are well-formed.
 }
+\keyword{internal}

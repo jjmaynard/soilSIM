@@ -33,3 +33,4 @@ copula, in the standard statistical sense. This is what actually delivers the ac
 correlation structure from \code{sample_joint_depth_property_copula()} onto real property values
 while preserving each depth's own fitted marginal shape exactly (for large \code{n_sims}).
 }
+\keyword{internal}

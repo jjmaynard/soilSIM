@@ -35,3 +35,4 @@ which only makes sense for numeric depth slices.
 \seealso{
 \code{fetch_solus_restriction_depth()}
 }
+\keyword{internal}

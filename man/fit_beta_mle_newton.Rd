@@ -41,3 +41,4 @@ already vectorized base-R functions), so it is the version
 \code{prepare_simulation_parameters()} should call once per property across
 all horizons, rather than looping \code{fit_beta_mle_newton()} per row.
 }
+\keyword{internal}

@@ -32,13 +32,4 @@ triangular distribution via \code{tri_dist()}, defined by a lower bound
 (\code{hzdepb_l}), a representative value (\code{hzdepb_r}), and an upper bound
 (\code{hzdepb_h}).
 }
-\examples{
-horizon_data <- data.frame(
-  hzname = c("A", "B", "C"),
-  hzdepb_l = c(20, 40, 60),
-  hzdepb_r = c(25, 45, 65),
-  hzdepb_h = c(30, 50, 70)
-)
-profile <- simulate_soil_profile_top_down(horizon_data)
-print(profile)
-}
+\keyword{internal}

@@ -65,3 +65,4 @@ supplied, each qualifying group's empirical matrix is combined into a
 single size-weighted average, so stratification information is folded into the
 one correlation matrix used for the whole run.
 }
+\keyword{internal}

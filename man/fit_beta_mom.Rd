@@ -15,3 +15,4 @@ fit_beta_mom(mean, var)
 \description{
 Method-of-moments Beta fit (closed form; used as the Newton-Raphson seed)
 }
+\keyword{internal}

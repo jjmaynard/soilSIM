@@ -25,3 +25,4 @@ Validation results
 \description{
 Validate Monte Carlo configuration
 }
+\keyword{internal}

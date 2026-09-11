@@ -36,3 +36,4 @@ Dispatches to one of several methods for turning a handful of known
 percentiles into simulated draws. See the file-level \verb{@description} above
 for how the methods differ and when to prefer one over another.
 }
+\keyword{internal}

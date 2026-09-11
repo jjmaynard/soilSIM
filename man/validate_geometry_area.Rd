@@ -32,3 +32,4 @@ same distinction) and its \code{area_limits$max_action} semantics (warn vs.
 error) predate this function.
 }
 
+\keyword{internal}

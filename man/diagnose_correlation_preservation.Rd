@@ -26,3 +26,4 @@ Correlation preservation assessment
 \description{
 Validate Correlation Preservation
 }
+\keyword{internal}

@@ -36,3 +36,4 @@ physically plausible ranges and texture percentages are renormalized to
 sum to 100 when off by more than 5 points. The coefficient-bearing core is
 the internal \code{.saxton_rawls_gravimetric()}, shared with the raster path.
 }
+\keyword{internal}

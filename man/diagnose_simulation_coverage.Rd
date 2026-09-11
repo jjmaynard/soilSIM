@@ -26,3 +26,4 @@ Coverage assessment results
 \description{
 Assess Simulation Coverage
 }
+\keyword{internal}

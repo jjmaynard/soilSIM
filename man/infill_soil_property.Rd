@@ -30,3 +30,4 @@ Data frame with infilled property data
 Version of the core infilling function with comprehensive recovery strategies
 and automatic exclusion of unsuitable horizons (R, Cr, O horizons).
 }
+\keyword{internal}

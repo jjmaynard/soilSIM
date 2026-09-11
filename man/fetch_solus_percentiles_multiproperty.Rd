@@ -31,3 +31,4 @@ packaging over \code{fetch_solus_low_pred_high_multiproperty()}'s one-call fetch
 \seealso{
 \code{fetch_solus_percentiles()}, \code{fetch_solus_low_pred_high_multiproperty()}
 }
+\keyword{internal}

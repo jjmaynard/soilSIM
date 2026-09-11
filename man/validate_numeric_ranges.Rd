@@ -19,3 +19,4 @@ Range validation results
 \description{
 Validates that numeric properties fall within realistic ranges.
 }
+\keyword{internal}

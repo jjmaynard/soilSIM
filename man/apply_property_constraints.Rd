@@ -18,3 +18,4 @@ Constrained values
 Applies typical-range and property-type-specific constraints to a numeric
 vector of values.
 }
+\keyword{internal}

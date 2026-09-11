@@ -20,3 +20,4 @@ Data frame with infilled values
 Infills missing values using horizons with matching or similar names,
 only using suitable horizons as sources.
 }
+\keyword{internal}

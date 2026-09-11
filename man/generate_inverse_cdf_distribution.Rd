@@ -21,3 +21,4 @@ columns (e.g. "P0", "P5", "P50", "P95", "P100").}
 \description{
 Backwards-compatible wrapper around \code{simulate_from_percentiles(..., method = "linear_cdf")}.
 }
+\keyword{internal}

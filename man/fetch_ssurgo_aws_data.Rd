@@ -26,3 +26,4 @@ currently produces no data. This function's entire purpose is summing
 \code{fragvol_l/r/h} per horizon, so delegating would silently drop rock
 fragment volume - a real regression, not a style difference.
 }
+\keyword{internal}

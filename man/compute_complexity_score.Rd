@@ -19,3 +19,4 @@ Complexity score
 \description{
 Calculate a complexity score for geometry
 }
+\keyword{internal}

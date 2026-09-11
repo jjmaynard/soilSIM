@@ -30,3 +30,4 @@ coordinates (it always computes true polygon area via
 function's own comments).
 }
 
+\keyword{internal}

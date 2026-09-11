@@ -66,7 +66,7 @@ quantile_normal_raster <- function(fit, q) {
 #' @param value_rasters List of SpatRasters, sorted the same way as `probs`.
 #' @param probs Numeric probabilities matching `value_rasters`' order.
 #' @param q Target quantile probability.
-#' @export
+#' @keywords internal
 quantile_linear_cdf_raster <- function(value_rasters, probs, q) {
   stopifnot(q >= min(probs), q <= max(probs))
   i <- max(which(probs <= q))

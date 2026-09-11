@@ -30,3 +30,4 @@ Simple validation results list
 Simple, extensible property validation that works with any property source.
 Focuses on core validation logic without excessive complexity.
 }
+\keyword{internal}

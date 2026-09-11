@@ -26,3 +26,4 @@ Distribution fidelity assessment
 \description{
 Validate Distribution Fidelity
 }
+\keyword{internal}

@@ -53,3 +53,4 @@ columns are present, sand/silt/clay are simulated jointly and converted to ILR c
 (\code{ilr1}/\code{ilr2}) before being included in the main correlated simulation, then converted back
 after.
 }
+\keyword{internal}

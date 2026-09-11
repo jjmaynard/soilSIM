@@ -28,3 +28,4 @@ distribution configuration
 \description{
 Setup Distributions
 }
+\keyword{internal}

@@ -17,3 +17,4 @@ Validity validation results
 \description{
 Check geometric validity using terra's validation
 }
+\keyword{internal}

@@ -34,3 +34,4 @@ group members are filled from the inverse-ILR output (guaranteed
 sum-to-\code{total} and in-bounds for every realization by construction), and
 the pseudo-properties are dropped.
 }
+\keyword{internal}

@@ -16,7 +16,7 @@
 #' else in the package outside a \code{@seealso} doc link (confirmed by
 #' source grep) - standalone public API for callers who need it, not
 #' dead/broken code. See also \code{\link{write_soil_data}}.
-#' @export
+#' @keywords internal
 read_soil_data <- function(file_path,
                            file_type = "auto",
                            validate_on_load = TRUE,
@@ -87,7 +87,7 @@ read_soil_data <- function(file_path,
 #' else in the package outside a \code{@seealso} doc link (confirmed by
 #' source grep) - standalone public API for callers who need it, not
 #' dead/broken code. See also \code{\link{read_soil_data}}.
-#' @export
+#' @keywords internal
 write_soil_data <- function(data,
                             file_path,
                             file_type = "csv",
@@ -142,7 +142,7 @@ write_soil_data <- function(data,
 #' for callers who need standalone/versioned backups (as opposed to
 #' \code{\link{write_soil_data}}'s single-backup-on-overwrite behavior), not
 #' dead/broken code.
-#' @export
+#' @keywords internal
 backup_data <- function(source_path, backup_dir = NULL, max_backups = 5) {
 
   if (!file.exists(source_path)) {
@@ -181,7 +181,7 @@ backup_data <- function(source_path, backup_dir = NULL, max_backups = 5) {
 #' @param validate_config Whether to validate configuration
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Loaded configuration
-#' @export
+#' @keywords internal
 load_configuration <- function(config_path, config_type = "auto", validate_config = TRUE,
                                verbose = getOption("ssurgo.verbose", FALSE)) {
   .old_log_cfg <- set_verbose_logging(verbose)

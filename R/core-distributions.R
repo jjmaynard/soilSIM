@@ -44,7 +44,7 @@ quantile_normal <- function(fit, q) {
 #'
 #' @param mean,var Mean/variance on the rescaled-to-\eqn{[0,1]} support.
 #' @return `list(shape1=, shape2=)`.
-#' @export
+#' @keywords internal
 fit_beta_mom <- function(mean, var) {
   common <- mean * (1 - mean) / var - 1
   list(shape1 = mean * common, shape2 = (1 - mean) * common)
@@ -109,7 +109,7 @@ fit_beta_mle_newton <- function(values, bounds, n_iter = 15, eps = 1e-6) {
 #' @param value_matrix Numeric matrix, one row per horizon, one column per
 #'   percentile value (e.g. 3 columns for an l/r/h triplet).
 #' @return A data frame with columns `shape1`, `shape2` (one row per horizon).
-#' @export
+#' @keywords internal
 fit_beta_mle_newton_vec <- function(value_matrix, bounds, n_iter = 15, eps = 1e-6) {
   scaled <- pmin(pmax((value_matrix - bounds[1]) / (bounds[2] - bounds[1]), eps), 1 - eps)
 
@@ -191,7 +191,7 @@ quantile_triangular <- function(fit, q) {
 #' @param a,b,c Minimum, maximum, and mode of the triangular distribution.
 #' @return A numeric vector of length `n`; `NaN` for every element if `a`,
 #'   `b`, `c` describe a degenerate/invalid triangle.
-#' @export
+#' @keywords internal
 tri_dist <- function(n = 1, a = 0, b = 1, c = (a + b) / 2) {
   if (length(n) > 1) n <- length(n)
   if (n < 1 | is.na(n)) stop(paste("invalid argument: n =", n))
@@ -314,7 +314,7 @@ quantile_metalog_linear <- function(fit, q) {
 #' @param fit Output of `fit_metalog_linear()`.
 #' @param y_grid Probability grid to probe.
 #' @return `TRUE` if infeasible (non-monotonic), else `FALSE`.
-#' @export
+#' @keywords internal
 check_metalog_feasible <- function(fit, y_grid = seq(0.02, 0.98, by = 0.02)) {
   probe <- quantile_metalog_linear(fit, y_grid)
   any(diff(probe) < 0)
@@ -327,7 +327,7 @@ check_metalog_feasible <- function(fit, y_grid = seq(0.02, 0.98, by = 0.02)) {
 #' @param full_probs,full_values The FULL percentile set (including p=0/p=1
 #'   if available) used for the `linear_cdf` fallback.
 #' @param q Vector of probabilities.
-#' @export
+#' @keywords internal
 quantile_metalog_with_fallback <- function(fit, infeasible, full_probs, full_values, q) {
   if (isTRUE(infeasible)) {
     quantile_linear_cdf(full_probs, full_values, q)
@@ -474,7 +474,7 @@ quantile_from_fit <- function(u, family, fit) {
 #' @param family One of `fit_percentile_triplet()`'s resolved families.
 #' @param fit The `fit` element of `fit_percentile_triplet()`'s return value.
 #' @return `list(valid=, message=)`.
-#' @export
+#' @keywords internal
 validate_fit_parameters <- function(family, fit) {
   if (is.null(fit)) return(list(valid = FALSE, message = "fit is NULL"))
 
@@ -596,7 +596,7 @@ ilr_inverse <- function(z1, z2, total = 100) {
 #'   `qnorm(0.95)` for a 5th/95th-percentile low/high).
 #' @param n_mc Monte Carlo sample size.
 #' @return `list(mu = c(z1, z2), Sigma = 2x2 matrix)`.
-#' @export
+#' @keywords internal
 estimate_ilr_moments_mc <- function(low_clay, rep_clay, high_clay,
                                      low_sand, rep_sand, high_sand,
                                      low_silt, rep_silt, high_silt,
@@ -624,7 +624,7 @@ estimate_ilr_moments_mc <- function(low_clay, rep_clay, high_clay,
 #' @param n Number of samples to draw.
 #' @param total Composition target sum.
 #' @return An `n x 3` matrix (`clay`, `sand`, `silt`).
-#' @export
+#' @keywords internal
 sample_ilr_posterior <- function(mu, Sigma, n = 1000, total = 100) {
   L <- chol(Sigma)
   z_draws <- matrix(rnorm(2 * n), ncol = 2) %*% L
@@ -743,7 +743,7 @@ validate_correlation_matrix <- function(corr_matrix, properties) {
 #'   `group_fallback_matrices` use, not KSSL-specific logic in this function
 #'   - named for the fallback source this function was built to support
 #'   (`core-correlations.R`).
-#' @export
+#' @keywords internal
 estimate_correlation_matrix_robust <- function(data, group_var = NULL, min_group_n = 5,
                                                 global_fallback = NULL,
                                                 group_fallback_matrices = NULL,
@@ -854,7 +854,7 @@ estimate_correlation_matrix_robust <- function(data, group_var = NULL, min_group
 #'   `list(members=, pseudo=)`).
 #' @return `list(sim_properties=, groups=)` where `groups` is a named list of
 #'   `list(members=, pseudo=, active=)`.
-#' @export
+#' @keywords internal
 resolve_composition_groups <- function(properties, config) {
   group_defs <- config$monte_carlo$composition_groups %||% list()
   sim_properties <- properties
@@ -914,7 +914,7 @@ resolve_composition_groups <- function(properties, config) {
 #' @param properties The caller-facing, original property vector.
 #' @param groups The `groups` element of `resolve_composition_groups()`'s return value.
 #' @return An array dimnamed over `properties`.
-#' @export
+#' @keywords internal
 restore_composition_properties <- function(simulation_results, sim_properties, properties, groups) {
   active_groups <- Filter(function(g) isTRUE(g$active), groups)
   if (length(active_groups) == 0) {
@@ -1186,7 +1186,7 @@ sim_normal <- function(probs, values, n) {
 #'   for method = "beta"; used as padding bounds for "spline" if given.
 #' @param ... Additional method-specific arguments (`sample_size` for "kde").
 #' @return A numeric vector of `n` simulated values.
-#' @export
+#' @keywords internal
 simulate_from_percentiles <- function(quantile_df,
                                        method = c("linear_cdf", "spline", "kde", "beta", "normal"),
                                        percentile_cols = c("P0", "P5", "P50", "P95", "P100"),
@@ -1218,7 +1218,7 @@ simulate_from_percentiles <- function(quantile_df,
 #' = "linear_cdf")`.
 #'
 #' @inheritParams simulate_from_percentiles
-#' @export
+#' @keywords internal
 generate_inverse_cdf_distribution <- function(quantile_df,
                                               percentile_cols = c("P0","P5","P50","P95","P100"),
                                               n = 1000) {
@@ -1272,7 +1272,7 @@ compare_percentile_methods <- function(quantile_df,
 #' @param percentile_probs Numeric vector of percentile probabilities (0-1) to compute.
 #' @return A one-row data frame of summary statistics, including dynamically-named
 #'   percentile columns (e.g. P10, P20, ...).
-#' @export
+#' @keywords internal
 compute_summary_statistics <- function(data, percentile_probs = seq(0.1, 0.9, by = 0.1)) {
     # Ensure the input is a numeric vector
     if (!is.numeric(data)) {
@@ -1348,7 +1348,7 @@ compute_summary_statistics <- function(data, percentile_probs = seq(0.1, 0.9, by
 #' @param bounds Optional bounds passed through to methods that use them.
 #' @return A data frame with one row per method: mean KS statistic, mean
 #'   absolute relative mean error, and mean absolute relative SD error across replicates.
-#' @export
+#' @keywords internal
 validate_percentile_methods_synthetic <- function(true_rng,
                                                     percentile_probs = c(0, 0.05, 0.5, 0.95, 1),
                                                     methods = c("linear_cdf", "spline", "kde"),

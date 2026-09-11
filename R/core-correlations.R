@@ -144,7 +144,7 @@ classify_genhz <- function(hzname) {
 #'   dimnamed by `properties`, or `NULL` if fewer than 2 of `properties` have
 #'   a KSSL mapping, or if `genhz` is supplied but not among the available
 #'   keys.
-#' @export
+#' @keywords internal
 build_kssl_fallback_matrix <- function(properties, genhz = NULL) {
   kssl_matrices <- .kssl_property_matrices()
 

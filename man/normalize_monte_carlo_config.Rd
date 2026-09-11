@@ -36,3 +36,4 @@ every time). This accepts either shape: already-nested
 (\code{list(monte_carlo = list(...))}) configs pass through unchanged; a flat
 config whose names match known \code{monte_carlo} settings gets wrapped.
 }
+\keyword{internal}

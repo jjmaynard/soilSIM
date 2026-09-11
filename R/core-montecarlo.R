@@ -401,7 +401,7 @@ simulate_monte_carlo <- function(soil_data,
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Array of simulated values, dimensioned horizons by properties by realizations
 #'
-#' @export
+#' @keywords internal
 simulate_correlated_properties <- function(simulation_params,
                                                     correlation_matrix,
                                                     n_realizations,
@@ -514,7 +514,7 @@ simulate_correlated_properties <- function(simulation_params,
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return List with simulated component compositions and quality metrics
 #'
-#' @export
+#' @keywords internal
 simulate_component_compositions_batch <- function(component_data,
                                                 n_realizations = 1000,
                                                 config = NULL,
@@ -618,7 +618,7 @@ simulate_component_compositions_batch <- function(component_data,
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return distribution configuration
 #'
-#' @export
+#' @keywords internal
 setup_distributions <- function(simulation_params, properties, config, verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
@@ -716,7 +716,7 @@ setup_distributions <- function(simulation_params, properties, config, verbose =
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return simulation parameters
 #'
-#' @export
+#' @keywords internal
 prepare_simulation_parameters <- function(simulation_data, properties, config, composition_plan = NULL,
                                            verbose = getOption("ssurgo.verbose", FALSE)) {
 
@@ -893,7 +893,7 @@ prepare_simulation_parameters <- function(simulation_data, properties, config, c
 #'   log level so \code{INFO}-level progress messages print for the duration
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return `simulation_params`, with fused entries replaced in place.
-#' @export
+#' @keywords internal
 fuse_observed_data_into_priors <- function(simulation_params, simulation_data, sim_properties,
                                             properties, observed_data = NULL, composition_plan, config,
                                             observed_data_by_mukey = NULL,
@@ -1175,7 +1175,7 @@ fuse_one_property_prior <- function(prior, likelihood, is_vector_likelihood, n_s
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return correlation configuration
 #'
-#' @export
+#' @keywords internal
 configure_correlation_structure <- function(simulation_params,
                                                      properties,
                                                      correlation_matrix = NULL,
@@ -1281,7 +1281,7 @@ configure_correlation_structure <- function(simulation_params,
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Constrained simulation results with quality metrics
 #'
-#' @export
+#' @keywords internal
 apply_simulation_constraints <- function(simulation_results, properties, config, composition_plan = NULL,
                                           verbose = getOption("ssurgo.verbose", FALSE)) {
 
@@ -1363,7 +1363,7 @@ apply_simulation_constraints <- function(simulation_results, properties, config,
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Validation results
 #'
-#' @export
+#' @keywords internal
 validate_monte_carlo_inputs <- function(soil_data, properties, correlation_matrix,
                                         n_realizations, config,
                                         verbose = getOption("ssurgo.verbose", FALSE)) {
@@ -1508,7 +1508,7 @@ validate_monte_carlo_inputs <- function(soil_data, properties, correlation_matri
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return validation results
 #'
-#' @export
+#' @keywords internal
 validate_simulation_output <- function(simulation_results, properties, config,
                                         verbose = getOption("ssurgo.verbose", FALSE)) {
 
@@ -1752,7 +1752,7 @@ default_monte_carlo_config <- function(verbose = getOption("ssurgo.verbose", FAL
 #'   log level so \code{INFO}-level progress messages print for the duration
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return `simulation_config`, wrapped under `monte_carlo` if it was flat.
-#' @export
+#' @keywords internal
 normalize_monte_carlo_config <- function(simulation_config, default_config,
                                           verbose = getOption("ssurgo.verbose", FALSE)) {
   .old_log_cfg <- set_verbose_logging(verbose)
@@ -1813,7 +1813,7 @@ merge_configurations_safe <- function(base_config, new_config) {
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Validation results
 #'
-#' @export
+#' @keywords internal
 validate_monte_carlo_config <- function(config, n_realizations, verbose = getOption("ssurgo.verbose", FALSE)) {
 
   .old_log_cfg <- set_verbose_logging(verbose)
@@ -1884,7 +1884,7 @@ validate_monte_carlo_config <- function(config, n_realizations, verbose = getOpt
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Prepared simulation data
 #'
-#' @export
+#' @keywords internal
 prepare_simulation_data <- function(soil_data, properties, config, composition_plan = NULL,
                                      verbose = getOption("ssurgo.verbose", FALSE)) {
 
@@ -2155,7 +2155,7 @@ assess_component_quality <- function(original_data, simulated_data, config) {
 #'   log level so \code{INFO}-level progress messages print for the duration
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return `list(valid=, parameters=list(family=, fit=, source=))`.
-#' @export
+#' @keywords internal
 extract_property_parameters <- function(horizon_data, property_name, config,
                                          verbose = getOption("ssurgo.verbose", FALSE)) {
   .old_log_cfg <- set_verbose_logging(verbose)
@@ -2251,7 +2251,7 @@ summarize_parameter_extraction <- function(simulation_params, properties, n_hori
 #'   log level so \code{INFO}-level progress messages print for the duration
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return `list(valid=, correlation_matrix=, info=list(method=, n_obs=))`.
-#' @export
+#' @keywords internal
 estimate_property_correlations <- function(simulation_params, properties, config, simulation_data = NULL,
                                             verbose = getOption("ssurgo.verbose", FALSE)) {
   .old_log_cfg <- set_verbose_logging(verbose)

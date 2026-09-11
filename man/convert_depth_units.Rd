@@ -21,3 +21,4 @@ Converted depth values
 \description{
 Converts depth measurements between different units (cm, m, in, ft).
 }
+\keyword{internal}

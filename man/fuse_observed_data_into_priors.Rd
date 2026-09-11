@@ -108,3 +108,4 @@ the Cholesky copula in \code{simulate_correlated_properties()} -
 estimates that from \code{simulation_data}'s raw representative values, which
 fusion does not touch.
 }
+\keyword{internal}

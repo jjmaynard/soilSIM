@@ -30,3 +30,4 @@ function issues exactly one network call per cache miss. The result is disk-cach
 repeated calls for the same AOI across separate top-level user calls hit zero network calls.
 }
 
+\keyword{internal}

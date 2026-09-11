@@ -29,3 +29,4 @@ Confidence interval
 \description{
 Calculates confidence intervals for various statistics.
 }
+\keyword{internal}

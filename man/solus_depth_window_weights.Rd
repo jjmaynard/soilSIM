@@ -40,3 +40,4 @@ single nearest slice (constant extrapolation).
 \seealso{
 \code{closest_solus_depth_slice()}, \code{fetch_solus_low_pred_high()}
 }
+\keyword{internal}

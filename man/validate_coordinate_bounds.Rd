@@ -32,3 +32,4 @@ there would be a real behavior change for existing callers, not a pure
 cleanup.
 }
 
+\keyword{internal}

@@ -458,7 +458,7 @@ validate_data_quality <- function(data,
 #' Fully implemented and exported, but not currently called from anywhere
 #' else in the package (confirmed by source grep) - standalone public API
 #' for callers who need it, not dead/broken code.
-#' @export
+#' @keywords internal
 check_required_columns <- function(data, column_specifications, strict_mode = TRUE) {
 
   validation_results <- list(
@@ -503,7 +503,7 @@ check_required_columns <- function(data, column_specifications, strict_mode = TR
 #' @param property_ranges Named list of property ranges
 #' @param action Action for out-of-range values: "warn", "error", or "clip"
 #' @return Range validation results
-#' @export
+#' @keywords internal
 validate_numeric_ranges <- function(data, property_ranges, action = "warn") {
 
   validation_results <- list(
@@ -561,7 +561,7 @@ validate_numeric_ranges <- function(data, property_ranges, action = "warn") {
 #' @param target_standard Target naming standard ("ssurgo", "nrcs", "custom")
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Data with standardized property names
-#' @export
+#' @keywords internal
 standardize_property_names <- function(data,
                                        property_mapping = NULL,
                                        target_standard = "ssurgo",
@@ -624,7 +624,7 @@ standardize_property_names <- function(data,
 #' @param to_unit Target unit ("cm", "m", "in", "ft")
 #' @param round_digits Number of decimal places for rounding
 #' @return Converted depth values
-#' @export
+#' @keywords internal
 convert_depth_units <- function(depths, from_unit, to_unit, round_digits = 2) {
 
   if (from_unit == to_unit) {
@@ -667,7 +667,7 @@ convert_depth_units <- function(depths, from_unit, to_unit, round_digits = 2) {
 #' @param target_type Target data type ("numeric", "character", "logical")
 #' @param default_value Default value if all columns are NA
 #' @return Coalesced values
-#' @export
+#' @keywords internal
 safe_coalesce <- function(data, column_names, target_type = "numeric", default_value = NA) {
 
   # Check which columns exist
@@ -721,7 +721,7 @@ safe_coalesce <- function(data, column_names, target_type = "numeric", default_v
 #' @param group_by Grouping columns for grouped imputation
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Data with handled missing values
-#' @export
+#' @keywords internal
 handle_missing_values <- function(data,
                                   strategy = "interpolate",
                                   columns = NULL,
@@ -784,7 +784,7 @@ handle_missing_values <- function(data,
 #' @param handle_constant How to handle constant variables ("remove", "zero", "warn")
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Correlation coefficient or matrix
-#' @export
+#' @keywords internal
 safe_correlation <- function(x, y = NULL, method = "pearson", handle_constant = "warn",
                              verbose = getOption("ssurgo.verbose", FALSE)) {
   .old_log_cfg <- set_verbose_logging(verbose)
@@ -889,7 +889,7 @@ safe_correlation <- function(x, y = NULL, method = "pearson", handle_constant = 
 #' @param method Method for calculation ("normal", "bootstrap", "t")
 #' @param n_bootstrap Number of bootstrap samples
 #' @return Confidence interval
-#' @export
+#' @keywords internal
 compute_confidence_intervals <- function(data,
                                            statistic = "mean",
                                            confidence_level = 0.95,
@@ -971,7 +971,7 @@ compute_confidence_intervals <- function(data,
 #' Fully implemented and exported, but not currently called from anywhere
 #' else in the package (confirmed by source grep) - standalone public API
 #' for callers who need it, not dead/broken code.
-#' @export
+#' @keywords internal
 normalize_values <- function(x, method = "minmax", center = TRUE, scale = TRUE) {
 
   if (all(is.na(x))) {
@@ -1029,7 +1029,7 @@ normalize_values <- function(x, method = "minmax", center = TRUE, scale = TRUE) 
 #' @param threshold Threshold parameter
 #' @param return_indices Whether to return indices instead of logical vector
 #' @return Outlier indicators or indices
-#' @export
+#' @keywords internal
 detect_outliers <- function(data, method = "iqr", threshold = NULL, return_indices = FALSE) {
 
   if (is.null(threshold)) {

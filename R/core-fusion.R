@@ -360,7 +360,7 @@ fuse_bivariate_normal <- function(mu1, Sigma1, mu2, Sigma2) {
 #' @param total Composition target sum (default 100).
 #' @return `list(posterior_samples = <n_samples x 3 matrix, columns clay/sand/silt,
 #'   guaranteed sum-to-`total` by construction>, ilr_mu=, ilr_Sigma=)`.
-#' @export
+#' @keywords internal
 fuse_texture_group_from_triplets <- function(prior_triplets, lik_triplets, z_prior, z_lik,
                                               n_mc = 2000, n_samples = 1000, total = 100) {
   prior_moments <- estimate_ilr_moments_mc(
@@ -1304,7 +1304,7 @@ fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_
 #' @param full_value_rasters,full_probs The FULL percentile set (including
 #'   p=0/p=1 if available) - used only for the infeasible-cell Normal fallback.
 #' @param p_grid Probability grid for the quadrature.
-#' @export
+#' @keywords internal
 metalog_moments_raster <- function(fit, infeasible_r, full_value_rasters, full_probs, bounds, boundedness,
                                     p_grid = seq(0.001, 0.999, by = 0.005)) {
   n <- length(p_grid)
@@ -1464,7 +1464,7 @@ resolve_property_dist <- function(property_config, prior_value_rasters, prior_pr
 #'   for `dist = "metalog"` still works.
 #' @return `list(posterior=, route=, route_detail=, n_fallback_cells=, dist=,
 #'   dist_source=, skew_proxy=)`.
-#' @export
+#' @keywords internal
 fuse_property_adaptive <- function(prior_value_rasters, prior_probs,
                                     lik_value_rasters, lik_probs,
                                     property_config, threshold_cells = 80000, ...) {
@@ -1511,7 +1511,7 @@ fuse_property_adaptive <- function(prior_value_rasters, prior_probs,
 #' @param composition_groups A `config$monte_carlo$composition_groups`-shaped
 #'   list, e.g. `list(texture = list(members = c("claytotal", "sandtotal", "silttotal")))`.
 #' @return Character vector of member property ids, in configured order.
-#' @export
+#' @keywords internal
 group_members <- function(group, composition_groups) {
   group_def <- composition_groups[[group]]
   if (is.null(group_def)) {
@@ -1834,7 +1834,7 @@ texture_group_percentiles_raster <- function(ilr_mu_r, ilr_Sigma_r, posterior_pr
 #'   n_fallback_cells = 0)`. To draw posterior samples for a specific
 #'   fraction/cell directly, extract that cell's `ilr_mu`/`ilr_Sigma` and pass to
 #'   `sample_ilr_posterior()`.
-#' @export
+#' @keywords internal
 fuse_texture_group <- function(fetched, mukey_raster = NULL, mukey_texture_draws = NULL,
                                 posterior_probs = NULL, posterior_n_mc = 2000) {
   stopifnot(length(fetched) == 3)
@@ -2095,7 +2095,7 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 #' percentile cache is already warm (the draws that produced that cached percentile summary weren't
 #' kept). That simulation still runs at most once per call regardless of cache state - it is shared
 #' with the percentile-cache-population step when both are needed in the same call.
-#' @export
+#' @keywords internal
 run_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth,
                                composition_groups = NULL, property_configs = NULL,
                                parallel = FALSE, n_cores = NULL, seed = NULL) {
@@ -2250,7 +2250,7 @@ stage1_fuse_texture_group_from_fetched <- function(fetched, want_raw_draws = FAL
 #' percentiles are not kept - see `simulate_ssurgo_mapunit_draws()`'s docs). Unset on every
 #' member (default) uses the percentile-reconstruction path; unlike `run_fusion()`, the
 #' joint texture-group route does not default to raw draws.
-#' @export
+#' @keywords internal
 run_fusion_group <- function(aoi_vect, group, composition_groups, property_configs,
                                      top_depth, bottom_depth, parallel = FALSE, n_cores = NULL,
                                      seed = NULL) {
@@ -2393,7 +2393,7 @@ run_fusion_group <- function(aoi_vect, group, composition_groups, property_confi
 #'   [run_fusion_group()]), or `NULL` on that leaf's own failure; the whole call returns
 #'   `NULL` only if the shared simulation itself fails.
 #' @seealso [run_fusion()], [run_fusion_group()], [extract_mukey_joint_ensemble()]
-#' @export
+#' @keywords internal
 run_fusion_multiproperty <- function(aoi_vect, property_configs, depth_windows,
                                      composition_groups = NULL,
                                      n_mc = 1000, parallel = FALSE, n_cores = NULL,

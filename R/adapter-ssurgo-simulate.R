@@ -40,7 +40,7 @@ NULL
 #' function issues exactly one network call per cache miss. The result is disk-cached
 #' (`cache.R`, kind `"mukey_grid"`, depth-agnostic key via `mukey_grid_cache_key()`) so
 #' repeated calls for the same AOI across separate top-level user calls hit zero network calls.
-#' @export
+#' @keywords internal
 fetch_ssurgo_mukey_raster <- function(aoi_vect) {
   cache_key <- mukey_grid_cache_key(aoi_vect)
   cached <- cache_get(cache_key)
@@ -71,7 +71,7 @@ fetch_ssurgo_mukey_raster <- function(aoi_vect) {
 #'   `"saxton_rawls"` (default) derives `wthirdbar`/`wfifteenbar` via the pedotransfer function
 #'   where texture + bulk density allow; `"generic"` sends them through the six-strategy hierarchy.
 #' @return `df` with missing values infilled where possible.
-#' @export
+#' @keywords internal
 infill_ssurgo_data <- function(df, water_retention_method = c("saxton_rawls", "generic")) {
   water_retention_method <- match.arg(water_retention_method)
 
@@ -138,7 +138,7 @@ adjust_one_cokey_depth_trend <- function(cokey_data, properties, min_depths, con
 #' @param seed Optional integer. When set, seeds the parallel depth-trend path via
 #'   `future.seed`. `NULL` (default) leaves the RNG stream unseeded.
 #' @return `sim_long`, depth-trend-adjusted where possible.
-#' @export
+#' @keywords internal
 maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths = 2,
                                                 parallel = FALSE, n_cores = NULL, config = NULL,
                                                 seed = NULL) {
@@ -201,7 +201,7 @@ maybe_adjust_soil_data_depth_trend <- function(sim_long, properties, min_depths 
 #' @return One row per replicate, with `top`/`bottom` set to the requested window and each
 #'   property column replaced by its overlap-weighted mean (`NA` if the replicate has no overlap
 #'   with the window).
-#' @export
+#' @keywords internal
 aggregate_depth_window_by_replicate <- function(sim_long, top_depth, bottom_depth, property_cols,
                                                  replicate_cols = c("mukey", "cokey", "simulation_number")) {
   overlap <- pmax(0, pmin(sim_long$hzdepb_r, bottom_depth) - pmax(sim_long$hzdept_r, top_depth))
@@ -232,7 +232,7 @@ aggregate_depth_window_by_replicate <- function(sim_long, top_depth, bottom_dept
 #'   `"wfifteenbar"`/`"water_retention_15_bar"`/`"wr_15b"`, or `"caco3"`, `"ec"`, `"ecec"`,
 #'   `"gypsum"`, `"sar"`.
 #' @return The corresponding column name in `simulate_cokey_generalized()`'s output.
-#' @export
+#' @keywords internal
 property_to_sim_column <- function(property_id) {
   mapping <- c(
     ph = "ph", ph1to1h2o = "ph",
@@ -371,7 +371,7 @@ normalize_requested_properties <- function(requested_properties) {
 #' draws. Raw-draws fusion reuses draws in memory within one `run_fusion()` call
 #' (computed once, used for both the percentile cache and `lookup_mukey_draws()`); see also
 #' `run_fusion_group()`'s `shared_draws` pattern.
-#' @export
+#' @keywords internal
 simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
                                            parallel = FALSE, n_cores = NULL, config = NULL,
                                            mukey_raster = NULL, depth_windows = NULL,
@@ -520,7 +520,7 @@ SSURGO_SIM_PROPERTY_COLUMNS <- c("db", "wr_3b", "wr_15b", "rfv", "ph", "cec", "s
 #' @param percentile_by_mukey A data frame with a `mukey` column and one column per percentile
 #'   (e.g. `P05`, `P25`, `P50`, `P75`, `P95`).
 #' @return A named list of single-layer `terra::SpatRaster`s, one per percentile column.
-#' @export
+#' @keywords internal
 rasterize_mukey_percentiles <- function(mukey_raster, percentile_by_mukey) {
   # terra::cats()'s first column is the raster's internal numeric factor ID (must stay first -
   # levels<- requires it); the SECOND column holds the actual category labels (here, the mukey
@@ -597,7 +597,7 @@ percentiles_from_draws <- function(mukey_raster, draws, property_id,
 #' @return A named list keyed by mukey (as character), each element a numeric vector of that
 #'   mukey's simulated values (across every cokey/replicate) - or `NULL` if `property_id`'s
 #'   simulated column isn't present in `draws`.
-#' @export
+#' @keywords internal
 lookup_mukey_draws <- function(draws, property_id) {
   sim_col <- property_to_sim_column(property_id)
   if (!sim_col %in% names(draws)) return(NULL)
@@ -627,7 +627,7 @@ lookup_mukey_draws <- function(draws, property_id) {
 #'   triplet for that row - rows with any missing fraction, e.g. a cokey where texture simulation
 #'   failed for that replicate, are dropped rather than kept partially). `NULL` if `draws` doesn't
 #'   carry all three texture columns at all (e.g. no member of the AOI's data had texture data).
-#' @export
+#' @keywords internal
 lookup_mukey_texture_draws <- function(draws) {
   texture_cols <- c("clay_total", "sand_total", "silt_total")
   if (!all(texture_cols %in% names(draws))) return(NULL)
@@ -678,7 +678,7 @@ lookup_mukey_texture_draws <- function(draws) {
 #'   replicate_key = data.frame(cokey, simulation_number))`. `NULL` if the simulation fails or no
 #'   mukey has a replicate spanning every window.
 #' @seealso `remarginalize_ensemble_to_posterior()`, \code{\link{lookup_mukey_draws}}
-#' @export
+#' @keywords internal
 extract_mukey_joint_ensemble <- function(aoi_vect, depth_windows, n_mc = 1000,
                                           parallel = FALSE, n_cores = NULL, config = NULL,
                                           mukey_raster = NULL, draws_by_window = NULL,
@@ -779,7 +779,7 @@ extract_mukey_joint_ensemble <- function(aoi_vect, depth_windows, n_mc = 1000,
 #'   `simulate_ssurgo_mapunit_draws()`. `NULL` (default) = current stochastic behavior.
 #' @return `list(values = <named list of percentile-value SpatRasters>, probs = probs)`, or `NULL`
 #'   if the mukey raster or the Monte Carlo draws are unavailable for this AOI.
-#' @export
+#' @keywords internal
 fetch_ssurgo_percentiles <- function(aoi_vect, property_id, top_depth, bottom_depth,
                                       probs = c(0.05, 0.25, 0.5, 0.75, 0.95), n_mc = 1000,
                                       parallel = FALSE, n_cores = NULL,

@@ -17,3 +17,4 @@ Complexity validation results
 \description{
 Check geometry complexity (vertices, parts, etc.)
 }
+\keyword{internal}

@@ -53,3 +53,4 @@ and this toolkit's top-level entry point for non-compositional properties
 raster analogue of \code{run_fusion()} minus the SSURGO/SOLUS
 fetch-and-cache wrapper (see this file's \verb{@section Deliberately out of scope:} above).
 }
+\keyword{internal}

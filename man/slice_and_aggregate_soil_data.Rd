@@ -18,3 +18,4 @@ A data frame with one row per depth range, mean values of soil properties for ea
 Slices a horizon data frame into 1 cm increments based on \code{hzdept_r}/\code{hzdepb_r}, then
 averages every numeric column within each requested depth range.
 }
+\keyword{internal}

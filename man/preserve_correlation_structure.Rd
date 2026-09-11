@@ -33,3 +33,4 @@ Imposes vertical correlation on the property matrices by re-ordering each proper
 per-depth values to a shared surface-referenced rank, so the depth trend is applied without
 disturbing within-depth cross-property correlation.
 }
+\keyword{internal}

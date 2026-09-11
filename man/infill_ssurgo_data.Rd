@@ -22,3 +22,4 @@ Thin wrapper: infills the standard SSURGO property set present in \code{df} via
 the columns actually present. Kept as a named entry point because the raster-fusion pipeline
 (\code{simulate_ssurgo_mapunit_draws()}) calls it with a fixed property vocabulary.
 }
+\keyword{internal}

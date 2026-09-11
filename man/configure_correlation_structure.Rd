@@ -36,3 +36,4 @@ correlation configuration
 \description{
 Configure Correlation Structure
 }
+\keyword{internal}

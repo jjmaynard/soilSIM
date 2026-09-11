@@ -55,3 +55,4 @@ SSURGO simulation pipeline (see \code{apply_local_gp_adjustments()}/\code{fit_lo
 so for AOIs with many cokeys, \code{parallel = TRUE} can give a further speedup roughly proportional
 to available cores.
 }
+\keyword{internal}

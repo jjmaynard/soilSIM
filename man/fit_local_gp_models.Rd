@@ -33,3 +33,4 @@ List of fitted local GP models
 Fits one Gaussian-process depth model per property from a single component's
 depth-aggregated values.
 }
+\keyword{internal}

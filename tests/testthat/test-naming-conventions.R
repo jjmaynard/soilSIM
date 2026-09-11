@@ -30,16 +30,13 @@ deprecated_shim_names <- function() {
 }
 
 # Residual legacy names (pre-0.2.0) that still need a rename + shim. Only shrink this.
+# (D1's export-tiering pass demoted most of the original 23 to @keywords internal,
+# so they no longer appear in getNamespaceExports() and dropped out of this list on
+# their own; these 8 are still public and still need the D2 rename.)
 legacy_exceptions <- c(
   "beta_to_moments", "gamma_to_moments", "moments_to_beta", "moments_to_gamma",
   "lognormal_to_normal_params", "normal_to_lognormal_params",
-  "preserve_correlation_structure", "preserve_correlation_structure_joint",
-  "configure_correlation_structure", "safe_coalesce", "safe_correlation",
-  "maybe_adjust_soil_data_depth_trend", "property_to_sim_column",
-  "wrap_nested_rasters", "unwrap_nested_rasters", "remarginalized_awc",
-  "solus_depth_window_weights", "closest_solus_depth_slice", "check_metalog_feasible",
-  "check_required_columns", "check_ssurgo_cache", "export_workflow_metadata",
-  "log_message"
+  "unwrap_nested_rasters", "remarginalized_awc"
 )
 
 offending_exports <- function() {

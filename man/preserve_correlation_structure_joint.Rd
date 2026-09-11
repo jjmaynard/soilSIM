@@ -65,3 +65,4 @@ SIMULTANEOUSLY by construction rather than approximated by a rank-copying retrof
 reference property, since every property's correlation to every other is modeled directly via
 \code{R_prop}.
 }
+\keyword{internal}

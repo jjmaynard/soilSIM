@@ -19,3 +19,4 @@ Merged configuration
 \description{
 Merges user configuration with default configuration.
 }
+\keyword{internal}

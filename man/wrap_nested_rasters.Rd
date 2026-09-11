@@ -25,3 +25,4 @@ representation (or the reverse via \code{terra::unwrap()}) and leaving everythin
 directly addresses \code{cache_set()}'s own \verb{@section Known limitation:} for callers caching a
 full fusion result rather than a raw percentile fetch.
 }
+\keyword{internal}

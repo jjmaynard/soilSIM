@@ -20,7 +20,7 @@ NULL
 #' @param df A data frame containing soil horizon data, with columns `cokey`, `hzname`,
 #'   `hzdept_r`, `hzdepb_r`, and optionally `hzdept_l`, `hzdepb_l`, `hzdept_h`, `hzdepb_h`.
 #' @return A data frame with organic layers removed and depths adjusted within each `cokey` group.
-#' @export
+#' @keywords internal
 remove_organic_layer <- function(df) {
 
   process_group <- function(group) {
@@ -87,7 +87,7 @@ remove_organic_layer <- function(df) {
 #' @param df A data frame with `hzdept_r`/`hzdepb_r` depth-range columns.
 #' @param depth_ranges A list of length-2 `c(top, bottom)` vectors.
 #' @return A data frame with one row per depth range, mean values of soil properties for each.
-#' @export
+#' @keywords internal
 slice_and_aggregate_soil_data <- function(df, depth_ranges = list(c(0, 30), c(30, 100))) {
 
   if (!all(c("hzdept_r", "hzdepb_r") %in% colnames(df))) {
@@ -239,7 +239,7 @@ simulate_component_composition <- function(data, n_simulations = 1000) {
 #'   `length(params)` x `length(params)`.
 #' @param random_seed Optional integer seed for reproducibility.
 #' @return A matrix of correlated samples, `n` rows x `length(params)` columns.
-#' @export
+#' @keywords internal
 simulate_correlated_triangular <- function(n, params, correlation_matrix, random_seed = NULL) {
 
   if (!is.null(random_seed)) {
@@ -285,7 +285,7 @@ simulate_correlated_triangular <- function(n, params, correlation_matrix, random
 #' `tabulate(match(x, ux))` on pre-sorted unique values counts occurrences without the
 #' factor-coercion overhead of `table(x)`/`factor(x)`. On ties it returns the smallest value
 #' among them (unique values are sorted ascending and `which.max()` returns the first maximum).
-#' @export
+#' @keywords internal
 compute_mode <- function(x) {
   ux <- sort(unique(x))
   counts <- tabulate(match(x, ux))
@@ -371,7 +371,7 @@ extend_corr_matrix_with_identity <- function(m, missing_names) {
 #'   `bound_sd`. The `soc` column is an SSURGO-organic-matter-**derived SOC estimate**
 #'   (`om * OM_TO_SOC_FACTOR`, the inverse Van Bemmelen factor) - not a lab-measured soil organic
 #'   carbon value. See `OM_TO_SOC_FACTOR`'s own docs.
-#' @export
+#' @keywords internal
 simulate_cokey_generalized <- function(sim_cokey, correlation_matrices, txt_correlation_matrices = NULL,
                                         requested_properties = NULL) {
 
@@ -689,7 +689,7 @@ NULL
 #'
 #' @return A data frame with soil horizon data for the given mukeys, including aggregated rock fragment data.
 #'
-#' @export
+#' @keywords internal
 fetch_ssurgo_aws_data <- function(mukeys) {
   # Step 1: Format mukey(s) for SQL
   formatted_mukey <- paste0("(", paste0("'", mukeys, "'", collapse = ","), ")")
@@ -762,16 +762,7 @@ fetch_ssurgo_aws_data <- function(mukeys) {
 #'         - `genhz`: The generalized horizon designation.
 #'         - `bound_sd`: The calculated offset value from the distinctness code.
 #'
-#' @examples
-#' \dontrun{
-#'   horizon_data <- data.frame(
-#'     compname = c("amador", "pentz", "pardee", "auburn", "loafercreek", "millvilla"),
-#'     hzname = c("A", "Bt", "R", "A", "Bw", "C")
-#'   )
-#'   result <- query_osd_distinctness(horizon_data)
-#'   head(result)
-#' }
-#' @export
+#' @keywords internal
 query_osd_distinctness <- function(horizon_data) {
   # Subset SSURGO horizon data to keep only compname and hzname
   ssurgo_horizon_data <- horizon_data |>
@@ -840,7 +831,7 @@ query_osd_distinctness <- function(horizon_data) {
 #'   callers (and the kernel gating, which treats missing distinctness data as
 #'   "no gating - fall back to the plain kernel") keep working without OSD access.
 #'
-#' @export
+#' @keywords internal
 attach_osd_boundary_distinctness <- function(hz_data) {
   required_cols <- c("compname", "hzname", "genhz")
   if (!all(required_cols %in% names(hz_data))) {
@@ -951,17 +942,7 @@ fetch_osd_horizons_cached <- function(compnames) {
 #'
 #' @return A data frame with missing `distinctness` values infilled based on the horizon name or generalized horizon group.
 #'
-#' @examples
-#' \dontrun{
-#'   df <- data.frame(
-#'     hzname = c("A", "B", "C", "R", "O", "Cr"),
-#'     distinctness = c(NA, "gradual", NA, NA, "diffuse", NA),
-#'     stringsAsFactors = FALSE
-#'   )
-#'   df <- infill_missing_distinctness(df)
-#'   print(df)
-#' }
-#' @export
+#' @keywords internal
 infill_missing_distinctness <- function(horizon_data) {
   # List of default boundary distinctness values for common horizons
   default_distinctness <- list(
@@ -1025,17 +1006,7 @@ infill_missing_distinctness <- function(horizon_data) {
 #'   `hzdept_r - 2` and missing top high values with `hzdept_r + 2`. Similarly, missing bottom low values are replaced
 #'   with `hzdepb_r - 2` and missing bottom high values with `hzdepb_r + 2`. All values are ensured to be non-negative.
 #'
-#' @examples
-#' data <- data.frame(
-#'   hzdept_r = c(10, 20),
-#'   hzdept_l = c(NA, 18),
-#'   hzdept_h = c(NA, NA),
-#'   hzdepb_r = c(30, 40),
-#'   hzdepb_l = c(NA, NA),
-#'   hzdepb_h = c(NA, 42)
-#' )
-#' infill_missing_depth_variability(data)
-#' @export
+#' @keywords internal
 infill_missing_depth_variability <- function(horizon_data) {
   hw <- RANGE_FALLBACK_HALFWIDTH
 
@@ -1089,16 +1060,7 @@ infill_missing_depth_variability <- function(horizon_data) {
 #'   - `top`: The simulated top depth of the horizon.
 #'   - `bottom`: The simulated bottom depth of the horizon.
 #'
-#' @examples
-#' horizon_data <- data.frame(
-#'   hzname = c("A", "B", "C"),
-#'   hzdepb_l = c(20, 40, 60),
-#'   hzdepb_r = c(25, 45, 65),
-#'   hzdepb_h = c(30, 50, 70)
-#' )
-#' profile <- simulate_soil_profile_top_down(horizon_data)
-#' print(profile)
-#' @export
+#' @keywords internal
 simulate_soil_profile_top_down <- function(horizon_data) {
   n <- nrow(horizon_data)
 
@@ -1162,19 +1124,7 @@ simulate_soil_profile_top_down <- function(horizon_data) {
 #'   - `top`: The simulated top depth of the horizon.
 #'   - `bottom`: The simulated bottom depth of the horizon.
 #'
-#' @examples
-#' horizon_data <- data.frame(
-#'   hzname = c("A", "B", "C"),
-#'   hzdept_l = c(0, 20, 40),
-#'   hzdept_r = c(0, 25, 45),
-#'   hzdept_h = c(0, 30, 50),
-#'   hzdepb_l = c(20, 40, 60),
-#'   hzdepb_r = c(25, 45, 65),
-#'   hzdepb_h = c(30, 50, 70)
-#' )
-#' profile <- simulate_soil_profile_bottom_up(horizon_data)
-#' print(profile)
-#' @export
+#' @keywords internal
 simulate_soil_profile_bottom_up <- function(horizon_data) {
   n <- nrow(horizon_data)
 
@@ -1277,21 +1227,7 @@ simulate_soil_profile_bottom_up <- function(horizon_data) {
 #'         - `bottom`: The representative bottom depth of the horizon (from `hzdepb_r`).
 #'         - `thickness_sd`: The standard deviation of the horizon thickness (bottom - top) across the simulations.
 #'
-#' @examples
-#' horizon_data <- data.frame(
-#'   hzname = c("A", "B", "C"),
-#'   hzdept_r = c(0, 20, 35),
-#'   hzdepb_r = c(20, 35, 50),
-#'   hzdept_l = c(0, 15, 30),
-#'   hzdept_h = c(0, 25, 40),
-#'   hzdepb_l = c(15, 30, 45),
-#'   hzdepb_h = c(25, 40, 60)
-#' )
-#' set.seed(123)
-#' summarized_results <- simulate_soil_profile_thickness(horizon_data, n_simulations = 500)
-#' print(summarized_results)
-#'
-#' @export
+#' @keywords internal
 simulate_soil_profile_thickness <- function(horizon_data, n_simulations = 500) {
   # Step 1: Infill missing depth variability values
   horizon_data <- infill_missing_depth_variability(horizon_data)
@@ -1377,7 +1313,7 @@ simulate_soil_profile_thickness <- function(horizon_data, n_simulations = 500) {
 #'
 #' @return A SoilProfileCollection object with perturbed horizon depths.
 #'
-#' @export
+#' @keywords internal
 simulate_and_perturb_soil_profiles <- function(soil_profile) {
   # Step 1: Extract horizons from the soil profile and select relevant columns
   soil_profile@horizons <- aqp::horizons(soil_profile) |>
@@ -1615,13 +1551,7 @@ simulate_profile_depths_by_collection_parallel <- function(soil_collection, seed
 #'
 #' @return A SoilProfileCollection object containing the simulated and perturbed soil profiles.
 #'
-#' @examples
-#' \dontrun{
-#'   simulated_profiles <- simulate_profile_depths_by_mukey("123456", n_simulations = 100, seed = 123)
-#'   print(simulated_profiles)
-#' }
-#'
-#' @export
+#' @keywords internal
 simulate_profile_depths_by_mukey <- function(mukey, n_simulations = 100, seed = 123) {
   # Step 1: Query the data based on the mukey
   mu_data <- fetch_ssurgo_aws_data(mukeys = mukey)
@@ -1691,13 +1621,7 @@ simulate_profile_depths_by_mukey <- function(mukey, n_simulations = 100, seed = 
 #'
 #' @return A data frame containing rows (horizons) where the simulated depths are out of range.
 #'
-#' @examples
-#' \dontrun{
-#'   out_of_range <- evaluate_simulated_depths(simulated_profiles, horizon_data)
-#'   head(out_of_range)
-#' }
-#'
-#' @export
+#' @keywords internal
 evaluate_simulated_depths <- function(simulated_profiles, horizon_data) {
   # Extract horizons from the simulated profiles
   sim_horizons <- aqp::horizons(simulated_profiles) |>

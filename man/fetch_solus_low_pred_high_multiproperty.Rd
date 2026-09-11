@@ -41,3 +41,4 @@ looked up by exact name).
 \seealso{
 \code{fetch_solus_low_pred_high()}, \code{fetch_solus_percentiles_multiproperty()}
 }
+\keyword{internal}

@@ -46,3 +46,4 @@ function over the full range, and INFEASIBLE cells fall back to
 same percentile triplet.
 }
 
+\keyword{internal}

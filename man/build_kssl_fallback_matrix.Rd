@@ -40,3 +40,4 @@ through \code{\link[=ensure_positive_definite_matrix]{ensure_positive_definite_m
 \code{configure_correlation_structure()} already does this again on the final
 matrix regardless).
 }
+\keyword{internal}

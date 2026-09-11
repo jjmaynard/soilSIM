@@ -51,3 +51,4 @@ and \code{strict_mode} are all read. The result is the nested
 \code{adapter-ssurgo-acquire.R}'s downstream code expects.
 }
 
+\keyword{internal}

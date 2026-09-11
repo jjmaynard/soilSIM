@@ -24,3 +24,4 @@ registry - order is trusted from the config, not hardcoded to literal
 \code{fuse_texture_group_from_triplets()} (\code{core-fusion.R}) already
 documents ("positional-role placeholders... not an identity requirement").
 }
+\keyword{internal}

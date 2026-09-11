@@ -23,3 +23,4 @@ validate_correlation_preservation(
 \description{
 Validates that correlation structure is preserved after depth-trend adjustment.
 }
+\keyword{internal}

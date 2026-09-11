@@ -15,3 +15,4 @@ String validation results
 \description{
 Basic validation of WKT string format and content
 }
+\keyword{internal}

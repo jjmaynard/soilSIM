@@ -28,3 +28,4 @@ List with simulated component compositions and quality metrics
 \description{
 Simulate Component Compositions
 }
+\keyword{internal}

@@ -81,7 +81,7 @@ default_config <- function(config_type = "full") {
 #' @param parameter_specs Parameter specifications
 #' @param strict_mode Whether to use strict validation
 #' @return Validation results
-#' @export
+#' @keywords internal
 validate_parameters <- function(parameters, parameter_specs, strict_mode = TRUE) {
 
   validation_result <- list(
@@ -210,7 +210,7 @@ validate_parameters <- function(parameters, parameter_specs, strict_mode = TRUE)
 #' @param user_config User-provided configuration
 #' @param deep_merge Whether to perform deep merging
 #' @return Merged configuration
-#' @export
+#' @keywords internal
 merge_configurations <- function(default_config, user_config, deep_merge = TRUE) {
 
   if (is.null(user_config)) {
@@ -259,7 +259,7 @@ merge_configurations <- function(default_config, user_config, deep_merge = TRUE)
 #' Fully implemented and exported, but not currently called from anywhere
 #' else in the package (confirmed by source grep) - standalone public API
 #' for callers who need it, not dead/broken code.
-#' @export
+#' @keywords internal
 export_workflow_metadata <- function(workflow_results,
                                      output_path,
                                      include_data_summary = TRUE,

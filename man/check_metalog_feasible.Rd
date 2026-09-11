@@ -19,3 +19,4 @@ Probes \code{quantile_metalog_linear()} at a grid of probabilities and flags
 non-monotonicity (equivalent to the implied density going negative
 somewhere) - a probe, not a proof, but cheap and effective.
 }
+\keyword{internal}

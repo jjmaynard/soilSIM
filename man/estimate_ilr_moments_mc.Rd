@@ -39,3 +39,4 @@ shortcut was tried upstream and REJECTED: it underestimates the true
 covariance by 5-10x once per-fraction CV exceeds ~30\% (common near
 boundary fractions) - do not substitute it for this Monte Carlo version.
 }
+\keyword{internal}

@@ -18,3 +18,4 @@ Removes rows with organic horizons (where \code{hzname} contains a capital "O") 
 the remaining horizons' depths within each \code{cokey} group so they stay cumulative and
 re-anchored to 0, preserving each horizon's thickness.
 }
+\keyword{internal}

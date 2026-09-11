@@ -22,3 +22,4 @@ factor-coercion overhead of \code{table(x)}/\code{factor(x)}. On ties it returns
 among them (unique values are sorted ascending and \code{which.max()} returns the first maximum).
 }
 
+\keyword{internal}

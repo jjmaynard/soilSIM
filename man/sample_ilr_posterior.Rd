@@ -22,3 +22,4 @@ An \verb{n x 3} matrix (\code{clay}, \code{sand}, \code{silt}).
 Guaranteed (by construction, via \code{ilr_inverse()}) to sum to \code{total} and
 stay within \verb{[0, total]} for every draw.
 }
+\keyword{internal}

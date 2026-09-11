@@ -24,3 +24,4 @@ handling) so its exact edge-case behavior is preserved: it errors on
 invalid \code{n}, but returns \code{NaN} (not an error) when the mode falls outside
 \verb{[a, b]} or any parameter is infinite/\code{NA}.
 }
+\keyword{internal}

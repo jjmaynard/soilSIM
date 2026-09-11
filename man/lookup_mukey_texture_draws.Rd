@@ -26,3 +26,4 @@ matrix) - something \code{fuse_texture_group()}'s current percentile-reconstruct
 entirely, since it draws each fraction independently from its own marginal
 percentile-derived normal. Used by \code{fuse_texture_group_batch_core()}'s \code{prior_fusion_method = "raw_draws"} opt-in.
 }
+\keyword{internal}

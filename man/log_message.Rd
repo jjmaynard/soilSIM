@@ -18,3 +18,4 @@ log_message(level, message, category = NULL, details = NULL)
 \description{
 Comprehensive logging function with multiple levels and outputs.
 }
+\keyword{internal}

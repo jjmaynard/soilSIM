@@ -51,3 +51,4 @@ isn't already present - scoped narrowly behind the opt-in flag so a
 caller who has \code{hzname} but never requests \code{"kssl_global"} sees no
 behavior change at all.
 }
+\keyword{internal}

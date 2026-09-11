@@ -63,3 +63,4 @@ keeping every window's matrix the same number of rows.
 \seealso{
 \code{remarginalize_ensemble_to_posterior()}, \code{\link{lookup_mukey_draws}}
 }
+\keyword{internal}

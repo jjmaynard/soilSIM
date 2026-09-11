@@ -31,3 +31,4 @@ For each replicate (a unique combination of \code{replicate_cols}), averages eve
 across that replicate's horizons, weighted by how much of each horizon's thickness overlaps
 \verb{[top_depth, bottom_depth]}. Horizons with zero overlap contribute nothing.
 }
+\keyword{internal}

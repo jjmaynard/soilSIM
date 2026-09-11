@@ -23,3 +23,4 @@ Cholesky decomposition assessment
 \description{
 Assess Cholesky Decomposition
 }
+\keyword{internal}
