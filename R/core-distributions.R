@@ -276,7 +276,7 @@ metalog_from_z <- function(z, bounds, boundedness) {
 #' system (`solve(Y, z)`), not an optimization - validated (upstream) to
 #' ~1e-12 against `rmetalog::metalog()`. This is the fast path `rmetalog`
 #' itself takes when its solution is already feasible; see
-#' `check_metalog_feasible()`/`quantile_metalog_with_fallback()` for the
+#' `check_metalog_feasible()`/`quantile_metalog_linear_fallback()` for the
 #' guard `rmetalog`'s own LP feasibility-correction would otherwise provide.
 #'
 #' @param interior_values,interior_probs Percentile values/probabilities,
@@ -336,7 +336,7 @@ check_metalog_feasible <- function(fit, y_grid = seq(0.02, 0.98, by = 0.02)) {
 #'   if available) used for the `linear_cdf` fallback.
 #' @param q Vector of probabilities.
 #' @keywords internal
-quantile_metalog_with_fallback <- function(fit, infeasible, full_probs, full_values, q) {
+quantile_metalog_linear_fallback <- function(fit, infeasible, full_probs, full_values, q) {
   if (isTRUE(infeasible)) {
     quantile_linear_cdf(full_probs, full_values, q)
   } else {
@@ -471,7 +471,7 @@ quantile_from_fit <- function(u, family, fit) {
     normal = quantile_normal(fit, u),
     lognormal = exp(quantile_normal(fit, u)),
     beta = fit$lower + quantile_beta(fit, u) * (fit$upper - fit$lower),
-    metalog = quantile_metalog_with_fallback(fit, fit$infeasible, fit$fallback_probs, fit$fallback_values, u),
+    metalog = quantile_metalog_linear_fallback(fit, fit$infeasible, fit$fallback_probs, fit$fallback_values, u),
     linear_cdf = quantile_linear_cdf(fit$probs, fit$values, u),
     rep(NA_real_, length(u))
   )
@@ -520,7 +520,7 @@ validate_fit_parameters <- function(family, fit) {
     metalog = {
       # Deliberately NOT gated on `!fit$infeasible`: an infeasible metalog fit
       # still produces correct output via the automatic linear_cdf fallback
-      # in quantile_metalog_with_fallback()/quantile_from_fit() - flagging it
+      # in quantile_metalog_linear_fallback()/quantile_from_fit() - flagging it
       # invalid here would cause callers (e.g. setup_distributions())
       # to discard a perfectly usable (if degraded-to-nonparametric) fit in
       # favor of a cruder triangular guess. Only check structural completeness.

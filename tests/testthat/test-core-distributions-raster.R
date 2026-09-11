@@ -68,14 +68,14 @@ test_that("check_metalog_feasibility_raster() flags no infeasible cells for a we
   expect_false(any(terra::values(infeasible_r)))
 })
 
-test_that("quantile_metalog_linear_with_fallback() uses the metalog fit when feasible", {
+test_that("quantile_metalog_linear_with_fallback_raster() uses the metalog fit when feasible", {
   rasters <- make_percentile_rasters(c(P10 = 3, P50 = 10, P90 = 22))
   probs <- c(0.1, 0.5, 0.9)
   bounds <- c(0, 100)
   fit_r <- fit_metalog_linear_raster(list(rasters$P10, rasters$P50, rasters$P90), probs, bounds, "b")
   infeasible_r <- check_metalog_feasibility_raster(fit_r, bounds, "b")
 
-  result <- quantile_metalog_linear_with_fallback(
+  result <- quantile_metalog_linear_with_fallback_raster(
     fit_r, infeasible_r, list(rasters$P10, rasters$P50, rasters$P90), probs, 0.5, bounds, "b"
   )
   direct <- quantile_metalog_linear_raster(fit_r, 0.5, bounds, "b")

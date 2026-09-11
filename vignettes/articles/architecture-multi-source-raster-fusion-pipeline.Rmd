@@ -165,14 +165,14 @@ cells where the probe value *decreases* from the previous probe — a probe, not
 vectorized. Streams one probe raster at a time (rather than materializing the whole grid at once),
 set to avoid an allocation failure at large cell counts.
 
-#### 7. `quantile_metalog_linear_with_fallback()`
+#### 7. `quantile_metalog_linear_with_fallback_raster()`
 **Purpose**: Metalog quantile evaluation with automatic per-cell fallback to
 `quantile_linear_cdf_raster()` on infeasible cells — verified to have zero effect on
 feasible cells and an exact `linear_cdf` match on infeasible ones.
 
 **Parameters**:
 ```r
-quantile_metalog_linear_with_fallback(fit, infeasible_r, full_value_rasters, full_probs,
+quantile_metalog_linear_with_fallback_raster(fit, infeasible_r, full_value_rasters, full_probs,
                                        q, bounds, boundedness)
 # fit                              - output of fit_metalog_linear_raster() (fit on INTERIOR percentiles)
 # infeasible_r                     - output of check_metalog_feasibility_raster() for this same fit

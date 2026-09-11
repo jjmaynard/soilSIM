@@ -38,7 +38,7 @@ CAVEAT (from validation): this is the same fast path \code{rmetalog}
 itself takes when its solution is already feasible (implied density
 non-negative); \code{rmetalog} also has an LP-based feasibility-correction
 fallback for when it isn't - not reproduced here. Use
-\code{check_metalog_feasibility_raster()} + \code{quantile_metalog_linear_with_fallback()}
+\code{check_metalog_feasibility_raster()} + \code{quantile_metalog_linear_with_fallback_raster()}
 below rather than trusting this fit unconditionally.
 }
 \seealso{
@@ -54,7 +54,7 @@ Other raster-fusion:
 \code{\link{fit_normal_raster}()},
 \code{\link{fuse_adaptive}()},
 \code{\link{percentiles_from_draws}()},
-\code{\link{quantile_metalog_linear_with_fallback}()},
+\code{\link{quantile_metalog_linear_with_fallback_raster}()},
 \code{\link{remarginalize_awc}()},
 \code{\link{remarginalize_ensemble_to_posterior}()},
 \code{\link{resolve_property_dist}()},
@@ -72,7 +72,7 @@ Other raster-fusion:
 \code{\link{fit_normal_raster}()},
 \code{\link{fuse_adaptive}()},
 \code{\link{percentiles_from_draws}()},
-\code{\link{quantile_metalog_linear_with_fallback}()},
+\code{\link{quantile_metalog_linear_with_fallback_raster}()},
 \code{\link{remarginalize_awc}()},
 \code{\link{remarginalize_ensemble_to_posterior}()},
 \code{\link{resolve_property_dist}()},

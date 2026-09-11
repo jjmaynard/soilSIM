@@ -47,7 +47,7 @@ Other raster-fusion:
 \code{\link{fit_metalog_linear_raster}()},
 \code{\link{fit_normal_raster}()},
 \code{\link{fuse_adaptive}()},
-\code{\link{quantile_metalog_linear_with_fallback}()},
+\code{\link{quantile_metalog_linear_with_fallback_raster}()},
 \code{\link{remarginalize_awc}()},
 \code{\link{remarginalize_ensemble_to_posterior}()},
 \code{\link{resolve_property_dist}()},

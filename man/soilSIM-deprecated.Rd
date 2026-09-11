@@ -67,6 +67,7 @@
 \alias{lognormal_to_normal_params}
 \alias{normal_to_lognormal_params}
 \alias{remarginalized_awc}
+\alias{quantile_metalog_linear_with_fallback}
 \title{Deprecated functions in soilSIM}
 \usage{
 download_and_prepare_ssurgo(...)
@@ -198,6 +199,8 @@ lognormal_to_normal_params(...)
 normal_to_lognormal_params(...)
 
 remarginalized_awc(...)
+
+quantile_metalog_linear_with_fallback(...)
 }
 \description{
 These names were renamed in the 0.2.0 naming re-architecture. Each still

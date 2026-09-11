@@ -29,7 +29,7 @@ the number of metalog terms, the fit is an EXACTLY-DETERMINED linear
 system (\code{solve(Y, z)}), not an optimization - validated (upstream) to
 ~1e-12 against \code{rmetalog::metalog()}. This is the fast path \code{rmetalog}
 itself takes when its solution is already feasible; see
-\code{check_metalog_feasible()}/\code{quantile_metalog_with_fallback()} for the
+\code{check_metalog_feasible()}/\code{quantile_metalog_linear_fallback()} for the
 guard \code{rmetalog}'s own LP feasibility-correction would otherwise provide.
 }
 \seealso{

@@ -469,3 +469,13 @@ remarginalized_awc <- function(...) {
   lifecycle::deprecate_soft("0.2.1", "remarginalized_awc()", "remarginalize_awc()")
   remarginalize_awc(...)
 }
+
+# --- D9: metalog fallback naming consistency ------------------------------
+
+#' @rdname soilSIM-deprecated
+#' @export
+quantile_metalog_linear_with_fallback <- function(...) {
+  lifecycle::deprecate_soft("0.2.2", "quantile_metalog_linear_with_fallback()",
+                            "quantile_metalog_linear_with_fallback_raster()")
+  quantile_metalog_linear_with_fallback_raster(...)
+}

@@ -42,7 +42,7 @@ test_that("check_metalog_feasible flags a constructed non-monotonic case, and fa
   expect_true(check_metalog_feasible(fit))
 
   q <- c(0.1, 0.3, 0.5, 0.7, 0.9)
-  fb <- quantile_metalog_with_fallback(fit, infeasible = TRUE, full_probs = c(0.05, 0.5, 0.95), full_values = c(0.1, 0.5, 99.9), q = q)
+  fb <- quantile_metalog_linear_fallback(fit, infeasible = TRUE, full_probs = c(0.05, 0.5, 0.95), full_values = c(0.1, 0.5, 99.9), q = q)
   lc <- quantile_linear_cdf(c(0.05, 0.5, 0.95), c(0.1, 0.5, 99.9), q)
   expect_equal(fb, lc)
 })

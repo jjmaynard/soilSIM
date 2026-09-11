@@ -1,4 +1,32 @@
-# soilSIM 0.2.1 (in progress)
+# soilSIM 0.2.2 (in progress)
+
+## S3 methods for result objects
+
+* `predict.soilSIM_gp_models(object, new_depths, property, group = NULL)` - a convenience wrapper
+  looking up the requested property/group's fitted model inside a [fit_depth_gp_models()] result
+  and forwarding to `predict_gp_depth_trends()`.
+* `plot()` methods for `soilSIM_simulation` (marginal distribution histogram), `soilSIM_gp_models`
+  (depth-trend curve), and `soilSIM_fusion` (prior/likelihood/posterior raster panels via
+  `terra::plot()`). The first two require `ggplot2` (already a `Suggests` dependency) and degrade
+  to a message when it isn't installed; `soilSIM_fusion`'s panels are `terra::SpatRaster`s, drawn
+  with `terra::plot()` (already an `Imports` dependency) rather than `ggplot2`.
+
+## Naming consistency
+
+* `quantile_metalog_linear_with_fallback()` (the raster function) -> `quantile_metalog_linear_with_fallback_raster()`,
+  fixing a missing `_raster` suffix (it was the one raster/scalar pair in the metalog family not
+  following the package's own `_raster`-suffix convention). Old name soft-deprecated as usual.
+* The internal scalar counterpart renamed `quantile_metalog_with_fallback()` ->
+  `quantile_metalog_linear_fallback()` for the same reason (no shim - already internal).
+* The four `apply_*_trend*`/`apply_*_adjustments` GP functions
+  (`apply_gp_depth_trends()`/`apply_nrcs_trend_adjustments()`/`apply_local_gp_adjustments()`/
+  `apply_local_depth_trends()`) were reviewed for a possible rename/consolidation. Not renamed:
+  they are a genuine 3-tier hierarchy (one shared low-level engine plus two orchestrators keyed by
+  where the GP model comes from - a pre-fit NRCS/regional model vs. one fit fresh per component),
+  not four competing near-duplicates - the existing `nrcs`/`local` naming already encodes that
+  distinction correctly once the actual call graph is read.
+
+# soilSIM 0.2.1
 
 ## Continued naming clean-up
 

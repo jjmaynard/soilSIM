@@ -203,3 +203,128 @@ print.soilSIM_property_config <- function(x, ...) {
                         if (length(nm) > 20) " ..." else "", "\n", sep = "")
   invisible(x)
 }
+
+# --- predict/plot methods (D6.4) -------------------------------------------
+#
+# ggplot2 stays a Suggests dependency: every plot method below checks
+# requireNamespace("ggplot2") and degrades to a message + invisible(NULL) if it
+# isn't installed, rather than promoting ggplot2 to Imports or reimplementing
+# in base graphics. plot.soilSIM_fusion is the one exception - its panels are
+# terra::SpatRaster objects, which terra::plot() (already an Imports dependency)
+# draws directly; ggplot2 has no native SpatRaster geom without the optional
+# tidyterra package, so base/terra graphics is the correct tool there, not a
+# deviation for its own sake.
+
+#' Predict a fitted GP depth-trend model at new depths
+#'
+#' A convenience wrapper over [predict_gp_depth_trends()] (unchanged - this does not replace it,
+#' since that function's real callers throughout the package operate on one leaf model at a time,
+#' not the whole `soilSIM_gp_models` collection) that looks up the requested property/group's
+#' fitted model inside a [fit_depth_gp_models()] result.
+#'
+#' @param object A `soilSIM_gp_models` object from [fit_depth_gp_models()].
+#' @param new_depths Numeric vector of depths (cm) to predict at.
+#' @param property Which property's model to use (a name in `object`).
+#' @param group Which stratified group's model to use (default: the first group fitted for
+#'   `property`, with a message when more than one exists - pass explicitly to silence it).
+#' @param ... Passed to [predict_gp_depth_trends()].
+#' @return Numeric vector of predicted means, one per `new_depths` (see
+#'   [predict_gp_depth_trends()]'s own `@return` - it is the fitted mean only, not a prediction
+#'   interval).
+#' @export
+predict.soilSIM_gp_models <- function(object, new_depths, property, group = NULL, ...) {
+  if (!property %in% setdiff(names(object), "model_summary")) {
+    stop("predict.soilSIM_gp_models(): '", property, "' not found. Available: ",
+         paste(setdiff(names(object), "model_summary"), collapse = ", "))
+  }
+  prop_entry <- object[[property]]
+  groups <- names(prop_entry$models)
+  if (is.null(group)) {
+    group <- groups[1]
+    if (length(groups) > 1) {
+      message("predict.soilSIM_gp_models(): multiple groups fitted for '", property,
+              "' (", paste(groups, collapse = ", "), ") - using '", group,
+              "'; pass group = to choose another.")
+    }
+  } else if (!group %in% groups) {
+    stop("predict.soilSIM_gp_models(): group '", group, "' not found for '", property,
+         "'. Available: ", paste(groups, collapse = ", "))
+  }
+  predict_gp_depth_trends(prop_entry$models[[group]], new_depths, ...)
+}
+
+#' @export
+plot.soilSIM_simulation <- function(x, property = NULL, ...) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    message("Install the 'ggplot2' package to use plot.soilSIM_simulation().")
+    return(invisible(NULL))
+  }
+  sim <- x$simulation_data
+  if (is.null(sim) || is.null(dim(sim))) {
+    message("plot.soilSIM_simulation(): no simulation_data array found on this object.")
+    return(invisible(NULL))
+  }
+  props <- dimnames(sim)[[2]]
+  property <- if (is.null(property)) props[1] else match.arg(property, props)
+  df <- data.frame(value = as.vector(sim[, property, ]))
+  print(
+    ggplot2::ggplot(df, ggplot2::aes(x = .data$value)) +
+      ggplot2::geom_histogram(bins = 30, fill = "#4C72B0", colour = "white") +
+      ggplot2::labs(title = paste("Simulated distribution:", property), x = property, y = "count") +
+      ggplot2::theme_minimal()
+  )
+  invisible(x)
+}
+
+#' @export
+plot.soilSIM_gp_models <- function(x, property = NULL, group = NULL, new_depths = NULL, ...) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    message("Install the 'ggplot2' package to use plot.soilSIM_gp_models().")
+    return(invisible(NULL))
+  }
+  props <- setdiff(names(x), "model_summary")
+  property <- if (is.null(property)) props[1] else match.arg(property, props)
+  if (is.null(new_depths)) new_depths <- seq(0, 150, by = 5)
+  preds <- predict.soilSIM_gp_models(x, new_depths, property = property, group = group)
+  df <- data.frame(depth = new_depths, mean = preds)
+  print(
+    ggplot2::ggplot(df, ggplot2::aes(x = .data$depth, y = .data$mean)) +
+      ggplot2::geom_line(colour = "#4C72B0", linewidth = 1) +
+      ggplot2::labs(title = paste("GP depth trend:", property),
+                    x = "Depth (cm)", y = property,
+                    caption = "Fitted mean only - predict_gp_depth_trends() does not return a prediction interval.") +
+      ggplot2::theme_minimal()
+  )
+  invisible(x)
+}
+
+#' @export
+plot.soilSIM_fusion <- function(x, ...) {
+  pick_mid <- function(values, probs) {
+    if (is.null(values) || !length(values)) return(NULL)
+    if (is.null(probs)) return(values[[1]])
+    values[[which.min(abs(probs - 0.5))]]
+  }
+  posterior_raster <- function(posterior) {
+    if (is.null(posterior)) return(NULL)
+    for (nm in c("mu", "value", "alpha", "shape")) {
+      if (!is.null(posterior[[nm]]) && inherits(posterior[[nm]], "SpatRaster")) return(posterior[[nm]])
+    }
+    hit <- Filter(function(v) inherits(v, "SpatRaster"), posterior)
+    if (length(hit)) hit[[1]] else NULL
+  }
+  panels <- list(
+    Prior = pick_mid(x$prior$values, x$prior$probs),
+    Likelihood = pick_mid(x$likelihood$values, x$likelihood$probs),
+    Posterior = posterior_raster(x$posterior)
+  )
+  panels <- Filter(Negate(is.null), panels)
+  if (!length(panels)) {
+    message("plot.soilSIM_fusion(): no raster panels found on this object.")
+    return(invisible(NULL))
+  }
+  op <- graphics::par(mfrow = c(1, length(panels)))
+  on.exit(graphics::par(op))
+  for (nm in names(panels)) terra::plot(panels[[nm]], main = nm)
+  invisible(x)
+}

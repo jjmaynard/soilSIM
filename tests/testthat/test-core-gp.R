@@ -1,17 +1,7 @@
 ## Synthetic GP-fit-shaped data throughout - GPfit::GP_fit()/predict.GP() are
 ## pure local computation, so no network mocking is needed here.
-
-make_gp_training_df <- function() {
-  data.frame(
-    cokey = rep(c("1", "2", "3"), each = 4),
-    hzdept_r = rep(c(0, 20, 50, 100), 3),
-    clay_pct = c(10, 15, 22, 30,
-                 12, 16, 24, 32,
-                 8, 14, 20, 28),
-    compname = "Alpha",
-    stringsAsFactors = FALSE
-  )
-}
+## make_gp_training_df() lives in helper-fixtures.R (shared with test-classes.R's
+## predict.soilSIM_gp_models()/plot.soilSIM_gp_models() tests).
 
 test_that("create_soil_groups() derives soil_group from the requested strategy column, falling back to 'unknown'", {
   df <- data.frame(compname = c("Alpha", NA), taxclname = c("Fine", "Coarse"), stringsAsFactors = FALSE)

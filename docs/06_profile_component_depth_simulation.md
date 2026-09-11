@@ -330,7 +330,7 @@ compositional-simulation machinery.
   `adjust_out_of_range_profiles()` helper) so perturbation cannot push a
   horizon boundary outside its originally observed low/high range.
 
-#### `simulate_profile_depths_by_collection(soil_collection, seed = 123)`
+#### `simulate_profile_depths(soil_collection, seed = 123)`
 
 - **Parameters**:
   - `soil_collection` - a multi-profile `aqp::SoilProfileCollection`.
@@ -342,7 +342,7 @@ compositional-simulation machinery.
   `simulate_and_perturb_soil_profiles()` on each one-profile subset and
   combining all results via `aqp::combine()`.
 
-#### `simulate_profile_depths_by_collection_parallel(soil_collection, seed = 123, n_cores = 6)`
+#### `simulate_profile_depths(soil_collection, seed = 123, n_cores = 6)`
 
 - **Parameters**:
   - `soil_collection` - a multi-profile `aqp::SoilProfileCollection`.
@@ -361,7 +361,7 @@ compositional-simulation machinery.
   call inside the worker closure only works if `soilSIM` is installed and
   attached in the calling session (not merely `devtools::load_all()`'d).
 
-#### `simulate_profile_depths_by_mukey(mukey, n_simulations = 100, seed = 123)`
+#### `simulate_profile_depths(mukey, n_simulations = 100, seed = 123)`
 
 - **Parameters**:
   - `mukey` - string or numeric map unit key to query.
@@ -577,7 +577,7 @@ fetch_ssurgo_aws_data() ──► raw SSURGO horizon data (SDA_query)
 # simulate_profile_depths() now derives and joins sim_comppct
 # internally (simulate_component_composition() -> left_join by cokey), so a direct call
 # is sufficient - no manual join step required:
-simulated_profiles <- simulate_profile_depths_by_mukey(
+simulated_profiles <- simulate_profile_depths(
   mukey = "123456", n_simulations = 1000, seed = 123
 )
 

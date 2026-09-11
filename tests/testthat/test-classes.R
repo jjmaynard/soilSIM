@@ -79,3 +79,68 @@ test_that("run_fusion() returns soilSIM_fusion on the closed-form success path (
   # wraps for its non-group return path.
   skip_if_not(exists("stage1_fuse_from_prior_solus", mode = "function"))
 })
+
+test_that("predict.soilSIM_gp_models() looks up the right leaf model and matches predict_gp_depth_trends() (D6.4)", {
+  df <- make_gp_training_df()
+  fit <- fit_individual_gp_model(df, "clay_pct", optimize_hyperparameters = FALSE)
+  gp_models <- new_soilSIM_gp_models(list(
+    clay_pct = list(models = list(all = fit$model)),
+    model_summary = list()
+  ))
+
+  direct <- predict_gp_depth_trends(fit$model, c(0, 50, 100))
+  via_method <- predict(gp_models, c(0, 50, 100), property = "clay_pct")
+  expect_equal(via_method, direct)
+
+  via_explicit_group <- predict(gp_models, c(0, 50, 100), property = "clay_pct", group = "all")
+  expect_equal(via_explicit_group, direct)
+
+  expect_error(predict(gp_models, 0, property = "not_a_property"), "not found")
+  expect_error(predict(gp_models, 0, property = "clay_pct", group = "not_a_group"), "not found")
+})
+
+test_that("plot.soilSIM_simulation()/plot.soilSIM_gp_models() run without erroring when ggplot2 is available (D6.4)", {
+  skip_if_not_installed("ggplot2")
+
+  sim <- new_soilSIM_simulation(list(
+    simulation_data = array(
+      rnorm(5 * 2 * 20), dim = c(5, 2, 20),
+      dimnames = list(NULL, c("claytotal", "sandtotal"), NULL)
+    )
+  ))
+  expect_invisible(plot(sim))
+  expect_invisible(plot(sim, property = "sandtotal"))
+
+  df <- make_gp_training_df()
+  fit <- fit_individual_gp_model(df, "clay_pct", optimize_hyperparameters = FALSE)
+  gp_models <- new_soilSIM_gp_models(list(clay_pct = list(models = list(all = fit$model))))
+  expect_invisible(plot(gp_models, property = "clay_pct", new_depths = c(0, 25, 50)))
+})
+
+test_that("plot.soilSIM_simulation() degrades gracefully without ggplot2", {
+  skip_if(requireNamespace("ggplot2", quietly = TRUE), "ggplot2 is installed; degrade path not exercised")
+  sim <- new_soilSIM_simulation(list(simulation_data = array(1, dim = c(1, 1, 1))))
+  expect_message(result <- plot(sim), "ggplot2")
+  expect_null(result)
+})
+
+test_that("plot.soilSIM_fusion() draws prior/likelihood/posterior raster panels (D6.4)", {
+  skip_if_not(exists("make_percentile_rasters", mode = "function"))
+  probs <- c(0.1, 0.5, 0.9)
+  fusion <- new_soilSIM_fusion(list(
+    prior = list(values = make_percentile_rasters(list("0.1" = 8, "0.5" = 12, "0.9" = 16)), probs = probs),
+    likelihood = list(values = make_percentile_rasters(list("0.1" = 10, "0.5" = 14, "0.9" = 18)), probs = probs),
+    posterior = list(mu = make_percentile_rasters(list(m = 13))[[1]], sigma = make_percentile_rasters(list(s = 1))[[1]]),
+    dist = "normal"
+  ))
+  dev_file <- tempfile(fileext = ".png")
+  grDevices::png(dev_file)
+  result <- tryCatch(plot(fusion), finally = grDevices::dev.off())
+  unlink(dev_file)
+  expect_identical(result, fusion)
+})
+
+test_that("plot.soilSIM_fusion() degrades gracefully with no raster panels", {
+  expect_message(result <- plot(new_soilSIM_fusion(list(dist = "normal"))), "no raster panels")
+  expect_null(result)
+})

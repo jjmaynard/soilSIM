@@ -70,7 +70,7 @@ Other raster-fusion:
 \code{\link{fit_normal_raster}()},
 \code{\link{fuse_adaptive}()},
 \code{\link{percentiles_from_draws}()},
-\code{\link{quantile_metalog_linear_with_fallback}()},
+\code{\link{quantile_metalog_linear_with_fallback_raster}()},
 \code{\link{remarginalize_awc}()},
 \code{\link{resolve_property_dist}()},
 \code{\link{wrap_nested_rasters}()}

@@ -332,7 +332,7 @@ compositional-simulation machinery.
   `adjust_out_of_range_profiles()` helper) so perturbation cannot push a
   horizon boundary outside its originally observed low/high range.
 
-#### `simulate_profile_depths_by_collection(soil_collection, seed = 123)`
+#### `simulate_profile_depths(soil_collection, seed = 123)`
 
 - **Parameters**:
   - `soil_collection` - a multi-profile `aqp::SoilProfileCollection`.
@@ -344,7 +344,7 @@ compositional-simulation machinery.
   `simulate_and_perturb_soil_profiles()` on each one-profile subset and
   combining all results via `aqp::combine()`.
 
-#### `simulate_profile_depths_by_collection_parallel(soil_collection, seed = 123, n_cores = 6)`
+#### `simulate_profile_depths(soil_collection, seed = 123, n_cores = 6)`
 
 - **Parameters**:
   - `soil_collection` - a multi-profile `aqp::SoilProfileCollection`.
@@ -363,7 +363,7 @@ compositional-simulation machinery.
   call inside the worker closure only works if `soilSIM` is installed and
   attached in the calling session (not merely `devtools::load_all()`'d).
 
-#### `simulate_profile_depths_by_mukey(mukey, n_simulations = 100, seed = 123)`
+#### `simulate_profile_depths(mukey, n_simulations = 100, seed = 123)`
 
 - **Parameters**:
   - `mukey` - string or numeric map unit key to query.
@@ -440,20 +440,20 @@ fetch_ssurgo_aws_data() ──► raw SSURGO horizon data (SDA_query)
                   │
                   ▼
    simulate_component_composition() + dplyr::left_join(by = "cokey")   (performed internally
-                  │                                         by simulate_profile_depths_by_mukey()
+                  │                                         by simulate_profile_depths()
                   ▼                                         as of the sim_comppct integration fix)
-   simulate_profile_depths_by_mukey()  ──┐
+   simulate_profile_depths()  ──┐
                   │                       │  (per-component profile loop)
                   ▼                       │
-   simulate_profile_depths_by_collection()│
-   simulate_profile_depths_by_collection_parallel()
+   simulate_profile_depths()│
+   simulate_profile_depths()
                   │                       │
                   └───────────────────────┘
                   ▼
       simulate_and_perturb_soil_profiles()   *** still requires horizons$sim_comppct
                                                   to already be present - callers who use
                                                   this function directly (not via
-                                                  simulate_profile_depths_by_mukey()) must
+                                                  simulate_profile_depths()) must
                                                   still perform the join themselves ***
                   │
                   ├──► simulate_soil_profile_thickness()
@@ -486,7 +486,7 @@ fetch_ssurgo_aws_data() ──► raw SSURGO horizon data (SDA_query)
   `soilDB::fetchOSD()` (`query_osd_distinctness()`) for live SSURGO/OSD
   database access.
 - **`future` / `future.apply`** - parallel dispatch backend for
-  `simulate_profile_depths_by_collection_parallel()`
+  `simulate_profile_depths()`
   (`future::plan(future::multisession)`, `future.apply::future_lapply()`).
 - **`dplyr`** - data manipulation throughout both files (`group_by`,
   `mutate`, `left_join`, `select`, `summarise`, `rowwise`, etc.).
@@ -532,7 +532,7 @@ fetch_ssurgo_aws_data() ──► raw SSURGO horizon data (SDA_query)
 - OSD (Official Series Description) horizon distinctness data, fetched
   live via `soilDB::fetchOSD()` inside `query_osd_distinctness()`.
 - A `mukey` (string/numeric) - sole input to
-  `simulate_profile_depths_by_mukey()`, which internally queries SSURGO.
+  `simulate_profile_depths()`, which internally queries SSURGO.
 - An existing `aqp::SoilProfileCollection` - input to
   `simulate_and_perturb_soil_profiles()` and the collection-level
   orchestration functions.
@@ -559,11 +559,11 @@ fetch_ssurgo_aws_data() ──► raw SSURGO horizon data (SDA_query)
   horizons to already carry a `sim_comppct` column (used to derive
   `n_simulations`); `simulate_component_composition()` produces this column but at
   per-**component** grain, not per-**horizon** grain, so callers who use
-  this function *directly* (not via `simulate_profile_depths_by_mukey()`)
+  this function *directly* (not via `simulate_profile_depths()`)
   must still `dplyr::left_join()` the two by `cokey` before calling it, or
   it errors with a missing-column condition. This part of the contract is
   unchanged.
-- ~~**`simulate_profile_depths_by_mukey()`** - has the same underlying
+- ~~**`simulate_profile_depths()`** - has the same underlying
   `sim_comppct` requirement but does not itself call `simulate_component_composition()`
   or perform the component-to-horizon join~~ **Fixed**: this function now
   calls `simulate_component_composition(mu_data, n_simulations = n_simulations)` and
@@ -576,15 +576,15 @@ fetch_ssurgo_aws_data() ──► raw SSURGO horizon data (SDA_query)
 ## Usage Example
 
 ```r
-# simulate_profile_depths_by_mukey() now derives and joins sim_comppct
+# simulate_profile_depths() now derives and joins sim_comppct
 # internally (simulate_component_composition() -> left_join by cokey), so a direct call
 # is sufficient - no manual join step required:
-simulated_profiles <- simulate_profile_depths_by_mukey(
+simulated_profiles <- simulate_profile_depths(
   mukey = "123456", n_simulations = 1000, seed = 123
 )
 
 # Calling simulate_and_perturb_soil_profiles() directly (bypassing
-# simulate_profile_depths_by_mukey()) still requires the manual join, since
+# simulate_profile_depths()) still requires the manual join, since
 # that lower-level function's own contract hasn't changed:
 component_data <- simulate_component_composition(ssurgo_component_data, n_simulations = 1000)
 horizon_data <- dplyr::left_join(

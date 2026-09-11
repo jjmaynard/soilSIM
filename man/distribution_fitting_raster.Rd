@@ -27,7 +27,7 @@ relative to MLE, used only as the Newton-Raphson seed below.
 vectorized Newton-Raphson Beta MLE, validated against
 \code{fitdistrplus::fitdist()} (~1e-3 to 1e-5).
 \item \code{fit_metalog_linear_raster()} / \code{quantile_metalog_linear_raster()} /
-\code{check_metalog_feasibility_raster()} / \code{quantile_metalog_linear_with_fallback()} -
+\code{check_metalog_feasibility_raster()} / \code{quantile_metalog_linear_with_fallback_raster()} -
 exact linear-solve metalog reformulation (matches \code{rmetalog::metalog()}
 to ~1e-12 when its own fit is feasible), with a fallback to \code{linear_cdf}
 for the cells where it isn't.

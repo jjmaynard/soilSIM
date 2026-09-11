@@ -22,7 +22,7 @@
 #'     vectorized Newton-Raphson Beta MLE, validated against
 #'     `fitdistrplus::fitdist()` (~1e-3 to 1e-5).
 #'   - `fit_metalog_linear_raster()` / `quantile_metalog_linear_raster()` /
-#'     `check_metalog_feasibility_raster()` / `quantile_metalog_linear_with_fallback()` -
+#'     `check_metalog_feasibility_raster()` / `quantile_metalog_linear_with_fallback_raster()` -
 #'     exact linear-solve metalog reformulation (matches `rmetalog::metalog()`
 #'     to ~1e-12 when its own fit is feasible), with a fallback to `linear_cdf`
 #'     for the cells where it isn't.
@@ -188,7 +188,7 @@ quantile_beta_mle_newton_raster <- function(fit, q) {
 #' itself takes when its solution is already feasible (implied density
 #' non-negative); `rmetalog` also has an LP-based feasibility-correction
 #' fallback for when it isn't - not reproduced here. Use
-#' `check_metalog_feasibility_raster()` + `quantile_metalog_linear_with_fallback()`
+#' `check_metalog_feasibility_raster()` + `quantile_metalog_linear_with_fallback_raster()`
 #' below rather than trusting this fit unconditionally.
 #' @param value_rasters List of INTERIOR percentile-value rasters (excluding
 #'   p=0/p=1 if present).
@@ -259,7 +259,7 @@ check_metalog_feasibility_raster <- function(fit, bounds, boundedness, y_grid = 
 #' @return list(value = blended quantile raster, used_fallback = infeasible_r verbatim)
 #' @family raster-fusion
 #' @export
-quantile_metalog_linear_with_fallback <- function(fit, infeasible_r, full_value_rasters, full_probs,
+quantile_metalog_linear_with_fallback_raster <- function(fit, infeasible_r, full_value_rasters, full_probs,
                                                    q, bounds, boundedness) {
   metalog_q <- quantile_metalog_linear_raster(fit, q, bounds, boundedness)
   fallback_q <- quantile_linear_cdf_raster(full_value_rasters, full_probs, q)

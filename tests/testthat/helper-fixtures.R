@@ -293,3 +293,19 @@ make_sim_cokey_data <- function(texture = FALSE, sim_comppct = 20) {
   row$sim_comppct <- sim_comppct
   row
 }
+
+#' Synthetic GP-fit-shaped training data (clay_pct increasing with depth) for
+#' `fit_individual_gp_model()`/`predict_gp_depth_trends()` testing (`R/core-gp.R`) and
+#' `predict.soilSIM_gp_models()`/`plot.soilSIM_gp_models()` testing (`R/classes.R`).
+#' GPfit::GP_fit()/predict.GP() are pure local computation, so no network mocking is needed.
+make_gp_training_df <- function() {
+  data.frame(
+    cokey = rep(c("1", "2", "3"), each = 4),
+    hzdept_r = rep(c(0, 20, 50, 100), 3),
+    clay_pct = c(10, 15, 22, 30,
+                 12, 16, 24, 32,
+                 8, 14, 20, 28),
+    compname = "Alpha",
+    stringsAsFactors = FALSE
+  )
+}

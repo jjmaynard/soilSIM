@@ -188,14 +188,14 @@ terra::plot(infeasible, main = "Infeasible metalog fit (TRUE = non-monotonic)",
 
 A substantial fraction of cells are infeasible here - not a bug, just a real consequence of fitting
 only 4 of the 5 available percentiles to a family with no correction step of its own.
-`quantile_metalog_linear_with_fallback()` is the function every real caller should use instead of
+`quantile_metalog_linear_with_fallback_raster()` is the function every real caller should use instead of
 `quantile_metalog_linear_raster()` directly: it evaluates the raw metalog quantile function, and for
 whichever cells `check_metalog_feasibility_raster()` flagged, blends in
 `quantile_linear_cdf_raster()`'s nonparametric interpolation (evaluated against the *full*
 percentile set, not just the interior ones used to fit the metalog) instead:
 
 ```{r, fig.width = 9, fig.height = 3.5}
-fallback_result <- quantile_metalog_linear_with_fallback(
+fallback_result <- quantile_metalog_linear_with_fallback_raster(
   fit_ml, infeasible, full_value_rasters = prior_values, full_probs = prior_probs,
   q = 0.5, bounds = bounds, boundedness = "b"
 )
