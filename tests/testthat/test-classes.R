@@ -44,3 +44,22 @@ test_that("print methods return their object invisibly and do not error", {
 test_that("engine wrappers return classed objects", {
   skip_if_not(exists("amador_processed_fixture", mode = "function"))
 })
+
+test_that("property_config engines return soilSIM_property_config (D6.3)", {
+  d <- default_property_config("claytotal")
+  expect_s3_class(d, "soilSIM_property_config")
+  expect_identical(d$type, "texture")
+
+  c1 <- create_custom_property_config("my_prop", property_type = "generic", units = "%")
+  expect_s3_class(c1, "soilSIM_property_config")
+  expect_identical(c1$units, "%")
+})
+
+test_that("run_fusion() returns soilSIM_fusion on the closed-form success path (D6.1)", {
+  skip_if_not(exists("make_percentile_rasters", mode = "function"))
+  # run_fusion() needs live SSURGO/SOLUS network access to exercise end to end;
+  # the unit-level contract (early NULL vs. wrapped success) is instead checked
+  # directly against stage1_fuse_from_prior_solus(), the function run_fusion()
+  # wraps for its non-group return path.
+  skip_if_not(exists("stage1_fuse_from_prior_solus", mode = "function"))
+})

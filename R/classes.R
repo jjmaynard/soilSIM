@@ -150,8 +150,9 @@ new_soilSIM_diagnostics <- function(x) .new_soilSIM(x, "soilSIM_diagnostics")
 #' @export
 print.soilSIM_diagnostics <- function(x, ...) {
   cat("<soilSIM_diagnostics>\n")
-  status <- x$overall_status %||% x$status %||%
-    (if (!is.null(x$overall_quality_score)) .fmt_num(x$overall_quality_score) else NULL)
+  qs <- x$overall_quality_score %||% x$overall_assessment$quality_score
+  status <- x$overall_status %||% x$status %||% x$overall_assessment$status %||%
+    (if (!is.null(qs)) .fmt_num(qs) else NULL)
   if (!is.null(status)) cat("  overall:", status, "\n")
   cat("  sections:", paste(names(x), collapse = ", "), "\n")
   invisible(x)

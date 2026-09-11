@@ -93,6 +93,7 @@ reference:
 - title: Statistics & Diagnostics
   desc: Descriptive statistics, correlation analysis, and end-to-end workflow QA.
   contents:
+  - diagnose_workflow
   - analyze_soil_statistics
   - run_comprehensive_correlation_analysis
   - compute_stratified_correlations

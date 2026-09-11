@@ -461,6 +461,11 @@ clean_property_data <- function(df,
 #'
 #' @export
 default_property_config <- function(property_name) {
+  new_soilSIM_property_config(.default_property_config_raw(property_name))
+}
+
+#' @keywords internal
+.default_property_config_raw <- function(property_name) {
 
   # Texture properties
   if (property_name %in% c('sandtotal', 'claytotal', 'silttotal')) {
@@ -628,7 +633,7 @@ create_custom_property_config <- function(property_name,
     config <- c(config, special_options)
   }
 
-  return(config)
+  return(new_soilSIM_property_config(config))
 }
 
 #' Validate a Property Configuration

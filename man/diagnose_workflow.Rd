@@ -27,9 +27,8 @@ diagnose_workflow(
 \item{verbose}{Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.}
 }
 \value{
-Comprehensive validation results
+Comprehensive validation results, as a \code{soilSIM_diagnostics} object
 }
 \description{
 Assesses the entire soil simulation workflow end to end.
 }
-\keyword{internal}

@@ -2110,7 +2110,7 @@ run_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth,
       aoi_vect, property_config$composition_group, composition_groups, property_configs,
       top_depth, bottom_depth, parallel = parallel, n_cores = n_cores, seed = seed
     )
-    return(if (is.null(group_result)) NULL else group_result[[property_config$id]])
+    return(if (is.null(group_result)) NULL else new_soilSIM_fusion(group_result[[property_config$id]]))
   }
 
   ssurgo_property_id <- if (!is.null(property_config$solus_variable)) property_config$solus_variable else property_config$id
@@ -2162,8 +2162,10 @@ run_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth,
   # `draws`/`mukey_raster_native` are already in memory from above whenever want_raw_draws is TRUE
   # (part of the is.null(prior) || want_raw_draws condition), so the shared fusion tail never
   # triggers a further simulation.
-  stage1_fuse_from_prior_solus(property_config, prior, solus,
-                                draws = draws, mukey_raster_native = mukey_raster_native)
+  new_soilSIM_fusion(stage1_fuse_from_prior_solus(
+    property_config, prior, solus,
+    draws = draws, mukey_raster_native = mukey_raster_native
+  ))
 }
 
 #' Fuse an Already-Fetched Texture Group (Stage 1 group-fusion tail)
