@@ -1011,7 +1011,8 @@ validate_joint_correlation_structure <- function(simulated_list,
 #'   fitted model (mirrors `fit_local_gp_model_single()`'s own `NULL`-on-failure contract - callers
 #'   should treat `NA_real_` the same way they'd treat a `NULL` GP model).
 #'
-#' @keywords internal
+#' @family gp-modeling
+#' @export
 extract_depth_length_scale <- function(gp_model_list, depth_scaling = NULL, target_corr = exp(-1)) {
 
   gp_model <- if (is.list(gp_model_list) && "gp_model" %in% names(gp_model_list)) {

@@ -231,6 +231,7 @@ print.soilSIM_property_config <- function(x, ...) {
 #' @return Numeric vector of predicted means, one per `new_depths` (see
 #'   [predict_gp_depth_trends()]'s own `@return` - it is the fitted mean only, not a prediction
 #'   interval).
+#' @family gp-modeling
 #' @export
 predict.soilSIM_gp_models <- function(object, new_depths, property, group = NULL, ...) {
   if (!property %in% setdiff(names(object), "model_summary")) {

@@ -29,3 +29,20 @@ since that function's real callers throughout the package operate on one leaf mo
 not the whole \code{soilSIM_gp_models} collection) that looks up the requested property/group's
 fitted model inside a \code{\link[=fit_depth_gp_models]{fit_depth_gp_models()}} result.
 }
+\seealso{
+Other gp-modeling: 
+\code{\link{adjust_simulation_depthwise}()},
+\code{\link{apply_gp_depth_trends}()},
+\code{\link{apply_local_gp_adjustments}()},
+\code{\link{apply_nrcs_trend_adjustments}()},
+\code{\link{convert_to_property_matrices}()},
+\code{\link{extract_depth_length_scale}()},
+\code{\link{fit_depth_gp_models}()},
+\code{\link{fit_individual_gp_model}()},
+\code{\link{fit_local_gp_model_single}()},
+\code{\link{predict_gp_depth_trends}()},
+\code{\link{prepare_nrcs_training_data}()},
+\code{\link{select_optimal_grouping}()},
+\code{\link{validate_gp_models}()}
+}
+\concept{gp-modeling}
