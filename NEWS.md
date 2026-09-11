@@ -1,3 +1,16 @@
+# soilSIM 0.4.0
+
+## Deprecated names removed (BREAKING)
+
+* The ~66 pre-0.2.0 names renamed during the naming re-architecture (see the 0.2.0/0.2.1/0.2.2
+  entries below for the full old -> new mapping) are **no longer defined**. Calling one now errors
+  with "could not find function", not a deprecation warning. If you are upgrading from < 0.3.0 and
+  have not yet migrated, **do not skip straight to 0.4.0** - install `0.3.0` first, run your code
+  with `options(lifecycle_verbosity = "warning")`, fix every warning it surfaces, then upgrade.
+* `R/deprecated.R` and its shims are gone; `lifecycle` and `withr` dropped (both were only used by
+  the now-removed shims and their tests).
+* `_pkgdown.yml`'s "Deprecated" reference section removed (nothing left to document there).
+
 # soilSIM 0.3.0
 
 ## Deprecation warnings now on every call
