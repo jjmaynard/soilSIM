@@ -18,7 +18,7 @@ A single-layer \code{terra::SpatRaster} of restriction depth in cm, with every c
 or \code{NULL} if the underlying \code{fetchSOLUS()} prediction fetch fails.
 }
 \description{
-The truncation-depth signal for bedrock/restriction-aware AWC (\code{remarginalized_awc()}'s
+The truncation-depth signal for bedrock/restriction-aware AWC (\code{remarginalize_awc()}'s
 \code{restriction_depth} argument). Default variable is
 \code{"anylithicdpt"} - trained (per SOLUS100's own published methodology) \strong{only} on
 \code{reskind \%in\% c("Lithic bedrock", "Paralithic bedrock")} records, making it hard-bedrock-specific
@@ -31,6 +31,6 @@ true bedrock.
 }
 \seealso{
 \code{SOLUS_RESTRICTION_CENSOR_CM}, \code{fetch_solus_site_level()},
-\link[=remarginalized_awc]{remarginalized_awc()}'s \code{restriction_depth} argument
+\link[=remarginalize_awc]{remarginalize_awc()}'s \code{restriction_depth} argument
 }
 \keyword{internal}

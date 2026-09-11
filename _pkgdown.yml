@@ -156,8 +156,6 @@ reference:
   desc: Component composition and horizon depth/thickness simulation.
   contents:
   - simulate_component_composition
-  - simulate_profile_depths_by_collection
-  - simulate_profile_depths_by_collection_parallel
 
 - title: AWS / Van Genuchten Modeling
   desc: Available water storage via ROSETTA pedotransfer parameters.
@@ -168,14 +166,14 @@ reference:
   desc: Scalar Bayesian updating/fusion of a prior and observed data (core).
   contents:
   - fuse_normal_normal
-  - normal_to_lognormal_params
-  - lognormal_to_normal_params
+  - convert_normal_to_lognormal
+  - convert_lognormal_to_normal
   - fuse_beta
   - fuse_gamma
-  - moments_to_gamma
-  - moments_to_beta
-  - beta_to_moments
-  - gamma_to_moments
+  - convert_moments_to_gamma
+  - convert_moments_to_beta
+  - convert_beta_to_moments
+  - convert_gamma_to_moments
   - fuse_distribution
   - update_prior
   - fuse_bivariate_normal
@@ -204,7 +202,7 @@ reference:
   - unwrap_nested_rasters
   - percentiles_from_draws
   - remarginalize_ensemble_to_posterior
-  - remarginalized_awc
+  - remarginalize_awc
 
 - title: Utilities
   desc: Shared validation, logging, configuration, and I/O helpers.

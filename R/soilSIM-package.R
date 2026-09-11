@@ -60,7 +60,7 @@
 #' @section Profile, component & depth simulation:
 #' [simulate_component_composition()]/[simulate_cokey_generalized()] simulate component
 #' composition and per-cokey properties;
-#' [simulate_and_perturb_soil_profiles()]/[simulate_profile_depths_by_mukey()]
+#' [simulate_and_perturb_soil_profiles()]/[simulate_profile_depths()]
 #' simulate horizon depths and thicknesses for whole soil profiles.
 #'
 #' @section AWS / Van Genuchten modeling:

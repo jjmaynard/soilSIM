@@ -24,33 +24,33 @@ fuse_normal_normal(prior_mu, prior_sigma, lik_mu, lik_sigma)
 
 **Algorithm/behavior**: Converts each side's sd to precision (`1 / sigma^2`), sums the two precisions to get the posterior precision (`post_prec <- prior_prec + lik_prec`), takes the posterior sd as `sqrt(1 / post_prec)`, and computes the posterior mean as the precision-weighted average `(prior_mu * prior_prec + lik_mu * lik_prec) / post_prec`. This is the standard conjugate-Normal update rule: precisions (not variances) add. Documented invariants, enforced by `tests/testthat/test-bayesian-updating.R`: posterior `sigma <= min(prior_sigma, lik_sigma)` (fusing two beliefs can only sharpen, never widen, the estimate); posterior `mu` is bounded between `prior_mu` and `lik_mu`; and the function is symmetric under swapping `(prior_mu, prior_sigma)` with `(lik_mu, lik_sigma)` (prior/likelihood are just labels - the math doesn't care which side is which). It is fully vectorized, so `prior_mu`/`prior_sigma`/`lik_mu`/`lik_sigma` can all be equal-length vectors for elementwise fusion of many quantities/cells at once - the property `R/core-fusion.R` relies on to apply this function unchanged to `SpatRaster` cell values.
 
-#### 2. `normal_to_lognormal_params()` - Raw-Space to Log-Space Moment Conversion
+#### 2. `convert_normal_to_lognormal()` - Raw-Space to Log-Space Moment Conversion
 
 **Purpose**: Moment-matches a raw-space Lognormal distribution's mean/sd onto the mu/sigma of its underlying (log-space) Normal, so that `fuse_normal_normal()` can be reused in log-space for strictly-positive, right-skewed properties (e.g. SOC, CEC) where fusing raw mean/sd as if Normal would let the posterior place probability mass below zero.
 
 **Parameters**:
 ```r
-normal_to_lognormal_params(mu, sigma)
+convert_normal_to_lognormal(mu, sigma)
 ```
 - `mu`, `sigma` - Raw-space mean/sd.
 
 **Returns**: `list(mu = log-space mu, sigma = log-space sigma)`.
 
-**Algorithm/behavior**: Computes `sigma_log <- sqrt(log(1 + (sigma / mu)^2))` and `mu_log <- log(mu) - sigma_log^2 / 2` - the standard closed-form moment-matching formulas relating a Lognormal's raw-space mean/sd to its underlying Normal's mu/sigma. The caller is expected to fuse in log-space via `fuse_normal_normal(mu_log_prior, sigma_log_prior, mu_log_lik, sigma_log_lik)` and then convert the result back with `lognormal_to_normal_params()`.
+**Algorithm/behavior**: Computes `sigma_log <- sqrt(log(1 + (sigma / mu)^2))` and `mu_log <- log(mu) - sigma_log^2 / 2` - the standard closed-form moment-matching formulas relating a Lognormal's raw-space mean/sd to its underlying Normal's mu/sigma. The caller is expected to fuse in log-space via `fuse_normal_normal(mu_log_prior, sigma_log_prior, mu_log_lik, sigma_log_lik)` and then convert the result back with `convert_lognormal_to_normal()`.
 
-#### 3. `lognormal_to_normal_params()` - Log-Space to Raw-Space Moment Conversion
+#### 3. `convert_lognormal_to_normal()` - Log-Space to Raw-Space Moment Conversion
 
-**Purpose**: Inverse of `normal_to_lognormal_params()` - converts log-space Normal(mu, sigma) parameters (e.g. a posterior produced by fusing in log-space) back to the raw-space Lognormal's mean/sd.
+**Purpose**: Inverse of `convert_normal_to_lognormal()` - converts log-space Normal(mu, sigma) parameters (e.g. a posterior produced by fusing in log-space) back to the raw-space Lognormal's mean/sd.
 
 **Parameters**:
 ```r
-lognormal_to_normal_params(mu_log, sigma_log)
+convert_lognormal_to_normal(mu_log, sigma_log)
 ```
 - `mu_log`, `sigma_log` - Log-space mean/sd.
 
 **Returns**: `list(mu = raw-space mean, sigma = raw-space sd)`.
 
-**Algorithm/behavior**: Computes `mu <- exp(mu_log + sigma_log^2 / 2)` and `sigma <- sqrt((exp(sigma_log^2) - 1) * exp(2 * mu_log + sigma_log^2))` - the standard closed-form Lognormal moment formulas, the exact algebraic inverse of `normal_to_lognormal_params()`.
+**Algorithm/behavior**: Computes `mu <- exp(mu_log + sigma_log^2 / 2)` and `sigma <- sqrt((exp(sigma_log^2) - 1) * exp(2 * mu_log + sigma_log^2))` - the standard closed-form Lognormal moment formulas, the exact algebraic inverse of `convert_normal_to_lognormal()`.
 
 ### Tier 2: Exact closed-form same-family fusion (Beta/Gamma)
 
@@ -67,7 +67,7 @@ fuse_beta(prior_alpha, prior_beta, lik_alpha, lik_beta)
 
 **Returns**: `list(alpha = , beta = , feasible = )`.
 
-**Algorithm/behavior**: Computes `alpha <- prior_alpha + lik_alpha - 1` and `beta <- prior_beta + lik_beta - 1`, following directly from multiplying the two Beta kernels `x^(a-1)(1-x)^(b-1)` and recognizing the product as another (unnormalized) Beta kernel. This addition-of-shape-parameters-minus-one is the Beta-family analogue of Tier 1's addition of Normal precisions. Because the resulting `alpha`/`beta` must both stay positive to remain a valid distribution, the function also returns a `feasible` flag: `(prior_alpha + lik_alpha > 1) & (prior_beta + lik_beta > 1)`. Where `feasible` is `FALSE`, the documented fallback route is to re-express both input Betas as Normal moments via `beta_to_moments()`, fuse those moments with `fuse_normal_normal()`, and convert the result back with `moments_to_beta()`.
+**Algorithm/behavior**: Computes `alpha <- prior_alpha + lik_alpha - 1` and `beta <- prior_beta + lik_beta - 1`, following directly from multiplying the two Beta kernels `x^(a-1)(1-x)^(b-1)` and recognizing the product as another (unnormalized) Beta kernel. This addition-of-shape-parameters-minus-one is the Beta-family analogue of Tier 1's addition of Normal precisions. Because the resulting `alpha`/`beta` must both stay positive to remain a valid distribution, the function also returns a `feasible` flag: `(prior_alpha + lik_alpha > 1) & (prior_beta + lik_beta > 1)`. Where `feasible` is `FALSE`, the documented fallback route is to re-express both input Betas as Normal moments via `convert_beta_to_moments()`, fuse those moments with `fuse_normal_normal()`, and convert the result back with `convert_moments_to_beta()`.
 
 #### 5. `fuse_gamma()` - Gamma-Gamma Conjugate Fusion via Density Multiplication
 
@@ -82,15 +82,15 @@ fuse_gamma(prior_shape, prior_rate, lik_shape, lik_rate)
 
 **Returns**: `list(shape = , rate = , feasible = )`.
 
-**Algorithm/behavior**: Computes `shape <- prior_shape + lik_shape - 1` and `rate <- prior_rate + lik_rate`, derived from multiplying the two Gamma kernels `x^(k-1)exp(-r*x)` - rates add outright (like Normal precisions), while shapes add minus one (like Beta's `alpha`/`beta`). Validity requires the fused shape to stay positive, so `feasible <- (prior_shape + lik_shape > 1)` is returned alongside. As with `fuse_beta()`, the documented infeasible-cell fallback is to re-express both sides as Normal moments via `gamma_to_moments()`, fuse with `fuse_normal_normal()`, and convert back with `moments_to_gamma()`.
+**Algorithm/behavior**: Computes `shape <- prior_shape + lik_shape - 1` and `rate <- prior_rate + lik_rate`, derived from multiplying the two Gamma kernels `x^(k-1)exp(-r*x)` - rates add outright (like Normal precisions), while shapes add minus one (like Beta's `alpha`/`beta`). Validity requires the fused shape to stay positive, so `feasible <- (prior_shape + lik_shape > 1)` is returned alongside. As with `fuse_beta()`, the documented infeasible-cell fallback is to re-express both sides as Normal moments via `convert_gamma_to_moments()`, fuse with `fuse_normal_normal()`, and convert back with `convert_moments_to_gamma()`.
 
-#### 6. `moments_to_gamma()` - Method-of-Moments Gamma Fit
+#### 6. `convert_moments_to_gamma()` - Method-of-Moments Gamma Fit
 
 **Purpose**: Converts a mean/variance pair into Gamma shape/rate parameters; used by the closed-form same-family route's infeasible-cell fallback.
 
 **Parameters**:
 ```r
-moments_to_gamma(mean, var)
+convert_moments_to_gamma(mean, var)
 ```
 - `mean`, `var` - Mean/variance to convert.
 
@@ -98,13 +98,13 @@ moments_to_gamma(mean, var)
 
 **Algorithm/behavior**: Direct application of the standard Gamma method-of-moments formulas (`shape = mean^2/var`, `rate = mean/var`); a one-line closed-form conversion, no iteration.
 
-#### 7. `moments_to_beta()` - Method-of-Moments Beta Fit
+#### 7. `convert_moments_to_beta()` - Method-of-Moments Beta Fit
 
 **Purpose**: Converts a mean/variance pair into Beta alpha/beta parameters; used by the closed-form same-family route's infeasible-cell fallback.
 
 **Parameters**:
 ```r
-moments_to_beta(mean, var)
+convert_moments_to_beta(mean, var)
 ```
 - `mean`, `var` - Mean/variance to convert.
 
@@ -112,13 +112,13 @@ moments_to_beta(mean, var)
 
 **Algorithm/behavior**: Computes the common factor `common <- mean * (1 - mean) / var - 1`, then `alpha <- mean * common` and `beta <- (1 - mean) * common` - the standard Beta method-of-moments formulas.
 
-#### 8. `beta_to_moments()` - Beta's Own Mean/Variance
+#### 8. `convert_beta_to_moments()` - Beta's Own Mean/Variance
 
-**Purpose**: The inverse direction of `moments_to_beta()` - computes a Beta distribution's mean/variance from its own `(alpha, beta)` parameters, used to re-express an infeasible same-family fusion's inputs as Normal moments before falling back to `fuse_normal_normal()`.
+**Purpose**: The inverse direction of `convert_moments_to_beta()` - computes a Beta distribution's mean/variance from its own `(alpha, beta)` parameters, used to re-express an infeasible same-family fusion's inputs as Normal moments before falling back to `fuse_normal_normal()`.
 
 **Parameters**:
 ```r
-beta_to_moments(alpha, beta)
+convert_beta_to_moments(alpha, beta)
 ```
 - `alpha`, `beta` - Beta shape parameters.
 
@@ -126,13 +126,13 @@ beta_to_moments(alpha, beta)
 
 **Algorithm/behavior**: Direct application of the standard closed-form Beta mean/variance formulas.
 
-#### 9. `gamma_to_moments()` - Gamma's Own Mean/Variance
+#### 9. `convert_gamma_to_moments()` - Gamma's Own Mean/Variance
 
-**Purpose**: The inverse direction of `moments_to_gamma()` - computes a Gamma distribution's mean/variance from its own `(shape, rate)` parameters, used the same way as `beta_to_moments()` in the infeasible-cell fallback.
+**Purpose**: The inverse direction of `convert_moments_to_gamma()` - computes a Gamma distribution's mean/variance from its own `(shape, rate)` parameters, used the same way as `convert_beta_to_moments()` in the infeasible-cell fallback.
 
 **Parameters**:
 ```r
-gamma_to_moments(shape, rate)
+convert_gamma_to_moments(shape, rate)
 ```
 - `shape`, `rate` - Gamma shape/rate parameters.
 
@@ -250,11 +250,11 @@ fuse_property(prior, likelihood, family, bounds, method, n_samples, grid_resolut
     └── fuse_distribution(prior_params, lik_params, family)
         ├── family == "normal" -> fuse_normal_normal(prior_mu, prior_sigma, lik_mu, lik_sigma)
         ├── family == "beta"   -> fuse_beta(prior_alpha, prior_beta, lik_alpha, lik_beta)
-        │                          [infeasible fallback, not automatic: beta_to_moments() ->
-        │                           fuse_normal_normal() -> moments_to_beta()]
+        │                          [infeasible fallback, not automatic: convert_beta_to_moments() ->
+        │                           fuse_normal_normal() -> convert_moments_to_beta()]
         └── family == "gamma"  -> fuse_gamma(prior_shape, prior_rate, lik_shape, lik_rate)
-                                    [infeasible fallback, not automatic: gamma_to_moments() ->
-                                     fuse_normal_normal() -> moments_to_gamma()]
+                                    [infeasible fallback, not automatic: convert_gamma_to_moments() ->
+                                     fuse_normal_normal() -> convert_moments_to_gamma()]
 
 Separately (not reachable through fuse_property()/fuse_distribution()):
 
@@ -265,7 +265,7 @@ fuse_texture_group_from_triplets(prior_triplets, lik_triplets, z_prior, z_lik, n
 │                         lik_moments$mu, lik_moments$Sigma)
 └── core-distributions.R::sample_ilr_posterior(fused$mu, fused$Sigma, n_samples, total)
 
-normal_to_lognormal_params() / lognormal_to_normal_params()
+convert_normal_to_lognormal() / convert_lognormal_to_normal()
   - not called by any other function in this file; documented helpers a caller
     uses around its own fuse_normal_normal() call to fuse strictly-
     positive, right-skewed (Lognormal) properties in log-space.
@@ -296,7 +296,7 @@ core-fusion.R
 ### Integration status
 The functions in this file are standalone building blocks; the tabular Monte Carlo pipeline in `core-montecarlo.R` does not call them directly.
 
-`R/core-fusion.R` uses these same functions (`fuse_normal_normal()`, `fuse_beta()`, `fuse_gamma()`, the `*_to_moments()`/`moments_to_*()` helpers, `normal_to_lognormal_params()`/`lognormal_to_normal_params()`, `update_prior()`, and `fuse_bivariate_normal()`) as the computational core of an adaptive, per-cell fusion pipeline (`fuse_adaptive()`/`fuse_property_adaptive()`) that routes between the closed-form and general tiers by AOI cell count and includes Lognormal/metalog adapters and infeasible-cell fallback handling. In other words: `core-fusion.R` supplies the scalar primitives, and `core-fusion.R` assembles the raster-native equivalents into a complete pipeline.
+`R/core-fusion.R` uses these same functions (`fuse_normal_normal()`, `fuse_beta()`, `fuse_gamma()`, the `*_to_moments()`/`moments_to_*()` helpers, `convert_normal_to_lognormal()`/`convert_lognormal_to_normal()`, `update_prior()`, and `fuse_bivariate_normal()`) as the computational core of an adaptive, per-cell fusion pipeline (`fuse_adaptive()`/`fuse_property_adaptive()`) that routes between the closed-form and general tiers by AOI cell count and includes Lognormal/metalog adapters and infeasible-cell fallback handling. In other words: `core-fusion.R` supplies the scalar primitives, and `core-fusion.R` assembles the raster-native equivalents into a complete pipeline.
 
 ## Data Flow In/Out
 

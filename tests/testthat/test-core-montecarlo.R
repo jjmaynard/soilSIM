@@ -409,8 +409,8 @@ test_that("observed_data (lognormal family) does not double-convert the already-
   # Round-tripping the stored (log-space) posterior back to raw space should
   # land near a sane blend of the prior's raw om_r (~2) and the likelihood's
   # raw mean (2) - not some wildly different value from a double conversion.
-  # lognormal_to_normal_params() returns list(mu=, sigma=) (raw-space mean/sd).
-  raw <- lognormal_to_normal_params(posterior_fit$mean, posterior_fit$sd)
+  # convert_lognormal_to_normal() returns list(mu=, sigma=) (raw-space mean/sd).
+  raw <- convert_lognormal_to_normal(posterior_fit$mean, posterior_fit$sd)
   expect_true(raw$mu > 0.5 && raw$mu < 5)
   expect_true(all(is.finite(res$simulation_data)))
 })

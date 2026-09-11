@@ -24,7 +24,7 @@ ensemble replicates, the first \code{n_out} are used (a fixed subsample - same r
 property/window, so the copula is preserved).}
 
 \item{summarize}{\code{TRUE} (default) returns per-pixel percentile rasters (\code{probs}); \code{FALSE}
-returns the raw \code{n_kept}-layer realization stacks (for downstream use, e.g. \code{remarginalized_awc()}).}
+returns the raw \code{n_kept}-layer realization stacks (for downstream use, e.g. \code{remarginalize_awc()}).}
 
 \item{probs}{Percentile probabilities for the \code{summarize = TRUE} output.}
 }
@@ -55,5 +55,5 @@ the per-pixel bridge" for how this shapes a derived-quantity uncertainty band.
 }
 
 \seealso{
-\code{extract_mukey_joint_ensemble()}, \code{zonal_distribution_from_posterior()}, \code{remarginalized_awc()}
+\code{extract_mukey_joint_ensemble()}, \code{zonal_distribution_from_posterior()}, \code{remarginalize_awc()}
 }

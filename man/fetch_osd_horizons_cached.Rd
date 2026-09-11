@@ -16,7 +16,7 @@ all requested series (any already-cached plus any newly fetched).
 }
 \description{
 \code{soilDB::fetchOSD()} is a live network call. Multiple profiles/components in the same
-mukey/AOI frequently share the same series name (e.g. \code{simulate_profile_depths_by_mukey()}
+mukey/AOI frequently share the same series name (e.g. \code{simulate_profile_depths()}
 calls \code{query_osd_distinctness()} once per component), so fetching unconditionally on every
 call re-requests identical data redundantly. This wrapper caches each series' raw
 \code{id}/\code{hzname}/\code{distinctness} rows on disk - the same \code{cache_get()}/\code{cache_set()} mechanism

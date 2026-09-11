@@ -65,20 +65,20 @@ fuse_normal_normal <- function(prior_mu, prior_sigma, lik_mu, lik_sigma) {
 #' @param mu,sigma Raw-space mean/sd.
 #' @return `list(mu = log-space mu, sigma = log-space sigma)`.
 #' @export
-normal_to_lognormal_params <- function(mu, sigma) {
+convert_normal_to_lognormal <- function(mu, sigma) {
   sigma_log <- sqrt(log(1 + (sigma / mu)^2))
   mu_log <- log(mu) - sigma_log^2 / 2
   list(mu = mu_log, sigma = sigma_log)
 }
 
-#' Inverse of `normal_to_lognormal_params()`
+#' Inverse of `convert_normal_to_lognormal()`
 #'
 #' Converts log-space Normal(mu, sigma) parameters back to the raw-space
 #' Lognormal's mean/sd.
 #' @param mu_log,sigma_log Log-space mean/sd.
 #' @return `list(mu = raw-space mean, sigma = raw-space sd)`.
 #' @export
-lognormal_to_normal_params <- function(mu_log, sigma_log) {
+convert_lognormal_to_normal <- function(mu_log, sigma_log) {
   mu <- exp(mu_log + sigma_log^2 / 2)
   sigma <- sqrt((exp(sigma_log^2) - 1) * exp(2 * mu_log + sigma_log^2))
   list(mu = mu, sigma = sigma)
@@ -126,7 +126,7 @@ fuse_gamma <- function(prior_shape, prior_rate, lik_shape, lik_rate) {
 #' @param mean,var Mean/variance to convert.
 #' @return `list(shape=, rate=)`.
 #' @export
-moments_to_gamma <- function(mean, var) {
+convert_moments_to_gamma <- function(mean, var) {
   list(shape = mean^2 / var, rate = mean / var)
 }
 
@@ -137,32 +137,32 @@ moments_to_gamma <- function(mean, var) {
 #' @param mean,var Mean/variance to convert.
 #' @return `list(alpha=, beta=)`.
 #' @export
-moments_to_beta <- function(mean, var) {
+convert_moments_to_beta <- function(mean, var) {
   common <- mean * (1 - mean) / var - 1
   list(alpha = mean * common, beta = (1 - mean) * common)
 }
 
 #' Beta's mean/variance as a function of its own (alpha, beta)
 #'
-#' The inverse direction of `moments_to_beta()` - used to re-express an
+#' The inverse direction of `convert_moments_to_beta()` - used to re-express an
 #' infeasible same-family fusion's inputs as Normal moments before falling
 #' back to `fuse_normal_normal()`.
 #' @param alpha,beta Beta shape parameters.
 #' @return `list(mean=, var=)`.
 #' @export
-beta_to_moments <- function(alpha, beta) {
+convert_beta_to_moments <- function(alpha, beta) {
   list(mean = alpha / (alpha + beta), var = (alpha * beta) / ((alpha + beta)^2 * (alpha + beta + 1)))
 }
 
 #' Gamma's mean/variance as a function of its own (shape, rate)
 #'
-#' The inverse direction of `moments_to_gamma()` - used to re-express an
+#' The inverse direction of `convert_moments_to_gamma()` - used to re-express an
 #' infeasible same-family fusion's inputs as Normal moments before falling
 #' back to `fuse_normal_normal()`.
 #' @param shape,rate Gamma shape/rate parameters.
 #' @return `list(mean=, var=)`.
 #' @export
-gamma_to_moments <- function(shape, rate) {
+convert_gamma_to_moments <- function(shape, rate) {
   list(mean = shape / rate, var = shape / rate^2)
 }
 
@@ -417,8 +417,12 @@ fuse_texture_group_from_triplets <- function(prior_triplets, lik_triplets, z_pri
 #'   forced into a fake-uniform contract, since the caller already knows
 #'   which shape it's passing in and therefore which shape it gets back.
 #' @export
-fuse_property <- function(prior, likelihood, family = NULL, bounds = NULL, method = NULL,
-                           n_samples = 1000, grid_resolution = 0.01) {
+fuse_property <- function(prior, likelihood, ...) UseMethod("fuse_property")
+
+#' @rdname fuse_property
+#' @export
+fuse_property.default <- function(prior, likelihood, family = NULL, bounds = NULL, method = NULL,
+                                   n_samples = 1000, grid_resolution = 0.01, ...) {
   prior_is_vector <- is.atomic(prior) && is.numeric(prior)
   lik_is_vector <- is.atomic(likelihood) && is.numeric(likelihood)
 
@@ -444,6 +448,36 @@ fuse_property <- function(prior, likelihood, family = NULL, bounds = NULL, metho
   fuse_distribution(prior, likelihood, family = family)
 }
 
+#' Tag a list of percentile-value rasters for `fuse_property()`'s raster method
+#'
+#' `fuse_property()` dispatches on the class of `prior`: a plain numeric vector or plain list
+#' goes to [fuse_property.default()] (scalar/vector fusion); a list tagged with this class goes to
+#' [fuse_property.percentile_rasters()] (raster-native fusion, forwarding to
+#' [fuse_property_adaptive()] unchanged). A plain, unclassed `list()` of percentile-value rasters
+#' cannot be distinguished from a closed-form parameter list by class alone, hence the explicit tag.
+#'
+#' @param x A list of `terra::SpatRaster` percentile-value layers.
+#' @return `x`, with class `c("percentile_rasters", class(x))`.
+#' @export
+new_percentile_rasters <- function(x) {
+  stopifnot(is.list(x))
+  class(x) <- unique(c("percentile_rasters", class(x)))
+  x
+}
+
+#' @rdname fuse_property
+#' @param ... Passed to the dispatched method.
+#' @param prior_probs,lik_probs Percentile levels for `prior`/`likelihood` (raster method only).
+#' @param property_config A property configuration list selecting the fusion distribution family
+#'   (raster method only) - see [fuse_property_adaptive()].
+#' @param threshold_cells Raster method only; see [fuse_property_adaptive()].
+#' @export
+fuse_property.percentile_rasters <- function(prior, likelihood, prior_probs, lik_probs,
+                                              property_config, threshold_cells = 80000, ...) {
+  fuse_property_adaptive(unclass(prior), prior_probs, unclass(likelihood), lik_probs,
+                          property_config, threshold_cells = threshold_cells, ...)
+}
+
 
 # ============================================================================
 # merged from core-fusion.R (P1 file reorg)
@@ -459,9 +493,9 @@ fuse_property <- function(prior, likelihood, family = NULL, bounds = NULL, metho
 #'
 #'   Uses `core-fusion.R`'s scalar/vector fusion functions
 #'   directly - `fuse_normal_normal()`,
-#'   `fuse_beta()`, `fuse_gamma()`, `moments_to_gamma()`/`moments_to_beta()`/
-#'   `beta_to_moments()`/`gamma_to_moments()`, `normal_to_lognormal_params()`/
-#'   `lognormal_to_normal_params()`, `update_prior()`, and
+#'   `fuse_beta()`, `fuse_gamma()`, `convert_moments_to_gamma()`/`convert_moments_to_beta()`/
+#'   `convert_beta_to_moments()`/`convert_gamma_to_moments()`, `convert_normal_to_lognormal()`/
+#'   `convert_lognormal_to_normal()`, `update_prior()`, and
 #'   `R/core-distributions.R`'s `estimate_ilr_moments_mc()`/`ilr_inverse()`, plus
 #'   `fuse_bivariate_normal()` - are all pure elementwise arithmetic, so they
 #'   work unchanged on `SpatRaster` inputs.
@@ -488,7 +522,7 @@ NULL
 
 #' Method-of-moments Gamma fit from a list of percentile-value rasters
 #'
-#' Thin raster wrapper around the existing scalar `moments_to_gamma()`
+#' Thin raster wrapper around the existing scalar `convert_moments_to_gamma()`
 #' (`core-fusion.R`) - the mean/variance computation is the only
 #' genuinely raster-specific part (combining a *list* of rasters via `Reduce()`).
 #' @param value_rasters List of percentile-value SpatRasters.
@@ -498,7 +532,7 @@ fit_gamma_mom_raster <- function(value_rasters) {
   k <- length(value_rasters)
   mean_r <- Reduce(`+`, value_rasters) / k
   var_r <- Reduce(`+`, lapply(value_rasters, function(r) (r - mean_r)^2)) / k
-  moments_to_gamma(mean_r, var_r)
+  convert_moments_to_gamma(mean_r, var_r)
 }
 
 #' Locate the low/median/high indices and probabilities within a percentile
@@ -628,7 +662,7 @@ closed_form_percentiles_raster <- function(param1, param2, qfun, posterior_probs
 #' @param family One of "normal", "beta", "gamma", "lognormal". `"lognormal"` (added
 #') fits `mu`/`sigma` directly from
 #'   `log(draws)` - the same LOG-SPACE parameterization `fuse_lognormal_adaptive()`'s large-AOI
-#'   branch already uses internally (`normal_to_lognormal_params()`'s output shape), so the merge
+#'   branch already uses internally (`convert_normal_to_lognormal()`'s output shape), so the merge
 #'   there is a drop-in replacement of the percentile-triplet-derived log-space fit, not a new
 #'   shape. Non-positive draws are dropped before taking `log()` (a real lognormal draw is always
 #'   positive; any non-positive value reflects upstream noise, not signal) - a mukey left with fewer
@@ -661,7 +695,7 @@ mukey_draws_closed_form_fit_raster <- function(mukey_raster, mukey_draws, family
   fits <- lapply(draws_list, function(draws) {
     switch(family,
       normal = list(mu = mean(draws), sigma = stats::sd(draws)),
-      gamma = moments_to_gamma(mean(draws), stats::var(draws)),
+      gamma = convert_moments_to_gamma(mean(draws), stats::var(draws)),
       lognormal = {
         pos <- draws[draws > 0]
         if (length(pos) < 2) list(mu = NA_real_, sigma = NA_real_)
@@ -796,8 +830,8 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
     fit_lik <- fit_beta_mle_newton_raster(lik_value_rasters, bounds)
     fused <- fuse_beta(fit_prior$alpha, fit_prior$beta, fit_lik$alpha, fit_lik$beta)
 
-    prior_m <- beta_to_moments(fit_prior$alpha, fit_prior$beta)
-    lik_m <- beta_to_moments(fit_lik$alpha, fit_lik$beta)
+    prior_m <- convert_beta_to_moments(fit_prior$alpha, fit_prior$beta)
+    lik_m <- convert_beta_to_moments(fit_lik$alpha, fit_lik$beta)
     span <- bounds[2] - bounds[1]
     fallback_normal <- fuse_normal_normal(
       bounds[1] + prior_m$mean * span, sqrt(prior_m$var) * span,
@@ -805,7 +839,7 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
     )
     fallback_mean <- (fallback_normal$mu - bounds[1]) / span
     fallback_var <- (fallback_normal$sigma / span)^2
-    fallback_beta <- moments_to_beta(fallback_mean, fallback_var)
+    fallback_beta <- convert_moments_to_beta(fallback_mean, fallback_var)
 
     alpha_final <- terra::ifel(fused$feasible, fused$alpha, fallback_beta$alpha)
     beta_final <- terra::ifel(fused$feasible, fused$beta, fallback_beta$beta)
@@ -829,10 +863,10 @@ fuse_closed_form <- function(prior_value_rasters, lik_value_rasters, percentile_
     fit_lik <- fit_gamma_mom_raster(lik_value_rasters)
     fused <- fuse_gamma(fit_prior$shape, fit_prior$rate, fit_lik$shape, fit_lik$rate)
 
-    prior_m <- gamma_to_moments(fit_prior$shape, fit_prior$rate)
-    lik_m <- gamma_to_moments(fit_lik$shape, fit_lik$rate)
+    prior_m <- convert_gamma_to_moments(fit_prior$shape, fit_prior$rate)
+    lik_m <- convert_gamma_to_moments(fit_lik$shape, fit_lik$rate)
     fallback_normal <- fuse_normal_normal(prior_m$mean, sqrt(prior_m$var), lik_m$mean, sqrt(lik_m$var))
-    fallback_gamma <- moments_to_gamma(fallback_normal$mu, fallback_normal$sigma^2)
+    fallback_gamma <- convert_moments_to_gamma(fallback_normal$mu, fallback_normal$sigma^2)
 
     shape_final <- terra::ifel(fused$feasible, fused$shape, fallback_gamma$shape)
     rate_final <- terra::ifel(fused$feasible, fused$rate, fallback_gamma$rate)
@@ -1110,8 +1144,8 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
 
   posterior <- switch(family,
     normal = list(mu = mean_r, sigma = sqrt(var_r)),
-    beta = { span <- bounds[2] - bounds[1]; moments_to_beta((mean_r - bounds[1]) / span, var_r / span^2) },
-    gamma = moments_to_gamma(mean_r, var_r)
+    beta = { span <- bounds[2] - bounds[1]; convert_moments_to_beta((mean_r - bounds[1]) / span, var_r / span^2) },
+    gamma = convert_moments_to_gamma(mean_r, var_r)
   )
   posterior$percentiles <- percentile_rs
   list(posterior = posterior, route_detail = NULL, n_fallback_cells = 0)
@@ -1260,8 +1294,8 @@ fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_
   idx <- percentile_index(prior_probs)
   fit_prior <- fit_normal_raster(prior_value_rasters[[idx$lo_idx]], prior_value_rasters[[idx$p50_idx]], prior_value_rasters[[idx$hi_idx]], idx$p_lo, idx$p_hi)
   fit_lik <- fit_normal_raster(lik_value_rasters[[idx$lo_idx]], lik_value_rasters[[idx$p50_idx]], lik_value_rasters[[idx$hi_idx]], idx$p_lo, idx$p_hi)
-  prior_log <- normal_to_lognormal_params(fit_prior$mu, fit_prior$sigma)
-  lik_log <- normal_to_lognormal_params(fit_lik$mu, fit_lik$sigma)
+  prior_log <- convert_normal_to_lognormal(fit_prior$mu, fit_prior$sigma)
+  lik_log <- convert_normal_to_lognormal(fit_lik$mu, fit_lik$sigma)
   # Raw-draws extension: fit each mukey's real draws' log() directly (a more faithful
   # log-space fit than the percentile-triplet-derived approximation above), broadcast via
   # terra::subst(), and merge over prior_log wherever a mukey has draws coverage - the exact
@@ -1275,7 +1309,7 @@ fuse_lognormal_adaptive <- function(prior_value_rasters, prior_probs, lik_value_
     )
   }
   posterior_log <- fuse_normal_normal(prior_log$mu, prior_log$sigma, lik_log$mu, lik_log$sigma)
-  posterior <- lognormal_to_normal_params(posterior_log$mu, posterior_log$sigma)
+  posterior <- convert_lognormal_to_normal(posterior_log$mu, posterior_log$sigma)
   posterior$percentiles <- closed_form_percentiles_raster(posterior_log$mu, posterior_log$sigma, stats::qlnorm, effective_posterior_probs)
   list(posterior = posterior, route = "closed_form_lognormal", route_detail = NULL, n_fallback_cells = 0)
 }
@@ -2613,7 +2647,7 @@ run_fusion_multiproperty <- function(aoi_vect, property_configs, depth_windows,
 #'
 #'   `zonal_distribution_from_posterior()` is the cheap mukey-collapsed comparison arm (feeds
 #'   `observed_data_by_mukey` in `simulate_monte_carlo()`); `remarginalize_ensemble_to_posterior()`
-#'   is the per-pixel transform; `remarginalized_awc()` is the first derived-quantity consumer
+#'   is the per-pixel transform; `remarginalize_awc()` is the first derived-quantity consumer
 #'   (available water capacity, via `saxton_rawls_raster()` since SOLUS100 has no water-retention
 #'   variable). Nothing here touches either existing pipeline - purely additive.
 #' @name raster_fusion_bridge
@@ -2724,12 +2758,12 @@ invert_posterior_cdf_raster <- function(pct, post_probs, u_ras) {
 #'
 #' The vectorized, `terra`-native counterpart of `compute_saxton_rawls()` - identical
 #' equations and clamps, but every operation is `terra` `Arith`/`Math`/`clamp`/`ifel` so it runs
-#' on multi-layer realization stacks in one pass. Used by `remarginalized_awc()`'s default
+#' on multi-layer realization stacks in one pass. Used by `remarginalize_awc()`'s default
 #' (`method = "saxton_rawls"`) path, because SOLUS100 publishes **no** water-retention variable -
 #' `wr_3b`/`wr_15b` can never be fused directly, only derived from the fusable
 #' sand/silt/clay/`dbovendry`/`soc`/`fragvol`.
 #'
-#' Because `remarginalized_awc()` re-marginalizes `sand`/`silt`/`clay` to their own fused
+#' Because `remarginalize_awc()` re-marginalizes `sand`/`silt`/`clay` to their own fused
 #' posteriors independently, a realization's texture triple may not sum to 100. This
 #' reproduces `compute_saxton_rawls()`'s renormalization: where the texture sum is off
 #' by more than 5 points, the three fractions are rescaled to sum to 100 before the equations run
@@ -2788,12 +2822,12 @@ saxton_rawls_raster <- function(sand, clay, silt, db, rfv, om) {
 #'   ensemble replicates, the first `n_out` are used (a fixed subsample - same rows across every
 #'   property/window, so the copula is preserved).
 #' @param summarize `TRUE` (default) returns per-pixel percentile rasters (`probs`); `FALSE`
-#'   returns the raw `n_kept`-layer realization stacks (for downstream use, e.g. `remarginalized_awc()`).
+#'   returns the raw `n_kept`-layer realization stacks (for downstream use, e.g. `remarginalize_awc()`).
 #' @param probs Percentile probabilities for the `summarize = TRUE` output.
 #' @return `list(percentiles = [[property]][[window]] = <named list of P.. SpatRasters>)` when
 #'   `summarize`, else `list(ensemble = [[property]][[window]] = <n_kept-layer SpatRaster>)`. Plus
 #'   `properties`, `window_names`, `n_out`, `n_kept`.
-#' @seealso `extract_mukey_joint_ensemble()`, `zonal_distribution_from_posterior()`, `remarginalized_awc()`
+#' @seealso `extract_mukey_joint_ensemble()`, `zonal_distribution_from_posterior()`, `remarginalize_awc()`
 #' @export
 remarginalize_ensemble_to_posterior <- function(mukey_ensemble, posterior_by_property_window,
                                                  n_out = 250, summarize = TRUE,
@@ -2940,7 +2974,7 @@ remarginalize_ensemble_to_posterior <- function(mukey_ensemble, posterior_by_pro
 #' @seealso `remarginalize_ensemble_to_posterior()`, `saxton_rawls_raster()`, `compute_aws()`,
 #'   `fetch_solus_restriction_depth()`
 #' @export
-remarginalized_awc <- function(mukey_ensemble, posterior_by_property_window,
+remarginalize_awc <- function(mukey_ensemble, posterior_by_property_window,
                                method = c("saxton_rawls", "direct"),
                                n_out = 250, probs = c(0.05, 0.25, 0.5, 0.75, 0.95),
                                rock_fragment = TRUE, soc_to_om = 1.724, tile_rows = NULL,
@@ -2951,11 +2985,11 @@ remarginalized_awc <- function(mukey_ensemble, posterior_by_property_window,
   opt <- if (method == "saxton_rawls") c("soc", "rfv") else c("rfv")
 
   if (!all(req %in% mukey_ensemble$properties)) {
-    stop(sprintf("remarginalized_awc(method = '%s'): the ensemble must carry %s.",
+    stop(sprintf("remarginalize_awc(method = '%s'): the ensemble must carry %s.",
                  method, paste(req, collapse = "/")))
   }
   if (!all(req %in% names(posterior_by_property_window))) {
-    stop(sprintf("remarginalized_awc(method = '%s'): posterior_by_property_window needs %s posteriors.",
+    stop(sprintf("remarginalize_awc(method = '%s'): posterior_by_property_window needs %s posteriors.",
                  method, paste(req, collapse = "/")))
   }
   keys <- intersect(c(req, opt), names(posterior_by_property_window))
@@ -2970,7 +3004,7 @@ remarginalized_awc <- function(mukey_ensemble, posterior_by_property_window,
   }
 
   w1 <- intersect(mukey_ensemble$window_names, names(pbpw[[req[1]]]))
-  if (length(w1) == 0) stop("remarginalized_awc(): no window has a posterior for the required properties.")
+  if (length(w1) == 0) stop("remarginalize_awc(): no window has a posterior for the required properties.")
   ref <- pbpw[[req[1]]][[w1[1]]]$percentiles[[1]]
 
   # S2: resample restriction_depth onto the working grid ONCE here (not per window inside
@@ -3059,7 +3093,7 @@ remarginalized_awc <- function(mukey_ensemble, posterior_by_property_window,
     awc <- if (is.null(awc)) layer else awc + layer
     used <- c(used, w)
   }
-  if (is.null(awc)) stop("remarginalized_awc(): no usable window.")
+  if (is.null(awc)) stop("remarginalize_awc(): no usable window.")
 
   awc <- terra::clamp(awc, lower = 0, values = TRUE)
   qs <- terra::quantile(awc, probs = probs, na.rm = TRUE)

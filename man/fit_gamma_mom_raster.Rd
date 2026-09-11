@@ -13,7 +13,7 @@ fit_gamma_mom_raster(value_rasters)
 \code{list(shape = SpatRaster, rate = SpatRaster)}.
 }
 \description{
-Thin raster wrapper around the existing scalar \code{moments_to_gamma()}
+Thin raster wrapper around the existing scalar \code{convert_moments_to_gamma()}
 (\code{core-fusion.R}) - the mean/variance computation is the only
 genuinely raster-specific part (combining a \emph{list} of rasters via \code{Reduce()}).
 }

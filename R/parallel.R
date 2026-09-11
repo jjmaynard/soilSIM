@@ -38,7 +38,7 @@ NULL
 #'   `sequential_fallback` contract above on error. If `FALSE`, dispatch errors propagate to the
 #'   caller's own error handling instead (plan setup/restoration via `on.exit()` still happens
 #'   regardless) - needed for callers whose own contract is "no sequential fallback, propagate/
-#'   convert the error myself" (e.g. `simulate_profile_depths_by_collection_parallel()`, which
+#'   convert the error myself" (e.g. `simulate_profile_depths(parallel = TRUE)`, which
 #'   returns `NULL` on error via its own outer `tryCatch()`).
 #' @return A list of `FUN(x, ...)` results, one per element of `X`, in `X`'s order - the same
 #'   shape `parallel::parLapply()`/`mclapply()` already produced, so callers can consume the result

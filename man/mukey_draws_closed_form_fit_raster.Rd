@@ -20,7 +20,7 @@ element a numeric vector of real simulated draws for that mukey.}
 \item{family}{One of "normal", "beta", "gamma", "lognormal". \code{"lognormal"} (added
 ) fits \code{mu}/\code{sigma} directly from
 \code{log(draws)} - the same LOG-SPACE parameterization \code{fuse_lognormal_adaptive()}'s large-AOI
-branch already uses internally (\code{normal_to_lognormal_params()}'s output shape), so the merge
+branch already uses internally (\code{convert_normal_to_lognormal()}'s output shape), so the merge
 there is a drop-in replacement of the percentile-triplet-derived log-space fit, not a new
 shape. Non-positive draws are dropped before taking \code{log()} (a real lognormal draw is always
 positive; any non-positive value reflects upstream noise, not signal) - a mukey left with fewer

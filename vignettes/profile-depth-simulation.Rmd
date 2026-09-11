@@ -59,7 +59,7 @@ the number of profile replicates simulated in the next step.
 
 ## Step 2: Simulate horizon depth and thickness variability
 
-`simulate_profile_depths_by_mukey()` orchestrates the full depth-simulation pipeline for a real
+`simulate_profile_depths()` orchestrates the full depth-simulation pipeline for a real
 mukey: it queries SSURGO, derives `sim_comppct` via `simulate_component_composition()` and joins it onto every
 horizon (internally - no manual join needed by the caller), fetches real Official Series
 Description boundary-distinctness data for the component name, and perturbs horizon thickness and
@@ -67,7 +67,7 @@ boundary depths accordingly:
 
 ```{r, eval = FALSE}
 # The real call this vignette's cached data came from:
-simulated_profiles <- simulate_profile_depths_by_mukey("462255", n_simulations = 25, seed = 123)
+simulated_profiles <- simulate_profile_depths("462255", n_simulations = 25, seed = 123)
 ```
 
 ```{r}
@@ -143,6 +143,6 @@ horizon's original low/high bounds when those bounds are actually present in the
 The cached data this vignette loads (`inst/extdata/depth_sim_mukey_data.rds`,
 `inst/extdata/depth_sim_profiles_amador.rds`) was produced once by `data-raw/build_vignette_data.R`,
 which calls `process_aoi_and_get_mukeys_working()`, `fetch_ssurgo_aws_data()`, and
-`simulate_profile_depths_by_mukey()` live against NRCS Soil Data Access and the Official Series
+`simulate_profile_depths()` live against NRCS Soil Data Access and the Official Series
 Description database. Re-run that script to refresh it (the real mukey it resolves to may change
 if SSURGO data for this AOI is updated).

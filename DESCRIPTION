@@ -1,6 +1,6 @@
 Package: soilSIM
 Title: Multi-Source Soil Property Simulation and Bayesian Data Fusion
-Version: 0.2.0
+Version: 0.2.1
 Authors@R: person("Jonathan", "Maynard", email = "jjmaynard9@gmail.com", role = c("aut", "cre"))
 Description: A data-source-agnostic framework for simulating soil properties
     and fusing estimates from multiple soil data products. Provides

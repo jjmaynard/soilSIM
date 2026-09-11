@@ -47,7 +47,7 @@ Ignored when \code{catch_errors = FALSE}.}
 \code{sequential_fallback} contract above on error. If \code{FALSE}, dispatch errors propagate to the
 caller's own error handling instead (plan setup/restoration via \code{on.exit()} still happens
 regardless) - needed for callers whose own contract is "no sequential fallback, propagate/
-convert the error myself" (e.g. \code{simulate_profile_depths_by_collection_parallel()}, which
+convert the error myself" (e.g. \code{simulate_profile_depths(parallel = TRUE)}, which
 returns \code{NULL} on error via its own outer \code{tryCatch()}).}
 }
 \value{

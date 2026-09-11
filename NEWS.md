@@ -1,3 +1,16 @@
+# soilSIM 0.2.1 (in progress)
+
+## Continued naming clean-up
+
+* Remaining pre-0.2.0 names renamed to fit the verb lexicon (old names soft-deprecated as usual):
+  * `beta_to_moments()` -> `convert_beta_to_moments()`, `gamma_to_moments()` -> `convert_gamma_to_moments()`
+  * `moments_to_beta()` -> `convert_moments_to_beta()`, `moments_to_gamma()` -> `convert_moments_to_gamma()`
+  * `normal_to_lognormal_params()` -> `convert_normal_to_lognormal()`
+  * `lognormal_to_normal_params()` -> `convert_lognormal_to_normal()`
+  * `remarginalized_awc()` -> `remarginalize_awc()`
+* `wrap_nested_rasters()`/`unwrap_nested_rasters()` were reviewed and kept as-is - an intentional
+  raster-serialization pair, not a naming inconsistency.
+
 # soilSIM 0.2.0
 
 ## Naming and package-structure re-architecture

@@ -26,7 +26,7 @@ an independent per-property resample. Three functions:
 |---|---|
 | `extract_mukey_joint_ensemble()` | one joint SSURGO Monte Carlo, retained per map unit, row-aligned across depth windows |
 | `remarginalize_ensemble_to_posterior()` | transform each realization's marginals to the SOLUS-fused posterior, per pixel, keeping the ensemble's rank copula |
-| `remarginalized_awc()` | AWC per realization from the re-marginalized inputs, then per-pixel percentiles |
+| `remarginalize_awc()` | AWC per realization from the re-marginalized inputs, then per-pixel percentiles |
 
 AWC needs special handling: **SOLUS100 publishes no water-retention variable**, so field capacity
 and wilting point cannot be fused directly. Instead the fusable drivers - sand, silt, clay, bulk
@@ -189,14 +189,14 @@ the 3rd-4th decimal, where a tie forms because the fused posterior's tail is cla
 
 ## Step 4: per-pixel available water capacity
 
-`remarginalized_awc()` (default `method = "saxton_rawls"`) takes, for each realization / pixel /
+`remarginalize_awc()` (default `method = "saxton_rawls"`) takes, for each realization / pixel /
 window, the jointly-consistent `(sand, clay, silt, db, om)` values, derives field capacity and
 wilting point via `saxton_rawls_raster()`, and accumulates
 `AWC = sum_windows (fc - wp)/100 * thickness` for that realization. `terra::quantile()` over the
 retained realizations then gives the per-pixel AWC distribution.
 
 ```{r}
-awc <- remarginalized_awc(ens, post, n_out = 150)
+awc <- remarginalize_awc(ens, post, n_out = 150)
 awc$n_kept
 awc$windows_used
 names(awc$awc_cm)
@@ -221,7 +221,7 @@ realization from vertically- and cross-property-consistent inputs, then combined
 
 SOLUS100 predicts every property at every depth even where bedrock is shallower - nothing above
 truncates the 30 cm profile at an actual restriction, so a shallow-soil pixel can be credited with
-water storage below bedrock. `remarginalized_awc()`'s optional `restriction_depth` argument fixes
+water storage below bedrock. `remarginalize_awc()`'s optional `restriction_depth` argument fixes
 this: pass a restriction-depth raster (typically `fetch_solus_restriction_depth()`, which defaults
 to SOLUS's `anylithicdpt` - depth to bedrock, trained specifically on lithic/paralithic restriction
 records - and is already right-censoring-guarded at 201 cm) and each window's thickness
@@ -233,7 +233,7 @@ result above exactly):
 
 ```{r, eval = FALSE}
 restriction_depth <- fetch_solus_restriction_depth(aoi)  # default variable = "anylithicdpt"
-awc_truncated <- remarginalized_awc(ens, post, n_out = 150, restriction_depth = restriction_depth)
+awc_truncated <- remarginalize_awc(ens, post, n_out = 150, restriction_depth = restriction_depth)
 terra::plot(awc_truncated$awc_cm$P50,
             main = "Median AWC, 0-30 cm, truncated at bedrock (cm)",
             col = grDevices::hcl.colors(50, "Blues 3", rev = TRUE))

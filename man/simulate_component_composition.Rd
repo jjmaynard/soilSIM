@@ -23,7 +23,7 @@ component.
 \section{Grain mismatch with \code{R/core-simulation.R}}{
 
 This returns one row per \strong{component} (\code{cokey}), but \code{simulate_and_perturb_soil_profiles()}/
-\code{simulate_profile_depths_by_mukey()} need \code{sim_comppct} on every \strong{horizon} row. Callers must
+\code{simulate_profile_depths()} need \code{sim_comppct} on every \strong{horizon} row. Callers must
 \code{dplyr::left_join()} this output onto horizon-level data by \code{cokey} before passing it to those
 functions - this function alone does not satisfy their requirement.
 }

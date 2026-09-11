@@ -181,7 +181,7 @@ slice_and_aggregate_soil_data <- function(df, depth_ranges = list(c(0, 30), c(30
 #'
 #' @section Grain mismatch with `R/core-simulation.R`:
 #' This returns one row per **component** (`cokey`), but `simulate_and_perturb_soil_profiles()`/
-#' `simulate_profile_depths_by_mukey()` need `sim_comppct` on every **horizon** row. Callers must
+#' `simulate_profile_depths()` need `sim_comppct` on every **horizon** row. Callers must
 #' `dplyr::left_join()` this output onto horizon-level data by `cokey` before passing it to those
 #' functions - this function alone does not satisfy their requirement.
 #'
@@ -300,7 +300,7 @@ compute_mode <- function(x) {
 #' matrix's `soc` row/column, see `R/core-correlations.R`'s `.kssl_property_name_map`
 #' docs) both need an actual SOC-scale value to be fused against SOLUS100's real `soc` variable
 #' (organic carbon). `SOC = OM / 1.724` is the standard Van Bemmelen-factor approximation (the
-#' same factor `remarginalized_awc()`'s `soc_to_om` argument uses in the opposite direction,
+#' same factor `remarginalize_awc()`'s `soc_to_om` argument uses in the opposite direction,
 #' `R/core-fusion.R`). Applying this conversion needs no change to the KSSL correlation
 #' *matrix* itself - Pearson correlation is invariant under a positive linear rescale of one
 #' variable, and triangular-distribution parameters (min/mode/max) transform linearly too - only
@@ -779,7 +779,7 @@ query_osd_distinctness <- function(horizon_data) {
   # Fetch OSD data for the list of soil component names, reusing cached per-series results
   # where available (see fetch_osd_horizons_cached()'s Known quirk note re: id casing) -
   # avoids redundant live soilDB::fetchOSD() calls when the same series appears in multiple
-  # profiles/components within or across sessions (e.g. simulate_profile_depths_by_mukey()
+  # profiles/components within or across sessions (e.g. simulate_profile_depths()
   # calls this once per component, and components frequently share a series name).
   osd_horizon_data <- fetch_osd_horizons_cached(unique(horizon_data$compname))
 
@@ -878,7 +878,7 @@ attach_osd_boundary_distinctness <- function(hz_data) {
 #' Fetch OSD horizon distinctness data for a set of soil series names, with per-series caching
 #'
 #' `soilDB::fetchOSD()` is a live network call. Multiple profiles/components in the same
-#' mukey/AOI frequently share the same series name (e.g. `simulate_profile_depths_by_mukey()`
+#' mukey/AOI frequently share the same series name (e.g. `simulate_profile_depths()`
 #' calls `query_osd_distinctness()` once per component), so fetching unconditionally on every
 #' call re-requests identical data redundantly. This wrapper caches each series' raw
 #' `id`/`hzname`/`distinctness` rows on disk - the same `cache_get()`/`cache_set()` mechanism
@@ -1417,152 +1417,81 @@ simulate_and_perturb_soil_profiles <- function(soil_profile) {
 }
 
 
-#' Run Soil Profile Depth Simulations for a SoilProfileCollection
+#' Simulate soil profile depths, dispatching on input type
 #'
-#' Simulates soil profile depths for each profile in a `SoilProfileCollection`
-#' by applying `simulate_and_perturb_soil_profiles()` to each individual
-#' profile, then combines the results into a single `SoilProfileCollection`.
+#' A single entry point for horizon depth/thickness simulation, replacing the pre-0.2.1
+#' `simulate_profile_depths()` / `_by_collection()` / `_by_collection_parallel()` trio.
+#' Each profile in the collection is simulated via `simulate_and_perturb_soil_profiles()`, then
+#' combined into one `SoilProfileCollection`.
 #'
-#' @param soil_collection A SoilProfileCollection object containing soil profile data.
-#' @param seed An integer value for setting the random seed (default is 123) for reproducible simulations.
-#'
-#' @return A SoilProfileCollection object containing the simulated soil profiles.
-#'
-#' @examples
-#' \dontrun{
-#'   simulated_collection <- simulate_profile_depths_by_collection(soil_collection, seed = 123)
-#' }
-#'
-#' @export
-simulate_profile_depths_by_collection <- function(soil_collection, seed = 123) {
+#' @param x Either a `SoilProfileCollection` ([simulate_profile_depths.SoilProfileCollection()]) or
+#'   a mukey string/number ([simulate_profile_depths.default()], which fetches SSURGO data for it
+#'   and builds the collection before delegating to the `SoilProfileCollection` method).
+#' @param ... Passed to the method.
+#' @return A `SoilProfileCollection` of simulated/perturbed profiles.
+#' @keywords internal
+simulate_profile_depths <- function(x, ...) UseMethod("simulate_profile_depths")
 
-  # Check if input is a valid SoilProfileCollection
-  if (!inherits(soil_collection, "SoilProfileCollection")) {
-    stop("Input must be a SoilProfileCollection.")
-  }
-
-  # Set seed for reproducibility
-  set.seed(seed)
-
-  # Initialize an empty list to store all simulated profiles
-  all_simulated_profiles <- list()
-
-  # Loop over each profile in the SoilProfileCollection
-  for (i in seq_along(soil_collection)) {
-    # Extract the current soil profile
-    soil_profile <- soil_collection[i, ]
-
-    # Simulate and perturb the current soil profile
-    simulated_profiles <- simulate_and_perturb_soil_profiles(soil_profile)
-
-    # Append the simulated profiles to the list
-    all_simulated_profiles[[i]] <- simulated_profiles
-  }
-
-  # Combine all simulated profiles into a single SoilProfileCollection
-  combined_simulated_profiles <- aqp::combine(all_simulated_profiles)
-
-  # Return the combined simulated profiles
-  return(combined_simulated_profiles)
-}
-
-
-#' Run Soil Profile Depth Simulations in Parallel for a SoilProfileCollection
-#'
-#' Simulates soil profile depths for each profile in a `SoilProfileCollection`
-#' in parallel using the `future`/`future.apply` packages, then combines the
-#' results into a single `SoilProfileCollection`.
-#'
+#' @rdname simulate_profile_depths
+#' @param seed An integer to set the random seed for reproducibility (default `123`).
+#' @param parallel Logical; run the per-profile simulation in parallel via `future`/`future.apply`
+#'   (default `FALSE`, matching the pre-0.2.1 default - the parallel path was previously a
+#'   separate function, `simulate_profile_depths(parallel = TRUE)`).
+#' @param n_cores Integer, workers to use when `parallel = TRUE` (default `6`).
 #' @section Note on parallel workers:
 #' Dispatched via `run_parallel_lapply()` (`R/parallel.R`), this package's shared
 #' `future`/`future.apply` helper. `future::multisession` workers are fresh R processes;
-#' `future`/`globals` auto-detect that `simulate_single_profile()` calls a `soilSIM`-namespaced
+#' `future`/`globals` auto-detect that the per-profile closure calls a `soilSIM`-namespaced
 #' function and attach the package in each worker automatically - this only works when `soilSIM`
 #' is actually installed and attached in the calling session, not merely `devtools::load_all()`'d.
 #' The caller's own `future::plan()` (if any) is restored afterward regardless of success/failure.
-#'
-#' @param soil_collection A SoilProfileCollection object containing soil profile data.
-#' @param seed An integer value to set the random seed for reproducibility (default is 123).
-#' @param n_cores Integer, number of cores to use for parallel processing (default is 6).
-#'
-#' @return A SoilProfileCollection object containing the simulated and perturbed soil profiles.
-#'
-#' @examples
-#' \dontrun{
-#'   simulated_profiles <- simulate_profile_depths_by_collection_parallel(
-#'     soil_collection, seed = 123, n_cores = 6
-#'   )
-#'   print(simulated_profiles)
-#' }
-#'
-#' @export
-simulate_profile_depths_by_collection_parallel <- function(soil_collection, seed = 123, n_cores = 6) {
-
-  # Check if input is a valid SoilProfileCollection
-  if (!inherits(soil_collection, "SoilProfileCollection")) {
-    stop("Input must be a SoilProfileCollection.")
-  }
-
-  # Set seed for reproducibility
+#' @keywords internal
+simulate_profile_depths.SoilProfileCollection <- function(x, seed = 123, parallel = FALSE,
+                                                           n_cores = 6, ...) {
+  soil_collection <- x
   set.seed(seed)
 
-  # Define a function to simulate a single soil profile
   simulate_single_profile <- function(i) {
-    soil_profile <- soil_collection[i, ]  # Select the ith profile
+    soil_profile <- soil_collection[i, ]
     simulate_and_perturb_soil_profiles(soil_profile)
   }
 
-  # Run the simulation in parallel via run_parallel_lapply() (R/parallel.R) - future_seed =
-  # TRUE gives future's parallel-safe RNG streams, needed for this function's own seed = ...
-  # reproducibility contract (simulate_and_perturb_soil_profiles() perturbs randomly).
-  # catch_errors = FALSE: this function's own contract is "graceful NULL on error, no sequential
+  if (!parallel) {
+    all_simulated_profiles <- lapply(seq_along(soil_collection), simulate_single_profile)
+    return(aqp::combine(all_simulated_profiles))
+  }
+
+  # catch_errors = FALSE: this method's contract is "graceful NULL on error, no sequential
   # fallback" (unlike the other run_parallel_lapply() call sites), so error handling stays in this
   # function's own tryCatch below rather than the helper's fallback-to-lapply default.
-  result <- tryCatch({
+  tryCatch({
     all_simulated_profiles <- run_parallel_lapply(
       seq_along(soil_collection), simulate_single_profile,
       n_cores = n_cores, future_seed = TRUE,
       op_name = "soil profile depth simulation",
       catch_errors = FALSE
     )
-
     aqp::combine(all_simulated_profiles)
   }, error = function(e) {
     handle_workflow_error(e, "soil profile depth simulation", "warn")
-    # Optionally return NULL to indicate failure
-    return(NULL)
+    NULL
   })
-
-  return(result)
 }
 
-
-#' Simulate Profile Depths by Mukey
-#'
-#' Queries soil data for a given map unit key (mukey) using the SSURGO
-#' database, sets up the corresponding soil profile data, and then simulates
-#' and perturbs the soil profiles for that mukey via
-#' `simulate_and_perturb_soil_profiles()`.
-#'
-#' @param mukey A string or numeric value representing the map unit key to query.
+#' @rdname simulate_profile_depths
 #' @param n_simulations Integer, the number of triangular draws per component used to derive
-#'   `sim_comppct` via `simulate_component_composition()` (default is 100).
-#' @param seed An integer to set the random seed for reproducibility (default is 123).
-#'
-#' @return A SoilProfileCollection object containing the simulated and perturbed soil profiles.
-#'
+#'   `sim_comppct` via `simulate_component_composition()` (default `100`). `default` method only.
 #' @keywords internal
-simulate_profile_depths_by_mukey <- function(mukey, n_simulations = 100, seed = 123) {
-  # Step 1: Query the data based on the mukey
+simulate_profile_depths.default <- function(x, n_simulations = 100, seed = 123, ...) {
+  mukey <- x
   mu_data <- fetch_ssurgo_aws_data(mukeys = mukey)
-
   if (is.null(mu_data)) {
     stop("No data found for the provided mukey.")
   }
 
-  # Step 1.5: Derive sim_comppct (simulate_component_composition() produces it at cokey grain) and join
-  # it onto every horizon row by cokey - simulate_and_perturb_soil_profiles() requires it at
-  # horizon grain. Mirrors the already-verified pattern in R/adapter-ssurgo-simulate.R's
+  # sim_comppct (simulate_component_composition() produces it at cokey grain) is joined onto
+  # every horizon row by cokey - simulate_and_perturb_soil_profiles() requires it at horizon
+  # grain. Mirrors the already-verified pattern in R/adapter-ssurgo-simulate.R's
   # simulate_ssurgo_mapunit_draws().
   component_data <- simulate_component_composition(mu_data, n_simulations = n_simulations)
   mu_data <- dplyr::left_join(
@@ -1570,38 +1499,15 @@ simulate_profile_depths_by_mukey <- function(mukey, n_simulations = 100, seed = 
     by = "cokey"
   )
 
-  # Step 2: Set up the soil profile data
-  set.seed(seed)  # For reproducibility
-  # `id` (not `compname`) is the profile-ID column convention the rest of
-  # this file assumes (query_osd_distinctness() renames compname -> id
-  # itself, and adjust_out_of_range_profiles()/evaluate_simulated_depths()
-  # both hardcode a literal `id` column) - derive it before calling
-  # aqp::depths<- so downstream horizon selects don't fail with
-  # "object 'id' not found".
+  # `id` (not `compname`) is the profile-ID column convention the rest of this file assumes
+  # (query_osd_distinctness() renames compname -> id itself, and
+  # adjust_out_of_range_profiles()/evaluate_simulated_depths() both hardcode a literal `id`
+  # column) - derive it before calling aqp::depths<- so downstream horizon selects don't fail.
   mu_data$id <- mu_data$compname
   aqp::depths(mu_data) <- id ~ hzdept_r + hzdepb_r
   aqp::hzdesgnname(mu_data) <- "hzname"
 
-  # Initialize an empty list to store all simulated profiles
-  all_simulated_profiles <- list()
-
-  # Step 3: Loop over each profile in mu_data
-  for (i in seq_along(mu_data)) {
-    # Select the current profile
-    soil_profile <- mu_data[i, ]
-
-    # Step 4: Simulate and perturb the current soil profile
-    simulated_profiles <- simulate_and_perturb_soil_profiles(soil_profile)
-
-    # Append the simulated profiles to the list
-    all_simulated_profiles[[i]] <- simulated_profiles
-  }
-
-  # Step 5: Combine all simulated profiles into a single SoilProfileCollection
-  combined_simulated_profiles <- aqp::combine(all_simulated_profiles)
-
-  # Step 6: Return the combined simulated profiles
-  return(combined_simulated_profiles)
+  simulate_profile_depths.SoilProfileCollection(mu_data, seed = seed, ...)
 }
 
 

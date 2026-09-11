@@ -247,7 +247,7 @@ property_to_sim_column <- function(property_id) {
     # (`.kssl_property_name_map` in R/core-correlations.R maps wthirdbar/wfifteenbar to
     # them) and SSURGO_SIM_PROPERTY_COLUMNS lists them, but this id->column map was missing the
     # entries - added so run_fusion()/percentiles_from_draws() can produce water-retention
-    # posteriors (needed by remarginalized_awc()).
+    # posteriors (needed by remarginalize_awc()).
     water_retention_third_bar = "wr_3b", wthirdbar = "wr_3b", wr_3b = "wr_3b",
     water_retention_15_bar = "wr_15b", wfifteenbar = "wr_15b", wr_15b = "wr_15b",
     # 5 chemistry properties - self-mapping, same as

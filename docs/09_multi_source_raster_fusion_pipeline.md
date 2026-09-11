@@ -187,7 +187,7 @@ not just the interior ones used to fit the metalog) where infeasible.
 
 #### 8. `fit_gamma_mom_raster()`
 **Purpose**: Method-of-moments Gamma fit from a list of percentile-value rasters — a thin raster
-wrapper around `R/core-fusion.R`'s existing scalar `moments_to_gamma()`.
+wrapper around `R/core-fusion.R`'s existing scalar `convert_moments_to_gamma()`.
 
 **Parameters**:
 ```r
@@ -197,7 +197,7 @@ fit_gamma_mom_raster(value_rasters)
 **Returns**: `list(shape = SpatRaster, rate = SpatRaster)`.
 
 **Behavior**: Computes `mean_r`/`var_r` across the list via `Reduce(+, ...)` (the only genuinely
-raster-specific part), then delegates to `moments_to_gamma()`, which is pure elementwise arithmetic
+raster-specific part), then delegates to `convert_moments_to_gamma()`, which is pure elementwise arithmetic
 and therefore already works unchanged on `SpatRaster` inputs.
 
 #### 9. `align_percentile_probs()`
@@ -268,7 +268,7 @@ aborting the whole raster operation. Above threshold, delegates to the internal
 `core-fusion.R`'s `fuse_normal_normal()`/`fuse_beta()`/`fuse_gamma()`; for beta/gamma,
 cells where the native same-family fusion is infeasible fall back per-cell to Normal-moment fusion
 (`fuse_normal_normal()` on each side's moment-derived mean/sd), re-expressed back into the
-requested family via `moments_to_beta()`/`moments_to_gamma()`, with `n_fallback_cells` counting how
+requested family via `convert_moments_to_beta()`/`convert_moments_to_gamma()`, with `n_fallback_cells` counting how
 many cells needed it. `verbose` prints the chosen route (and, if any cells fell back, how many).
 
 #### 11. `resolve_property_dist()`
@@ -331,8 +331,8 @@ size-adaptive); `"lognormal"` goes to the internal `fuse_lognormal_adaptive()`, 
 `threshold_cells` — forces `fuse_adaptive()` into its general route directly on raw (non-log)
 values (since `update_prior()`'s general route makes no distributional assumption and needs no
 log-space detour), or — above threshold — fits both sides Normal, transforms to lognormal parameter
-space via `normal_to_lognormal_params()`, fuses via `fuse_normal_normal()`, and transforms
-back via `lognormal_to_normal_params()`; `"metalog"` goes to the internal `fuse_metalog_adapter()`,
+space via `convert_normal_to_lognormal()`, fuses via `fuse_normal_normal()`, and transforms
+back via `convert_lognormal_to_normal()`; `"metalog"` goes to the internal `fuse_metalog_adapter()`,
 which fits both sides via `fit_metalog_linear_raster()` on interior percentiles (always, regardless
 of AOI size), checks feasibility via `check_metalog_feasibility_raster()`, computes each side's
 mean/sd via `metalog_moments_raster()` (quadrature over the raw metalog quantile function, with a
@@ -656,7 +656,7 @@ unrecognized id.
 `caco3`/`ec`/`ecec`/`gypsum`/`sar` -> themselves). The water-retention rows were added 2026-09-02 -
 `simulate_cokey_generalized()` already emitted those columns (`SSURGO_SIM_PROPERTY_COLUMNS` lists
 them) but the id map was incomplete, blocking water-retention `run_fusion()` (needed by
-`remarginalized_awc()`). The 5 chemistry-property rows self-map, since the SOLUS variable name, the SSURGO
+`remarginalize_awc()`). The 5 chemistry-property rows self-map, since the SOLUS variable name, the SSURGO
 chorizon column stem, and the id are all identical spellings for these 5.
 
 #### 24. `simulate_ssurgo_mapunit_draws()`
@@ -924,7 +924,7 @@ Percentile-only `terra::zonal()` reduction of a posterior to per-mukey `low/rep/
 mukey-collapsed comparison arm for the benchmark; gated `internal` pending
 `compare_perpixel_vs_zonal_awc()` numbers.
 
-#### 34. `remarginalized_awc()`
+#### 34. `remarginalize_awc()`
 Per-pixel available water capacity from the re-marginalized stacks, per realization, then per-pixel
 percentiles, clamped at 0. Does **not** use `compute_aws()` (ROSETTA network POST + own MC -
 can't run per pixel).
@@ -961,7 +961,7 @@ stack by `terra`'s own arithmetic recycling, in place of a scalar `thickness` fa
 **Purpose**: Fetch a SOLUS100 **site-level** (depth-independent) variable - `anylithicdpt`
 (depth to bedrock) / `resdept` (depth to restriction) are the two relevant ones - requested via
 `fetchSOLUS()`'s special `depth_slices = "all"`, and turn it into the censoring-guarded
-`restriction_depth` raster `remarginalized_awc()` consumes.
+`restriction_depth` raster `remarginalize_awc()` consumes.
 
 **`fetch_solus_site_level(aoi_vect, variable, output_types = c("prediction", "95% low prediction
 interval", "95% high prediction interval"))`**: one `fetchSOLUS(depth_slices = "all", ...)` call,
@@ -1015,7 +1015,7 @@ pixel's SSURGO x SOLUS fused posterior. (Pinned by a unit test: transformed-ense
 between two properties equals the source's to `1e-6`.)
 
 **3. Derived quantities are computed per realization, then combined.**
-`remarginalized_awc(method = "saxton_rawls")` takes, for realization `r` / pixel `c` / window `w`,
+`remarginalize_awc(method = "saxton_rawls")` takes, for realization `r` / pixel `c` / window `w`,
 the jointly-consistent `(sand_r, clay_r, silt_r, db_r, om_r, rfv_r)` -> `saxton_rawls_raster()` ->
 `(fc_r, wp_r)`, then `AWC_r = sum_windows (fc_r - wp_r)/100 * thickness_w` (summed over windows for
 the **same** realization, so shallow and deep contributions are vertically consistent). The result
@@ -1123,7 +1123,7 @@ pedotransfer-model error.
                                                   |
                     +-----------------------------+------------------------------+
                     v                                                            v
-        summarize = TRUE:                                        remarginalized_awc(method=)
+        summarize = TRUE:                                        remarginalize_awc(method=)
         per-pixel percentile rasters                               "saxton_rawls" (default):
         [[property]][[window]]                                       re-marg sand/silt/clay/db
                                                                      -> saxton_rawls_raster()
@@ -1159,8 +1159,8 @@ pedotransfer-model error.
   `resolve_composition_groups()`'s composition-group config convention is reused rather than
   duplicated.
 - `R/core-fusion.R` — `core-fusion.R` reuses `fuse_normal_normal()`, `fuse_beta()`,
-  `fuse_gamma()`, `moments_to_gamma()`/`moments_to_beta()`/`beta_to_moments()`/`gamma_to_moments()`,
-  `normal_to_lognormal_params()`/`lognormal_to_normal_params()`, `update_prior()`, and
+  `fuse_gamma()`, `convert_moments_to_gamma()`/`convert_moments_to_beta()`/`convert_beta_to_moments()`/`convert_gamma_to_moments()`,
+  `convert_normal_to_lognormal()`/`convert_lognormal_to_normal()`, `update_prior()`, and
   `fuse_bivariate_normal()` directly, unmodified — all are pure elementwise arithmetic, so they
   already work unchanged on `SpatRaster` inputs exactly as they do on plain numerics.
 - `R/core-simulation.R` — feeds the SSURGO adapter's Monte Carlo step: `simulate_component_composition()`
@@ -1235,11 +1235,11 @@ per compositional group) per AOI/depth window.
    there is nothing fused to use. See "Statistical structure of the per-pixel bridge" above.
 
 4. **Per-pixel bridge — Saxton-Rawls pedotransfer error is not propagated.** In
-   `remarginalized_awc(method = "saxton_rawls")` the pedotransfer is applied deterministically per
+   `remarginalize_awc(method = "saxton_rawls")` the pedotransfer is applied deterministically per
    realization; the +/-15% band `compute_saxton_rawls()` returns is unused. The per-pixel
    AWC distribution reflects fused-posterior *input* uncertainty only.
 
-5. **`remarginalized_awc()` cannot fuse water retention directly.** `fetchSOLUS()` publishes no
+5. **`remarginalize_awc()` cannot fuse water retention directly.** `fetchSOLUS()` publishes no
    water-retention variable, so `wr_3b`/`wr_15b` have no SOLUS likelihood. `method = "saxton_rawls"`
    (default) derives them from the fusable sand/silt/clay/`dbovendry`/`soc`/`fragvol`;
    `method = "direct"` is only usable with a non-SOLUS water-retention likelihood.
@@ -1297,7 +1297,7 @@ configs <- setNames(
 pbpw <- run_fusion_multiproperty(aoi_vect, configs, windows, simplify = TRUE)
 
 # 3. per-pixel AWC probability distribution (P5..P95 rasters), clamped at 0
-awc <- remarginalized_awc(ens, pbpw, n_out = 250)         # method = "saxton_rawls" by default
+awc <- remarginalize_awc(ens, pbpw, n_out = 250)         # method = "saxton_rawls" by default
 plot(awc$awc_cm$P50)                                       # median AWC (cm) over 0-30 cm
 plot(awc$awc_cm$P95 - awc$awc_cm$P5)                       # 90% credible-interval width = uncertainty
 ```

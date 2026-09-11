@@ -143,7 +143,7 @@ fuse_observed_data_into_priors(simulation_params, simulation_data, sim_propertie
 
 Minor related internal helpers (not exported, `@keywords internal`):
 - `as_lrh_triplet(x, lh_probs)` - reduces an `observed_data` entry to an unnamed `c(low, rep, high)` triplet.
-- `fuse_one_property_prior(prior, likelihood, is_vector_likelihood, n_samples, supported_closed_form, prop, horizon_index)` - implements the per-property closed-form/general dispatch described above, handling `normal`, `lognormal` (converts the raw-space likelihood to log-space via `normal_to_lognormal_params()` before fusing, since the lognormal prior fit is already stored in log-space), and `beta` (rescales a raw-scale likelihood mean/var onto the prior's own `[lower, upper]` support before fitting moments, since `fuse_beta()`'s alpha/beta addition requires shared support; falls back to a Normal-moments round-trip via `fuse_normal_normal()` if the direct beta fusion is infeasible).
+- `fuse_one_property_prior(prior, likelihood, is_vector_likelihood, n_samples, supported_closed_form, prop, horizon_index)` - implements the per-property closed-form/general dispatch described above, handling `normal`, `lognormal` (converts the raw-space likelihood to log-space via `convert_normal_to_lognormal()` before fusing, since the lognormal prior fit is already stored in log-space), and `beta` (rescales a raw-scale likelihood mean/var onto the prior's own `[lower, upper]` support before fitting moments, since `fuse_beta()`'s alpha/beta addition requires shared support; falls back to a Normal-moments round-trip via `fuse_normal_normal()` if the direct beta fusion is infeasible).
 
 ### 10. `configure_correlation_structure()` - Correlation Matrix Setup
 **Purpose**: Determines the correlation matrix to use for the Cholesky-copula simulation step, from a user-supplied matrix, auto-estimation, or independence.
@@ -302,8 +302,8 @@ simulate_monte_carlo()  [MASTER PIPELINE]
 │       ├── quantile_from_fit()                        [distributions.R]
 │       ├── fuse_property()                            [bayesian-updating.R]
 │       ├── fuse_normal_normal()                [bayesian-updating.R]
-│       ├── normal_to_lognormal_params()                [bayesian-updating.R]
-│       └── fuse_beta() / moments_to_beta() / beta_to_moments()  [bayesian-updating.R]
+│       ├── convert_normal_to_lognormal()                [bayesian-updating.R]
+│       └── fuse_beta() / convert_moments_to_beta() / convert_beta_to_moments()  [bayesian-updating.R]
 ├── Step 5: configure_correlation_structure()
 │   ├── validate_correlation_matrix()                  [distributions.R]  (user-provided path)
 │   ├── estimate_property_correlations()                (auto_correlation path)
@@ -342,7 +342,7 @@ simulate_monte_carlo()  [MASTER PIPELINE]
 `fit_percentile_triplet()`, `quantile_from_fit()`, `validate_fit_parameters()`, `resolve_composition_groups()`, `restore_composition_properties()`, `estimate_ilr_moments_mc()`, `ensure_positive_definite_matrix()`, `validate_correlation_matrix()`, `estimate_correlation_matrix_robust()`.
 
 **From `core-fusion.R`** (only exercised when `observed_data` is supplied to `simulate_monte_carlo()`):
-`fuse_distribution()`, `fuse_property()`, `fuse_texture_group_from_triplets()`, `fuse_normal_normal()`, `normal_to_lognormal_params()`, `fuse_beta()`, `moments_to_beta()`, `beta_to_moments()`.
+`fuse_distribution()`, `fuse_property()`, `fuse_texture_group_from_triplets()`, `fuse_normal_normal()`, `convert_normal_to_lognormal()`, `fuse_beta()`, `convert_moments_to_beta()`, `convert_beta_to_moments()`.
 
 **From `core-correlations.R`** (only exercised when `config$monte_carlo$correlation_fallback == "kssl_global"`):
 `build_kssl_fallback_matrix()`, `classify_genhz()`.

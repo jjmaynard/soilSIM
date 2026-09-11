@@ -418,3 +418,54 @@ bayes_fuse <- function(...) {
   lifecycle::deprecate_soft("0.2.0", "bayes_fuse()", "fuse_distribution()")
   fuse_distribution(...)
 }
+
+# --- D2: legacy_exceptions renames -------------------------------------
+
+#' @rdname soilSIM-deprecated
+#' @export
+beta_to_moments <- function(...) {
+  lifecycle::deprecate_soft("0.2.1", "beta_to_moments()", "convert_beta_to_moments()")
+  convert_beta_to_moments(...)
+}
+
+#' @rdname soilSIM-deprecated
+#' @export
+gamma_to_moments <- function(...) {
+  lifecycle::deprecate_soft("0.2.1", "gamma_to_moments()", "convert_gamma_to_moments()")
+  convert_gamma_to_moments(...)
+}
+
+#' @rdname soilSIM-deprecated
+#' @export
+moments_to_beta <- function(...) {
+  lifecycle::deprecate_soft("0.2.1", "moments_to_beta()", "convert_moments_to_beta()")
+  convert_moments_to_beta(...)
+}
+
+#' @rdname soilSIM-deprecated
+#' @export
+moments_to_gamma <- function(...) {
+  lifecycle::deprecate_soft("0.2.1", "moments_to_gamma()", "convert_moments_to_gamma()")
+  convert_moments_to_gamma(...)
+}
+
+#' @rdname soilSIM-deprecated
+#' @export
+lognormal_to_normal_params <- function(...) {
+  lifecycle::deprecate_soft("0.2.1", "lognormal_to_normal_params()", "convert_lognormal_to_normal()")
+  convert_lognormal_to_normal(...)
+}
+
+#' @rdname soilSIM-deprecated
+#' @export
+normal_to_lognormal_params <- function(...) {
+  lifecycle::deprecate_soft("0.2.1", "normal_to_lognormal_params()", "convert_normal_to_lognormal()")
+  convert_normal_to_lognormal(...)
+}
+
+#' @rdname soilSIM-deprecated
+#' @export
+remarginalized_awc <- function(...) {
+  lifecycle::deprecate_soft("0.2.1", "remarginalized_awc()", "remarginalize_awc()")
+  remarginalize_awc(...)
+}

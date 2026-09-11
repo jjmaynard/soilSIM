@@ -13,10 +13,10 @@ test_that("fuse_normal_normal() posterior sigma is strictly tighter when informa
   expect_true(post$sigma < 1)
 })
 
-test_that("normal_to_lognormal_params()/lognormal_to_normal_params() round trip", {
+test_that("convert_normal_to_lognormal()/convert_lognormal_to_normal() round trip", {
   mu <- 5; sigma <- 1.2
-  log_params <- normal_to_lognormal_params(mu, sigma)
-  back <- lognormal_to_normal_params(log_params$mu, log_params$sigma)
+  log_params <- convert_normal_to_lognormal(mu, sigma)
+  back <- convert_lognormal_to_normal(log_params$mu, log_params$sigma)
   expect_equal(back$mu, mu, tolerance = 1e-9)
   expect_equal(back$sigma, sigma, tolerance = 1e-9)
 })
@@ -44,14 +44,14 @@ test_that("fuse_beta() conjugate result matches grid-based numerical Bayesian up
   expect_equal(mean(numeric_post), fused$alpha / (fused$alpha + fused$beta), tolerance = 0.02)
 })
 
-test_that("moments_to_beta()/beta_to_moments() and moments_to_gamma()/gamma_to_moments() round trip", {
-  beta_params <- moments_to_beta(mean = 0.3, var = 0.02)
-  back_moments <- beta_to_moments(beta_params$alpha, beta_params$beta)
+test_that("convert_moments_to_beta()/convert_beta_to_moments() and convert_moments_to_gamma()/convert_gamma_to_moments() round trip", {
+  beta_params <- convert_moments_to_beta(mean = 0.3, var = 0.02)
+  back_moments <- convert_beta_to_moments(beta_params$alpha, beta_params$beta)
   expect_equal(back_moments$mean, 0.3, tolerance = 1e-6)
   expect_equal(back_moments$var, 0.02, tolerance = 1e-6)
 
-  gamma_params <- moments_to_gamma(mean = 5, var = 2)
-  back_gamma <- gamma_to_moments(gamma_params$shape, gamma_params$rate)
+  gamma_params <- convert_moments_to_gamma(mean = 5, var = 2)
+  back_gamma <- convert_gamma_to_moments(gamma_params$shape, gamma_params$rate)
   expect_equal(back_gamma$mean, 5, tolerance = 1e-6)
   expect_equal(back_gamma$var, 2, tolerance = 1e-6)
 })
@@ -155,6 +155,22 @@ test_that("fuse_property() dispatches on input shape and errors on mismatched me
   expect_error(fuse_property(list(alpha = 1), list(alpha = 2)), "family is required")
 })
 
+test_that("fuse_property() dispatches percentile_rasters-tagged lists to the raster method (D3)", {
+  probs <- c(0.1, 0.5, 0.9)
+  prior_list <- make_percentile_rasters(list("0.1" = 8, "0.5" = 12, "0.9" = 16))
+  lik_list <- make_percentile_rasters(list("0.1" = 10, "0.5" = 14, "0.9" = 18))
+  property_config2 <- list(id = "test_prop", dist = "normal", bounds = NULL)
+
+  via_generic <- fuse_property(new_percentile_rasters(prior_list), probs,
+                                new_percentile_rasters(lik_list), probs, property_config2)
+  via_adaptive <- fuse_property_adaptive(prior_list, probs, lik_list, probs, property_config2)
+  expect_equal(terra::values(via_generic$posterior$mu), terra::values(via_adaptive$posterior$mu))
+  expect_identical(via_generic$dist, via_adaptive$dist)
+
+  # an unclassed list still goes to the default (scalar) method, not the raster one
+  expect_true(is.numeric(fuse_property(rnorm(50), rnorm(50))))
+})
+
 test_that("structural boundary: core-fusion.R never calls back into core-montecarlo.R", {
   # core-fusion.R must stay genuinely standalone/independently testable
   # - its own primitives never change to accommodate the pipeline wiring, the
@@ -165,9 +181,9 @@ test_that("structural boundary: core-fusion.R never calls back into core-monteca
   # BODIES via deparse(body()), which works identically under
   # devtools::load_all() or a real install.
   bayesian_updating_exports <- c(
-    "fuse_normal_normal", "normal_to_lognormal_params", "lognormal_to_normal_params",
-    "fuse_beta", "fuse_gamma", "moments_to_beta", "moments_to_gamma", "beta_to_moments",
-    "gamma_to_moments", "fuse_distribution", "update_prior", "fuse_bivariate_normal",
+    "fuse_normal_normal", "convert_normal_to_lognormal", "convert_lognormal_to_normal",
+    "fuse_beta", "fuse_gamma", "convert_moments_to_beta", "convert_moments_to_gamma", "convert_beta_to_moments",
+    "convert_gamma_to_moments", "fuse_distribution", "update_prior", "fuse_bivariate_normal",
     "fuse_texture_group_from_triplets", "fuse_property"
   )
   monte_carlo_only_functions <- c(
@@ -198,9 +214,9 @@ test_that("structural boundary: fuse_observed_data_into_priors()/fuse_one_proper
   # the two files - every OTHER core-montecarlo.R function should remain exactly
   # as decoupled from core-fusion.R as before this feature was added.
   bayesian_updating_exports <- c(
-    "fuse_normal_normal", "normal_to_lognormal_params", "lognormal_to_normal_params",
-    "fuse_beta", "fuse_gamma", "moments_to_beta", "moments_to_gamma", "beta_to_moments",
-    "gamma_to_moments", "fuse_distribution", "update_prior", "fuse_bivariate_normal",
+    "fuse_normal_normal", "convert_normal_to_lognormal", "convert_lognormal_to_normal",
+    "fuse_beta", "fuse_gamma", "convert_moments_to_beta", "convert_moments_to_gamma", "convert_beta_to_moments",
+    "convert_gamma_to_moments", "fuse_distribution", "update_prior", "fuse_bivariate_normal",
     "fuse_texture_group_from_triplets", "fuse_property"
   )
   other_monte_carlo_functions <- c(
@@ -292,11 +308,11 @@ test_that("update_prior()'s grid-based percentiles don't visibly change as n (re
 
 # --- merged from test-raster-fusion.R (P1 reorg) ---
 
-test_that("fit_gamma_mom_raster() matches the scalar moments_to_gamma() cell-by-cell", {
+test_that("fit_gamma_mom_raster() matches the scalar convert_moments_to_gamma() cell-by-cell", {
   rasters <- make_percentile_rasters(c(a = 8, b = 10, c = 12))
   fit_r <- fit_gamma_mom_raster(list(rasters$a, rasters$b, rasters$c))
   mean_v <- mean(c(8, 10, 12)); var_v <- mean((c(8, 10, 12) - mean_v)^2)
-  fit_scalar <- moments_to_gamma(mean_v, var_v)
+  fit_scalar <- convert_moments_to_gamma(mean_v, var_v)
   expect_equal(unique(terra::values(fit_r$shape))[1], fit_scalar$shape)
   expect_equal(unique(terra::values(fit_r$rate))[1], fit_scalar$rate)
 })
@@ -1526,7 +1542,7 @@ test_that("fuse_general_kde(raw_draws) degrades a cell with no matching mukey dr
 # ---------------------------------------------------------------------------
 # core-fusion.R : A.3 zonal_distribution_from_posterior(),
 #                          A.4 remarginalize_ensemble_to_posterior(),
-#                          A.5 remarginalized_awc()
+#                          A.5 remarginalize_awc()
 # All offline: synthetic mukey rasters + synthetic run_fusion()-shaped posteriors.
 # ---------------------------------------------------------------------------
 
@@ -1725,7 +1741,7 @@ test_that("saxton_rawls_raster() matches compute_saxton_rawls() across a texture
   }
 })
 
-test_that("remarginalized_awc(method = 'saxton_rawls') returns clamped per-pixel AWC (default path)", {
+test_that("remarginalize_awc(method = 'saxton_rawls') returns clamped per-pixel AWC (default path)", {
   mk <- .mk_raster()
   tmpl <- terra::rast(mk); names(tmpl) <- "v"
   ens <- .synth_ensemble_sr(mk)
@@ -1735,7 +1751,7 @@ test_that("remarginalized_awc(method = 'saxton_rawls') returns clamped per-pixel
     clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08),
     soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
   )
-  res <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.05, 0.5, 0.95))  # method defaults
+  res <- remarginalize_awc(ens, pbpw, n_out = 25, probs = c(0.05, 0.5, 0.95))  # method defaults
 
   expect_named(res$awc_cm, c("P5", "P50", "P95"))
   expect_setequal(res$windows_used, c("0-5", "5-15"))
@@ -1745,28 +1761,28 @@ test_that("remarginalized_awc(method = 'saxton_rawls') returns clamped per-pixel
   expect_gt(med, 0.5); expect_lt(med, 6)
 })
 
-test_that("remarginalized_awc(method = 'direct') uses supplied wr_3b/wr_15b posteriors", {
+test_that("remarginalize_awc(method = 'direct') uses supplied wr_3b/wr_15b posteriors", {
   mk <- .mk_raster()
   tmpl <- terra::rast(mk); names(tmpl) <- "v"
   ens <- .synth_ensemble(mk)
   pbpw <- list(wr_3b = .mk_post(tmpl, 30, 3), wr_15b = .mk_post(tmpl, 13, 2), rfv = .mk_post(tmpl, 8, 3))
 
-  res <- remarginalized_awc(ens, pbpw, method = "direct", n_out = 25, probs = c(0.05, 0.5, 0.95))
+  res <- remarginalize_awc(ens, pbpw, method = "direct", n_out = 25, probs = c(0.05, 0.5, 0.95))
   med <- as.numeric(terra::global(res$awc_cm$P50, "mean", na.rm = TRUE))
   expect_gt(med, 1); expect_lt(med, 4)   # (30-13)/100 * 15 * (1-.08) ~ 2.3 cm
 })
 
-test_that("remarginalized_awc() errors when required properties are missing", {
+test_that("remarginalize_awc() errors when required properties are missing", {
   mk <- .mk_raster()
   tmpl <- terra::rast(mk); names(tmpl) <- "v"
   ens_wr <- .synth_ensemble(mk)                    # has wr_3b/wr_15b, not texture
-  expect_error(remarginalized_awc(ens_wr, list(wr_3b = .mk_post(tmpl, 30, 3))),
+  expect_error(remarginalize_awc(ens_wr, list(wr_3b = .mk_post(tmpl, 30, 3))),
                "sand_total/silt_total/clay_total/db")               # saxton_rawls default
-  expect_error(remarginalized_awc(ens_wr, list(wr_3b = .mk_post(tmpl, 30, 3)), method = "direct"),
+  expect_error(remarginalize_awc(ens_wr, list(wr_3b = .mk_post(tmpl, 30, 3)), method = "direct"),
                "wr_3b/wr_15b")
 })
 
-test_that("remarginalized_awc(tile_rows=) is numerically identical to the whole-grid run", {
+test_that("remarginalize_awc(tile_rows=) is numerically identical to the whole-grid run", {
   r <- terra::rast(nrows = 12, ncols = 6, xmin = 0, xmax = 6, ymin = 0, ymax = 12,
                    vals = rep(c(100L, 200L), each = 36))
   names(r) <- "mukey"; mk <- terra::as.factor(r)
@@ -1776,8 +1792,8 @@ test_that("remarginalized_awc(tile_rows=) is numerically identical to the whole-
   pbpw <- list(sand_total = .mk_post(tmpl, 42, 4), silt_total = .mk_post(tmpl, 38, 4),
                clay_total = .mk_post(tmpl, 20, 3), db = .mk_post(tmpl, 1.4, 0.08))
 
-  whole <- remarginalized_awc(ens, pbpw, n_out = 20)
-  tiled <- remarginalized_awc(ens, pbpw, n_out = 20, tile_rows = 4)
+  whole <- remarginalize_awc(ens, pbpw, n_out = 20)
+  tiled <- remarginalize_awc(ens, pbpw, n_out = 20, tile_rows = 4)
 
   expect_equal(tiled$n_tiles, 3)
   expect_equal(whole$n_tiles, 1)
@@ -1787,12 +1803,12 @@ test_that("remarginalized_awc(tile_rows=) is numerically identical to the whole-
 })
 
 # ---------------------------------------------------------------------------
-# S2 - remarginalized_awc(restriction_depth=): bedrock/restriction-depth AWC truncation
+# S2 - remarginalize_awc(restriction_depth=): bedrock/restriction-depth AWC truncation
 # (MULTI_PROPERTY_FUSION_PLAN.md task S2). Windows are "0-5" (top=0,bottom=5) and "5-15"
 # (top=5,bottom=15) throughout, from .synth_ensemble_sr()'s fixed depth_windows.
 # ---------------------------------------------------------------------------
 
-test_that("remarginalized_awc(restriction_depth = NULL) is bit-identical to omitting the argument", {
+test_that("remarginalize_awc(restriction_depth = NULL) is bit-identical to omitting the argument", {
   mk <- .mk_raster()
   tmpl <- terra::rast(mk); names(tmpl) <- "v"
   ens <- .synth_ensemble_sr(mk)
@@ -1802,15 +1818,15 @@ test_that("remarginalized_awc(restriction_depth = NULL) is bit-identical to omit
     soc = .mk_post(tmpl, 1.2, 0.3), rfv = .mk_post(tmpl, 8, 3)
   )
 
-  set.seed(42); a <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.05, 0.5, 0.95))
-  set.seed(42); b <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.05, 0.5, 0.95),
+  set.seed(42); a <- remarginalize_awc(ens, pbpw, n_out = 25, probs = c(0.05, 0.5, 0.95))
+  set.seed(42); b <- remarginalize_awc(ens, pbpw, n_out = 25, probs = c(0.05, 0.5, 0.95),
                                        restriction_depth = NULL)
   for (nm in names(a$awc_cm)) {
     expect_equal(terra::values(b$awc_cm[[nm]]), terra::values(a$awc_cm[[nm]]))
   }
 })
 
-test_that("remarginalized_awc(restriction_depth=) reduces AWC for a restriction straddling a window", {
+test_that("remarginalize_awc(restriction_depth=) reduces AWC for a restriction straddling a window", {
   mk <- .mk_raster()
   tmpl <- terra::rast(mk); names(tmpl) <- "v"
   ens <- .synth_ensemble_sr(mk)
@@ -1823,8 +1839,8 @@ test_that("remarginalized_awc(restriction_depth=) reduces AWC for a restriction 
   # 10-5=5 instead of its nominal 15-5=10 - straddling, partial credit, not full or zero.
   rd <- terra::setValues(tmpl, rep(10, terra::ncell(tmpl)))
 
-  set.seed(42); unrestricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5))
-  set.seed(42); restricted   <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5),
+  set.seed(42); unrestricted <- remarginalize_awc(ens, pbpw, n_out = 25, probs = c(0.5))
+  set.seed(42); restricted   <- remarginalize_awc(ens, pbpw, n_out = 25, probs = c(0.5),
                                                    restriction_depth = rd)
 
   u <- as.numeric(terra::global(unrestricted$awc_cm$P50, "mean", na.rm = TRUE))
@@ -1833,7 +1849,7 @@ test_that("remarginalized_awc(restriction_depth=) reduces AWC for a restriction 
   expect_gt(r, 0)  # partial credit, not zeroed out
 })
 
-test_that("remarginalized_awc(restriction_depth=) zeroes (not NAs) a window entirely below the restriction", {
+test_that("remarginalize_awc(restriction_depth=) zeroes (not NAs) a window entirely below the restriction", {
   mk <- .mk_raster()
   tmpl <- terra::rast(mk); names(tmpl) <- "v"
   ens <- .synth_ensemble_sr(mk)
@@ -1846,18 +1862,18 @@ test_that("remarginalized_awc(restriction_depth=) zeroes (not NAs) a window enti
   # NA (which would incorrectly blank the whole pixel's AWC, including the valid "0-5" window).
   rd <- terra::setValues(tmpl, rep(3, terra::ncell(tmpl)))
 
-  set.seed(1); res <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5), restriction_depth = rd)
+  set.seed(1); res <- remarginalize_awc(ens, pbpw, n_out = 25, probs = c(0.5), restriction_depth = rd)
   expect_false(anyNA(terra::values(res$awc_cm$P50)))
   expect_true(all(terra::values(res$awc_cm$P50) >= 0, na.rm = TRUE))
 
   # rd=3 truncates BOTH windows (even "0-5" itself: pmax(0, pmin(5,3) - 0) = 3 cm, not its
   # nominal 5) - so the restricted AWC must be strictly less than the fully unrestricted run.
-  set.seed(1); unrestricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5))
+  set.seed(1); unrestricted <- remarginalize_awc(ens, pbpw, n_out = 25, probs = c(0.5))
   expect_lt(as.numeric(terra::global(res$awc_cm$P50, "mean", na.rm = TRUE)),
             as.numeric(terra::global(unrestricted$awc_cm$P50, "mean", na.rm = TRUE)))
 })
 
-test_that("remarginalized_awc(restriction_depth = Inf) matches the unrestricted run", {
+test_that("remarginalize_awc(restriction_depth = Inf) matches the unrestricted run", {
   mk <- .mk_raster()
   tmpl <- terra::rast(mk); names(tmpl) <- "v"
   ens <- .synth_ensemble_sr(mk)
@@ -1868,14 +1884,14 @@ test_that("remarginalized_awc(restriction_depth = Inf) matches the unrestricted 
   )
   rd <- terra::setValues(tmpl, rep(Inf, terra::ncell(tmpl)))
 
-  set.seed(7); unrestricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5))
-  set.seed(7); restricted   <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5),
+  set.seed(7); unrestricted <- remarginalize_awc(ens, pbpw, n_out = 25, probs = c(0.5))
+  set.seed(7); restricted   <- remarginalize_awc(ens, pbpw, n_out = 25, probs = c(0.5),
                                                   restriction_depth = rd)
   expect_equal(terra::values(restricted$awc_cm$P50), terra::values(unrestricted$awc_cm$P50),
               tolerance = 1e-9)
 })
 
-test_that("remarginalized_awc(restriction_depth=) treats NA cells as unrestricted (Inf), not propagated NA", {
+test_that("remarginalize_awc(restriction_depth=) treats NA cells as unrestricted (Inf), not propagated NA", {
   mk <- .mk_raster()
   tmpl <- terra::rast(mk); names(tmpl) <- "v"
   ens <- .synth_ensemble_sr(mk)
@@ -1886,8 +1902,8 @@ test_that("remarginalized_awc(restriction_depth=) treats NA cells as unrestricte
   )
   rd <- terra::setValues(tmpl, rep(NA_real_, terra::ncell(tmpl)))
 
-  set.seed(9); unrestricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5))
-  set.seed(9); na_restricted <- remarginalized_awc(ens, pbpw, n_out = 25, probs = c(0.5),
+  set.seed(9); unrestricted <- remarginalize_awc(ens, pbpw, n_out = 25, probs = c(0.5))
+  set.seed(9); na_restricted <- remarginalize_awc(ens, pbpw, n_out = 25, probs = c(0.5),
                                                    restriction_depth = rd)
   expect_false(anyNA(terra::values(na_restricted$awc_cm$P50)))
   expect_equal(terra::values(na_restricted$awc_cm$P50), terra::values(unrestricted$awc_cm$P50),
@@ -1898,7 +1914,7 @@ test_that("remarginalized_awc(restriction_depth=) treats NA cells as unrestricte
 # A.7 - live end-to-end (real AOI -> ensemble -> stage-1 fusion -> re-marginalize -> AWC)
 # ---------------------------------------------------------------------------
 
-test_that("end-to-end: extract_mukey_joint_ensemble -> run_fusion -> remarginalized_awc (live)", {
+test_that("end-to-end: extract_mukey_joint_ensemble -> run_fusion -> remarginalize_awc (live)", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
   Sys.unsetenv("PROJ_LIB")   # documented terra/PROJ env quirk - see HANDOFF_NOTES.md / .onLoad()
@@ -1931,7 +1947,7 @@ test_that("end-to-end: extract_mukey_joint_ensemble -> run_fusion -> remarginali
   testthat::skip_if(any(vapply(post, length, integer(1)) == 0),
                     "live SOLUS fusion unavailable in this run.")
 
-  res <- remarginalized_awc(ens, post, n_out = 100)
+  res <- remarginalize_awc(ens, post, n_out = 100)
   expect_named(res$awc_cm, c("P5", "P25", "P50", "P75", "P95"))
   expect_s4_class(res$awc_cm$P50, "SpatRaster")
   v <- terra::values(res$awc_cm$P50)

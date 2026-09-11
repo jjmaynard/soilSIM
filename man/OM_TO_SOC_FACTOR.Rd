@@ -17,7 +17,7 @@ SSURGO's \code{chorizon} table reports organic matter (\verb{om_l/_r/_h}), not o
 matrix's \code{soc} row/column, see \code{R/core-correlations.R}'s \code{.kssl_property_name_map}
 docs) both need an actual SOC-scale value to be fused against SOLUS100's real \code{soc} variable
 (organic carbon). \code{SOC = OM / 1.724} is the standard Van Bemmelen-factor approximation (the
-same factor \code{remarginalized_awc()}'s \code{soc_to_om} argument uses in the opposite direction,
+same factor \code{remarginalize_awc()}'s \code{soc_to_om} argument uses in the opposite direction,
 \code{R/core-fusion.R}). Applying this conversion needs no change to the KSSL correlation
 \emph{matrix} itself - Pearson correlation is invariant under a positive linear rescale of one
 variable, and triangular-distribution parameters (min/mode/max) transform linearly too - only

@@ -1114,10 +1114,10 @@ fuse_one_property_prior <- function(prior, likelihood, is_vector_likelihood, n_s
   if (family == "lognormal") {
     # Prior fit is ALREADY log-space (fit_percentile_triplet()'s lognormal
     # branch fits fit_normal_triplet(log(l), log(r), log(h), ...)) - do NOT
-    # call normal_to_lognormal_params() on it, that would double-convert.
+    # call convert_normal_to_lognormal() on it, that would double-convert.
     # The likelihood is expected in raw (natural, reported) space and is
     # converted to log-space to match.
-    lik_log <- normal_to_lognormal_params(likelihood$mean, likelihood$sd)
+    lik_log <- convert_normal_to_lognormal(likelihood$mean, likelihood$sd)
     post <- fuse_normal_normal(fit$mean, fit$sd, lik_log$mu, lik_log$sigma)
     return(list(family = "lognormal", fit = list(mean = post$mu, sd = post$sigma), source = "bayesian_fusion_lognormal"))
   }
@@ -1135,7 +1135,7 @@ fuse_one_property_prior <- function(prior, likelihood, is_vector_likelihood, n_s
       # only mathematically valid if both sides share the same support.
       scaled_mean <- (likelihood$mean - lower) / span
       scaled_var <- likelihood$var / span^2
-      lik_moments <- moments_to_beta(scaled_mean, scaled_var)
+      lik_moments <- convert_moments_to_beta(scaled_mean, scaled_var)
       lik_alpha <- lik_moments$alpha
       lik_beta <- lik_moments$beta
     }
@@ -1144,10 +1144,10 @@ fuse_one_property_prior <- function(prior, likelihood, is_vector_likelihood, n_s
     if (!isTRUE(post$feasible)) {
       # Documented fallback: re-express both sides as Normal moments, fuse,
       # convert back - rather than accepting invalid (alpha, beta).
-      prior_m <- beta_to_moments(fit$shape1, fit$shape2)
-      lik_m <- beta_to_moments(lik_alpha, lik_beta)
+      prior_m <- convert_beta_to_moments(fit$shape1, fit$shape2)
+      lik_m <- convert_beta_to_moments(lik_alpha, lik_beta)
       fallback <- fuse_normal_normal(prior_m$mean, sqrt(prior_m$var), lik_m$mean, sqrt(lik_m$var))
-      fallback_beta <- moments_to_beta(fallback$mu, fallback$sigma^2)
+      fallback_beta <- convert_moments_to_beta(fallback$mu, fallback$sigma^2)
       post <- list(alpha = fallback_beta$alpha, beta = fallback_beta$beta)
     }
     return(list(

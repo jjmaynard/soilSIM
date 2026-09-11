@@ -616,9 +616,9 @@ test_that("simulate_and_perturb_soil_profiles() replicates a single-horizon prof
   expect_equal(length(result), 4)
 })
 
-test_that("simulate_profile_depths_by_mukey()'s id-column fix: aqp::depths(id ~ ...) doesn't error on a compname-derived id", {
+test_that("simulate_profile_depths()'s id-column fix: aqp::depths(id ~ ...) doesn't error on a compname-derived id", {
   # Regression test for the id-column bug fix: fetch_ssurgo_aws_data() output
-  # only has `compname`, not `id`; simulate_profile_depths_by_mukey() must
+  # only has `compname`, not `id`; simulate_profile_depths() must
   # derive `id` before calling aqp::depths<-() since adjust_out_of_range_profiles()/
   # evaluate_simulated_depths() downstream both hardcode a literal `id` column.
   mu_data <- data.frame(
@@ -630,8 +630,8 @@ test_that("simulate_profile_depths_by_mukey()'s id-column fix: aqp::depths(id ~ 
   expect_no_error(aqp::depths(mu_data) <- id ~ hzdept_r + hzdepb_r)
 })
 
-test_that("simulate_profile_depths_by_mukey() derives and joins sim_comppct internally (closed integration gap)", {
-  # Regression test for the sim_comppct integration gap: simulate_profile_depths_by_mukey()
+test_that("simulate_profile_depths() derives and joins sim_comppct internally (closed integration gap)", {
+  # Regression test for the sim_comppct integration gap: simulate_profile_depths()
   # used to require callers to derive/join sim_comppct themselves before it reached
   # simulate_and_perturb_soil_profiles(), erroring on a missing-column condition otherwise.
   # It now calls simulate_component_composition() and joins the result onto mu_data by cokey internally.
@@ -654,7 +654,7 @@ test_that("simulate_profile_depths_by_mukey() derives and joins sim_comppct inte
   )
 
   set.seed(1)
-  result <- simulate_profile_depths_by_mukey("999", n_simulations = 5, seed = 1)
+  result <- simulate_profile_depths("999", n_simulations = 5, seed = 1)
   expect_s4_class(result, "SoilProfileCollection")
   expect_equal(length(result), 5)
 })
@@ -766,7 +766,7 @@ test_that("attach_osd_boundary_distinctness() requires compname/hzname/genhz col
   )
 })
 
-test_that("simulate_profile_depths_by_collection_parallel() runs without erroring at the R level", {
+test_that("simulate_profile_depths(parallel = TRUE) runs without erroring at the R level", {
   skip_if_not(
     nzchar(system.file(package = "soilSIM")) &&
       file.exists(file.path(system.file(package = "soilSIM"), "Meta", "package.rds")),
@@ -792,11 +792,11 @@ test_that("simulate_profile_depths_by_collection_parallel() runs without errorin
   }, add = TRUE)
 
   soil_collection <- make_soil_profile_collection(sim_comppct = 2)
-  result <- simulate_profile_depths_by_collection_parallel(soil_collection, seed = 1, n_cores = 2)
+  result <- simulate_profile_depths(soil_collection, seed = 1, parallel = TRUE, n_cores = 2)
   expect_true(is.null(result) || inherits(result, "SoilProfileCollection"))
 })
 
-test_that("simulate_profile_depths_by_collection_parallel() restores the caller's future::plan() afterward", {
+test_that("simulate_profile_depths(parallel = TRUE) restores the caller's future::plan() afterward", {
   skip_if_not(
     nzchar(system.file(package = "soilSIM")) &&
       file.exists(file.path(system.file(package = "soilSIM"), "Meta", "package.rds")),
@@ -815,6 +815,6 @@ test_that("simulate_profile_depths_by_collection_parallel() restores the caller'
 
   plan_before <- future::plan()
   soil_collection <- make_soil_profile_collection(sim_comppct = 2)
-  invisible(simulate_profile_depths_by_collection_parallel(soil_collection, seed = 1, n_cores = 2))
+  invisible(simulate_profile_depths(soil_collection, seed = 1, parallel = TRUE, n_cores = 2))
   expect_true(identical(class(future::plan()), class(plan_before)))
 })

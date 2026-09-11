@@ -16,13 +16,13 @@ or multi-layer; single-layer inputs are recycled.}
 \description{
 The vectorized, \code{terra}-native counterpart of \code{compute_saxton_rawls()} - identical
 equations and clamps, but every operation is \code{terra} \code{Arith}/\code{Math}/\code{clamp}/\code{ifel} so it runs
-on multi-layer realization stacks in one pass. Used by \code{remarginalized_awc()}'s default
+on multi-layer realization stacks in one pass. Used by \code{remarginalize_awc()}'s default
 (\code{method = "saxton_rawls"}) path, because SOLUS100 publishes \strong{no} water-retention variable -
 \code{wr_3b}/\code{wr_15b} can never be fused directly, only derived from the fusable
 sand/silt/clay/\code{dbovendry}/\code{soc}/\code{fragvol}.
 }
 \details{
-Because \code{remarginalized_awc()} re-marginalizes \code{sand}/\code{silt}/\code{clay} to their own fused
+Because \code{remarginalize_awc()} re-marginalizes \code{sand}/\code{silt}/\code{clay} to their own fused
 posteriors independently, a realization's texture triple may not sum to 100. This
 reproduces \code{compute_saxton_rawls()}'s renormalization: where the texture sum is off
 by more than 5 points, the three fractions are rescaled to sum to 100 before the equations run

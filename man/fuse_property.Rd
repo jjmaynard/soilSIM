@@ -2,22 +2,39 @@
 % Please edit documentation in R/core-fusion.R
 \name{fuse_property}
 \alias{fuse_property}
+\alias{fuse_property.default}
+\alias{fuse_property.percentile_rasters}
 \title{Fuse a prior and likelihood belief distribution, dispatching by input shape}
 \usage{
-fuse_property(
+fuse_property(prior, likelihood, ...)
+
+\method{fuse_property}{default}(
   prior,
   likelihood,
   family = NULL,
   bounds = NULL,
   method = NULL,
   n_samples = 1000,
-  grid_resolution = 0.01
+  grid_resolution = 0.01,
+  ...
+)
+
+\method{fuse_property}{percentile_rasters}(
+  prior,
+  likelihood,
+  prior_probs,
+  lik_probs,
+  property_config,
+  threshold_cells = 80000,
+  ...
 )
 }
 \arguments{
 \item{prior, likelihood}{Either numeric vectors of raw samples (both sides
 must be vectors), or named lists of family-native parameters matching
 \code{family} (both sides must be lists).}
+
+\item{...}{Passed to the dispatched method.}
 
 \item{family}{Required when \code{prior}/\code{likelihood} are parameter lists; one
 of \code{"normal"}, \code{"beta"}, \code{"gamma"}. Ignored (and inferred as "general")
@@ -32,6 +49,13 @@ silently overriding it.}
 
 \item{n_samples, grid_resolution}{Passed to \code{update_prior()} for the
 general route.}
+
+\item{prior_probs, lik_probs}{Percentile levels for \code{prior}/\code{likelihood} (raster method only).}
+
+\item{property_config}{A property configuration list selecting the fusion distribution family
+(raster method only) - see \code{\link[=fuse_property_adaptive]{fuse_property_adaptive()}}.}
+
+\item{threshold_cells}{Raster method only; see \code{\link[=fuse_property_adaptive]{fuse_property_adaptive()}}.}
 }
 \value{
 For the general route: a numeric vector of posterior samples

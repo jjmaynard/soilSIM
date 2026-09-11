@@ -350,7 +350,7 @@ SOLUS_RESTRICTION_CENSOR_CM <- 201
 
 #' Fetch a SOLUS100 Restriction-Depth Raster, Right-Censoring-Guarded (S2)
 #'
-#' The truncation-depth signal for bedrock/restriction-aware AWC (`remarginalized_awc()`'s
+#' The truncation-depth signal for bedrock/restriction-aware AWC (`remarginalize_awc()`'s
 #' `restriction_depth` argument). Default variable is
 #' `"anylithicdpt"` - trained (per SOLUS100's own published methodology) **only** on
 #' `reskind %in% c("Lithic bedrock", "Paralithic bedrock")` records, making it hard-bedrock-specific
@@ -368,7 +368,7 @@ SOLUS_RESTRICTION_CENSOR_CM <- 201
 #'   `>= SOLUS_RESTRICTION_CENSOR_CM` recoded to `Inf` (no restriction detected - never truncates),
 #'   or `NULL` if the underlying `fetchSOLUS()` prediction fetch fails.
 #' @seealso `SOLUS_RESTRICTION_CENSOR_CM`, `fetch_solus_site_level()`,
-#'   [remarginalized_awc()][remarginalized_awc]'s `restriction_depth` argument
+#'   [remarginalize_awc()][remarginalize_awc]'s `restriction_depth` argument
 #' @keywords internal
 fetch_solus_restriction_depth <- function(aoi_vect, variable = "anylithicdpt") {
   lph <- fetch_solus_site_level(aoi_vect, variable, output_types = "prediction")

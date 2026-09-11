@@ -32,7 +32,7 @@ Steps:
 
 1. `fuse_normal_normal()` - exact closed-form Normal-Normal fusion, worked example plus a
    sensitivity sweep over relative precision.
-2. `normal_to_lognormal_params()` / `lognormal_to_normal_params()` - fusing a right-skewed, strictly
+2. `convert_normal_to_lognormal()` / `convert_lognormal_to_normal()` - fusing a right-skewed, strictly
    positive property (organic matter) safely, in log-space.
 3. `fuse_beta()` / `fuse_gamma()` - closed-form same-family fusion for bounded (Beta) and positive-skewed
    (Gamma) properties, plus their moment-conversion helpers.
@@ -177,16 +177,16 @@ ggplot(sweep_results, aes(x = reorder(case, lik_sigma), y = posterior_mu)) +
   )
 ```
 
-## Step 2: fusing a right-skewed property safely - `normal_to_lognormal_params()` / `lognormal_to_normal_params()`
+## Step 2: fusing a right-skewed property safely - `convert_normal_to_lognormal()` / `convert_lognormal_to_normal()`
 
 `fuse_normal_normal()` assumes both sides are Normal. That's a problem for strictly-positive,
 right-skewed properties like organic matter (OM) or CEC: if a property's sigma is large relative to its
 mean, treating it as Normal and fusing directly can place real posterior probability mass *below zero*,
 which is physically impossible for a percentage or concentration.
 
-`normal_to_lognormal_params(mu, sigma)` moment-matches a raw-space Lognormal's mean/sd onto the `mu`/
+`convert_normal_to_lognormal(mu, sigma)` moment-matches a raw-space Lognormal's mean/sd onto the `mu`/
 `sigma` of its underlying (log-space) Normal, so `fuse_normal_normal()` can be reused unchanged
-in log-space; `lognormal_to_normal_params(mu_log, sigma_log)` is its exact algebraic inverse, converting
+in log-space; `convert_lognormal_to_normal(mu_log, sigma_log)` is its exact algebraic inverse, converting
 the fused log-space posterior back to raw-space mean/sd.
 
 A hypothetical prior and likelihood for organic matter (%), a property that is right-skewed with a
@@ -202,8 +202,8 @@ more importantly, the *shape* of a raw Normal fit ignores the right skew altoget
 log-space first:
 
 ```{r}
-prior_om_log <- normal_to_lognormal_params(prior_om$mu, prior_om$sigma)
-lik_om_log <- normal_to_lognormal_params(lik_om$mu, lik_om$sigma)
+prior_om_log <- convert_normal_to_lognormal(prior_om$mu, prior_om$sigma)
+lik_om_log <- convert_normal_to_lognormal(lik_om$mu, lik_om$sigma)
 prior_om_log
 lik_om_log
 ```
@@ -215,15 +215,15 @@ converting the posterior back to raw space:
 posterior_om_log <- fuse_normal_normal(
   prior_om_log$mu, prior_om_log$sigma, lik_om_log$mu, lik_om_log$sigma
 )
-posterior_om <- lognormal_to_normal_params(posterior_om_log$mu, posterior_om_log$sigma)
+posterior_om <- convert_lognormal_to_normal(posterior_om_log$mu, posterior_om_log$sigma)
 posterior_om
 ```
 
-`lognormal_to_normal_params()` is the exact inverse of `normal_to_lognormal_params()` - round-tripping
+`convert_lognormal_to_normal()` is the exact inverse of `convert_normal_to_lognormal()` - round-tripping
 raw-space parameters through both functions returns the original values, up to floating-point precision:
 
 ```{r}
-roundtrip <- lognormal_to_normal_params(prior_om_log$mu, prior_om_log$sigma)
+roundtrip <- convert_lognormal_to_normal(prior_om_log$mu, prior_om_log$sigma)
 all.equal(roundtrip, prior_om)
 ```
 
@@ -291,15 +291,15 @@ stayed positive (`prior_alpha + lik_alpha > 1` and `prior_beta + lik_beta > 1`),
 result to remain a valid distribution.
 
 A hypothetical prior and likelihood belief about water-saturation fraction, both expressed as Beta
-parameters (moment-matched via `moments_to_beta()` from an assumed mean/variance, so the shapes are
+parameters (moment-matched via `convert_moments_to_beta()` from an assumed mean/variance, so the shapes are
 concrete and interpretable):
 
 ```{r}
 prior_sat_moments <- list(mean = 0.35, var = 0.02^2)
 lik_sat_moments <- list(mean = 0.50, var = 0.01^2)
 
-prior_sat_beta <- moments_to_beta(prior_sat_moments$mean, prior_sat_moments$var)
-lik_sat_beta <- moments_to_beta(lik_sat_moments$mean, lik_sat_moments$var)
+prior_sat_beta <- convert_moments_to_beta(prior_sat_moments$mean, prior_sat_moments$var)
+lik_sat_beta <- convert_moments_to_beta(lik_sat_moments$mean, lik_sat_moments$var)
 prior_sat_beta
 lik_sat_beta
 
@@ -309,12 +309,12 @@ posterior_sat_beta <- fuse_beta(
 posterior_sat_beta
 ```
 
-`beta_to_moments()` converts the fused shape parameters back to an interpretable mean/variance, and is
+`convert_beta_to_moments()` converts the fused shape parameters back to an interpretable mean/variance, and is
 also the function used (on the *inputs*) if `feasible` had come back `FALSE`, to fall back to fusing in
 Normal-moment space instead:
 
 ```{r}
-beta_to_moments(posterior_sat_beta$alpha, posterior_sat_beta$beta)
+convert_beta_to_moments(posterior_sat_beta$alpha, posterior_sat_beta$beta)
 ```
 
 ```{r, fig.height = 4}
@@ -352,14 +352,14 @@ outright (like Normal precisions), shapes add minus one (like Beta's alpha/beta)
 **Returns**: `list(shape=, rate=, feasible=)`, `feasible` requiring `prior_shape + lik_shape > 1`.
 
 A hypothetical prior/likelihood for saturated hydraulic conductivity (strictly positive, long right
-tail), again built via the Gamma method-of-moments helper `moments_to_gamma()`:
+tail), again built via the Gamma method-of-moments helper `convert_moments_to_gamma()`:
 
 ```{r}
 prior_ksat_moments <- list(mean = 15, var = 6^2)
 lik_ksat_moments <- list(mean = 8, var = 2^2)
 
-prior_ksat_gamma <- moments_to_gamma(prior_ksat_moments$mean, prior_ksat_moments$var)
-lik_ksat_gamma <- moments_to_gamma(lik_ksat_moments$mean, lik_ksat_moments$var)
+prior_ksat_gamma <- convert_moments_to_gamma(prior_ksat_moments$mean, prior_ksat_moments$var)
+lik_ksat_gamma <- convert_moments_to_gamma(lik_ksat_moments$mean, lik_ksat_moments$var)
 prior_ksat_gamma
 lik_ksat_gamma
 
@@ -367,7 +367,7 @@ posterior_ksat_gamma <- fuse_gamma(
   prior_ksat_gamma$shape, prior_ksat_gamma$rate, lik_ksat_gamma$shape, lik_ksat_gamma$rate
 )
 posterior_ksat_gamma
-gamma_to_moments(posterior_ksat_gamma$shape, posterior_ksat_gamma$rate)
+convert_gamma_to_moments(posterior_ksat_gamma$shape, posterior_ksat_gamma$rate)
 ```
 
 ```{r, fig.height = 4}
@@ -396,8 +396,8 @@ ggplot(ksat_dist_df, aes(x = x, y = density, color = source, fill = source)) +
 
 Both `fuse_beta()` and `fuse_gamma()` are only valid when the fused shape parameters stay positive - if
 `feasible` comes back `FALSE` for some cell/case, the documented fallback is to re-express both sides as
-Normal moments (`beta_to_moments()`/`gamma_to_moments()`), fuse with `fuse_normal_normal()`, and
-convert the result back (`moments_to_beta()`/`moments_to_gamma()`). This fallback is not automatic - a
+Normal moments (`convert_beta_to_moments()`/`convert_gamma_to_moments()`), fuse with `fuse_normal_normal()`, and
+convert the result back (`convert_moments_to_beta()`/`convert_moments_to_gamma()`). This fallback is not automatic - a
 caller hitting `feasible == FALSE` must invoke it explicitly.
 
 ## Step 4: joint 2D fusion - `fuse_bivariate_normal()`

@@ -210,7 +210,7 @@ terra::plot(blend_stack, col = grDevices::hcl.colors(50, "viridis"), nc = 3)
 
 `fit_gamma_mom_raster()` is a thin raster wrapper: it computes mean/variance rasters across a list
 of percentile-value rasters (the only genuinely raster-specific step, via `Reduce(+, ...)`), then
-delegates to `R/core-fusion.R`'s existing scalar `moments_to_gamma()`, which is pure
+delegates to `R/core-fusion.R`'s existing scalar `convert_moments_to_gamma()`, which is pure
 elementwise arithmetic and therefore already works unchanged on `SpatRaster` inputs:
 
 ```{r, fig.width = 9, fig.height = 3.5}

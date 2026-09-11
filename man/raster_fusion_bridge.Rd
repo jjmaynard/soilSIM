@@ -13,7 +13,7 @@ framework.
 
 \code{zonal_distribution_from_posterior()} is the cheap mukey-collapsed comparison arm (feeds
 \code{observed_data_by_mukey} in \code{simulate_monte_carlo()}); \code{remarginalize_ensemble_to_posterior()}
-is the per-pixel transform; \code{remarginalized_awc()} is the first derived-quantity consumer
+is the per-pixel transform; \code{remarginalize_awc()} is the first derived-quantity consumer
 (available water capacity, via \code{saxton_rawls_raster()} since SOLUS100 has no water-retention
 variable). Nothing here touches either existing pipeline - purely additive.
 }

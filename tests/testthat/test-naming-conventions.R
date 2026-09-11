@@ -14,7 +14,7 @@ approved_prefix_regex <- paste0(
   "predict|restore|run|select|setup|slice|standardize|summarize|track|",
   "new|cache|load|save|detect|clean|download|remove|sample|query|ensure|",
   "identify|create|generate|compare|evaluate|handle|backup|add|assess|",
-  "aggregate|is|has)_",
+  "aggregate|wrap|unwrap|is|has)_",
   "|_raster$",
   "|^(available_properties|predefined_properties|distributions_for_properties|",
   "rfv_range_category|group_members|ilr_forward|ilr_inverse|van_genuchten|",
@@ -29,15 +29,12 @@ deprecated_shim_names <- function() {
   unique(regmatches(txt, regexpr("^[a-zA-Z0-9_.]+(?= <- function)", txt, perl = TRUE)))
 }
 
-# Residual legacy names (pre-0.2.0) that still need a rename + shim. Only shrink this.
-# (D1's export-tiering pass demoted most of the original 23 to @keywords internal,
-# so they no longer appear in getNamespaceExports() and dropped out of this list on
-# their own; these 8 are still public and still need the D2 rename.)
-legacy_exceptions <- c(
-  "beta_to_moments", "gamma_to_moments", "moments_to_beta", "moments_to_gamma",
-  "lognormal_to_normal_params", "normal_to_lognormal_params",
-  "unwrap_nested_rasters", "remarginalized_awc"
-)
+# Residual legacy names that still need a rename + shim. Only shrink this.
+# (D1 demoted most of the original 23 to @keywords internal; D2 renamed the remaining
+# convert_*/remarginalize_awc pairs to fit the lexicon and added wrap_/unwrap_ to the
+# approved regex above, since they're an intentional raster-serialization pair, not a
+# naming mistake - so this list is empty for now.)
+legacy_exceptions <- character(0)
 
 offending_exports <- function() {
   ns <- asNamespace("soilSIM")

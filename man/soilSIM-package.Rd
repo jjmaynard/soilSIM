@@ -79,7 +79,7 @@ while preserving cross-property correlation structure.
 
 \code{\link[=simulate_component_composition]{simulate_component_composition()}}/\code{\link[=simulate_cokey_generalized]{simulate_cokey_generalized()}} simulate component
 composition and per-cokey properties;
-\code{\link[=simulate_and_perturb_soil_profiles]{simulate_and_perturb_soil_profiles()}}/\code{\link[=simulate_profile_depths_by_mukey]{simulate_profile_depths_by_mukey()}}
+\code{\link[=simulate_and_perturb_soil_profiles]{simulate_and_perturb_soil_profiles()}}/\code{\link[=simulate_profile_depths]{simulate_profile_depths()}}
 simulate horizon depths and thicknesses for whole soil profiles.
 }
 

@@ -12,9 +12,9 @@ counterpart of \code{R/core-fusion.R}.
 
 Uses \code{core-fusion.R}'s scalar/vector fusion functions
 directly - \code{fuse_normal_normal()},
-\code{fuse_beta()}, \code{fuse_gamma()}, \code{moments_to_gamma()}/\code{moments_to_beta()}/
-\code{beta_to_moments()}/\code{gamma_to_moments()}, \code{normal_to_lognormal_params()}/
-\code{lognormal_to_normal_params()}, \code{update_prior()}, and
+\code{fuse_beta()}, \code{fuse_gamma()}, \code{convert_moments_to_gamma()}/\code{convert_moments_to_beta()}/
+\code{convert_beta_to_moments()}/\code{convert_gamma_to_moments()}, \code{convert_normal_to_lognormal()}/
+\code{convert_lognormal_to_normal()}, \code{update_prior()}, and
 \code{R/core-distributions.R}'s \code{estimate_ilr_moments_mc()}/\code{ilr_inverse()}, plus
 \code{fuse_bivariate_normal()} - are all pure elementwise arithmetic, so they
 work unchanged on \code{SpatRaster} inputs.

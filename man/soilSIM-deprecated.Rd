@@ -60,6 +60,13 @@
 \alias{bayesian_update}
 \alias{calculate_mode}
 \alias{bayes_fuse}
+\alias{beta_to_moments}
+\alias{gamma_to_moments}
+\alias{moments_to_beta}
+\alias{moments_to_gamma}
+\alias{lognormal_to_normal_params}
+\alias{normal_to_lognormal_params}
+\alias{remarginalized_awc}
 \title{Deprecated functions in soilSIM}
 \usage{
 download_and_prepare_ssurgo(...)
@@ -177,6 +184,20 @@ bayesian_update(...)
 calculate_mode(...)
 
 bayes_fuse(...)
+
+beta_to_moments(...)
+
+gamma_to_moments(...)
+
+moments_to_beta(...)
+
+moments_to_gamma(...)
+
+lognormal_to_normal_params(...)
+
+normal_to_lognormal_params(...)
+
+remarginalized_awc(...)
 }
 \description{
 These names were renamed in the 0.2.0 naming re-architecture. Each still
