@@ -80,14 +80,16 @@ fusion_clay$posterior$mu
 #> name        :    lyr.1
 #> min value   : 2.981308
 #> max value   : 42.31139
-terra::plot(fusion_clay$posterior$mu, main = "Fused posterior mean clay content (%)")
+terra::plot(fusion_clay$posterior$mu, main = "Fused posterior mean clay content (%)",
+            mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
 ![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-5-1.png)
 
 ``` r
 
-terra::plot(fusion_clay$posterior$sigma, main = "Fused posterior clay uncertainty (SD)")
+terra::plot(fusion_clay$posterior$sigma, main = "Fused posterior clay uncertainty (SD)",
+            mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
 ![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-6-1.png)
@@ -134,7 +136,8 @@ terra::plot(
   main = c("SSURGO prior (median)", "SOLUS likelihood (median)", "Fused posterior mean"),
   col = grDevices::hcl.colors(50, "viridis"),
   range = shared_range,
-  nc = 3
+  nc = 3,
+  mar = c(3.1, 3.1, 5.1, 7.1)
 )
 ```
 
@@ -225,7 +228,8 @@ credible_width <- p95 - p05
 terra::plot(
   credible_width,
   main = "90% credible interval width (P95 - P5) for clay content (%)",
-  col = grDevices::hcl.colors(50, "inferno", rev = TRUE)
+  col = grDevices::hcl.colors(50, "inferno", rev = TRUE),
+  mar = c(3.1, 3.1, 5.1, 7.1)
 )
 ```
 
@@ -255,7 +259,8 @@ elevated_clay_risk <- p95 > 25
 terra::plot(
   elevated_clay_risk,
   main = "Cells where P95 clay content exceeds 25% (elevated-clay risk)",
-  col = c("grey85", "firebrick")
+  col = c("grey85", "firebrick"),
+  mar = c(3.1, 3.1, 5.1, 7.1)
 )
 ```
 
@@ -319,7 +324,8 @@ than just asserted.
 terra::plot(c(fusion_texture$clay$posterior$value,
               fusion_texture$sand$posterior$value,
               fusion_texture$silt$posterior$value),
-            main = c("Clay", "Sand", "Silt"))
+            main = c("Clay", "Sand", "Silt"),
+            mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
 ![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-16-1.png)

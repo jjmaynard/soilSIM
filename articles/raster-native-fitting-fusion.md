@@ -119,7 +119,8 @@ q90 <- quantile_normal_raster(fit_n, 0.9)
 normal_stack <- c(q10, fit_n$mu, q90)
 names(normal_stack) <- c("Q10", "mu (=P50)", "Q90")
 terra::plot(normal_stack, main = c("Normal Q10", "Normal mean", "Normal Q90"),
-            col = grDevices::hcl.colors(50, "viridis"), nc = 3)
+            col = grDevices::hcl.colors(50, "viridis"), nc = 3,
+            mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
 ![](raster-native-fitting-fusion_files/figure-html/unnamed-chunk-5-1.png)
@@ -235,7 +236,8 @@ cat(sprintf("%d / %d cells (%.0f%%) have an infeasible metalog fit\n",
             n_infeasible, n_total, 100 * n_infeasible / n_total))
 #> 209 / 598 cells (35%) have an infeasible metalog fit
 terra::plot(infeasible, main = "Infeasible metalog fit (TRUE = non-monotonic)",
-            col = c("grey85", "firebrick"))
+            col = c("grey85", "firebrick"),
+            mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
 ![](raster-native-fitting-fusion_files/figure-html/unnamed-chunk-10-1.png)

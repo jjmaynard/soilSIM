@@ -165,10 +165,12 @@ m resolution:</p>
 <span><span class="co">#&gt; name        :    lyr.1</span></span>
 <span><span class="co">#&gt; min value   : 2.981308</span></span>
 <span><span class="co">#&gt; max value   : 42.31139</span></span>
-<span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">mu</span>, main <span class="op">=</span> <span class="st">"Fused posterior mean clay content (%)"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">mu</span>, main <span class="op">=</span> <span class="st">"Fused posterior mean clay content (%)"</span>,</span>
+<span>            mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3.1</span>, <span class="fl">3.1</span>, <span class="fl">5.1</span>, <span class="fl">7.1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-5-1.png" class="r-plt" alt="" width="576"></p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">sigma</span>, main <span class="op">=</span> <span class="st">"Fused posterior clay uncertainty (SD)"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fusion_clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">sigma</span>, main <span class="op">=</span> <span class="st">"Fused posterior clay uncertainty (SD)"</span>,</span>
+<span>            mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3.1</span>, <span class="fl">3.1</span>, <span class="fl">5.1</span>, <span class="fl">7.1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-6-1.png" class="r-plt" alt="" width="576"></p>
 <div class="section level3">
 <h3 id="comparing-the-prior-likelihood-and-fused-posterior">Comparing the prior, likelihood, and fused posterior<a class="anchor" aria-label="anchor" href="#comparing-the-prior-likelihood-and-fused-posterior"></a>
@@ -208,7 +210,8 @@ own auto-rescaling:</p>
 <span>  main <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"SSURGO prior (median)"</span>, <span class="st">"SOLUS likelihood (median)"</span>, <span class="st">"Fused posterior mean"</span><span class="op">)</span>,</span>
 <span>  col <span class="op">=</span> <span class="fu">grDevices</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/grDevices/palettes.html" class="external-link">hcl.colors</a></span><span class="op">(</span><span class="fl">50</span>, <span class="st">"viridis"</span><span class="op">)</span>,</span>
 <span>  range <span class="op">=</span> <span class="va">shared_range</span>,</span>
-<span>  nc <span class="op">=</span> <span class="fl">3</span></span>
+<span>  nc <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>  mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3.1</span>, <span class="fl">3.1</span>, <span class="fl">5.1</span>, <span class="fl">7.1</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" alt="" width="864"></p>
 <p>The SSURGO prior is sparse and blocky (map-unit polygons rasterized
@@ -287,7 +290,8 @@ it’s genuinely uncertain, not just a single AOI-wide number:</p>
 <span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span></span>
 <span>  <span class="va">credible_width</span>,</span>
 <span>  main <span class="op">=</span> <span class="st">"90% credible interval width (P95 - P5) for clay content (%)"</span>,</span>
-<span>  col <span class="op">=</span> <span class="fu">grDevices</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/grDevices/palettes.html" class="external-link">hcl.colors</a></span><span class="op">(</span><span class="fl">50</span>, <span class="st">"inferno"</span>, rev <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>  col <span class="op">=</span> <span class="fu">grDevices</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/grDevices/palettes.html" class="external-link">hcl.colors</a></span><span class="op">(</span><span class="fl">50</span>, <span class="st">"inferno"</span>, rev <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3.1</span>, <span class="fl">3.1</span>, <span class="fl">5.1</span>, <span class="fl">7.1</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-11-1.png" class="r-plt" alt="" width="672"></p>
 <p>This map is not spatially uniform - width narrows where the SOLUS100
@@ -316,7 +320,8 @@ assuming normality:</p>
 <span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span></span>
 <span>  <span class="va">elevated_clay_risk</span>,</span>
 <span>  main <span class="op">=</span> <span class="st">"Cells where P95 clay content exceeds 25% (elevated-clay risk)"</span>,</span>
-<span>  col <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"grey85"</span>, <span class="st">"firebrick"</span><span class="op">)</span></span>
+<span>  col <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"grey85"</span>, <span class="st">"firebrick"</span><span class="op">)</span>,</span>
+<span>  mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3.1</span>, <span class="fl">3.1</span>, <span class="fl">5.1</span>, <span class="fl">7.1</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-12-1.png" class="r-plt" alt="" width="672"></p>
 <p>Cells flagged here could plausibly have clay content above 25% even
@@ -367,7 +372,8 @@ than just asserted.</p>
 <code class="sourceCode R"><span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">fusion_texture</span><span class="op">$</span><span class="va">clay</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">value</span>,</span>
 <span>              <span class="va">fusion_texture</span><span class="op">$</span><span class="va">sand</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">value</span>,</span>
 <span>              <span class="va">fusion_texture</span><span class="op">$</span><span class="va">silt</span><span class="op">$</span><span class="va">posterior</span><span class="op">$</span><span class="va">value</span><span class="op">)</span>,</span>
-<span>            main <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Clay"</span>, <span class="st">"Sand"</span>, <span class="st">"Silt"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span>            main <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Clay"</span>, <span class="st">"Sand"</span>, <span class="st">"Silt"</span><span class="op">)</span>,</span>
+<span>            mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3.1</span>, <span class="fl">3.1</span>, <span class="fl">5.1</span>, <span class="fl">7.1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><img src="raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-16-1.png" class="r-plt" alt="" width="576"></p>
 <p>Each member also carries its own fraction’s posterior percentiles,
 drawn from a dedicated raster-native sampler of the fused

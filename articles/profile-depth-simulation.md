@@ -184,10 +184,10 @@ they vary realization to realization - visible at a glance:
 
 ``` r
 
-par(mar = c(1, 1, 3, 1))
+par(mar = c(1, 1, 6, 1))
 aqp::plotSPC(simulated_profiles, color = "hzname", width = 0.3,
-             name.style = "center-center", cex.names = 0.6, cex.id = 0.6,
-             main = paste0(unique(mu_data$compname), ": simulated profile realizations"))
+             name.style = "center-center", cex.names = 0.6, cex.id = 0.6)
+title(main = paste0(unique(mu_data$compname), ": simulated profile realizations"), line = 4.5)
 ```
 
 ![](profile-depth-simulation_files/figure-html/unnamed-chunk-8-1.png)

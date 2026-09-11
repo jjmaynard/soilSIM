@@ -161,7 +161,8 @@ names(post$clay_total[["0-5"]]$percentiles)            # nine percentile-value r
 ``` r
 
 terra::plot(post$clay_total[["0-5"]]$percentiles$P50,
-            main = "SOLUS-fused clay content, P50, 0-5 cm (%)")
+            main = "SOLUS-fused clay content, P50, 0-5 cm (%)",
+            mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
 ![](raster-fusion-perpixel-awc_files/figure-html/unnamed-chunk-9-1.png)
@@ -261,7 +262,8 @@ names(awc$awc_cm)
 
 terra::plot(awc$awc_cm$P50,
             main = "Median plant-available water capacity, 0-30 cm (cm)",
-            col = grDevices::hcl.colors(50, "Blues 3", rev = TRUE))
+            col = grDevices::hcl.colors(50, "Blues 3", rev = TRUE),
+            mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
 ![](raster-fusion-perpixel-awc_files/figure-html/unnamed-chunk-13-1.png)
@@ -270,7 +272,8 @@ terra::plot(awc$awc_cm$P50,
 
 terra::plot(awc$awc_cm$P95 - awc$awc_cm$P5,
             main = "90% credible-interval width for AWC (cm)",
-            col = grDevices::hcl.colors(50, "inferno", rev = TRUE))
+            col = grDevices::hcl.colors(50, "inferno", rev = TRUE),
+            mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
 ![](raster-fusion-perpixel-awc_files/figure-html/unnamed-chunk-14-1.png)
@@ -306,7 +309,8 @@ restriction_depth <- fetch_solus_restriction_depth(aoi)  # default variable = "a
 awc_truncated <- remarginalize_awc(ens, post, n_out = 150, restriction_depth = restriction_depth)
 terra::plot(awc_truncated$awc_cm$P50,
             main = "Median AWC, 0-30 cm, truncated at bedrock (cm)",
-            col = grDevices::hcl.colors(50, "Blues 3", rev = TRUE))
+            col = grDevices::hcl.colors(50, "Blues 3", rev = TRUE),
+            mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
 ## Reading the uncertainty band
