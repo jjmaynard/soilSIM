@@ -2,7 +2,10 @@
 # representative sample: each shim (a) emits a lifecycle deprecation condition and
 # (b) returns exactly what the new name returns for the same inputs.
 #
-# setup.R sets lifecycle_verbosity = "warning" so deprecate_soft() actually fires.
+# setup.R sets lifecycle_verbosity = "warning" so the deprecation condition actually fires.
+# 0.2.0-0.2.x shims called lifecycle::deprecate_soft(); 0.3.0 flipped every shim to
+# lifecycle::deprecate_warn() (warns on every call, not just once per session) -
+# see R/deprecated.R's own roxygen block for the full timeline.
 
 expect_shim <- function(old_call, new_call) {
   old_call <- rlang::enquo(old_call)
@@ -52,12 +55,12 @@ test_that("Bayesian-fusion shims forward and warn", {
 
 test_that("Tier-1 rename shims warn (smoke, offline)", {
   # These need heavy fixtures to run end to end; here we only assert the shim
-  # wrapper itself is a deprecate_soft forwarder, by inspecting its body.
+  # wrapper itself is a lifecycle deprecation forwarder, by inspecting its body.
   for (nm in c("generate_monte_carlo_realizations", "build_stratified_gp_models",
                "run_stage1_fusion", "calculate_aws_df", "validate_complete_workflow",
                "download_and_prepare_ssurgo", "sim_component_comp")) {
     b <- paste(deparse(body(get(nm, envir = asNamespace("soilSIM")))), collapse = " ")
-    expect_match(b, "deprecate_soft", info = nm)
+    expect_match(b, "deprecate_warn", info = nm)
   }
 })
 

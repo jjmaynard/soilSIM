@@ -203,8 +203,9 @@ remarginalized_awc(...)
 quantile_metalog_linear_with_fallback(...)
 }
 \description{
-These names were renamed in the 0.2.0 naming re-architecture. Each still
-works and forwards to its replacement, but emits a soft deprecation warning.
-Timeline: 0.2.0 soft-deprecate, 0.3.0 warn, 0.4.0 remove.
+These names were renamed in the 0.2.0 naming re-architecture. Each still works and forwards to
+its replacement, but now emits a warning (\code{lifecycle::deprecate_warn()}) every time it is
+called, not just once per session. Timeline: 0.2.0 soft-deprecate, 0.3.0 \strong{warn (current)},
+0.4.0 remove.
 }
 \keyword{internal}

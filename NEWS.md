@@ -1,4 +1,15 @@
-# soilSIM 0.2.2 (in progress)
+# soilSIM 0.3.0
+
+## Deprecation warnings now on every call
+
+* All ~66 names renamed during the 0.2.x naming re-architecture now warn on **every** call via
+  `lifecycle::deprecate_warn()`, not just once per session (`lifecycle::deprecate_soft()`). If your
+  code still uses an old name, you will now see it. Timeline: 0.2.0 soft-deprecate, 0.3.0
+  **warn (this release)**, 0.4.0 **remove**. Update to the new names before upgrading to 0.4.0 -
+  see `?soilSIM-deprecated` for the full old -> new mapping, or the 0.2.0/0.2.1/0.2.2 NEWS entries
+  below.
+
+# soilSIM 0.2.2
 
 ## S3 methods for result objects
 
