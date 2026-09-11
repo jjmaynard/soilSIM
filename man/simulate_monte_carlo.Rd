@@ -87,3 +87,8 @@ mc_results <- simulate_monte_carlo(
 }
 
 }
+\seealso{
+Other monte-carlo: 
+\code{\link{default_monte_carlo_config}()}
+}
+\concept{monte-carlo}

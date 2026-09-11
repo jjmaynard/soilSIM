@@ -46,6 +46,7 @@ NULL
 #' )
 #' }
 #'
+#' @family statistics
 #' @export
 analyze_soil_statistics <- function(processed_data,
                                     analysis_config = list(),
@@ -662,6 +663,7 @@ generate_statistical_quality_report_safe <- function(original_data, processed_da
 #'
 #' @return correlation analysis results
 #'
+#' @family statistics
 #' @export
 run_comprehensive_correlation_analysis <- function(data, methods, config, available_properties) {
 
@@ -751,6 +753,7 @@ run_comprehensive_correlation_analysis <- function(data, methods, config, availa
 #'
 #' @return Stratified correlation results
 #'
+#' @family statistics
 #' @export
 compute_stratified_correlations <- function(data, properties, stratify_by, methods, config) {
 
@@ -806,6 +809,7 @@ compute_stratified_correlations <- function(data, properties, stratify_by, metho
 #'
 #' @return distribution analysis results
 #'
+#' @family statistics
 #' @export
 analyze_property_distributions <- function(data, properties, config) {
 
@@ -864,6 +868,7 @@ analyze_property_distributions <- function(data, properties, config) {
 #'
 #' @return Fitted distributions with quality metrics
 #'
+#' @family statistics
 #' @export
 fit_property_distributions <- function(values, property_name, config) {
 
@@ -902,6 +907,7 @@ fit_property_distributions <- function(values, property_name, config) {
 #'
 #' @return outlier analysis results
 #'
+#' @family statistics
 #' @export
 detect_comprehensive_outliers <- function(data, properties, config) {
 
@@ -977,6 +983,7 @@ detect_comprehensive_outliers <- function(data, properties, config) {
 #'
 #' @return validation results
 #'
+#' @family statistics
 #' @export
 validate_statistical_results <- function(correlation_analysis, distribution_analysis,
                                                   outlier_analysis, property_statistics, config) {
@@ -1040,6 +1047,7 @@ validate_statistical_results <- function(correlation_analysis, distribution_anal
 #'
 #' @return quality report
 #'
+#' @family statistics
 #' @export
 generate_statistical_quality_report <- function(original_data, processed_data,
                                                          correlation_analysis, distribution_analysis,
@@ -1099,6 +1107,7 @@ generate_statistical_quality_report <- function(original_data, processed_data,
 #'
 #' @return Default statistical analysis configuration
 #'
+#' @family statistics
 #' @export
 default_statistics_config <- function() {
 
@@ -1156,6 +1165,7 @@ default_statistics_config <- function() {
 #'
 #' @return Validation results
 #'
+#' @family statistics
 #' @export
 validate_statistical_config <- function(config) {
 
@@ -1205,6 +1215,7 @@ validate_statistical_config <- function(config) {
 #'
 #' @return Vector of numeric soil property column names
 #'
+#' @family statistics
 #' @export
 identify_numeric_soil_properties <- function(data) {
 
@@ -1243,6 +1254,7 @@ identify_numeric_soil_properties <- function(data) {
 #'
 #' @return property statistics
 #'
+#' @family statistics
 #' @export
 compute_property_statistics <- function(data, properties, config) {
 
@@ -1339,6 +1351,7 @@ calculate_kurtosis <- function(x) {
 #'   callers and potential future data-driven refinement).
 #' @param config Optional analysis configuration; reads `config$distribution_methods`.
 #' @return Character vector of candidate distribution names.
+#' @family statistics
 #' @export
 distributions_for_properties <- function(property_name, values, config = NULL) {
   heuristic <- if (property_name %in% c("sandtotal_r", "silttotal_r", "claytotal_r")) {
@@ -1806,6 +1819,7 @@ generate_correlation_summary <- function(correlation_results) {
 #' @param methods Correlation methods (e.g. `c("pearson","spearman")`).
 #' @param config Unused; kept for interface compatibility with callers.
 #' @return `list(raw_correlations=, ilr_correlations=, n_observations=, note=)`.
+#' @family statistics
 #' @export
 analyze_texture_correlations <- function(data, texture_properties, methods, config) {
   result <- list(

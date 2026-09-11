@@ -19,3 +19,22 @@ property occupies which position is entirely up to the caller (see the
 file header comment above); the names are historical, not an identity
 requirement.
 }
+\seealso{
+Other distributions: 
+\code{\link{classify_genhz}()},
+\code{\link{compare_percentile_methods}()},
+\code{\link{ensure_positive_definite_matrix}()},
+\code{\link{fit_beta_mle_newton}()},
+\code{\link{fit_metalog_linear}()},
+\code{\link{fit_normal_triplet}()},
+\code{\link{fit_percentile_triplet}()},
+\code{\link{ilr_inverse}()},
+\code{\link{quantile_beta}()},
+\code{\link{quantile_from_fit}()},
+\code{\link{quantile_linear_cdf}()},
+\code{\link{quantile_metalog_linear}()},
+\code{\link{quantile_triangular}()},
+\code{\link{resolve_property_family}()},
+\code{\link{validate_correlation_matrix}()}
+}
+\concept{distributions}

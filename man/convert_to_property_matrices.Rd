@@ -32,3 +32,18 @@ Named list of property matrices
 Reshapes long-format simulation data into a named list of depth-by-simulation
 matrices, one per property.
 }
+\seealso{
+Other gp-modeling: 
+\code{\link{adjust_simulation_depthwise}()},
+\code{\link{apply_gp_depth_trends}()},
+\code{\link{apply_local_gp_adjustments}()},
+\code{\link{apply_nrcs_trend_adjustments}()},
+\code{\link{fit_depth_gp_models}()},
+\code{\link{fit_individual_gp_model}()},
+\code{\link{fit_local_gp_model_single}()},
+\code{\link{predict_gp_depth_trends}()},
+\code{\link{prepare_nrcs_training_data}()},
+\code{\link{select_optimal_grouping}()},
+\code{\link{validate_gp_models}()}
+}
+\concept{gp-modeling}

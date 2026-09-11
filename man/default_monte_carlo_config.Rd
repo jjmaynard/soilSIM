@@ -17,3 +17,8 @@ Default Monte Carlo configuration
 \description{
 Returns default configuration optimized for Monte Carlo simulation
 }
+\seealso{
+Other monte-carlo: 
+\code{\link{simulate_monte_carlo}()}
+}
+\concept{monte-carlo}

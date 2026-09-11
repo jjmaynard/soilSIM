@@ -83,3 +83,23 @@ closed-form route, a \code{SpatRaster} of 1 (native same-family fusion) /
 Fuse a prior and likelihood belief distribution, choosing the fusion
 route by AOI size rather than requiring the caller to pick.
 }
+\seealso{
+Other raster-fusion: 
+\code{\link{align_percentile_probs}()},
+\code{\link{build_cache_key}()},
+\code{\link{cache_get}()},
+\code{\link{cache_set}()},
+\code{\link{check_metalog_feasibility_raster}()},
+\code{\link{fit_beta_mle_newton_raster}()},
+\code{\link{fit_beta_mom_raster}()},
+\code{\link{fit_gamma_mom_raster}()},
+\code{\link{fit_metalog_linear_raster}()},
+\code{\link{fit_normal_raster}()},
+\code{\link{percentiles_from_draws}()},
+\code{\link{quantile_metalog_linear_with_fallback}()},
+\code{\link{remarginalize_awc}()},
+\code{\link{remarginalize_ensemble_to_posterior}()},
+\code{\link{resolve_property_dist}()},
+\code{\link{wrap_nested_rasters}()}
+}
+\concept{raster-fusion}

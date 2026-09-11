@@ -41,6 +41,22 @@ test_that("print methods return their object invisibly and do not error", {
   expect_output(print(dg), "PASS")
 })
 
+test_that("summary.soilSIM_diagnostics reads diagnose_workflow()'s real overall_assessment shape (D5)", {
+  dg <- new_soilSIM_diagnostics(list(
+    overall_assessment = list(
+      quality_score = 0.85, quality_grade = "B", workflow_status = "PASSED",
+      component_scores = list(monte_carlo = 0.9, correlation = 0.8),
+      critical_issues = list("one issue")
+    ),
+    recommendations = c("Increase sample size", "Review correlation matrix"),
+    monte_carlo_validation = list()
+  ))
+  expect_output(print(dg), "PASSED")
+  out <- capture.output(summary(dg))
+  expect_true(any(grepl("monte_carlo", out)))
+  expect_true(any(grepl("Increase sample size", out)))
+})
+
 test_that("engine wrappers return classed objects", {
   skip_if_not(exists("amador_processed_fixture", mode = "function"))
 })

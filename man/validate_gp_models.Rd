@@ -26,3 +26,18 @@ Validation results
 \description{
 Validate GP Models
 }
+\seealso{
+Other gp-modeling: 
+\code{\link{adjust_simulation_depthwise}()},
+\code{\link{apply_gp_depth_trends}()},
+\code{\link{apply_local_gp_adjustments}()},
+\code{\link{apply_nrcs_trend_adjustments}()},
+\code{\link{convert_to_property_matrices}()},
+\code{\link{fit_depth_gp_models}()},
+\code{\link{fit_individual_gp_model}()},
+\code{\link{fit_local_gp_model_single}()},
+\code{\link{predict_gp_depth_trends}()},
+\code{\link{prepare_nrcs_training_data}()},
+\code{\link{select_optimal_grouping}()}
+}
+\concept{gp-modeling}

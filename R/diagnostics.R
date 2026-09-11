@@ -21,6 +21,7 @@ NULL
 #' @param output_dir Directory for saving validation outputs
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Comprehensive validation results, as a `soilSIM_diagnostics` object
+#' @family statistics
 #' @export
 diagnose_workflow <- function(workflow_results,
                                        original_data = NULL,

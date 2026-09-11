@@ -17,3 +17,19 @@ fuse_beta(prior_alpha, prior_beta, lik_alpha, lik_beta)
 Beta kernel \code{x^(a-1)(1-x)^(b-1)}. Requires \code{a1+a2 > 1} and \code{b1+b2 > 1} to
 remain a valid distribution; \code{feasible} flags where that fails.
 }
+\seealso{
+Other bayesian-fusion: 
+\code{\link{convert_beta_to_moments}()},
+\code{\link{convert_gamma_to_moments}()},
+\code{\link{convert_lognormal_to_normal}()},
+\code{\link{convert_moments_to_beta}()},
+\code{\link{convert_moments_to_gamma}()},
+\code{\link{convert_normal_to_lognormal}()},
+\code{\link{fuse_bivariate_normal}()},
+\code{\link{fuse_distribution}()},
+\code{\link{fuse_gamma}()},
+\code{\link{fuse_normal_normal}()},
+\code{\link{fuse_property}()},
+\code{\link{update_prior}()}
+}
+\concept{bayesian-fusion}

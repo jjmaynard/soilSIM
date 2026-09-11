@@ -65,6 +65,7 @@ NULL
 #' )
 #' }
 #'
+#' @family monte-carlo
 #' @export
 simulate_monte_carlo <- function(soil_data,
                                               properties,
@@ -1615,6 +1616,7 @@ validate_simulation_output <- function(simulation_results, properties, config,
 #'   of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Default Monte Carlo configuration
 #'
+#' @family monte-carlo
 #' @export
 default_monte_carlo_config <- function(verbose = getOption("ssurgo.verbose", FALSE)) {
 

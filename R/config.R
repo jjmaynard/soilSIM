@@ -7,6 +7,7 @@
 #'
 #' @param config_type Configuration type ("full", "minimal", "validation")
 #' @return Default configuration
+#' @family utilities
 #' @export
 default_config <- function(config_type = "full") {
 

@@ -101,6 +101,7 @@ validate_properties <- function(properties,
 #'
 #' @return Vector of available property names
 #'
+#' @family utilities
 #' @export
 available_properties <- function(property_lookup) {
 
@@ -141,6 +142,7 @@ available_properties <- function(property_lookup) {
 #'
 #' @return Vector of property names
 #'
+#' @family utilities
 #' @export
 predefined_properties <- function(source_name) {
 
@@ -352,6 +354,7 @@ validate_properties_with_synonyms <- function(properties,
 #' (internal) and \code{\link{validate_properties_with_synonyms}} (see
 #' `.ssurgo_property_synonyms()`).
 #'
+#' @family utilities
 #' @export
 default_property_synonyms <- function(property_lookup) {
 

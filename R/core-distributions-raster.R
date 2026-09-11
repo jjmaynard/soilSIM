@@ -42,6 +42,7 @@ NULL
 #' @param p_lo_r,p50_r,p_hi_r SpatRasters for the low/median/high percentile values.
 #' @param p_lo,p_hi The probabilities `p_lo_r`/`p_hi_r` represent (e.g. 0.025/0.975).
 #' @return list(mu = SpatRaster, sigma = SpatRaster)
+#' @family raster-fusion
 #' @export
 fit_normal_raster <- function(p_lo_r, p50_r, p_hi_r, p_lo, p_hi) {
   list(mu = p50_r, sigma = (p_hi_r - p_lo_r) / (stats::qnorm(p_hi) - stats::qnorm(p_lo)))
@@ -49,6 +50,7 @@ fit_normal_raster <- function(p_lo_r, p50_r, p_hi_r, p_lo, p_hi) {
 #' @rdname fit_normal_raster
 #' @param fit Output of `fit_normal_raster()`.
 #' @param q Target quantile probability.
+#' @family raster-fusion
 #' @export
 quantile_normal_raster <- function(fit, q) {
   fit$mu + fit$sigma * stats::qnorm(q)
@@ -83,6 +85,7 @@ quantile_linear_cdf_raster <- function(value_rasters, probs, q) {
 #' Method-of-moments Beta fit: alpha/beta rasters are pure arithmetic on
 #' mean/variance rasters.
 #' @param mean_r,var_r SpatRasters of the rescaled-to-unit-interval mean/variance.
+#' @family raster-fusion
 #' @export
 fit_beta_mom_raster <- function(mean_r, var_r) {
   common <- mean_r * (1 - mean_r) / var_r - 1
@@ -91,6 +94,7 @@ fit_beta_mom_raster <- function(mean_r, var_r) {
 #' @rdname fit_beta_mom_raster
 #' @param fit Output of `fit_beta_mom_raster()`.
 #' @param q Target quantile probability.
+#' @family raster-fusion
 #' @export
 quantile_beta_mom_raster <- function(fit, q) {
   terra::lapp(c(fit$alpha, fit$beta), fun = function(a, b) stats::qbeta(q, a, b))
@@ -124,6 +128,7 @@ raster_trigamma <- function(r) terra::app(r, fun = trigamma)
 #' @param n_iter Fixed Newton-Raphson iteration count (validated sufficient at 15).
 #' @param eps Clamp epsilon away from the exact 0/1 boundary.
 #' @return list(alpha = SpatRaster, beta = SpatRaster)
+#' @family raster-fusion
 #' @export
 fit_beta_mle_newton_raster <- function(value_rasters, bounds, n_iter = 15, eps = 1e-6) {
   k <- length(value_rasters)
@@ -158,6 +163,7 @@ fit_beta_mle_newton_raster <- function(value_rasters, bounds, n_iter = 15, eps =
 #' @rdname fit_beta_mle_newton_raster
 #' @param fit Output of `fit_beta_mle_newton_raster()`.
 #' @param q Target quantile probability.
+#' @family raster-fusion
 #' @export
 quantile_beta_mle_newton_raster <- function(fit, q) {
   terra::lapp(c(fit$alpha, fit$beta), fun = function(a, b) stats::qbeta(q, a, b))
@@ -189,6 +195,7 @@ quantile_beta_mle_newton_raster <- function(fit, q) {
 #' @param probs Matching interior probabilities.
 #' @param bounds `c(lower, upper)`; required unless `boundedness = "u"`.
 #' @param boundedness One of `"u"`/`"sl"`/`"su"`/`"b"` - see `metalog_to_z()`.
+#' @family raster-fusion
 #' @export
 fit_metalog_linear_raster <- function(value_rasters, probs, bounds, boundedness) {
   term <- length(probs)
@@ -203,6 +210,7 @@ fit_metalog_linear_raster <- function(value_rasters, probs, bounds, boundedness)
 #' @rdname fit_metalog_linear_raster
 #' @param fit Output of `fit_metalog_linear_raster()`.
 #' @param q Target quantile probability.
+#' @family raster-fusion
 #' @export
 quantile_metalog_linear_raster <- function(fit, q, bounds, boundedness) {
   Y_q <- metalog_basis_matrix(q, fit$term)[1, ]
@@ -220,6 +228,7 @@ quantile_metalog_linear_raster <- function(fit, q, bounds, boundedness) {
 #' @param fit Output of `fit_metalog_linear_raster()`.
 #' @param bounds,boundedness Same as `fit_metalog_linear_raster()`'s arguments for this `fit`.
 #' @param y_grid Probability grid to probe.
+#' @family raster-fusion
 #' @export
 check_metalog_feasibility_raster <- function(fit, bounds, boundedness, y_grid = seq(0.02, 0.98, by = 0.02)) {
   prev_probe <- quantile_metalog_linear_raster(fit, y_grid[1], bounds, boundedness)
@@ -248,6 +257,7 @@ check_metalog_feasibility_raster <- function(fit, bounds, boundedness, y_grid = 
 #' @param q Target quantile probability.
 #' @param bounds,boundedness Same as `fit_metalog_linear_raster()`'s arguments.
 #' @return list(value = blended quantile raster, used_fallback = infeasible_r verbatim)
+#' @family raster-fusion
 #' @export
 quantile_metalog_linear_with_fallback <- function(fit, infeasible_r, full_value_rasters, full_probs,
                                                    q, bounds, boundedness) {

@@ -563,6 +563,7 @@ rasterize_mukey_percentiles <- function(mukey_raster, percentile_by_mukey) {
 #' @return `list(values = <named list of percentile-value SpatRasters>, probs = probs)`, or `NULL`
 #'   if `property_id`'s simulated column isn't present in `draws`.
 #' @keywords internal
+#' @family raster-fusion
 percentiles_from_draws <- function(mukey_raster, draws, property_id,
                                     probs = c(0.05, 0.25, 0.5, 0.75, 0.95)) {
   sim_col <- property_to_sim_column(property_id)

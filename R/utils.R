@@ -19,6 +19,7 @@
 #' @param custom_exclusions Additional horizon patterns to exclude
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Logical vector indicating unsuitable horizons
+#' @family utilities
 #' @export
 is_unsuitable <- function(data,
                           hzname_col = "hzname",
@@ -162,6 +163,7 @@ is_unsuitable <- function(data,
 #' @param quality_thresholds Quality assessment thresholds
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Data quality assessment results
+#' @family utilities
 #' @export
 validate_data_quality <- function(data,
                                   required_columns = character(0),

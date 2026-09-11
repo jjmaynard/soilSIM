@@ -16,3 +16,19 @@ convert_moments_to_beta(mean, var)
 Used by the closed-form same-family fusion route's infeasible-cell
 fallback (re-express as Normal moments, fuse as Normal, convert back).
 }
+\seealso{
+Other bayesian-fusion: 
+\code{\link{convert_beta_to_moments}()},
+\code{\link{convert_gamma_to_moments}()},
+\code{\link{convert_lognormal_to_normal}()},
+\code{\link{convert_moments_to_gamma}()},
+\code{\link{convert_normal_to_lognormal}()},
+\code{\link{fuse_beta}()},
+\code{\link{fuse_bivariate_normal}()},
+\code{\link{fuse_distribution}()},
+\code{\link{fuse_gamma}()},
+\code{\link{fuse_normal_normal}()},
+\code{\link{fuse_property}()},
+\code{\link{update_prior}()}
+}
+\concept{bayesian-fusion}

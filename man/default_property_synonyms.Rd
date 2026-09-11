@@ -25,3 +25,13 @@ shares the same canonical synonym data as \code{get_default_property_mapping()}
 \code{.ssurgo_property_synonyms()}).
 }
 
+\seealso{
+Other utilities: 
+\code{\link{available_properties}()},
+\code{\link{default_config}()},
+\code{\link{default_diagnostics_config}()},
+\code{\link{is_unsuitable}()},
+\code{\link{predefined_properties}()},
+\code{\link{validate_data_quality}()}
+}
+\concept{utilities}

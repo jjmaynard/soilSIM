@@ -75,3 +75,19 @@ route to the closed-form \code{fuse_distribution()}. This removes the "which
 heuristic" ambiguity entirely, since the caller's input shape already
 determines which route applies.
 }
+\seealso{
+Other bayesian-fusion: 
+\code{\link{convert_beta_to_moments}()},
+\code{\link{convert_gamma_to_moments}()},
+\code{\link{convert_lognormal_to_normal}()},
+\code{\link{convert_moments_to_beta}()},
+\code{\link{convert_moments_to_gamma}()},
+\code{\link{convert_normal_to_lognormal}()},
+\code{\link{fuse_beta}()},
+\code{\link{fuse_bivariate_normal}()},
+\code{\link{fuse_distribution}()},
+\code{\link{fuse_gamma}()},
+\code{\link{fuse_normal_normal}()},
+\code{\link{update_prior}()}
+}
+\concept{bayesian-fusion}

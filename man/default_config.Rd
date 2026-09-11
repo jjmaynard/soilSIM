@@ -15,3 +15,13 @@ Default configuration
 \description{
 Returns comprehensive default configuration for the soil workflow.
 }
+\seealso{
+Other utilities: 
+\code{\link{available_properties}()},
+\code{\link{default_diagnostics_config}()},
+\code{\link{default_property_synonyms}()},
+\code{\link{is_unsuitable}()},
+\code{\link{predefined_properties}()},
+\code{\link{validate_data_quality}()}
+}
+\concept{utilities}

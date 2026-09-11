@@ -24,6 +24,7 @@ NULL
 #' @param p_lo_val,p50_val,p_hi_val Values at probabilities `p_lo`, 0.5, `p_hi`.
 #' @param p_lo,p_hi The low/high probabilities `p_lo_val`/`p_hi_val` represent.
 #' @return `list(mean=, sd=)`.
+#' @family distributions
 #' @export
 fit_normal_triplet <- function(p_lo_val, p50_val, p_hi_val, p_lo, p_hi) {
   list(
@@ -35,6 +36,7 @@ fit_normal_triplet <- function(p_lo_val, p50_val, p_hi_val, p_lo, p_hi) {
 #' @rdname fit_normal_triplet
 #' @param fit A fit from `fit_normal_triplet()`.
 #' @param q Vector of probabilities to evaluate the quantile function at.
+#' @family distributions
 #' @export
 quantile_normal <- function(fit, q) {
   fit$mean + fit$sd * qnorm(q)
@@ -65,6 +67,7 @@ fit_beta_mom <- function(mean, var) {
 #' @param eps Clamp distance from the exact 0/1 rescaled boundary (avoids
 #'   `-Inf` in the score equations when a percentile lands exactly on a bound).
 #' @return `list(shape1=, shape2=)`.
+#' @family distributions
 #' @export
 fit_beta_mle_newton <- function(values, bounds, n_iter = 15, eps = 1e-6) {
   scaled <- pmin(pmax((values - bounds[1]) / (bounds[2] - bounds[1]), eps), 1 - eps)
@@ -145,6 +148,7 @@ fit_beta_mle_newton_vec <- function(value_matrix, bounds, n_iter = 15, eps = 1e-
 #' Evaluate a fitted Beta quantile function on \eqn{[0,1]}
 #' @param fit A fit with `shape1`/`shape2` (e.g. from `fit_beta_mle_newton()`).
 #' @param q Vector of probabilities.
+#' @family distributions
 #' @export
 quantile_beta <- function(fit, q) {
   qbeta(q, fit$shape1, fit$shape2)
@@ -156,6 +160,7 @@ quantile_beta <- function(fit, q) {
 #'
 #' @param probs,values Matching, sorted percentile probabilities/values.
 #' @param q Vector of probabilities to evaluate at.
+#' @family distributions
 #' @export
 quantile_linear_cdf <- function(probs, values, q) {
   o <- order(probs)
@@ -165,6 +170,7 @@ quantile_linear_cdf <- function(probs, values, q) {
 #' Degenerate quantile function for a min/mode/max triangular fit
 #' @param fit `list(min=, mode=, max=)`.
 #' @param q Vector of probabilities.
+#' @family distributions
 #' @export
 quantile_triangular <- function(fit, q) {
   min_v <- fit$min; mode_v <- fit$mode; max_v <- fit$max
@@ -279,6 +285,7 @@ metalog_from_z <- function(z, bounds, boundedness) {
 #' @param boundedness One of `"u"` (unbounded), `"sl"` (semi-bounded below),
 #'   `"su"` (semi-bounded above), `"b"` (bounded).
 #' @return `list(a=, term=, bounds=, boundedness=)`.
+#' @family distributions
 #' @export
 fit_metalog_linear <- function(interior_values, interior_probs, bounds = NULL, boundedness = "u") {
   term <- length(interior_probs)
@@ -298,6 +305,7 @@ fit_metalog_linear <- function(interior_values, interior_probs, bounds = NULL, b
 #'
 #' @param fit Output of `fit_metalog_linear()`.
 #' @param q Vector of probabilities in (0,1).
+#' @family distributions
 #' @export
 quantile_metalog_linear <- function(fit, q) {
   Y_q <- metalog_basis_matrix(q, fit$term)
@@ -352,6 +360,7 @@ quantile_metalog_with_fallback <- function(fit, infeasible, full_probs, full_val
 #' @param skew_threshold Absolute skew-proxy threshold below which `"normal"`
 #'   is chosen over `"lognormal"`.
 #' @return `list(family=, skew_proxy=)`.
+#' @family distributions
 #' @export
 resolve_property_family <- function(l, r, h, bounds = NULL, skew_threshold = 0.15) {
   skew_proxy <- ((h - r) - (r - l)) / (h - l)
@@ -383,6 +392,7 @@ resolve_property_family <- function(l, r, h, bounds = NULL, skew_threshold = 0.1
 #'   is `NULL`, else `"b"`.
 #' @return `list(family=, fit=, valid=)`. `valid=FALSE` when any of
 #'   `l`/`r`/`h` is non-finite.
+#' @family distributions
 #' @export
 fit_percentile_triplet <- function(l, r, h, family,
                                     lh_probs = c(0.05, 0.95),
@@ -450,6 +460,7 @@ fit_percentile_triplet <- function(l, r, h, family,
 #' @param fit The `fit` element of `fit_percentile_triplet()`'s return value.
 #' @return Numeric vector, same length as `u`. `NA_real_` (not a silent wrong
 #'   value or error) when `fit` is `NULL`/invalid.
+#' @family distributions
 #' @export
 quantile_from_fit <- function(u, family, fit) {
   if (is.null(fit)) return(rep(NA_real_, length(u)))
@@ -555,6 +566,7 @@ validate_fit_parameters <- function(family, fit) {
 #' requirement.
 #' @param clay,sand,silt Numeric vectors, same units (e.g. percent), same length.
 #' @return A 2-column matrix (`z1`, `z2`).
+#' @family distributions
 #' @export
 ilr_forward <- function(clay, sand, silt) {
   cbind(z1 = sqrt(2 / 3) * log(clay / sqrt(sand * silt)), z2 = sqrt(1 / 2) * log(sand / silt))
@@ -569,6 +581,7 @@ ilr_forward <- function(clay, sand, silt) {
 #' @param z1,z2 Numeric vectors of ILR coordinates.
 #' @param total The composition's target sum (default 100).
 #' @return A 3-column matrix (`clay`, `sand`, `silt`) summing to `total`.
+#' @family distributions
 #' @export
 ilr_inverse <- function(z1, z2, total = 100) {
   clr_clay <- z1 * sqrt(2 / 3)
@@ -645,6 +658,7 @@ sample_ilr_posterior <- function(mu, Sigma, n = 1000, total = 100) {
 #' @param matrix A square numeric matrix.
 #' @param min_eigenvalue Eigenvalue floor.
 #' @return A positive-definite correlation matrix, same dimensions.
+#' @family distributions
 #' @export
 ensure_positive_definite_matrix <- function(matrix, min_eigenvalue = 1e-6) {
   if (!is.matrix(matrix) || nrow(matrix) != ncol(matrix)) {
@@ -676,6 +690,7 @@ ensure_positive_definite_matrix <- function(matrix, min_eigenvalue = 1e-6) {
 #' @param corr_matrix A candidate correlation matrix.
 #' @param properties Character vector the matrix's dimensions should match.
 #' @return `list(valid=, message=)`.
+#' @family distributions
 #' @export
 validate_correlation_matrix <- function(corr_matrix, properties) {
   validation <- list(valid = TRUE, message = "")
@@ -1236,6 +1251,7 @@ generate_inverse_cdf_distribution <- function(quantile_df,
 #' @param methods Character vector of methods to run (see `simulate_from_percentiles`).
 #' @return A list with `samples` (named list of numeric vectors, one per
 #'   method) and `summary` (data frame of summary statistics, one row per method).
+#' @family distributions
 #' @export
 compare_percentile_methods <- function(quantile_df,
                                         methods = c("linear_cdf", "spline", "kde"),

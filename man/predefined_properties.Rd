@@ -15,3 +15,13 @@ Vector of property names
 \description{
 Returns property lists for common soil data sources
 }
+\seealso{
+Other utilities: 
+\code{\link{available_properties}()},
+\code{\link{default_config}()},
+\code{\link{default_diagnostics_config}()},
+\code{\link{default_property_synonyms}()},
+\code{\link{is_unsuitable}()},
+\code{\link{validate_data_quality}()}
+}
+\concept{utilities}

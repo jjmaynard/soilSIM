@@ -24,3 +24,39 @@ quantile_normal(fit, q)
 \description{
 Fit a Normal distribution from three percentiles (exact closed form)
 }
+\seealso{
+Other distributions: 
+\code{\link{classify_genhz}()},
+\code{\link{compare_percentile_methods}()},
+\code{\link{ensure_positive_definite_matrix}()},
+\code{\link{fit_beta_mle_newton}()},
+\code{\link{fit_metalog_linear}()},
+\code{\link{fit_percentile_triplet}()},
+\code{\link{ilr_forward}()},
+\code{\link{ilr_inverse}()},
+\code{\link{quantile_beta}()},
+\code{\link{quantile_from_fit}()},
+\code{\link{quantile_linear_cdf}()},
+\code{\link{quantile_metalog_linear}()},
+\code{\link{quantile_triangular}()},
+\code{\link{resolve_property_family}()},
+\code{\link{validate_correlation_matrix}()}
+
+Other distributions: 
+\code{\link{classify_genhz}()},
+\code{\link{compare_percentile_methods}()},
+\code{\link{ensure_positive_definite_matrix}()},
+\code{\link{fit_beta_mle_newton}()},
+\code{\link{fit_metalog_linear}()},
+\code{\link{fit_percentile_triplet}()},
+\code{\link{ilr_forward}()},
+\code{\link{ilr_inverse}()},
+\code{\link{quantile_beta}()},
+\code{\link{quantile_from_fit}()},
+\code{\link{quantile_linear_cdf}()},
+\code{\link{quantile_metalog_linear}()},
+\code{\link{quantile_triangular}()},
+\code{\link{resolve_property_family}()},
+\code{\link{validate_correlation_matrix}()}
+}
+\concept{distributions}

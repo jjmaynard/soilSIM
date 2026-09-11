@@ -603,6 +603,7 @@ validate_coordinate_bounds <- function(geom, bounds_check, context = "general") 
 #' runtime, so the two default sets should be kept in sync by hand if either
 #' changes.
 #'
+#' @family utilities
 #' @export
 default_diagnostics_config <- function(context, crs) {
 

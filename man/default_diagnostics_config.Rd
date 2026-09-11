@@ -28,3 +28,13 @@ runtime, so the two default sets should be kept in sync by hand if either
 changes.
 }
 
+\seealso{
+Other utilities: 
+\code{\link{available_properties}()},
+\code{\link{default_config}()},
+\code{\link{default_property_synonyms}()},
+\code{\link{is_unsuitable}()},
+\code{\link{predefined_properties}()},
+\code{\link{validate_data_quality}()}
+}
+\concept{utilities}

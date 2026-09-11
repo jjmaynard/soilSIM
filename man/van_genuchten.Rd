@@ -23,3 +23,4 @@ matric potential.
 \examples{
 van_genuchten(h = -100, alpha = 0.02, n = 1.3, theta_r = 0.05, theta_s = 0.45)
 }
+\concept{aws}

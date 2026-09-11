@@ -29,6 +29,7 @@ NULL
 #'
 #' @return Data frame with processed and infilled properties
 #'
+#' @family ssurgo-adapter
 #' @export
 process_soil_properties_comprehensive <- function(df,
                                                   properties = NULL,
@@ -319,6 +320,7 @@ infill_soil_property <- function(df,
 #'
 #' @return `list(data = <cleaned df>)`, plus `report` when `generate_report = TRUE`.
 #'
+#' @family ssurgo-adapter
 #' @export
 clean_property_data <- function(df,
                                 property_name,
@@ -459,6 +461,7 @@ clean_property_data <- function(df,
 #'
 #' @return List with property configuration parameters
 #'
+#' @family ssurgo-adapter
 #' @export
 default_property_config <- function(property_name) {
   new_soilSIM_property_config(.default_property_config_raw(property_name))
@@ -578,6 +581,7 @@ default_property_config <- function(property_name) {
 #'
 #' @return Property configuration list
 #'
+#' @family ssurgo-adapter
 #' @export
 create_custom_property_config <- function(property_name,
                                           property_type = "generic",
@@ -750,6 +754,7 @@ apply_property_constraints <- function(values, property_config) {
 #' @return A validation configuration list with `range_rules`,
 #'   `relationship_rules`, `conditional_rules`, and `custom_rules` slots
 #'
+#' @family ssurgo-adapter
 #' @export
 create_validation_config <- function() {
   list(
@@ -773,6 +778,7 @@ create_validation_config <- function() {
 #'
 #' @return Updated validation configuration
 #'
+#' @family ssurgo-adapter
 #' @export
 add_range_rule <- function(config, property, min_val, max_val, severity = "error") {
   config$range_rules[[length(config$range_rules) + 1]] <- list(
@@ -799,6 +805,7 @@ add_range_rule <- function(config, property, min_val, max_val, severity = "error
 #'
 #' @return Updated validation configuration
 #'
+#' @family ssurgo-adapter
 #' @export
 add_relationship_rule <- function(config, properties, relationship_type,
                                   expected_sum = NULL, tolerance = 0.1) {
@@ -823,6 +830,7 @@ add_relationship_rule <- function(config, properties, relationship_type,
 #' @return List with `violations` (logical vector, one per value) and
 #'   `rules_applied` (count of range rules evaluated)
 #'
+#' @family ssurgo-adapter
 #' @export
 apply_validation_rules <- function(values, property_name, validation_config) {
 
@@ -853,6 +861,7 @@ apply_validation_rules <- function(values, property_name, validation_config) {
 #' @return List with `n_unsuitable` (count) and `horizon_types` (unique
 #'   excluded horizon names)
 #'
+#' @family ssurgo-adapter
 #' @export
 summarize_unsuitable_horizons <- function(df, hzname_col = "hzname") {
 
@@ -983,6 +992,7 @@ infill_property_range_values <- function(df, property_name, property_config) {
 #'
 #' @return List of learned ranges by context
 #'
+#' @family ssurgo-adapter
 #' @export
 learn_property_ranges <- function(df, property_name, property_config) {
 
@@ -1093,6 +1103,7 @@ learn_property_ranges <- function(df, property_name, property_config) {
 #'
 #' @return List of contextual ranges
 #'
+#' @family ssurgo-adapter
 #' @export
 property_contextual_ranges <- function(df, property_name, property_config) {
 
@@ -1168,6 +1179,7 @@ property_contextual_ranges <- function(df, property_name, property_config) {
 #'
 #' @return Data frame with infilled property data
 #'
+#' @family ssurgo-adapter
 #' @export
 infill_missing_property_data <- function(group, property_name, problematic_mask, property_config) {
 
@@ -1470,6 +1482,7 @@ infill_rfv_property_integrated <- function(df, max_depth = DEFAULT_MAX_DEPTH_CM,
 #'
 #' @return Data frame with estimated water retention values
 #'
+#' @family ssurgo-adapter
 #' @export
 infill_water_retention_saxton_rawls_integrated <- function(df,
                                                            max_depth = DEFAULT_MAX_DEPTH_CM,
@@ -2412,6 +2425,7 @@ get_contextual_spread <- function(row, property_name, context_ranges, property_c
 #' @param row A one-row data frame or list with `claytotal_r`/`sandtotal_r`/
 #'   `silttotal_r`/`rfv_r` fields.
 #' @return A one-row data frame with `rfv_l`/`rfv_r`/`rfv_h` set.
+#' @family ssurgo-adapter
 #' @export
 impute_rfv_values <- function(row) {
   if (is.data.frame(row)) row <- as.list(row[1, ])

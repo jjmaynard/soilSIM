@@ -98,6 +98,7 @@ NULL
 #'   (e.g. `"Bt2"`, `"2Bw"`, `"Cr"`, `"R"`). `NA` is preserved as `NA`.
 #' @return Character vector, same length as `hzname`, of `O`/`A`/`E`/`B`/`C`/`Cr`/`R`
 #'   or `NA_character_` for unrecognized text.
+#' @family distributions
 #' @export
 classify_genhz <- function(hzname) {
   x <- toupper(trimws(as.character(hzname)))

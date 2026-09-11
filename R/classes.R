@@ -150,12 +150,35 @@ new_soilSIM_diagnostics <- function(x) .new_soilSIM(x, "soilSIM_diagnostics")
 #' @export
 print.soilSIM_diagnostics <- function(x, ...) {
   cat("<soilSIM_diagnostics>\n")
-  qs <- x$overall_quality_score %||% x$overall_assessment$quality_score
-  status <- x$overall_status %||% x$status %||% x$overall_assessment$status %||%
-    (if (!is.null(qs)) .fmt_num(qs) else NULL)
-  if (!is.null(status)) cat("  overall:", status, "\n")
+  oa <- x$overall_assessment %||% list()
+  status <- x$overall_status %||% x$status %||% oa$workflow_status
+  qs <- x$overall_quality_score %||% oa$quality_score
+  if (!is.null(status)) cat("  status :", status, "\n")
+  if (!is.null(qs)) cat("  quality score:", .fmt_num(qs),
+                       if (!is.null(oa$quality_grade)) paste0(" (", oa$quality_grade, ")") else "", "\n")
   cat("  sections:", paste(names(x), collapse = ", "), "\n")
   invisible(x)
+}
+
+#' @export
+summary.soilSIM_diagnostics <- function(object, ...) {
+  print(object, ...)
+  oa <- object$overall_assessment %||% list()
+  cs <- oa$component_scores
+  if (!is.null(cs) && length(cs)) {
+    cat("  component scores:\n")
+    for (nm in names(cs)) cat("   -", nm, ":", .fmt_num(cs[[nm]]), "\n")
+  }
+  ci <- oa$critical_issues
+  if (!is.null(ci) && length(ci)) {
+    cat("  critical issues:", length(ci), "\n")
+  }
+  rec <- object$recommendations
+  if (!is.null(rec) && length(rec)) {
+    cat("  recommendations:\n")
+    for (r in utils::head(rec, 10)) cat("   -", r, "\n")
+  }
+  invisible(object)
 }
 
 # --- soilSIM_property_config ---------------------------------------

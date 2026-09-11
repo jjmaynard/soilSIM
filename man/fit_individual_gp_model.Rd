@@ -36,3 +36,18 @@ List containing GP model and diagnostics
 \description{
 Fit Individual GP Model
 }
+\seealso{
+Other gp-modeling: 
+\code{\link{adjust_simulation_depthwise}()},
+\code{\link{apply_gp_depth_trends}()},
+\code{\link{apply_local_gp_adjustments}()},
+\code{\link{apply_nrcs_trend_adjustments}()},
+\code{\link{convert_to_property_matrices}()},
+\code{\link{fit_depth_gp_models}()},
+\code{\link{fit_local_gp_model_single}()},
+\code{\link{predict_gp_depth_trends}()},
+\code{\link{prepare_nrcs_training_data}()},
+\code{\link{select_optimal_grouping}()},
+\code{\link{validate_gp_models}()}
+}
+\concept{gp-modeling}

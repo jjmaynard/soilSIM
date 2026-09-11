@@ -40,3 +40,18 @@ Adjusted simulation data
 Fits per-component Gaussian-process depth models for the requested properties and
 applies their predicted trends to the component's simulation data.
 }
+\seealso{
+Other gp-modeling: 
+\code{\link{adjust_simulation_depthwise}()},
+\code{\link{apply_gp_depth_trends}()},
+\code{\link{apply_nrcs_trend_adjustments}()},
+\code{\link{convert_to_property_matrices}()},
+\code{\link{fit_depth_gp_models}()},
+\code{\link{fit_individual_gp_model}()},
+\code{\link{fit_local_gp_model_single}()},
+\code{\link{predict_gp_depth_trends}()},
+\code{\link{prepare_nrcs_training_data}()},
+\code{\link{select_optimal_grouping}()},
+\code{\link{validate_gp_models}()}
+}
+\concept{gp-modeling}

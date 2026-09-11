@@ -29,6 +29,7 @@ NULL
 #'     \item quality_report: Comprehensive quality assessment
 #'   }
 #'
+#' @family ssurgo-adapter
 #' @export
 process_ssurgo_data <- function(raw_data,
                                 processing_options = list(),
@@ -172,6 +173,7 @@ process_ssurgo_data <- function(raw_data,
 #'
 #' @return List with processed horizon data and processing statistics
 #'
+#' @family ssurgo-adapter
 #' @export
 process_ssurgo_horizons <- function(raw_data,
                                                     detect_unsuitable = TRUE,
@@ -295,6 +297,7 @@ process_ssurgo_horizons <- function(raw_data,
 #'
 #' @return List with processed component data and processing statistics
 #'
+#' @family ssurgo-adapter
 #' @export
 process_ssurgo_components <- function(raw_data,
                                                       standardize_names = TRUE,

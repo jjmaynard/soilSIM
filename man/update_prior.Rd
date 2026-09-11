@@ -93,3 +93,19 @@ harmless, independently-useful safety net for genuine extreme-outlier inputs, no
 this finding (there was nothing here to fix).
 }
 
+\seealso{
+Other bayesian-fusion: 
+\code{\link{convert_beta_to_moments}()},
+\code{\link{convert_gamma_to_moments}()},
+\code{\link{convert_lognormal_to_normal}()},
+\code{\link{convert_moments_to_beta}()},
+\code{\link{convert_moments_to_gamma}()},
+\code{\link{convert_normal_to_lognormal}()},
+\code{\link{fuse_beta}()},
+\code{\link{fuse_bivariate_normal}()},
+\code{\link{fuse_distribution}()},
+\code{\link{fuse_gamma}()},
+\code{\link{fuse_normal_normal}()},
+\code{\link{fuse_property}()}
+}
+\concept{bayesian-fusion}

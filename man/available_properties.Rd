@@ -15,3 +15,13 @@ Vector of available property names
 \description{
 Simple property lookup that handles multiple source types
 }
+\seealso{
+Other utilities: 
+\code{\link{default_config}()},
+\code{\link{default_diagnostics_config}()},
+\code{\link{default_property_synonyms}()},
+\code{\link{is_unsuitable}()},
+\code{\link{predefined_properties}()},
+\code{\link{validate_data_quality}()}
+}
+\concept{utilities}

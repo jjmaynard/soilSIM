@@ -20,6 +20,7 @@ NULL
 #' @param validation_config Validation configuration from the shared utilities
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Processed data frame ready for GP model building
+#' @family gp-modeling
 #' @export
 prepare_nrcs_training_data <- function(nrcs_combined_data,
                                        grouping_strategy = "auto",
@@ -153,6 +154,7 @@ prepare_nrcs_training_data <- function(nrcs_combined_data,
 #' @param target_groups Minimum number of adequate groups desired
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Selected grouping strategy name
+#' @family gp-modeling
 #' @export
 select_optimal_grouping <- function(data, min_profiles, min_obs, target_groups,
                                     verbose = getOption("ssurgo.verbose", FALSE)) {
@@ -376,6 +378,7 @@ validate_training_groups <- function(processed_data,
 #' @param optimize_hyperparameters Whether to optimize GP hyperparameters (default = TRUE)
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return List of GP models organized by property and group
+#' @family gp-modeling
 #' @export
 fit_depth_gp_models <- function(processed_nrcs_data,
                                        properties = c("clay_pct", "sand_pct", "pH", "organic_matter"),
@@ -499,6 +502,7 @@ fit_depth_gp_models <- function(processed_nrcs_data,
 #'   refit), or by the direct `GP_fit()` call when `optimize_hyperparameters = FALSE`.
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return List containing GP model and diagnostics
+#' @family gp-modeling
 #' @export
 fit_individual_gp_model <- function(data, property, optimize_hyperparameters = TRUE,
                                     gp_control = c(20, 10, 2),
@@ -609,6 +613,7 @@ fit_individual_gp_model <- function(data, property, optimize_hyperparameters = T
 #'
 #' @return A named list of adjusted matrices with preserved correlations
 #'
+#' @family gp-modeling
 #' @export
 adjust_simulation_depthwise <- function(simulated_list, gp_models, depths,
                                              primary_property = NULL,
@@ -1509,6 +1514,7 @@ match_soils_to_gp_models <- function(simulated_cokeys,
 #' @param new_depths Vector of depths for prediction
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Vector of predictions
+#' @family gp-modeling
 #' @export
 predict_gp_depth_trends <- function(gp_model_info, new_depths,
                                     verbose = getOption("ssurgo.verbose", FALSE)) {
@@ -1552,6 +1558,7 @@ predict_gp_depth_trends <- function(gp_model_info, new_depths,
 #' @param validation_depths Depths for prediction testing
 #' @param verbose Logical; if \code{TRUE}, temporarily raises the package's log level so \code{INFO}-level progress messages print for the duration of this call (default \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Validation results
+#' @family gp-modeling
 #' @export
 validate_gp_models <- function(gp_models, nrcs_data, validation_depths = seq(0, 200, by = 10),
                                verbose = getOption("ssurgo.verbose", FALSE)) {
@@ -2590,6 +2597,7 @@ apply_depth_gp_to_simulation <- function(simulation_results,
 #'   \code{extract_depth_length_scale()}) instead of falling back to a full-depth-range default.
 #'   Ignored entirely under \code{"gp_quantile_retrofit"}.
 #' @return Adjusted simulation data
+#' @family gp-modeling
 #' @export
 apply_gp_depth_trends <- function(cokey_data,
                                   gp_predictions,
@@ -3151,6 +3159,7 @@ preserve_correlation_structure_joint <- function(property_matrices,
 #'   `"gp_quantile_retrofit"`) reaches the NRCS/regional GP path as well as the local-GP path.
 #'   `NULL` (default) resolves to `"joint_copula"`, matching `default_monte_carlo_config()`.
 #' @return Adjusted simulation data
+#' @family gp-modeling
 #' @export
 apply_nrcs_trend_adjustments <- function(cokey_data,
                                          gp_models,
@@ -3354,6 +3363,7 @@ extract_nrcs_depth_trends <- function(gp_models, properties, depths = seq(0, 200
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Adjusted simulation data
+#' @family gp-modeling
 #' @export
 apply_local_gp_adjustments <- function(cokey_data,
                                        properties,
@@ -3545,6 +3555,7 @@ apply_local_depth_trends <- function(cokey_data,
 #'   \code{INFO}-level progress messages print for the duration of this call (default
 #'   \code{FALSE} - quiet). See \code{set_verbose_logging()}.
 #' @return Named list of property matrices
+#' @family gp-modeling
 #' @export
 convert_to_property_matrices <- function(simulation_data,
                                          properties,
@@ -4170,6 +4181,7 @@ aggregate_property_by_depth <- function(cokey_data, prop) {
 #'   Pass `c(200, 80, 2)` (or larger) to restore `GP_fit()`'s own default search effort if a
 #'   future property/dataset needs a more thorough search.
 #' @return A list with the fitted GP model, depth scaling info, training data, and `prop`.
+#' @family gp-modeling
 fit_local_gp_model_single <- function(agg_data, prop, gp_control = c(20, 10, 2)) {
   depths <- agg_data$hzdept_r
   values <- agg_data$mean_val

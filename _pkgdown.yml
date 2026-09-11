@@ -72,148 +72,66 @@ reference:
   desc: >
     The SSURGO adapter's tabular acquisition, cleaning, and infilling pipeline.
   contents:
-  - process_ssurgo_data
-  - process_ssurgo_horizons
-  - process_ssurgo_components
-  - process_soil_properties_comprehensive
-  - clean_property_data
-  - default_property_config
-  - create_custom_property_config
-  - create_validation_config
-  - add_range_rule
-  - add_relationship_rule
-  - apply_validation_rules
-  - summarize_unsuitable_horizons
-  - learn_property_ranges
-  - property_contextual_ranges
-  - infill_missing_property_data
-  - infill_water_retention_saxton_rawls_integrated
-  - impute_rfv_values
+  - has_concept("ssurgo-adapter")
 
 - title: Statistics & Diagnostics
   desc: Descriptive statistics, correlation analysis, and end-to-end workflow QA.
   contents:
-  - diagnose_workflow
-  - analyze_soil_statistics
-  - run_comprehensive_correlation_analysis
-  - compute_stratified_correlations
-  - analyze_property_distributions
-  - fit_property_distributions
-  - detect_comprehensive_outliers
-  - validate_statistical_results
-  - generate_statistical_quality_report
-  - default_statistics_config
-  - validate_statistical_config
-  - identify_numeric_soil_properties
-  - compute_property_statistics
-  - distributions_for_properties
-  - analyze_texture_correlations
+  - has_concept("statistics")
 
 - title: Distribution Fitting & Correlations
   desc: Percentile-triplet and arbitrary-percentile fitting, ILR transforms, correlation matrices (core).
   contents:
-  - fit_normal_triplet
-  - quantile_normal
-  - fit_beta_mle_newton
-  - quantile_beta
-  - quantile_linear_cdf
-  - quantile_triangular
-  - fit_metalog_linear
-  - quantile_metalog_linear
-  - resolve_property_family
-  - fit_percentile_triplet
-  - quantile_from_fit
-  - ilr_forward
-  - ilr_inverse
-  - ensure_positive_definite_matrix
-  - validate_correlation_matrix
-  - compare_percentile_methods
-  - classify_genhz
+  - has_concept("distributions")
 
 - title: Monte Carlo Simulation
   desc: Correlated Monte Carlo simulation engine (core).
   contents:
-  - simulate_monte_carlo
-  - default_monte_carlo_config
+  - has_concept("monte-carlo")
 
 - title: GP Depth Modeling & Multivariate Adjustment
   desc: Gaussian-process depth-trend modeling and Monte Carlo/GP integration (core).
   contents:
-  - prepare_nrcs_training_data
-  - select_optimal_grouping
-  - fit_depth_gp_models
-  - fit_individual_gp_model
-  - adjust_simulation_depthwise
-  - predict_gp_depth_trends
-  - validate_gp_models
-  - apply_gp_depth_trends
-  - apply_nrcs_trend_adjustments
-  - apply_local_gp_adjustments
-  - fit_local_gp_model_single
-  - convert_to_property_matrices
+  - has_concept("gp-modeling")
 
 - title: Profile, Component & Depth Simulation
   desc: Component composition and horizon depth/thickness simulation.
   contents:
-  - simulate_component_composition
+  - has_concept("profile-simulation")
 
 - title: AWS / Van Genuchten Modeling
   desc: Available water storage via ROSETTA pedotransfer parameters.
   contents:
-  - van_genuchten
+  - has_concept("aws")
 
 - title: Bayesian Updating
   desc: Scalar Bayesian updating/fusion of a prior and observed data (core).
   contents:
-  - fuse_normal_normal
-  - convert_normal_to_lognormal
-  - convert_lognormal_to_normal
-  - fuse_beta
-  - fuse_gamma
-  - convert_moments_to_gamma
-  - convert_moments_to_beta
-  - convert_beta_to_moments
-  - convert_gamma_to_moments
-  - fuse_distribution
-  - update_prior
-  - fuse_bivariate_normal
-  - fuse_property
+  - has_concept("bayesian-fusion")
 
 - title: Multi-Source Raster Fusion
   desc: Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
   contents:
-  - fit_normal_raster
-  - quantile_normal_raster
-  - fit_beta_mom_raster
-  - quantile_beta_mom_raster
-  - fit_beta_mle_newton_raster
-  - quantile_beta_mle_newton_raster
-  - fit_metalog_linear_raster
-  - quantile_metalog_linear_raster
-  - check_metalog_feasibility_raster
-  - quantile_metalog_linear_with_fallback
-  - fit_gamma_mom_raster
-  - align_percentile_probs
-  - fuse_adaptive
-  - resolve_property_dist
-  - build_cache_key
-  - cache_get
-  - cache_set
-  - unwrap_nested_rasters
-  - percentiles_from_draws
-  - remarginalize_ensemble_to_posterior
-  - remarginalize_awc
+  - has_concept("raster-fusion")
+
+- title: S3 Result Classes
+  desc: >
+    Constructors for the classed objects soilSIM's engines return - print()/summary() methods,
+    `$`-access unchanged.
+  contents:
+  - new_soilSIM_simulation
+  - new_soilSIM_statistics
+  - new_soilSIM_gp_models
+  - new_soilSIM_fusion
+  - new_soilSIM_diagnostics
+  - new_soilSIM_property_config
+  - new_percentile_rasters
 
 - title: Utilities
   desc: Shared validation, logging, configuration, and I/O helpers.
   contents:
-  - is_unsuitable
-  - validate_data_quality
-  - default_config
-  - available_properties
-  - predefined_properties
-  - default_property_synonyms
-  - default_diagnostics_config
+  - has_concept("utilities")
+
 
 - title: Internal Implementation Details
   desc: >

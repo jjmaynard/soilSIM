@@ -33,6 +33,7 @@ raster_cache_dir <- function() {
 #' @param kind A short string distinguishing what's cached for this key (e.g. `"ssurgo"`,
 #'   `"solus"`, `"texture_group"`, `"posterior"`).
 #' @return A character string, safe for use as a filename.
+#' @family raster-fusion
 #' @export
 build_cache_key <- function(aoi_vect, id, top_depth, bottom_depth, kind) {
   aoi_wkt <- terra::geom(aoi_vect, wkt = TRUE)[1]
@@ -82,6 +83,7 @@ ssurgo_tabular_cache_key <- function(aoi_vect) {
 #' @param key A cache key from `build_cache_key()`.
 #' @param ttl_seconds Maximum cache age in seconds before a hit is treated as stale.
 #' @return The cached value, or `NULL` on a cache miss/stale entry/read failure.
+#' @family raster-fusion
 #' @export
 cache_get <- function(key, ttl_seconds = CACHE_TTL_SECONDS) {
   cache_file <- file.path(raster_cache_dir(), paste0(key, ".rds"))
@@ -114,6 +116,7 @@ cache_get <- function(key, ttl_seconds = CACHE_TTL_SECONDS) {
 #' raster values must `terra::wrap()` them first and `terra::unwrap()` on read
 #' (`cache_get()`/`cache_set()` do not do this automatically, since not every cached value is a
 #' raster - e.g. Monte Carlo draw data frames are not).
+#' @family raster-fusion
 #' @export
 cache_set <- function(key, kind, value) {
   cache_dir <- raster_cache_dir()
@@ -213,6 +216,7 @@ wrap_nested_rasters <- function(x) {
   }
 }
 #' @rdname wrap_nested_rasters
+#' @family raster-fusion
 #' @export
 unwrap_nested_rasters <- function(x) {
   if (inherits(x, "PackedSpatRaster")) {

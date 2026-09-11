@@ -45,6 +45,7 @@ NULL
 #'   posterior `sigma <= min(prior_sigma, lik_sigma)`; posterior `mu` is
 #'   bounded between `prior_mu` and `lik_mu`; symmetric under swapping
 #'   `(prior_mu, prior_sigma)` <-> `(lik_mu, lik_sigma)`.
+#' @family bayesian-fusion
 #' @export
 fuse_normal_normal <- function(prior_mu, prior_sigma, lik_mu, lik_sigma) {
   prior_prec <- 1 / (prior_sigma^2)
@@ -64,6 +65,7 @@ fuse_normal_normal <- function(prior_mu, prior_sigma, lik_mu, lik_sigma) {
 #'
 #' @param mu,sigma Raw-space mean/sd.
 #' @return `list(mu = log-space mu, sigma = log-space sigma)`.
+#' @family bayesian-fusion
 #' @export
 convert_normal_to_lognormal <- function(mu, sigma) {
   sigma_log <- sqrt(log(1 + (sigma / mu)^2))
@@ -77,6 +79,7 @@ convert_normal_to_lognormal <- function(mu, sigma) {
 #' Lognormal's mean/sd.
 #' @param mu_log,sigma_log Log-space mean/sd.
 #' @return `list(mu = raw-space mean, sigma = raw-space sd)`.
+#' @family bayesian-fusion
 #' @export
 convert_lognormal_to_normal <- function(mu_log, sigma_log) {
   mu <- exp(mu_log + sigma_log^2 / 2)
@@ -96,6 +99,7 @@ convert_lognormal_to_normal <- function(mu_log, sigma_log) {
 #'
 #' @param prior_alpha,prior_beta,lik_alpha,lik_beta Numeric scalars or vectors.
 #' @return `list(alpha=, beta=, feasible=)`.
+#' @family bayesian-fusion
 #' @export
 fuse_beta <- function(prior_alpha, prior_beta, lik_alpha, lik_beta) {
   alpha <- prior_alpha + lik_alpha - 1
@@ -111,6 +115,7 @@ fuse_beta <- function(prior_alpha, prior_beta, lik_alpha, lik_beta) {
 #'
 #' @param prior_shape,prior_rate,lik_shape,lik_rate Numeric scalars or vectors.
 #' @return `list(shape=, rate=, feasible=)`.
+#' @family bayesian-fusion
 #' @export
 fuse_gamma <- function(prior_shape, prior_rate, lik_shape, lik_rate) {
   shape <- prior_shape + lik_shape - 1
@@ -125,6 +130,7 @@ fuse_gamma <- function(prior_shape, prior_rate, lik_shape, lik_rate) {
 #' fallback (re-express as Normal moments, fuse as Normal, convert back).
 #' @param mean,var Mean/variance to convert.
 #' @return `list(shape=, rate=)`.
+#' @family bayesian-fusion
 #' @export
 convert_moments_to_gamma <- function(mean, var) {
   list(shape = mean^2 / var, rate = mean / var)
@@ -136,6 +142,7 @@ convert_moments_to_gamma <- function(mean, var) {
 #' fallback (re-express as Normal moments, fuse as Normal, convert back).
 #' @param mean,var Mean/variance to convert.
 #' @return `list(alpha=, beta=)`.
+#' @family bayesian-fusion
 #' @export
 convert_moments_to_beta <- function(mean, var) {
   common <- mean * (1 - mean) / var - 1
@@ -149,6 +156,7 @@ convert_moments_to_beta <- function(mean, var) {
 #' back to `fuse_normal_normal()`.
 #' @param alpha,beta Beta shape parameters.
 #' @return `list(mean=, var=)`.
+#' @family bayesian-fusion
 #' @export
 convert_beta_to_moments <- function(alpha, beta) {
   list(mean = alpha / (alpha + beta), var = (alpha * beta) / ((alpha + beta)^2 * (alpha + beta + 1)))
@@ -161,6 +169,7 @@ convert_beta_to_moments <- function(alpha, beta) {
 #' back to `fuse_normal_normal()`.
 #' @param shape,rate Gamma shape/rate parameters.
 #' @return `list(mean=, var=)`.
+#' @family bayesian-fusion
 #' @export
 convert_gamma_to_moments <- function(shape, rate) {
   list(mean = shape / rate, var = shape / rate^2)
@@ -175,6 +184,7 @@ convert_gamma_to_moments <- function(shape, rate) {
 #'   already be fit in this same family - there is no closed form for fusing
 #'   mismatched families; use `update_prior()` for that.
 #' @return The matching `fuse_*()` function's return value.
+#' @family bayesian-fusion
 #' @export
 fuse_distribution <- function(prior_params, lik_params, family = c("normal", "beta", "gamma")) {
   family <- match.arg(family)
@@ -255,6 +265,7 @@ fuse_distribution <- function(prior_params, lik_params, family = c("normal", "be
 #' that task's write-up for the full investigation; `winsorize_probs` remains available below as a
 #' harmless, independently-useful safety net for genuine extreme-outlier inputs, not as a fix for
 #' this finding (there was nothing here to fix).
+#' @family bayesian-fusion
 #' @export
 update_prior <- function(prior_distribution, likelihood_distribution, grid_range = NULL,
                              grid_resolution = 0.01, n = 1000, winsorize_probs = NULL,
@@ -327,6 +338,7 @@ update_prior <- function(prior_distribution, likelihood_distribution, grid_range
 #' @param mu1,mu2 Length-2 mean vectors.
 #' @param Sigma1,Sigma2 2x2 covariance matrices.
 #' @return `list(mu = fused mean vector, Sigma = fused covariance matrix)`.
+#' @family bayesian-fusion
 #' @export
 fuse_bivariate_normal <- function(mu1, Sigma1, mu2, Sigma2) {
   P1 <- solve(Sigma1)
@@ -416,6 +428,7 @@ fuse_texture_group_from_triplets <- function(prior_triplets, lik_triplets, z_pri
 #'   These are NOT the same shape - documented deliberately rather than
 #'   forced into a fake-uniform contract, since the caller already knows
 #'   which shape it's passing in and therefore which shape it gets back.
+#' @family bayesian-fusion
 #' @export
 fuse_property <- function(prior, likelihood, ...) UseMethod("fuse_property")
 
@@ -527,6 +540,7 @@ NULL
 #' genuinely raster-specific part (combining a *list* of rasters via `Reduce()`).
 #' @param value_rasters List of percentile-value SpatRasters.
 #' @return `list(shape = SpatRaster, rate = SpatRaster)`.
+#' @family raster-fusion
 #' @export
 fit_gamma_mom_raster <- function(value_rasters) {
   k <- length(value_rasters)
@@ -573,6 +587,7 @@ percentile_interior <- function(probs) {
 #' @param prior_value_rasters,lik_value_rasters Lists of percentile-value SpatRasters.
 #' @param prior_probs,lik_probs Matching probability vectors.
 #' @return `list(prior_value_rasters=, lik_value_rasters=, probs=)`.
+#' @family raster-fusion
 #' @export
 align_percentile_probs <- function(prior_value_rasters, prior_probs, lik_value_rasters, lik_probs) {
   if (identical(prior_probs, lik_probs)) {
@@ -1198,6 +1213,7 @@ fuse_general_kde <- function(prior_value_rasters, lik_value_rasters, percentile_
 #'     0 (per-cell fallback). `NULL` for "normal" and for the general route.
 #'   - `n_fallback_cells`: count of cells that used the fallback.
 #'   - `diagnostics`: `list(ncell=, threshold_cells=, family=, elapsed_sec=)`.
+#' @family raster-fusion
 #' @export
 fuse_adaptive <- function(prior_value_rasters, lik_value_rasters, percentile_probs,
                            family = c("normal", "beta", "gamma"), bounds = NULL,
@@ -1443,6 +1459,7 @@ fuse_metalog_adapter <- function(prior_value_rasters, prior_probs, lik_value_ras
 #' @param aggregate_fun Function to aggregate the AOI-wide skew proxy (default `stats::median`).
 #' @return `list(dist=, dist_source= one of "config"/"auto", skew_proxy=
 #'   NA_real_ unless dist_source=="auto")`.
+#' @family raster-fusion
 #' @export
 resolve_property_dist <- function(property_config, prior_value_rasters, prior_probs, aggregate_fun = stats::median) {
   if (!identical(property_config$dist, "auto")) {
@@ -2828,6 +2845,7 @@ saxton_rawls_raster <- function(sand, clay, silt, db, rfv, om) {
 #'   `summarize`, else `list(ensemble = [[property]][[window]] = <n_kept-layer SpatRaster>)`. Plus
 #'   `properties`, `window_names`, `n_out`, `n_kept`.
 #' @seealso `extract_mukey_joint_ensemble()`, `zonal_distribution_from_posterior()`, `remarginalize_awc()`
+#' @family raster-fusion
 #' @export
 remarginalize_ensemble_to_posterior <- function(mukey_ensemble, posterior_by_property_window,
                                                  n_out = 250, summarize = TRUE,
@@ -2973,6 +2991,7 @@ remarginalize_ensemble_to_posterior <- function(mukey_ensemble, posterior_by_pro
 #'   AWC clamped at 0.
 #' @seealso `remarginalize_ensemble_to_posterior()`, `saxton_rawls_raster()`, `compute_aws()`,
 #'   `fetch_solus_restriction_depth()`
+#' @family raster-fusion
 #' @export
 remarginalize_awc <- function(mukey_ensemble, posterior_by_property_window,
                                method = c("saxton_rawls", "direct"),

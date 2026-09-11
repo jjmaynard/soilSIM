@@ -195,6 +195,7 @@ slice_and_aggregate_soil_data <- function(df, depth_ranges = list(c(0, 30), c(30
 #'   (one or more rows per component; deduplicated internally).
 #' @param n_simulations Integer, number of triangular draws per component (default 1000).
 #' @return A data frame, one row per component, with an added `sim_comppct` column.
+#' @family profile-simulation
 #' @export
 simulate_component_composition <- function(data, n_simulations = 1000) {
 

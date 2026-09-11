@@ -56,4 +56,23 @@ the per-pixel bridge" for how this shapes a derived-quantity uncertainty band.
 
 \seealso{
 \code{extract_mukey_joint_ensemble()}, \code{zonal_distribution_from_posterior()}, \code{remarginalize_awc()}
+
+Other raster-fusion: 
+\code{\link{align_percentile_probs}()},
+\code{\link{build_cache_key}()},
+\code{\link{cache_get}()},
+\code{\link{cache_set}()},
+\code{\link{check_metalog_feasibility_raster}()},
+\code{\link{fit_beta_mle_newton_raster}()},
+\code{\link{fit_beta_mom_raster}()},
+\code{\link{fit_gamma_mom_raster}()},
+\code{\link{fit_metalog_linear_raster}()},
+\code{\link{fit_normal_raster}()},
+\code{\link{fuse_adaptive}()},
+\code{\link{percentiles_from_draws}()},
+\code{\link{quantile_metalog_linear_with_fallback}()},
+\code{\link{remarginalize_awc}()},
+\code{\link{resolve_property_dist}()},
+\code{\link{wrap_nested_rasters}()}
 }
+\concept{raster-fusion}

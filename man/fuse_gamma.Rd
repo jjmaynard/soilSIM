@@ -16,3 +16,19 @@ fuse_gamma(prior_shape, prior_rate, lik_shape, lik_rate)
 \verb{Gamma(k1,r1) x Gamma(k2,r2) -> Gamma(k1+k2-1, r1+r2)}, derived from the
 Gamma kernel \verb{x^(k-1)exp(-r*x)}. Requires \code{k1+k2 > 1} to remain valid.
 }
+\seealso{
+Other bayesian-fusion: 
+\code{\link{convert_beta_to_moments}()},
+\code{\link{convert_gamma_to_moments}()},
+\code{\link{convert_lognormal_to_normal}()},
+\code{\link{convert_moments_to_beta}()},
+\code{\link{convert_moments_to_gamma}()},
+\code{\link{convert_normal_to_lognormal}()},
+\code{\link{fuse_beta}()},
+\code{\link{fuse_bivariate_normal}()},
+\code{\link{fuse_distribution}()},
+\code{\link{fuse_normal_normal}()},
+\code{\link{fuse_property}()},
+\code{\link{update_prior}()}
+}
+\concept{bayesian-fusion}

@@ -30,3 +30,23 @@ Data frame with estimated water retention values
 Estimates missing water retention values using Saxton-Rawls equations
 with rock fragment correction, integrated with the main workflow.
 }
+\seealso{
+Other ssurgo-adapter: 
+\code{\link{add_range_rule}()},
+\code{\link{add_relationship_rule}()},
+\code{\link{apply_validation_rules}()},
+\code{\link{clean_property_data}()},
+\code{\link{create_custom_property_config}()},
+\code{\link{create_validation_config}()},
+\code{\link{default_property_config}()},
+\code{\link{impute_rfv_values}()},
+\code{\link{infill_missing_property_data}()},
+\code{\link{learn_property_ranges}()},
+\code{\link{process_soil_properties_comprehensive}()},
+\code{\link{process_ssurgo_components}()},
+\code{\link{process_ssurgo_data}()},
+\code{\link{process_ssurgo_horizons}()},
+\code{\link{property_contextual_ranges}()},
+\code{\link{summarize_unsuitable_horizons}()}
+}
+\concept{ssurgo-adapter}
