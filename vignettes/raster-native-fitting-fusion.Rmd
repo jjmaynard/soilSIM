@@ -470,8 +470,91 @@ pixel_df <- do.call(rbind, lapply(seq_along(example_cells), function(i) {
 pixel_df
 ```
 
-Then evaluate each pixel's three Normal curves (`stats::dnorm()`, no raster machinery needed for a
-single cell) over a shared x-range wide enough to show all three, and facet by pixel:
+Evaluating each pixel's three Normal curves (`stats::dnorm()`) is the simplest thing to plot, but
+it's also the *most* reduced view available - `mu`/`sigma` are a 2-number moment-match of whatever
+the real per-cell distribution actually is. `run_fusion()` took this AOI's small cell count through
+`fuse_general_kde()` (`fusion_clay$route` is `"bayesian_update_general"`), which fuses via a real
+nonparametric KDE update and *also* reads 9 posterior percentiles (`P1`-`P99`) directly off that
+fused density's CDF before ever moment-matching it down to `mu`/`sigma` - `fusion_clay$posterior`
+carries both. The prior and likelihood sides only ever have their own raw percentile-value rasters
+(`prior_values`: 5 points; `lik_values`: 3 points) - never a `mu`/`sigma`-only representation to
+begin with. So for all three sources, there's a strictly richer starting point than a Normal:
+
+```{r}
+names(fusion_clay$posterior$percentiles)
+post_probs <- as.numeric(sub("P", "", names(fusion_clay$posterior$percentiles))) / 100
+post_probs
+```
+
+`fit_metalog_linear()`/`quantile_metalog_linear()` (`R/core-distributions.R`) reconstruct a
+distribution's quantile function directly from however many percentile points are handed to them,
+without forcing symmetry the way a Normal moment-match does - fitting a metalog through the
+posterior's 9 points can show skew or curvature the 2-parameter Gaussian view above cannot. A metalog
+fit isn't guaranteed valid, though, in two distinct ways: `fit_metalog_linear()`'s exact linear
+solve can itself be singular for some *fixed probability grids* regardless of the values plugged in
+(the 5-point SSURGO grid and the 9-point posterior grid used below both hit this), and even a fit
+that solves cleanly can still overfit into a non-monotonic quantile function (equivalent to a
+negative density somewhere). Every fit here is guarded against both failure modes and falls back to
+`quantile_linear_cdf()` (plain linear interpolation between the percentile knots) whenever either
+happens - the same fallback `quantile_metalog_linear_fallback()` uses internally for the second case,
+reimplemented inline here (with the extra solve-failure guard) since that helper isn't exported:
+
+```{r, fig.width = 9, fig.height = 6.5}
+metalog_density_curve <- function(probs, values, n_grid = 400) {
+  o <- order(probs); probs <- probs[o]; values <- values[o]
+
+  # fit_metalog_linear()'s solve(Y, z) is an EXACT linear solve (term == number of points), and for
+  # some fixed probability grids that system is singular regardless of the values plugged in - e.g.
+  # both the 5-point SSURGO grid and the 9-point posterior grid used below hit this exactly. That's
+  # a solve() error, not a non-monotonic-quantile-function failure, so it needs its own guard before
+  # the feasibility probe below ever gets a fit to check.
+  fit <- tryCatch(fit_metalog_linear(values, probs), error = function(e) NULL)
+  feasible <- !is.null(fit)
+  if (feasible) {
+    # Feasibility probe: a metalog fit is only valid where its quantile function is monotonic in p
+    # (a non-monotonic quantile function implies a negative density somewhere).
+    probe_x <- quantile_metalog_linear(fit, seq(min(probs), max(probs), length.out = 100))
+    feasible <- !any(diff(probe_x) < 0)
+  }
+
+  p_grid <- seq(min(probs), max(probs), length.out = n_grid)
+  x_of_p <- if (feasible) quantile_metalog_linear(fit, p_grid) else quantile_linear_cdf(probs, values, p_grid)
+
+  # Density isn't returned directly by either method - both only give x as a function of p - so
+  # it's recovered here as the numerical derivative dp/dx of the (monotonic) quantile function.
+  ord <- order(x_of_p)
+  x_s <- x_of_p[ord]; p_s <- p_grid[ord]
+  keep <- c(TRUE, diff(x_s) > 1e-9)
+  x_s <- x_s[keep]; p_s <- p_s[keep]
+
+  list(
+    df = data.frame(x = (x_s[-1] + x_s[-length(x_s)]) / 2, density = diff(p_s) / diff(x_s)),
+    method = if (feasible) "metalog" else "linear_cdf (fallback)"
+  )
+}
+
+empirical_curve_at_pixel <- function(cell, pixel_label) {
+  prior_vec <- vapply(prior_values, function(r) extract_at(r, cell), numeric(1))
+  lik_vec   <- vapply(lik_values, function(r) extract_at(r, cell), numeric(1))
+  post_vec  <- vapply(fusion_clay$posterior$percentiles, function(r) extract_at(r, cell), numeric(1))
+
+  fits <- list(
+    "Prior (SSURGO)"      = metalog_density_curve(prior_probs, prior_vec),
+    "Likelihood (SOLUS)"  = metalog_density_curve(lik_probs, lik_vec),
+    "Posterior (fused)"   = metalog_density_curve(post_probs, post_vec)
+  )
+  do.call(rbind, lapply(names(fits), function(src) {
+    cbind(fits[[src]]$df, pixel = pixel_label, source = src, method = fits[[src]]$method)
+  }))
+}
+
+empirical_df <- do.call(rbind, lapply(seq_along(example_cells), function(i) {
+  empirical_curve_at_pixel(example_cells[i], pixel_df$pixel[i])
+}))
+
+# Which pixel/source combinations needed the linear_cdf fallback (metalog infeasible there)?
+unique(empirical_df[empirical_df$method != "metalog", c("pixel", "source", "method")])
+```
 
 ```{r, fig.width = 9, fig.height = 6.5}
 curve_at_pixel <- function(row) {
@@ -490,23 +573,41 @@ curve_at_pixel <- function(row) {
   )
 }
 curve_df <- do.call(rbind, lapply(seq_len(nrow(pixel_df)), function(i) curve_at_pixel(pixel_df[i, ])))
-curve_df$source <- factor(curve_df$source,
-  levels = c("Prior (SSURGO)", "Likelihood (SOLUS)", "Posterior (fused)"))
 
-ggplot(curve_df, aes(x = x, y = density, color = source, fill = source)) +
-  geom_area(alpha = 0.3, position = "identity") +
+combined_df <- rbind(
+  transform(curve_df, kind = "Gaussian (mu/sigma)"),
+  transform(empirical_df[, c("pixel", "x", "density", "source")], kind = "Reconstructed (percentiles)")
+)
+combined_df$source <- factor(combined_df$source,
+  levels = c("Prior (SSURGO)", "Likelihood (SOLUS)", "Posterior (fused)"))
+combined_df$kind <- factor(combined_df$kind,
+  levels = c("Reconstructed (percentiles)", "Gaussian (mu/sigma)"))
+
+ggplot(combined_df, aes(x = x, y = density, color = source, linetype = kind)) +
   geom_line(linewidth = 0.8) +
   facet_wrap(~pixel, scales = "free_y") +
   scale_color_viridis_d(name = NULL) +
-  scale_fill_viridis_d(name = NULL) +
+  scale_linetype_manual(name = NULL,
+    values = c("Reconstructed (percentiles)" = "solid", "Gaussian (mu/sigma)" = "dashed")) +
   labs(title = "Prior, likelihood, and posterior at four individual pixels",
-       subtitle = "Each panel is one pixel from a different mapunit-like cluster",
+       subtitle = "Solid = reconstructed from each source's own real percentiles (metalog, linear_cdf fallback); dashed = Gaussian mu/sigma summary",
        x = "Clay content (%)", y = "Density") +
   theme_minimal() +
   theme(legend.position = "bottom")
 ```
 
-Every pixel here tells the same qualitative story as the AOI-wide picture in Section 8 - the
+The two views mostly agree on where each pixel's mass sits, which is reassuring - the Gaussian
+moment-match isn't *wrong*, it's just a summary. Where they diverge is exactly where a 2-parameter
+view has to be wrong: the reconstructed curves can be visibly skewed (a real metalog fit through
+asymmetric percentiles, unlike `fit_normal_raster()`'s symmetric-by-construction `sigma`), and they
+never extend past their outermost percentile knot (`P05`/`P95` for the prior, `P1`/`P99` for the
+posterior) - the Gaussian curves, by contrast, always trail off to zero smoothly at $\pm\infty$
+regardless of whether the real data actually supports that tail. Any pixel listed by the fallback
+check above is a case where even the more flexible metalog couldn't stay monotonic through that
+source's percentiles, and fell back to the plain interpolated shape instead - still real percentile
+data, just piecewise-linear-in-probability rather than smooth.
+
+Every pixel here otherwise tells the same qualitative story as the AOI-wide picture in Section 8 - the
 posterior curve sits close to the prior curve, barely shifted toward the likelihood - because
 precision weighting is happening independently at each pixel and, for this property/AOI, SOLUS's
 per-pixel `sigma` is consistently much larger than SSURGO's regardless of which mapunit the pixel
