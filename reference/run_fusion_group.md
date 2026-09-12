@@ -30,7 +30,8 @@ run_fusion_group(
   bottom_depth,
   parallel = FALSE,
   n_cores = NULL,
-  seed = NULL
+  seed = NULL,
+  resampling = c("down", "up")
 )
 ```
 
@@ -77,6 +78,16 @@ run_fusion_group(
   [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
   (and [`set.seed()`](https://rdrr.io/r/base/Random.html) once up
   front). `NULL` (default) = current stochastic behavior.
+
+- resampling:
+
+  Passed through to
+  [`align_prior_likelihood()`](https://jjmaynard.github.io/soilSIM/reference/align_prior_likelihood.md)
+  for every member's prior/likelihood alignment - `"down"` (default)
+  matches all prior behavior; `"up"` preserves SSURGO's native grid
+  instead. See
+  [`align_prior_likelihood()`](https://jjmaynard.github.io/soilSIM/reference/align_prior_likelihood.md)'s
+  docs.
 
 ## Value
 

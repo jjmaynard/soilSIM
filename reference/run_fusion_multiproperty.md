@@ -27,7 +27,8 @@ run_fusion_multiproperty(
   n_cores = NULL,
   seed = NULL,
   verbose = FALSE,
-  simplify = FALSE
+  simplify = FALSE,
+  resampling = c("down", "up")
 )
 ```
 
@@ -89,6 +90,16 @@ run_fusion_multiproperty(
   re-marginalization consumes); default `FALSE` returns the full
   [`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)-shaped
   list per leaf.
+
+- resampling:
+
+  Passed through to
+  [`align_prior_likelihood()`](https://jjmaynard.github.io/soilSIM/reference/align_prior_likelihood.md)
+  for every leaf's prior/likelihood alignment - `"down"` (default)
+  matches all prior behavior; `"up"` preserves SSURGO's native grid
+  instead. See
+  [`align_prior_likelihood()`](https://jjmaynard.github.io/soilSIM/reference/align_prior_likelihood.md)'s
+  docs.
 
 ## Value
 

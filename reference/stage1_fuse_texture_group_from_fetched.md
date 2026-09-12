@@ -19,7 +19,8 @@ stage1_fuse_texture_group_from_fetched(
   fetched,
   want_raw_draws = FALSE,
   shared_draws = NULL,
-  shared_mukey_raster = NULL
+  shared_mukey_raster = NULL,
+  reference_grid = fetched[[1]]$lik[[1]]
 )
 ```
 
@@ -44,6 +45,18 @@ stage1_fuse_texture_group_from_fetched(
   The one-per-group in-memory draws data frame and its native-grid mukey
   raster (already computed by the caller); both required for the
   raw-draws path.
+
+- reference_grid:
+
+  The grid every `fetched` member's prior/likelihood was already aligned
+  onto (i.e.
+  [`align_prior_likelihood()`](https://jjmaynard.github.io/soilSIM/reference/align_prior_likelihood.md)'s
+  `reference_grid` from aligning the first member) - the mukey raster is
+  aligned onto this same grid, regardless of which side (prior or
+  likelihood) it came from. Defaults to `fetched[[1]]$lik[[1]]` for
+  backward compatibility with callers that haven't been updated to pass
+  it explicitly (matches the original `resampling = "down"`-only
+  behavior).
 
 ## Value
 

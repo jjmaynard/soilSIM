@@ -21,7 +21,8 @@ run_fusion(
   property_configs = NULL,
   parallel = FALSE,
   n_cores = NULL,
-  seed = NULL
+  seed = NULL,
+  resampling = c("down", "up")
 )
 ```
 
@@ -79,6 +80,19 @@ run_fusion(
   upstream SSURGO/SOLUS data. See
   [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)'s
   `seed` docs for the conditional-determinism caveats.
+
+- resampling:
+
+  `"down"` (default, matches all prior behavior exactly) resamples the
+  SSURGO prior onto SOLUS100's coarser 100 m grid before fusing. `"up"`
+  instead resamples SOLUS100 onto SSURGO's finer native grid
+  (nearest-neighbor block replication, not interpolation), so the fused
+  output preserves SSURGO's real map-unit boundary resolution instead of
+  blurring it away - at the cost of ~(100/native_res)^2 more output
+  cells and no gain in SOLUS100's own information content (its real
+  resolving power stays 100 m either way). See
+  [`align_prior_likelihood()`](https://jjmaynard.github.io/soilSIM/reference/align_prior_likelihood.md)'s
+  docs for the full discussion.
 
 ## Value
 

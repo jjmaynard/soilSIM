@@ -88,7 +88,8 @@ and <code><a href="run_fusion_multiproperty.html">run_fusion_multiproperty()</a>
 <span>  <span class="va">solus</span>,</span>
 <span>  draws <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  mukey_raster_native <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  resampling <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"down"</span>, <span class="st">"up"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -118,6 +119,13 @@ raw-draws path.</p></dd>
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>Passed through to <code><a href="fuse_property_adaptive.html">fuse_property_adaptive()</a></code> (default <code>TRUE</code>, matching the
 original inline behavior).</p></dd>
+
+
+<dt id="arg-resampling">resampling<a class="anchor" aria-label="anchor" href="#arg-resampling"></a></dt>
+<dd><p>Passed through to <code><a href="align_prior_likelihood.html">align_prior_likelihood()</a></code> - <code>"down"</code> (default) resamples
+the SSURGO prior onto SOLUS100's coarser grid (today's behavior); <code>"up"</code> instead resamples
+SOLUS100 onto SSURGO's finer native grid, preserving SSURGO's map-unit boundary resolution.
+See <code><a href="align_prior_likelihood.html">align_prior_likelihood()</a></code>'s docs for the full discussion.</p></dd>
 
 </dl></div>
     <div class="section level2">

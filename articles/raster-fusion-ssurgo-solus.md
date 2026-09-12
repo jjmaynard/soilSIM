@@ -37,11 +37,17 @@ aoi <- terra::project(aoi, "epsg:5070")
 [`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)
 is the top-level orchestrator: it fetches (and disk-caches) SSURGO
 percentile rasters as the prior, SOLUS100 percentile rasters as the
-likelihood, resamples the SSURGO prior onto SOLUS100’s coarser grid, and
-fuses them via
+likelihood, aligns the two onto one shared grid, and fuses them via
 [`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md),
 which adaptively routes to a closed-form or general grid-KDE fusion
-depending on the property’s distributional shape:
+depending on the property’s distributional shape. By default
+(`resampling = "down"`) the SSURGO prior is resampled (bilinear) onto
+SOLUS100’s coarser 100 m grid, so the fused output sits at SOLUS100’s
+native resolution. Setting `resampling = "up"` instead resamples
+SOLUS100 (nearest-neighbor) onto SSURGO’s finer native grid, so the
+fused output preserves SSURGO’s real map-unit boundary detail instead of
+blurring it away - see the comparison at the end of this step for what
+that tradeoff actually buys:
 
 ``` r
 
@@ -150,6 +156,130 @@ posterior inherits the prior’s spatial support (cells stay `NA` unless
 both inputs contribute) but its clay values are pulled toward the
 SOLUS100 pattern.
 
+### Choosing the fusion grid: `resampling = "down"` vs `"up"`
+
+Everything above ran with the default `resampling = "down"`: the SSURGO
+prior (native ~30 m grid, from `mukey.wcs()`) is resampled *down* onto
+SOLUS100’s coarser 100 m grid before fusing, so the fused output above
+sits at SOLUS100’s resolution and SSURGO’s map-unit boundaries get
+blurred into 100 m cells in the process. Passing `resampling = "up"`
+instead resamples SOLUS100 *up* onto SSURGO’s finer native grid
+(nearest-neighbor, not interpolation), so the fused output preserves
+SSURGO’s real polygon boundaries instead:
+
+``` r
+
+# The real call this section's cached "up" data came from - reuses the same live SSURGO/SOLUS
+# fetch as fusion_clay above (only the alignment step differs), via run_fusion()'s disk cache:
+fusion_clay_up <- run_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5,
+                              resampling = "up")
+```
+
+``` r
+
+fusion_clay_up <- unwrap_nested_rasters(
+  readRDS(system.file("extdata", "fusion_clay_salinas_up.rds", package = "soilSIM"))
+)
+```
+
+This is **not** free extra resolution, and the real numbers below show
+why - side by side with the `"down"` fusion computed earlier from the
+exact same underlying SSURGO/SOLUS100 fetch:
+
+``` r
+
+grid_stats <- function(r, label) {
+  data.frame(
+    resampling = label,
+    rows = terra::nrow(r), cols = terra::ncol(r), n_cells = terra::ncell(r),
+    res_m = terra::res(r)[1]
+  )
+}
+rbind(
+  grid_stats(fusion_clay$posterior$mu, "down (SOLUS100's grid)"),
+  grid_stats(fusion_clay_up$posterior$mu, "up (SSURGO's grid)")
+)
+#>               resampling rows cols n_cells res_m
+#> 1 down (SOLUS100's grid)   26   23     598   100
+#> 2     up (SSURGO's grid)   88   77    6776    30
+```
+
+- **Cell count.** `"up"` fuses over about 11x more cells than `"down"`
+  for this AOI - not a free resolution gain, just a real, non-trivial
+  compute-cost increase for the general grid-KDE route in particular.
+- **Which side is fabricated.** `"down"`’s bilinear step blurs SSURGO’s
+  real polygon lines into 100 m averages - a genuine loss of SSURGO’s
+  own information. `"up"`’s nearest-neighbor step (“block replication”)
+  does not interpolate SOLUS100 at all - every fine cell gets its
+  enclosing 100 m cell’s exact published value, so nothing about
+  SOLUS100 is invented, but nothing about its *resolution* improves
+  either: it’s still a 100 m product, just tiled onto smaller cells.
+  Deliberately nearest-neighbor rather than bilinear here, for the same
+  reason the mukey raster is always aligned with `method = "near"` -
+  interpolating between two independent SOLUS100 cell predictions would
+  imply a smooth underlying gradient the model never actually asserted.
+- **Posterior sigma barely moves, as it should.** Finer cells don’t mean
+  a more “confident” fused estimate just because there are more of them:
+
+``` r
+
+data.frame(
+  resampling = c("down", "up"),
+  mean_posterior_sigma = c(
+    terra::global(fusion_clay$posterior$sigma, "mean", na.rm = TRUE)[1, 1],
+    terra::global(fusion_clay_up$posterior$sigma, "mean", na.rm = TRUE)[1, 1]
+  )
+)
+#>   resampling mean_posterior_sigma
+#> 1       down             3.115750
+#> 2         up             3.104649
+```
+
+The two are within 0.4% of each other - `"up"`’s finer grid is not
+silently manufacturing extra precision, exactly because SOLUS100’s
+likelihood value is locally constant across every SSURGO cell inside one
+100 m footprint; the real uncertainty (how much SSURGO and SOLUS100
+disagree) is essentially unchanged by the choice of output grid.
+
+- **Reversibility.** Aggregating the `"up"`-fused posterior mean back
+  onto the `"down"` grid (area-weighted average) should reproduce the
+  direct `"down"` fusion if the two are really the same underlying
+  answer at different resolutions:
+
+``` r
+
+agg_up_to_down <- terra::resample(fusion_clay_up$posterior$mu, fusion_clay$posterior$mu, method = "average")
+reversibility_diff <- agg_up_to_down - fusion_clay$posterior$mu
+terra::global(abs(reversibility_diff), c("mean", "max"), na.rm = TRUE)
+#>            mean      max
+#> lyr.1 0.8832474 12.14973
+
+terra::plot(
+  reversibility_diff,
+  main = "Reversibility check: (up aggregated to 100 m) minus (direct down fusion), clay %",
+  col = grDevices::hcl.colors(50, "RdBu", rev = TRUE),
+  mar = c(3.1, 3.1, 5.1, 7.1)
+)
+```
+
+![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-13-1.png)
+
+The mean absolute difference is under 1 percentage point of clay
+content, confirming `"up"` and `"down"` are substantively the same fused
+answer at two different resolutions - not two different pipelines. The
+larger local differences that remain concentrate where SSURGO’s finer
+prior structure inside one SOLUS100 cell pulls the `"up"` fusion’s local
+Bayesian update away from what the same cell’s single blurred `"down"`
+prior value would have produced - exactly the map-unit detail `"up"`
+exists to keep instead of averaging away.
+
+In short: use `"up"` when SSURGO’s polygon boundaries themselves are the
+information you need preserved (e.g. showing where a fused estimate
+changes at a map-unit line); keep the default `"down"` when SOLUS100’s
+smoother, denser signal is what should drive the fused output’s spatial
+pattern, since `"down"` is markedly cheaper and, as the sigma comparison
+above confirms, doesn’t trade away any real precision to get there.
+
 The same three rasters, viewed as distributions rather than maps, show
 what the Bayesian update did numerically:
 
@@ -180,7 +310,7 @@ ggplot(clay_dist_df, aes(x = value, fill = source)) +
   theme_minimal()
 ```
 
-![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-9-1.png)
+![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-14-1.png)
 
 In this AOI, the SSURGO prior’s mass sits mostly at low clay values with
 a long thin tail, while the SOLUS100 likelihood is centered much higher
@@ -233,7 +363,7 @@ terra::plot(
 )
 ```
 
-![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-11-1.png)
+![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-16-1.png)
 
 This map is not spatially uniform - width narrows where the SOLUS100
 likelihood is more informative relative to the SSURGO prior for that
@@ -264,7 +394,7 @@ terra::plot(
 )
 ```
 
-![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-12-1.png)
+![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-17-1.png)
 
 Cells flagged here could plausibly have clay content above 25% even
 though their *mean* (`mu`) may sit comfortably below that threshold -
@@ -328,7 +458,7 @@ terra::plot(c(fusion_texture$clay$posterior$value,
             mar = c(3.1, 3.1, 5.1, 7.1))
 ```
 
-![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-16-1.png)
+![](raster-fusion-ssurgo-solus_files/figure-html/unnamed-chunk-21-1.png)
 
 Each member also carries its own fraction’s posterior percentiles, drawn
 from a dedicated raster-native sampler of the fused bivariate-Normal ILR

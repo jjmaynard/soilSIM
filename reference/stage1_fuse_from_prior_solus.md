@@ -23,7 +23,8 @@ stage1_fuse_from_prior_solus(
   solus,
   draws = NULL,
   mukey_raster_native = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  resampling = c("down", "up")
 )
 ```
 
@@ -54,6 +55,17 @@ stage1_fuse_from_prior_solus(
   Passed through to
   [`fuse_property_adaptive()`](https://jjmaynard.github.io/soilSIM/reference/fuse_property_adaptive.md)
   (default `TRUE`, matching the original inline behavior).
+
+- resampling:
+
+  Passed through to
+  [`align_prior_likelihood()`](https://jjmaynard.github.io/soilSIM/reference/align_prior_likelihood.md) -
+  `"down"` (default) resamples the SSURGO prior onto SOLUS100's coarser
+  grid (today's behavior); `"up"` instead resamples SOLUS100 onto
+  SSURGO's finer native grid, preserving SSURGO's map-unit boundary
+  resolution. See
+  [`align_prior_likelihood()`](https://jjmaynard.github.io/soilSIM/reference/align_prior_likelihood.md)'s
+  docs for the full discussion.
 
 ## Value
 
