@@ -13,7 +13,8 @@ run_fusion_group(
   bottom_depth,
   parallel = FALSE,
   n_cores = NULL,
-  seed = NULL
+  seed = NULL,
+  resampling = c("down", "up")
 )
 }
 \arguments{
@@ -37,6 +38,10 @@ member isn't already disk-cached). Default \code{parallel = FALSE} matches prior
 \item{seed}{Optional integer for opt-in determinism, forwarded to
 \code{simulate_ssurgo_mapunit_draws()} (and \code{set.seed()} once up front). \code{NULL} (default) =
 current stochastic behavior.}
+
+\item{resampling}{Passed through to \code{\link[=align_prior_likelihood]{align_prior_likelihood()}} for every member's
+prior/likelihood alignment - \code{"down"} (default) matches all prior behavior; \code{"up"}
+preserves SSURGO's native grid instead. See \code{\link[=align_prior_likelihood]{align_prior_likelihood()}}'s docs.}
 }
 \value{
 The full group result: a named list keyed by member id, each element

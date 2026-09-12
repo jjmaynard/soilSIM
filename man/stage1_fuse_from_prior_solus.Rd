@@ -10,7 +10,8 @@ stage1_fuse_from_prior_solus(
   solus,
   draws = NULL,
   mukey_raster_native = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  resampling = c("down", "up")
 )
 }
 \arguments{
@@ -27,6 +28,11 @@ raw-draws path.}
 
 \item{verbose}{Passed through to \code{\link[=fuse_property_adaptive]{fuse_property_adaptive()}} (default \code{TRUE}, matching the
 original inline behavior).}
+
+\item{resampling}{Passed through to \code{\link[=align_prior_likelihood]{align_prior_likelihood()}} - \code{"down"} (default) resamples
+the SSURGO prior onto SOLUS100's coarser grid (today's behavior); \code{"up"} instead resamples
+SOLUS100 onto SSURGO's finer native grid, preserving SSURGO's map-unit boundary resolution.
+See \code{\link[=align_prior_likelihood]{align_prior_likelihood()}}'s docs for the full discussion.}
 }
 \value{
 \code{run_fusion()}'s return list

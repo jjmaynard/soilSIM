@@ -8,7 +8,8 @@ stage1_fuse_texture_group_from_fetched(
   fetched,
   want_raw_draws = FALSE,
   shared_draws = NULL,
-  shared_mukey_raster = NULL
+  shared_mukey_raster = NULL,
+  reference_grid = fetched[[1]]$lik[[1]]
 )
 }
 \arguments{
@@ -22,6 +23,13 @@ raw-draws texture path only runs when this is \code{TRUE} (a cold percentile cac
 \item{shared_draws, shared_mukey_raster}{The one-per-group in-memory draws data frame and its
 native-grid mukey raster (already computed by the caller); both required for the raw-draws
 path.}
+
+\item{reference_grid}{The grid every \code{fetched} member's prior/likelihood was already aligned
+onto (i.e. \code{align_prior_likelihood()}'s \code{reference_grid} from aligning the first member) -
+the mukey raster is aligned onto this same grid, regardless of which side (prior or
+likelihood) it came from. Defaults to \code{fetched[[1]]$lik[[1]]} for backward compatibility
+with callers that haven't been updated to pass it explicitly (matches the original
+\code{resampling = "down"}-only behavior).}
 }
 \value{
 \code{fuse_texture_group()}'s return value - a named list keyed by member id.

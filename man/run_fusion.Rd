@@ -13,7 +13,8 @@ run_fusion(
   property_configs = NULL,
   parallel = FALSE,
   n_cores = NULL,
-  seed = NULL
+  seed = NULL,
+  resampling = c("down", "up")
 )
 }
 \arguments{
@@ -41,6 +42,14 @@ is forwarded to \code{simulate_ssurgo_mapunit_draws()}, so the whole call (SSURG
 depth-trend GP fit, and the posterior-sampling fusion step) is reproducible given identical
 upstream SSURGO/SOLUS data. See \code{simulate_ssurgo_mapunit_draws()}'s \code{seed} docs for the
 conditional-determinism caveats.}
+
+\item{resampling}{\code{"down"} (default, matches all prior behavior exactly) resamples the SSURGO
+prior onto SOLUS100's coarser 100 m grid before fusing. \code{"up"} instead resamples SOLUS100
+onto SSURGO's finer native grid (nearest-neighbor block replication, not interpolation),
+so the fused output preserves SSURGO's real map-unit boundary resolution instead of blurring
+it away - at the cost of ~(100/native_res)^2 more output cells and no gain in SOLUS100's own
+information content (its real resolving power stays 100 m either way). See
+\code{\link[=align_prior_likelihood]{align_prior_likelihood()}}'s docs for the full discussion.}
 }
 \value{
 \code{list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=, route_detail=, n_fallback_cells=)}, or \code{NULL} if the SSURGO or SOLUS side failed.

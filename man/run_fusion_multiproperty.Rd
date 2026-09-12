@@ -14,7 +14,8 @@ run_fusion_multiproperty(
   n_cores = NULL,
   seed = NULL,
   verbose = FALSE,
-  simplify = FALSE
+  simplify = FALSE,
+  resampling = c("down", "up")
 )
 }
 \arguments{
@@ -44,6 +45,10 @@ otherwise noisy with per-route messages).}
 \item{simplify}{If \code{TRUE}, each leaf is reduced to \verb{list(percentiles = <named SpatRasters>)}
 (what per-pixel re-marginalization consumes); default \code{FALSE} returns the full
 \code{\link[=run_fusion]{run_fusion()}}-shaped list per leaf.}
+
+\item{resampling}{Passed through to \code{\link[=align_prior_likelihood]{align_prior_likelihood()}} for every leaf's
+prior/likelihood alignment - \code{"down"} (default) matches all prior behavior; \code{"up"}
+preserves SSURGO's native grid instead. See \code{\link[=align_prior_likelihood]{align_prior_likelihood()}}'s docs.}
 }
 \value{
 A nested named list \code{result[[config_id]][["<top>-<bottom>"]]}. Each leaf is a

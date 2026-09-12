@@ -135,8 +135,19 @@ property_config <- list(id = "clay", solus_variable = "claytotal", dist = "norma
 fusion_clay <- save_step(
   "fusion_clay_salinas",
   file.path(extdata_dir, "fusion_clay_salinas.rds"),
-  wrap_nested_rasters(run_stage1_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5,
-                                        seed = VIGNETTE_SEED))
+  wrap_nested_rasters(run_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5,
+                                  seed = VIGNETTE_SEED))
+)
+
+# resampling = "up" variant (SOLUS100 nearest-neighbor-aligned onto SSURGO's finer native grid,
+# instead of SSURGO bilinear-aligned onto SOLUS100's grid) - reuses the same cached raw SSURGO/
+# SOLUS percentile fetches as fusion_clay above (only the alignment step differs), for the
+# vignette's "down" vs "up" resampling comparison section.
+fusion_clay_up <- save_step(
+  "fusion_clay_salinas_up",
+  file.path(extdata_dir, "fusion_clay_salinas_up.rds"),
+  wrap_nested_rasters(run_fusion(aoi, property_config, top_depth = 0, bottom_depth = 5,
+                                  seed = VIGNETTE_SEED, resampling = "up"))
 )
 
 # ---------------------------------------------------------------------------
@@ -151,16 +162,16 @@ property_configs <- list(
 fusion_texture <- save_step(
   "fusion_texture_salinas",
   file.path(extdata_dir, "fusion_texture_salinas.rds"),
-  # Must be run_stage1_fusion_group() directly, not run_stage1_fusion() - the latter's own
-  # dispatch (see its composition_group branch in R/raster-fusion.R) slices its return down
+  # Must be run_fusion_group() directly, not run_fusion() - the latter's own
+  # dispatch (see its composition_group branch in R/core-fusion.R) slices its return down
   # to a single requested member (group_result[[property_config$id]]) even when
   # composition_groups/property_configs describe a full group. That silently produced a
   # ONE-member (clay only: posterior/dist/route/...) result here instead of the 3-member
   # clay/sand/silt list the vignette's "Step 2" section actually consumes
   # (fusion_texture$clay/$sand/$silt) - a genuine, previously-undiscovered bug: this script
   # didn't match its own vignette's displayed "real call" comment, which already showed
-  # run_stage1_fusion_group() correctly.
-  wrap_nested_rasters(run_stage1_fusion_group(
+  # run_fusion_group() correctly.
+  wrap_nested_rasters(run_fusion_group(
     aoi, "texture", composition_groups, property_configs, top_depth = 0, bottom_depth = 5,
     seed = VIGNETTE_SEED
   ))
@@ -219,8 +230,8 @@ pp_posteriors <- save_step(
       lapply(names(pp_solus), function(nm) list(id = nm, solus_variable = pp_solus[[nm]], dist = "auto")),
       names(pp_solus)
     )
-    out <- run_stage1_fusion_multi(aoi, pp_configs, pp_windows, seed = VIGNETTE_SEED,
-                                   simplify = TRUE)
+    out <- run_fusion_multiproperty(aoi, pp_configs, pp_windows, seed = VIGNETTE_SEED,
+                                     simplify = TRUE)
     # Match the old loop's shape: drop NULL leaves (a failed window), then drop any property left
     # with no windows at all (SOLUS variable unavailable).
     out <- lapply(out, function(pw) pw[!vapply(pw, is.null, logical(1))])

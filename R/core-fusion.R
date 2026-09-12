@@ -2017,6 +2017,49 @@ resolve_want_raw_draws <- function(prior_fusion_method, dist) {
   isTRUE(dist %in% c("auto", "normal", "beta", "gamma", "lognormal"))
 }
 
+#' Align a Prior and Likelihood onto One Shared Grid
+#'
+#' Every fusion route requires cell-aligned prior/likelihood rasters, so `run_fusion()`,
+#' `run_fusion_group()`, and `run_fusion_multiproperty()` each resample one side onto the
+#' other's grid before fusing. Factored out here so the resampling *direction* is one
+#' source-agnostic decision point (prior vs. likelihood, not "SSURGO" vs. "SOLUS") rather than
+#' several copies of the same `terra::resample()` call.
+#'
+#' @param prior_values,lik_values Named lists of percentile `SpatRaster`s (a `prior$values` /
+#'   `likelihood$values`-shaped list, as `run_fusion()` etc. hold them).
+#' @param resampling `"down"` (default, matches all prior behavior exactly) resamples the prior
+#'   DOWN onto the likelihood's grid via bilinear interpolation - the fused output sits at the
+#'   likelihood's own resolution, which for the SSURGO/SOLUS100 pipeline means SSURGO's finer
+#'   native grid (~30 m) is blurred/averaged into SOLUS100's coarser 100 m cells.
+#'
+#'   `"up"` instead resamples the likelihood UP onto the prior's grid via nearest-neighbor
+#'   ("block replication" - every fine cell takes its enclosing coarse cell's exact value, with
+#'   no invented intermediate values) - the fused output sits at the prior's own (finer)
+#'   resolution instead, preserving the prior's real spatial detail (e.g. SSURGO map-unit
+#'   boundaries) rather than discarding it. Nearest-neighbor, not bilinear, is deliberate here:
+#'   bilinear would interpolate BETWEEN two independent likelihood-cell predictions, implying a
+#'   smooth underlying gradient the likelihood source never actually asserted - it does not add
+#'   real resolution to the likelihood, only fabricates it. Every fine cell's likelihood value
+#'   under `"up"` is traceable back to one real published likelihood cell value.
+#' @return `list(prior_values=, lik_values=, reference_grid=)` - `prior_values`/`lik_values` are
+#'   both now on `reference_grid` (whichever input's own grid the other side was resampled onto),
+#'   returned for reuse aligning e.g. a categorical mukey raster onto the same grid.
+#' @keywords internal
+align_prior_likelihood <- function(prior_values, lik_values, resampling = c("down", "up")) {
+  resampling <- match.arg(resampling)
+  if (resampling == "down") {
+    reference_grid <- lik_values[[1]]
+    list(prior_values = lapply(prior_values, terra::resample, y = reference_grid, method = "bilinear"),
+         lik_values = lik_values,
+         reference_grid = reference_grid)
+  } else {
+    reference_grid <- prior_values[[1]]
+    list(prior_values = prior_values,
+         lik_values = lapply(lik_values, terra::resample, y = reference_grid, method = "near"),
+         reference_grid = reference_grid)
+  }
+}
+
 #' Fuse an Already-Fetched Prior and Likelihood (Stage 1 fusion tail)
 #'
 #' The portion of [run_fusion()] that runs once its SSURGO prior and SOLUS likelihood
@@ -2034,26 +2077,34 @@ resolve_want_raw_draws <- function(prior_fusion_method, dist) {
 #'   raw-draws path.
 #' @param verbose Passed through to [fuse_property_adaptive()] (default `TRUE`, matching the
 #'   original inline behavior).
+#' @param resampling Passed through to [align_prior_likelihood()] - `"down"` (default) resamples
+#'   the SSURGO prior onto SOLUS100's coarser grid (today's behavior); `"up"` instead resamples
+#'   SOLUS100 onto SSURGO's finer native grid, preserving SSURGO's map-unit boundary resolution.
+#'   See [align_prior_likelihood()]'s docs for the full discussion.
 #' @return `run_fusion()`'s return list
 #'   (`list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=,
 #'   route_detail=, n_fallback_cells=)`).
 #' @keywords internal
 stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
                                           draws = NULL, mukey_raster_native = NULL,
-                                          verbose = TRUE) {
+                                          verbose = TRUE, resampling = c("down", "up")) {
+  resampling <- match.arg(resampling)
   ssurgo_property_id <- if (!is.null(property_config$solus_variable)) property_config$solus_variable else property_config$id
   want_raw_draws <- resolve_want_raw_draws(property_config$prior_fusion_method, property_config$dist)
 
   # SSURGO prior (~30m, from mukey.wcs()) and SOLUS likelihood (100m) are on different grids -
-  # resample the prior onto the SOLUS grid before combining, since every fusion route requires
-  # cell-aligned rasters.
-  reference_grid <- solus$values[[1]]
-  prior_aligned <- lapply(prior$values, terra::resample, y = reference_grid, method = "bilinear")
+  # align them onto one shared grid before combining, since every fusion route requires
+  # cell-aligned rasters. See align_prior_likelihood()'s docs for the "down"/"up" tradeoff.
+  aligned <- align_prior_likelihood(prior$values, solus$values, resampling = resampling)
+  prior_aligned <- aligned$prior_values
+  solus_aligned_values <- aligned$lik_values
+  reference_grid <- aligned$reference_grid
 
   # Opt-in raw-draws fusion (see run_fusion()'s @section): `draws` is already in memory from
   # the caller whenever want_raw_draws is TRUE, so this never triggers a further simulation. Align
-  # the mukey raster to the SOLUS grid via NEAREST-NEIGHBOR resampling (not bilinear, which would
-  # fabricate nonsensical interpolated mukey codes between categories).
+  # the mukey raster onto the same reference grid via NEAREST-NEIGHBOR resampling (not bilinear,
+  # which would fabricate nonsensical interpolated mukey codes between categories) - a no-op when
+  # `resampling = "up"`, since the reference grid is already mukey_raster_native's own grid.
   extra_fusion_args <- list()
   if (want_raw_draws && !is.null(draws) && !is.null(mukey_raster_native)) {
     mukey_draws <- lookup_mukey_draws(draws, ssurgo_property_id)
@@ -2066,7 +2117,7 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
   fused <- do.call(fuse_property_adaptive, c(
     list(
       prior_value_rasters = prior_aligned, prior_probs = prior$probs,
-      lik_value_rasters = solus$values, lik_probs = solus$probs,
+      lik_value_rasters = solus_aligned_values, lik_probs = solus$probs,
       property_config = property_config, verbose = verbose
     ),
     extra_fusion_args
@@ -2074,7 +2125,7 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 
   list(
     prior = list(values = prior_aligned, probs = prior$probs),
-    likelihood = list(values = solus$values, probs = solus$probs),
+    likelihood = list(values = solus_aligned_values, probs = solus$probs),
     posterior = fused$posterior,
     dist = fused$dist, dist_source = fused$dist_source, skew_proxy = fused$skew_proxy,
     route = fused$route, route_detail = fused$route_detail, n_fallback_cells = fused$n_fallback_cells
@@ -2110,6 +2161,13 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 #'   depth-trend GP fit, and the posterior-sampling fusion step) is reproducible given identical
 #'   upstream SSURGO/SOLUS data. See `simulate_ssurgo_mapunit_draws()`'s `seed` docs for the
 #'   conditional-determinism caveats.
+#' @param resampling `"down"` (default, matches all prior behavior exactly) resamples the SSURGO
+#'   prior onto SOLUS100's coarser 100 m grid before fusing. `"up"` instead resamples SOLUS100
+#'   onto SSURGO's finer native grid (nearest-neighbor block replication, not interpolation),
+#'   so the fused output preserves SSURGO's real map-unit boundary resolution instead of blurring
+#'   it away - at the cost of ~(100/native_res)^2 more output cells and no gain in SOLUS100's own
+#'   information content (its real resolving power stays 100 m either way). See
+#'   [align_prior_likelihood()]'s docs for the full discussion.
 #' @return `list(prior=, likelihood=, posterior=, dist=, dist_source=, skew_proxy=, route=,
 #'   route_detail=, n_fallback_cells=)`, or `NULL` if the SSURGO or SOLUS side failed.
 #'   `posterior`'s shape depends on `dist` - see `fuse_property_adaptive()`'s docs. As of
@@ -2149,7 +2207,9 @@ stage1_fuse_from_prior_solus <- function(property_config, prior, solus,
 #' @keywords internal
 run_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth,
                                composition_groups = NULL, property_configs = NULL,
-                               parallel = FALSE, n_cores = NULL, seed = NULL) {
+                               parallel = FALSE, n_cores = NULL, seed = NULL,
+                               resampling = c("down", "up")) {
+  resampling <- match.arg(resampling)
   # Opt-in determinism: seed once up front so the whole call - including a fusion-sampling step
   # that runs even on a warm percentile cache - is reproducible. simulate_ssurgo_mapunit_draws()
   # re-seeds to the same value for its own scope (and the parallel depth-trend path); nothing
@@ -2159,7 +2219,8 @@ run_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth,
   if (!is.null(property_config$composition_group)) {
     group_result <- run_fusion_group(
       aoi_vect, property_config$composition_group, composition_groups, property_configs,
-      top_depth, bottom_depth, parallel = parallel, n_cores = n_cores, seed = seed
+      top_depth, bottom_depth, parallel = parallel, n_cores = n_cores, seed = seed,
+      resampling = resampling
     )
     return(if (is.null(group_result)) NULL else new_soilSIM_fusion(group_result[[property_config$id]]))
   }
@@ -2215,7 +2276,7 @@ run_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth,
   # triggers a further simulation.
   new_soilSIM_fusion(stage1_fuse_from_prior_solus(
     property_config, prior, solus,
-    draws = draws, mukey_raster_native = mukey_raster_native
+    draws = draws, mukey_raster_native = mukey_raster_native, resampling = resampling
   ))
 }
 
@@ -2235,19 +2296,27 @@ run_fusion <- function(aoi_vect, property_config, top_depth, bottom_depth,
 #' @param shared_draws,shared_mukey_raster The one-per-group in-memory draws data frame and its
 #'   native-grid mukey raster (already computed by the caller); both required for the raw-draws
 #'   path.
+#' @param reference_grid The grid every `fetched` member's prior/likelihood was already aligned
+#'   onto (i.e. `align_prior_likelihood()`'s `reference_grid` from aligning the first member) -
+#'   the mukey raster is aligned onto this same grid, regardless of which side (prior or
+#'   likelihood) it came from. Defaults to `fetched[[1]]$lik[[1]]` for backward compatibility
+#'   with callers that haven't been updated to pass it explicitly (matches the original
+#'   `resampling = "down"`-only behavior).
 #' @return `fuse_texture_group()`'s return value - a named list keyed by member id.
 #' @keywords internal
 stage1_fuse_texture_group_from_fetched <- function(fetched, want_raw_draws = FALSE,
-                                                    shared_draws = NULL, shared_mukey_raster = NULL) {
-  # Align the mukey raster to the same reference grid every member's own prior was resampled onto
-  # (the first member's likelihood raster) via NEAREST-NEIGHBOR resampling (not bilinear, which
-  # would fabricate nonsensical interpolated mukey codes between categories).
+                                                    shared_draws = NULL, shared_mukey_raster = NULL,
+                                                    reference_grid = fetched[[1]]$lik[[1]]) {
+  # Align the mukey raster onto the same reference grid every member's prior/likelihood was
+  # already aligned onto, via NEAREST-NEIGHBOR resampling (not bilinear, which would fabricate
+  # nonsensical interpolated mukey codes between categories) - a no-op when that grid is already
+  # the mukey raster's own native grid (the "up" resampling direction).
   mukey_texture_draws <- NULL
   mukey_raster_aligned <- NULL
   if (isTRUE(want_raw_draws) && !is.null(shared_draws) && !is.null(shared_mukey_raster)) {
     mukey_texture_draws <- lookup_mukey_texture_draws(shared_draws)
     if (!is.null(mukey_texture_draws)) {
-      mukey_raster_aligned <- terra::resample(shared_mukey_raster, fetched[[1]]$lik[[1]], method = "near")
+      mukey_raster_aligned <- terra::resample(shared_mukey_raster, reference_grid, method = "near")
     }
   }
 
@@ -2282,6 +2351,9 @@ stage1_fuse_texture_group_from_fetched <- function(fetched, want_raw_draws = FAL
 #' @param seed Optional integer for opt-in determinism, forwarded to
 #'   `simulate_ssurgo_mapunit_draws()` (and `set.seed()` once up front). `NULL` (default) =
 #'   current stochastic behavior.
+#' @param resampling Passed through to [align_prior_likelihood()] for every member's
+#'   prior/likelihood alignment - `"down"` (default) matches all prior behavior; `"up"`
+#'   preserves SSURGO's native grid instead. See [align_prior_likelihood()]'s docs.
 #' @return The full group result: a named list keyed by member id, each element
 #'   `list(posterior = list(value=, ilr_mu=, ilr_Sigma=, percentiles=), dist = "texture_ilr", route =
 #'   "closed_form_ilr_group", route_detail = NULL, n_fallback_cells = 0)` (see
@@ -2306,7 +2378,8 @@ stage1_fuse_texture_group_from_fetched <- function(fetched, want_raw_draws = FAL
 #' @keywords internal
 run_fusion_group <- function(aoi_vect, group, composition_groups, property_configs,
                                      top_depth, bottom_depth, parallel = FALSE, n_cores = NULL,
-                                     seed = NULL) {
+                                     seed = NULL, resampling = c("down", "up")) {
+  resampling <- match.arg(resampling)
   if (!is.null(seed)) set.seed(seed)
   member_ids <- group_members(group, composition_groups)
   members <- property_configs[member_ids]
@@ -2386,8 +2459,9 @@ run_fusion_group <- function(aoi_vect, group, composition_groups, property_confi
       }
 
       if (is.null(prior) || is.null(solus)) return(NULL)
-      prior_aligned <- lapply(prior$values, terra::resample, y = solus$values[[1]], method = "bilinear")
-      list(id = m$id, prior = prior_aligned, prior_probs = prior$probs, lik = solus$values, lik_probs = solus$probs)
+      aligned <- align_prior_likelihood(prior$values, solus$values, resampling = resampling)
+      list(id = m$id, prior = aligned$prior_values, prior_probs = prior$probs,
+           lik = aligned$lik_values, lik_probs = solus$probs, reference_grid = aligned$reference_grid)
     })
     if (any(vapply(fetched, is.null, logical(1)))) return(NULL)
 
@@ -2395,7 +2469,8 @@ run_fusion_group <- function(aoi_vect, group, composition_groups, property_confi
     # is TRUE, so the shared texture-group fusion tail never triggers a further simulation.
     group_result <- stage1_fuse_texture_group_from_fetched(
       fetched, want_raw_draws = want_raw_draws,
-      shared_draws = shared_draws, shared_mukey_raster = shared_mukey_raster
+      shared_draws = shared_draws, shared_mukey_raster = shared_mukey_raster,
+      reference_grid = fetched[[1]]$reference_grid
     )
     cache_set(group_key, group_kind, wrap_nested_rasters(group_result))
 
@@ -2441,6 +2516,9 @@ run_fusion_group <- function(aoi_vect, group, composition_groups, property_confi
 #' @param simplify If `TRUE`, each leaf is reduced to `list(percentiles = <named SpatRasters>)`
 #'   (what per-pixel re-marginalization consumes); default `FALSE` returns the full
 #'   [run_fusion()]-shaped list per leaf.
+#' @param resampling Passed through to [align_prior_likelihood()] for every leaf's
+#'   prior/likelihood alignment - `"down"` (default) matches all prior behavior; `"up"`
+#'   preserves SSURGO's native grid instead. See [align_prior_likelihood()]'s docs.
 #' @return A nested named list `result[[config_id]][["<top>-<bottom>"]]`. Each leaf is a
 #'   [run_fusion()] return list (or, for group members, the `texture_ilr`-shaped list from
 #'   [run_fusion_group()]), or `NULL` on that leaf's own failure; the whole call returns
@@ -2450,7 +2528,9 @@ run_fusion_group <- function(aoi_vect, group, composition_groups, property_confi
 run_fusion_multiproperty <- function(aoi_vect, property_configs, depth_windows,
                                      composition_groups = NULL,
                                      n_mc = 1000, parallel = FALSE, n_cores = NULL,
-                                     seed = NULL, verbose = FALSE, simplify = FALSE) {
+                                     seed = NULL, verbose = FALSE, simplify = FALSE,
+                                     resampling = c("down", "up")) {
+  resampling <- match.arg(resampling)
   if (!is.null(seed)) set.seed(seed)
 
   ## --- validate ---------------------------------------------------------------
@@ -2590,7 +2670,7 @@ run_fusion_multiproperty <- function(aoi_vect, property_configs, depth_windows,
       leaf <- stage1_fuse_from_prior_solus(
         cfg, prior, solus,
         draws = if (cfg_raw) dw else NULL,
-        mukey_raster_native = mukey_raster, verbose = verbose
+        mukey_raster_native = mukey_raster, verbose = verbose, resampling = resampling
       )
       result[[id]][[wname]] <- if (isTRUE(simplify)) list(percentiles = leaf$posterior$percentiles) else leaf
     }
@@ -2614,16 +2694,17 @@ run_fusion_multiproperty <- function(aoi_vect, property_configs, depth_windows,
         solus <- get_solus(m$solus_variable, w)
         if (is.null(prior) || is.null(solus)) return(NULL)
         seed_solus_cache(m$id, w, solus)
-        prior_aligned <- lapply(prior$values, terra::resample, y = solus$values[[1]], method = "bilinear")
-        list(id = m$id, prior = prior_aligned, prior_probs = prior$probs,
-             lik = solus$values, lik_probs = solus$probs)
+        aligned <- align_prior_likelihood(prior$values, solus$values, resampling = resampling)
+        list(id = m$id, prior = aligned$prior_values, prior_probs = prior$probs,
+             lik = aligned$lik_values, lik_probs = solus$probs, reference_grid = aligned$reference_grid)
       })
       if (any(vapply(fetched, is.null, logical(1)))) next
 
       group_result <- stage1_fuse_texture_group_from_fetched(
         fetched, want_raw_draws = want_raw,
         shared_draws = if (want_raw) dw else NULL,
-        shared_mukey_raster = if (want_raw) mukey_raster else NULL
+        shared_mukey_raster = if (want_raw) mukey_raster else NULL,
+        reference_grid = fetched[[1]]$reference_grid
       )
       cache_set(build_cache_key(aoi_vect, g, w[[1]], w[[2]], group_kind), group_kind,
                 wrap_nested_rasters(group_result))
