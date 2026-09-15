@@ -1,5 +1,28 @@
 # Changelog
 
+## soilSIM (development version)
+
+### Newly exported SOLUS100 depth-harmonization functions
+
+- [`closest_solus_depth_slice()`](https://jjmaynard.github.io/soilSIM/reference/closest_solus_depth_slice.md),
+  [`solus_depth_window_weights()`](https://jjmaynard.github.io/soilSIM/reference/solus_depth_window_weights.md),
+  [`fetch_solus_low_pred_high()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high.md),
+  [`fetch_solus_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.md),
+  and
+  [`fetch_solus_percentiles_multiproperty()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles_multiproperty.md)
+  (`R/adapter-solus.R`) are now exported. No behavior change - these
+  already backed the SOLUS100 half of the raster fusion pipeline
+  ([`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)/[`run_fusion_multiproperty()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion_multiproperty.md));
+  they are now callable directly by external consumers that need
+  SOLUS100’s trapezoidal depth-window averaging without going through
+  [`run_fusion()`](https://jjmaynard.github.io/soilSIM/reference/run_fusion.md)’s
+  SSURGO-pairing/caching orchestration.
+  [`fetch_solus_low_pred_high_multiproperty()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high_multiproperty.md),
+  [`fetch_solus_restriction_depth()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_restriction_depth.md),
+  and
+  [`fetch_solus_site_level()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_site_level.md)
+  remain internal.
+
 ## soilSIM 0.4.0
 
 ### Deprecated names removed (BREAKING)

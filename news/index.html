@@ -64,6 +64,14 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="development version" id="soilsim-development-version">soilSIM (development version)<a class="anchor" aria-label="anchor" href="#soilsim-development-version"></a></h2>
+<div class="section level3">
+<h3 id="newly-exported-solus100-depth-harmonization-functions-development-version">Newly exported SOLUS100 depth-harmonization functions<a class="anchor" aria-label="anchor" href="#newly-exported-solus100-depth-harmonization-functions-development-version"></a></h3>
+<ul><li>
+<code><a href="../reference/closest_solus_depth_slice.html">closest_solus_depth_slice()</a></code>, <code><a href="../reference/solus_depth_window_weights.html">solus_depth_window_weights()</a></code>, <code><a href="../reference/fetch_solus_low_pred_high.html">fetch_solus_low_pred_high()</a></code>, <code><a href="../reference/fetch_solus_percentiles.html">fetch_solus_percentiles()</a></code>, and <code><a href="../reference/fetch_solus_percentiles_multiproperty.html">fetch_solus_percentiles_multiproperty()</a></code> (<code>R/adapter-solus.R</code>) are now exported. No behavior change - these already backed the SOLUS100 half of the raster fusion pipeline (<code><a href="../reference/run_fusion.html">run_fusion()</a></code>/<code><a href="../reference/run_fusion_multiproperty.html">run_fusion_multiproperty()</a></code>); they are now callable directly by external consumers that need SOLUS100’s trapezoidal depth-window averaging without going through <code><a href="../reference/run_fusion.html">run_fusion()</a></code>’s SSURGO-pairing/caching orchestration. <code><a href="../reference/fetch_solus_low_pred_high_multiproperty.html">fetch_solus_low_pred_high_multiproperty()</a></code>, <code><a href="../reference/fetch_solus_restriction_depth.html">fetch_solus_restriction_depth()</a></code>, and <code><a href="../reference/fetch_solus_site_level.html">fetch_solus_site_level()</a></code> remain internal.</li>
+</ul></div>
+</div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.4.0" id="soilsim-040">soilSIM 0.4.0<a class="anchor" aria-label="anchor" href="#soilsim-040"></a></h2>
 <div class="section level3">
 <h3 id="deprecated-names-removed-breaking-0-4-0">Deprecated names removed (BREAKING)<a class="anchor" aria-label="anchor" href="#deprecated-names-removed-breaking-0-4-0"></a></h3>

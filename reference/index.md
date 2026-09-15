@@ -269,6 +269,20 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
   materializing all of them (avoids an allocation failure at large cell
   counts).
 
+- [`closest_solus_depth_slice()`](https://jjmaynard.github.io/soilSIM/reference/closest_solus_depth_slice.md)
+  : Snap a Depth Window to the Nearest Native SOLUS Depth Slice
+
+- [`fetch_solus_low_pred_high()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_low_pred_high.md)
+  : Fetch SOLUS100 Low/Prediction/High Rasters for One Variable and
+  Depth Window
+
+- [`fetch_solus_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles.md)
+  : Fetch SOLUS100 Percentile-Value Rasters for an AOI
+
+- [`fetch_solus_percentiles_multiproperty()`](https://jjmaynard.github.io/soilSIM/reference/fetch_solus_percentiles_multiproperty.md)
+  : Fetch SOLUS100 Percentile-Value Rasters for Multiple Variables, One
+  Depth Window (S1)
+
 - [`fit_beta_mle_newton_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton_raster.md)
   [`quantile_beta_mle_newton_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton_raster.md)
   : Fit a Beta distribution's (alpha, beta) rasters via vectorized
@@ -318,6 +332,9 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
   Resolve a property's distribution family, refining `dist = "auto"`
   from the AOI's own percentile skew rather than a fixed per-property
   label.
+
+- [`solus_depth_window_weights()`](https://jjmaynard.github.io/soilSIM/reference/solus_depth_window_weights.md)
+  : Trapezoidal Depth-Average Weights over Native SOLUS Depth Slices
 
 ## S3 Result Classes
 
