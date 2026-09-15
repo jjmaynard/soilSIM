@@ -31,7 +31,8 @@ NULL
 #' @param available_slices Native SOLUS depth points to snap to.
 #' @return A single numeric value from `available_slices`.
 #' @seealso `solus_depth_window_weights()`
-#' @keywords internal
+#' @family raster-fusion
+#' @export
 closest_solus_depth_slice <- function(top_depth, bottom_depth, available_slices = c(0, 5, 15, 30, 60, 100, 150)) {
   midpoint <- (top_depth + bottom_depth) / 2
   available_slices[which.min(abs(available_slices - midpoint))]
@@ -60,7 +61,8 @@ closest_solus_depth_slice <- function(top_depth, bottom_depth, available_slices 
 #' @return A named numeric vector over `sort(unique(available_slices))` (names are the slice depths
 #'   as character), summing to 1. Zero for slices that do not contribute.
 #' @seealso `closest_solus_depth_slice()`, `fetch_solus_low_pred_high()`
-#' @keywords internal
+#' @family raster-fusion
+#' @export
 solus_depth_window_weights <- function(top_depth, bottom_depth,
                                        available_slices = c(0, 5, 15, 30, 60, 100, 150)) {
   if (!is.finite(top_depth) || !is.finite(bottom_depth) || bottom_depth <= top_depth) {
@@ -124,7 +126,8 @@ solus_depth_window_weights <- function(top_depth, bottom_depth,
 #' @param top_depth,bottom_depth Numeric depth window bounds in cm.
 #' @return `list(pred=, low=, high=)`, each a single-layer `terra::SpatRaster` (the window
 #'   depth-average) or `NULL` if that output type wasn't returned for every required slice.
-#' @keywords internal
+#' @family raster-fusion
+#' @export
 fetch_solus_low_pred_high <- function(aoi_vect, solus_variable, top_depth, bottom_depth) {
   weights <- solus_depth_window_weights(top_depth, bottom_depth)
   weights <- weights[weights != 0]
@@ -173,7 +176,8 @@ fetch_solus_low_pred_high <- function(aoi_vect, solus_variable, top_depth, botto
 #' @param top_depth,bottom_depth Numeric depth window bounds in cm.
 #' @return `list(values = list(P025 = <low raster>, P50 = <pred raster>, P975 = <high raster>),
 #'   probs = c(0.025, 0.5, 0.975))`, or `NULL` if any of low/pred/high is unavailable.
-#' @keywords internal
+#' @family raster-fusion
+#' @export
 fetch_solus_percentiles <- function(aoi_vect, solus_variable, top_depth, bottom_depth) {
   lph <- fetch_solus_low_pred_high(aoi_vect, solus_variable, top_depth, bottom_depth)
 
@@ -268,7 +272,8 @@ fetch_solus_low_pred_high_multiproperty <- function(aoi_vect, solus_variables, t
 #'   `fetch_solus_percentiles()`'s shape) or `NULL` if any of that variable's low/pred/high rasters
 #'   is unavailable.
 #' @seealso `fetch_solus_percentiles()`, `fetch_solus_low_pred_high_multiproperty()`
-#' @keywords internal
+#' @family raster-fusion
+#' @export
 fetch_solus_percentiles_multiproperty <- function(aoi_vect, solus_variables, top_depth, bottom_depth) {
   lph_by_var <- fetch_solus_low_pred_high_multiproperty(aoi_vect, solus_variables, top_depth, bottom_depth)
 

@@ -63,6 +63,10 @@ Other raster-fusion:
 \code{\link{cache_get}()},
 \code{\link{cache_set}()},
 \code{\link{check_metalog_feasibility_raster}()},
+\code{\link{closest_solus_depth_slice}()},
+\code{\link{fetch_solus_low_pred_high}()},
+\code{\link{fetch_solus_percentiles}()},
+\code{\link{fetch_solus_percentiles_multiproperty}()},
 \code{\link{fit_beta_mle_newton_raster}()},
 \code{\link{fit_beta_mom_raster}()},
 \code{\link{fit_gamma_mom_raster}()},
@@ -73,6 +77,7 @@ Other raster-fusion:
 \code{\link{quantile_metalog_linear_with_fallback_raster}()},
 \code{\link{remarginalize_awc}()},
 \code{\link{resolve_property_dist}()},
+\code{\link{solus_depth_window_weights}()},
 \code{\link{wrap_nested_rasters}()}
 }
 \concept{raster-fusion}

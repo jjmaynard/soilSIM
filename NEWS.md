@@ -1,3 +1,15 @@
+# soilSIM (development version)
+
+## Newly exported SOLUS100 depth-harmonization functions
+
+* `closest_solus_depth_slice()`, `solus_depth_window_weights()`, `fetch_solus_low_pred_high()`,
+  `fetch_solus_percentiles()`, and `fetch_solus_percentiles_multiproperty()` (`R/adapter-solus.R`)
+  are now exported. No behavior change - these already backed the SOLUS100 half of the raster
+  fusion pipeline (`run_fusion()`/`run_fusion_multiproperty()`); they are now callable directly by
+  external consumers that need SOLUS100's trapezoidal depth-window averaging without going through
+  `run_fusion()`'s SSURGO-pairing/caching orchestration. `fetch_solus_low_pred_high_multiproperty()`,
+  `fetch_solus_restriction_depth()`, and `fetch_solus_site_level()` remain internal.
+
 # soilSIM 0.4.0
 
 ## Deprecated names removed (BREAKING)
