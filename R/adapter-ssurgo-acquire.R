@@ -16,8 +16,10 @@ NULL
 #' @param aoi_wkt Character. Well-Known Text (WKT) representation of the area of interest
 #' @param properties Character vector. Soil properties to download.
 #'   Default: c("sandtotal", "claytotal", "silttotal", "dbovendry", "ph1to1h2o", "cec7", "om",
-#'   "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar"). Each needs a matching
-#'   row in `build_ssurgo_property_lookup()` to reach the SQL query.
+#'   "wthirdbar", "wfifteenbar", "caco3", "ec", "ecec", "gypsum", "sar", "rfv"). Each needs a
+#'   matching row in `build_ssurgo_property_lookup()` to reach the SQL query. "rfv" (rock
+#'   fragment volume) is the one entry backed by the one-to-many `chfrags` child table rather
+#'   than a plain `chorizon` column - see `aggregate_rock_fragment_volume_working()`.
 #' @param include_restrictions Logical. Whether to include horizon restriction data for
 #'   unsuitable horizon detection (default: TRUE)
 #' @param cache_dir Character. Directory for caching downloaded data (default: NULL for no caching)
@@ -77,7 +79,16 @@ download_ssurgo_tabular <- function(aoi_wkt,
                                                    # build_ssurgo_property_lookup()'s lookup
                                                    # table) since simulate_ssurgo_mapunit_draws()'s call
                                                    # site never overrides this default.
-                                                   "caco3", "ec", "ecec", "gypsum", "sar"),
+                                                   "caco3", "ec", "ecec", "gypsum", "sar",
+                                                   # Rock fragment volume - widened here for the same
+                                                   # reason as the 5 chemistry properties above (this
+                                                   # default is the only place simulate_ssurgo_mapunit_draws()'s
+                                                   # call site ever gets its property list from). Without
+                                                   # this, "rfv" was never requested at all, so
+                                                   # execute_ssurgo_query_working() never selected the
+                                                   # chfrags value columns regardless of any fix to
+                                                   # aggregate_rock_fragment_volume_working()'s own logic.
+                                                   "rfv"),
                                     include_restrictions = TRUE,
                                     cache_dir = NULL,
                                     force_download = FALSE,
@@ -321,16 +332,29 @@ build_ssurgo_property_lookup <- function() {
                  "cec7", "om", "wthirdbar", "wfifteenbar",
                  # 5 chemistry properties; column names confirmed against a gSSURGO chorizon
                  # query. Coverage is real but sparse for some (especially ecec).
-                 "caco3", "ec", "ecec", "gypsum", "sar"),
+                 "caco3", "ec", "ecec", "gypsum", "sar",
+                 # Rock fragment volume - unlike every property above, this lives in the
+                 # one-to-many child table chfrags (already LEFT JOINed unconditionally in
+                 # execute_ssurgo_query_working() for fragsize_r's sake), not a plain chorizon
+                 # column, and gSSURGO's real column names are fragvol_l/r/h - aliased to rfv_l/
+                 # r/h here (soilSIM's own internal name) via a raw "AS" expression, which this
+                 # lookup's generic paste-into-SELECT mechanism supports unchanged. Without this
+                 # row, execute_ssurgo_query_working() only ever selected chf.fragsize_r, never
+                 # the actual value columns - aggregate_rock_fragment_volume_working() then had
+                 # nothing to aggregate, regardless of any fix to its own logic.
+                 "rfv"),
     SSURGO_Label_Low = c("sandtotal_l", "claytotal_l", "silttotal_l", "dbovendry_l",
                          "ph1to1h2o_l", "cec7_l", "om_l", "wthirdbar_l", "wfifteenbar_l",
-                         "caco3_l", "ec_l", "ecec_l", "gypsum_l", "sar_l"),
+                         "caco3_l", "ec_l", "ecec_l", "gypsum_l", "sar_l",
+                         "chf.fragvol_l AS rfv_l"),
     SSURGO_Label_Rep = c("sandtotal_r", "claytotal_r", "silttotal_r", "dbovendry_r",
                          "ph1to1h2o_r", "cec7_r", "om_r", "wthirdbar_r", "wfifteenbar_r",
-                         "caco3_r", "ec_r", "ecec_r", "gypsum_r", "sar_r"),
+                         "caco3_r", "ec_r", "ecec_r", "gypsum_r", "sar_r",
+                         "chf.fragvol_r AS rfv_r"),
     SSURGO_Label_High = c("sandtotal_h", "claytotal_h", "silttotal_h", "dbovendry_h",
                           "ph1to1h2o_h", "cec7_h", "om_h", "wthirdbar_h", "wfifteenbar_h",
-                          "caco3_h", "ec_h", "ecec_h", "gypsum_h", "sar_h"),
+                          "caco3_h", "ec_h", "ecec_h", "gypsum_h", "sar_h",
+                          "chf.fragvol_h AS rfv_h"),
     stringsAsFactors = FALSE
   )
 }

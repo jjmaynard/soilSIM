@@ -678,13 +678,14 @@ NULL
 #' for horizon morphology, texture, bulk density, water-retention, and
 #' rock-fragment-volume data for the given map unit key(s).
 #'
-#' This deliberately does not reuse `execute_ssurgo_query_working()` (which
-#' also joins `mapunit`/`component`/`chorizon`/`chfrags`): that function only
-#' ever selects `chf.fragsize_r`, never `chf.fragvol_l/r/h`, so its rock
-#' fragment aggregation path (`aggregate_rock_fragment_volume_working()`)
-#' currently produces no data. This function's entire purpose is summing
-#' `fragvol_l/r/h` per horizon, so delegating would silently drop rock
-#' fragment volume - a real regression, not a style difference.
+#' This deliberately does not reuse `execute_ssurgo_query_working()` (which also joins
+#' `mapunit`/`component`/`chorizon`/`chfrags`): that function is oriented around
+#' `download_ssurgo_tabular()`'s much wider, `properties`-driven column set (texture, chemistry,
+#' restrictions, etc.) and its own separate caching/component-recovery machinery, none of which
+#' this narrower AWS-specific query needs. (Historical note: prior to the fix documented in
+#' `aggregate_rock_fragment_volume_working()`'s own docs, `execute_ssurgo_query_working()` also
+#' never selected `chf.fragvol_l/r/h` at all regardless of `properties` - that gap is now closed,
+#' but this function's separate, narrower query was never affected by it either way.)
 #'
 #' @param mukeys A vector of string or numeric map unit keys (mukeys) representing the map units to retrieve data for.
 #'

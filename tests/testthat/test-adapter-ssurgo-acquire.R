@@ -5,30 +5,52 @@
 ## fixture-maintain for the value it'd add.
 sample_wkt <- "POLYGON((-120.5 38.5, -120.4 38.5, -120.4 38.6, -120.5 38.6, -120.5 38.5))"
 
-test_that("build_ssurgo_property_lookup() returns the 14-property low/rep/high lookup table", {
+test_that("build_ssurgo_property_lookup() returns the 15-property low/rep/high lookup table", {
   # 9 original properties + 5 chemistry properties added in MULTI_PROPERTY_FUSION_PLAN.md task P2
-  # (column names live-confirmed against a real gSSURGO chorizon query, 2026-09-04).
+  # (column names live-confirmed against a real gSSURGO chorizon query, 2026-09-04) + rock
+  # fragment volume ("rfv", HANDOFF_reanalysis-platform-phase3-rfv-acquisition-gap.md).
   lookup <- build_ssurgo_property_lookup()
   expect_setequal(lookup$Property, c("sandtotal", "claytotal", "silttotal", "dbovendry",
                                       "ph1to1h2o", "cec7", "om", "wthirdbar", "wfifteenbar",
-                                      "caco3", "ec", "ecec", "gypsum", "sar"))
+                                      "caco3", "ec", "ecec", "gypsum", "sar", "rfv"))
   expect_true(all(c("SSURGO_Label_Low", "SSURGO_Label_Rep", "SSURGO_Label_High") %in% names(lookup)))
   expect_equal(lookup$SSURGO_Label_Rep[lookup$Property == "sandtotal"], "sandtotal_r")
   expect_equal(lookup$SSURGO_Label_Rep[lookup$Property == "caco3"], "caco3_r")
+  # "rfv" is the one entry that aliases a differently-named chfrags column (fragvol_r) rather
+  # than reusing "rfv_r" itself as a literal chorizon column name.
+  expect_equal(lookup$SSURGO_Label_Rep[lookup$Property == "rfv"], "chf.fragvol_r AS rfv_r")
 })
 
 test_that("REGRESSION: predefined_properties('ssurgo') now resolves the real lookup instead of character(0)", {
   # Before mod01's migration into this package, build_ssurgo_property_lookup()
   # did not exist, so utils.R's tryCatch() silently degraded to character(0).
   props <- predefined_properties("ssurgo")
-  expect_length(props, 14)
+  expect_length(props, 15)
   expect_true("dbovendry" %in% props)
   expect_true("caco3" %in% props)
+  expect_true("rfv" %in% props)
 })
 
-test_that("download_ssurgo_tabular()'s default properties argument includes the 5 P2 chemistry properties", {
+test_that("download_ssurgo_tabular()'s default properties argument includes the 5 P2 chemistry properties + rfv", {
   default_properties <- eval(formals(download_ssurgo_tabular)$properties)
   expect_true(all(c("caco3", "ec", "ecec", "gypsum", "sar") %in% default_properties))
+  expect_true("rfv" %in% default_properties)
+})
+
+test_that("REGRESSION: execute_ssurgo_query_working()'s SELECT list includes the chfrags value columns when rfv is requested", {
+  # HANDOFF_reanalysis-platform-phase3-rfv-acquisition-gap.md: the query previously only ever
+  # selected chf.fragsize_r, never the actual fragvol_l/r/h value columns, so
+  # aggregate_rock_fragment_volume_working() had nothing to aggregate regardless of its own
+  # zero-chfrags-rows fix. This locks in the SQL text itself (query construction is pure string
+  # building - no live network call), which the SDA-hitting integration itself can't be
+  # regression-tested against in this offline suite.
+  lookup <- build_ssurgo_property_lookup()
+  props <- lookup[lookup$Property %in% c("sandtotal", "rfv"), ]
+  ssurgo_variables <- c(props$SSURGO_Label_Low, props$SSURGO_Label_Rep, props$SSURGO_Label_High)
+  formatted_properties <- paste(ssurgo_variables, collapse = ", ")
+  expect_match(formatted_properties, "chf\\.fragvol_l AS rfv_l", fixed = FALSE)
+  expect_match(formatted_properties, "chf\\.fragvol_r AS rfv_r", fixed = FALSE)
+  expect_match(formatted_properties, "chf\\.fragvol_h AS rfv_h", fixed = FALSE)
 })
 
 test_that("aggregate_rock_fragment_volume_working() sums RFV across fragment-size classes within a horizon", {
