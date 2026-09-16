@@ -2,6 +2,30 @@
 
 ## soilSIM (development version)
 
+### Bug fix: rock fragment volume was never fetched at all by the default SSURGO pipeline
+
+- [`execute_ssurgo_query_working()`](https://jjmaynard.github.io/soilSIM/reference/execute_ssurgo_query_working.md)‘s
+  SQL query only ever selected `chf.fragsize_r` from the `chfrags`
+  table, never the actual `fragvol_l`/`fragvol_r`/`fragvol_h` value
+  columns - so
+  [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)’s
+  (and therefore
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)’s
+  and the newly-exported
+  [`fetch_ssurgo_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_percentiles.md)’s)
+  output never had rock-fragment data to work with, regardless of the
+  zero-`chfrags`-rows fix above. `"rfv"` was also missing from
+  [`download_ssurgo_tabular()`](https://jjmaynard.github.io/soilSIM/reference/download_ssurgo_tabular.md)’s
+  default `properties` list entirely. Both fixed:
+  [`build_ssurgo_property_lookup()`](https://jjmaynard.github.io/soilSIM/reference/build_ssurgo_property_lookup.md)
+  gained an `"rfv"` row aliasing `chfrags`’ real column names to
+  soilSIM’s internal `rfv_l`/`rfv_r`/`rfv_h`, and `"rfv"` was added to
+  the default properties list.
+  `fetch_ssurgo_percentiles(aoi, "rfv", ...)` and
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
+  now actually return rock-fragment data instead of `NULL`/an entirely
+  absent column.
+
 ### Bug fix: genuine zero rock-fragment horizons no longer get a fabricated non-zero estimate
 
 - [`aggregate_rock_fragment_volume_working()`](https://jjmaynard.github.io/soilSIM/reference/aggregate_rock_fragment_volume_working.md)

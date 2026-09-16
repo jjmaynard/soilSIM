@@ -279,7 +279,7 @@ single_fit$diagnostics
 #> [1] 18.84615 32.00000
 #> 
 #> $training_rmse
-#> [1] 6.942062e-15
+#> [1] 4.544647e-15
 #> 
 #> $log_likelihood
 #> [1] NA
