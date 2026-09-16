@@ -283,6 +283,12 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
   : Fetch SOLUS100 Percentile-Value Rasters for Multiple Variables, One
   Depth Window (S1)
 
+- [`fetch_ssurgo_mukey_raster()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_mukey_raster.md)
+  : Fetch a Raster of SSURGO Map Unit Keys for an AOI
+
+- [`fetch_ssurgo_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_percentiles.md)
+  : Fetch SSURGO Percentile-Value Rasters for an AOI
+
 - [`fit_beta_mle_newton_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton_raster.md)
   [`quantile_beta_mle_newton_raster()`](https://jjmaynard.github.io/soilSIM/reference/fit_beta_mle_newton_raster.md)
   : Fit a Beta distribution's (alpha, beta) rasters via vectorized
@@ -313,6 +319,9 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
   : Fuse a prior and likelihood belief distribution, choosing the fusion
   route by AOI size rather than requiring the caller to pick.
 
+- [`property_to_sim_column()`](https://jjmaynard.github.io/soilSIM/reference/property_to_sim_column.md)
+  : Map a Property Id to its Simulated-Data Column Name
+
 - [`quantile_metalog_linear_with_fallback_raster()`](https://jjmaynard.github.io/soilSIM/reference/quantile_metalog_linear_with_fallback_raster.md)
   :
 
@@ -332,6 +341,10 @@ Raster-native fusion core plus the SSURGO and SOLUS100 adapters.
   Resolve a property's distribution family, refining `dist = "auto"`
   from the AOI's own percentile skew rather than a fixed per-property
   label.
+
+- [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
+  [`SSURGO_SIM_PROPERTY_COLUMNS`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md)
+  : Monte Carlo-Simulate SSURGO Property Draws for an AOI
 
 - [`solus_depth_window_weights()`](https://jjmaynard.github.io/soilSIM/reference/solus_depth_window_weights.md)
   : Trapezoidal Depth-Average Weights over Native SOLUS Depth Slices

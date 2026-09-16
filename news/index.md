@@ -2,6 +2,51 @@
 
 ## soilSIM (development version)
 
+### Bug fix: genuine zero rock-fragment horizons no longer get a fabricated non-zero estimate
+
+- [`aggregate_rock_fragment_volume_working()`](https://jjmaynard.github.io/soilSIM/reference/aggregate_rock_fragment_volume_working.md)
+  (`R/adapter-ssurgo-acquire.R`) previously dropped a chorizon with zero
+  `chfrags` rows (genuinely 0% rock fragments - common for fine-textured
+  horizons) out of its aggregate entirely, via
+  `filter(!is.na(fragsize_r))` before the sum. That left the chorizon’s
+  `rfv_l`/`rfv_r`/`rfv_h` as `NA` after the aggregate’s `left_join()`,
+  indistinguishable from “this chorizon’s fragment data was never
+  queried” - and
+  [`impute_rfv_values()`](https://jjmaynard.github.io/soilSIM/reference/impute_rfv_values.md)
+  (`R/adapter-ssurgo-infill.R`) then fabricated a non-zero estimate
+  (~0.5-2%) for what was actually a real zero. Fixed: chorizons with
+  zero `chfrags` rows are now explicitly set to
+  `rfv_l = rfv_r = rfv_h = 0`.
+- [`impute_rfv_values()`](https://jjmaynard.github.io/soilSIM/reference/impute_rfv_values.md)
+  also unconditionally floored any `rfv_r <= 0.01` (imputed or not) to
+  0.1, so even a correctly-summed exact zero never survived as `0`.
+  Fixed: an exact-zero triplet `(0, 0, 0)` now passes through
+  unmodified -
+  [`fit_percentile_triplet()`](https://jjmaynard.github.io/soilSIM/reference/fit_percentile_triplet.md)’s
+  existing zero-width- interval handling already treats this safely as a
+  degenerate “always draw exactly `r`” distribution. The floor still
+  applies to a genuinely near-zero but non-zero `rfv_r` (e.g. `0.005`),
+  where the generic +/-30% spread would otherwise produce an invalid
+  `low > high` triplet - that case is unaffected.
+
+### Newly exported SSURGO Monte Carlo functions
+
+- [`fetch_ssurgo_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_percentiles.md),
+  [`property_to_sim_column()`](https://jjmaynard.github.io/soilSIM/reference/property_to_sim_column.md),
+  [`simulate_ssurgo_mapunit_draws()`](https://jjmaynard.github.io/soilSIM/reference/simulate_ssurgo_mapunit_draws.md),
+  and
+  [`fetch_ssurgo_mukey_raster()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_mukey_raster.md)
+  (`R/adapter-ssurgo-simulate.R`) are now exported. No behavior change -
+  these already backed the SSURGO half of the raster fusion pipeline;
+  external consumers can now call
+  [`fetch_ssurgo_percentiles()`](https://jjmaynard.github.io/soilSIM/reference/fetch_ssurgo_percentiles.md)’s
+  real per-cokey Monte Carlo simulation directly instead of
+  re-implementing a fixed-percentile approximation of their own.
+- [`solus_depth_window_weights()`](https://jjmaynard.github.io/soilSIM/reference/solus_depth_window_weights.md)
+  (`R/adapter-solus.R`) was exported in the prior entry above but missed
+  in `planning-docs/export-tiers.csv` - corrected to `public` to match
+  `NAMESPACE`; no code change.
+
 ### Newly exported SOLUS100 depth-harmonization functions
 
 - [`closest_solus_depth_slice()`](https://jjmaynard.github.io/soilSIM/reference/closest_solus_depth_slice.md),
