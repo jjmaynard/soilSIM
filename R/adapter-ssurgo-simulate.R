@@ -40,7 +40,8 @@ NULL
 #' function issues exactly one network call per cache miss. The result is disk-cached
 #' (`cache.R`, kind `"mukey_grid"`, depth-agnostic key via `mukey_grid_cache_key()`) so
 #' repeated calls for the same AOI across separate top-level user calls hit zero network calls.
-#' @keywords internal
+#' @family raster-fusion
+#' @export
 fetch_ssurgo_mukey_raster <- function(aoi_vect) {
   cache_key <- mukey_grid_cache_key(aoi_vect)
   cached <- cache_get(cache_key)
@@ -232,7 +233,8 @@ aggregate_depth_window_by_replicate <- function(sim_long, top_depth, bottom_dept
 #'   `"wfifteenbar"`/`"water_retention_15_bar"`/`"wr_15b"`, or `"caco3"`, `"ec"`, `"ecec"`,
 #'   `"gypsum"`, `"sar"`.
 #' @return The corresponding column name in `simulate_cokey_generalized()`'s output.
-#' @keywords internal
+#' @family raster-fusion
+#' @export
 property_to_sim_column <- function(property_id) {
   mapping <- c(
     ph = "ph", ph1to1h2o = "ph",
@@ -371,7 +373,8 @@ normalize_requested_properties <- function(requested_properties) {
 #' draws. Raw-draws fusion reuses draws in memory within one `run_fusion()` call
 #' (computed once, used for both the percentile cache and `lookup_mukey_draws()`); see also
 #' `run_fusion_group()`'s `shared_draws` pattern.
-#' @keywords internal
+#' @family raster-fusion
+#' @export
 simulate_ssurgo_mapunit_draws <- function(aoi_vect, top_depth, bottom_depth, n_mc = 1000,
                                            parallel = FALSE, n_cores = NULL, config = NULL,
                                            mukey_raster = NULL, depth_windows = NULL,
@@ -780,7 +783,8 @@ extract_mukey_joint_ensemble <- function(aoi_vect, depth_windows, n_mc = 1000,
 #'   `simulate_ssurgo_mapunit_draws()`. `NULL` (default) = current stochastic behavior.
 #' @return `list(values = <named list of percentile-value SpatRasters>, probs = probs)`, or `NULL`
 #'   if the mukey raster or the Monte Carlo draws are unavailable for this AOI.
-#' @keywords internal
+#' @family raster-fusion
+#' @export
 fetch_ssurgo_percentiles <- function(aoi_vect, property_id, top_depth, bottom_depth,
                                       probs = c(0.05, 0.25, 0.5, 0.75, 0.95), n_mc = 1000,
                                       parallel = FALSE, n_cores = NULL,

@@ -46,8 +46,20 @@ test_that("impute_rfv_values() texture-informed default and valid-value spread b
   expect_equal(valid_rfv$rfv_l, 14, tolerance = 1e-6)
   expect_equal(valid_rfv$rfv_h, 26, tolerance = 1e-6)
 
+  # A genuine, exact zero (e.g. a real zero-chfrags-rows chorizon after
+  # aggregate_rock_fragment_volume_working()'s fix) survives as exact 0, not floored -
+  # fit_percentile_triplet() has a principled zero-width-interval path for this.
   zero_rfv <- impute_rfv_values(list(claytotal_r = 20, sandtotal_r = 40, silttotal_r = 40, rfv_r = 0))
-  expect_equal(zero_rfv$rfv_r, 0.1)
+  expect_equal(zero_rfv$rfv_r, 0)
+  expect_equal(zero_rfv$rfv_l, 0)
+  expect_equal(zero_rfv$rfv_h, 0)
+
+  # A near-zero but NON-zero value still gets floored (the generic +/-30% spread below would
+  # otherwise produce an invalid low > high triplet at this scale).
+  near_zero_rfv <- impute_rfv_values(list(claytotal_r = 20, sandtotal_r = 40, silttotal_r = 40, rfv_r = 0.005))
+  expect_equal(near_zero_rfv$rfv_r, 0.1)
+  expect_equal(near_zero_rfv$rfv_l, 0.05)
+  expect_equal(near_zero_rfv$rfv_h, 0.5)
 })
 
 test_that("cross_component_property_interpolation() fills from another component at a similar depth", {

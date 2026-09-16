@@ -2456,7 +2456,23 @@ impute_rfv_values <- function(row) {
     return(as.data.frame(row))
   }
 
-  # Handle zero/low values
+  # Exact zero (a genuine 0% rock-fragment horizon, e.g. from
+  # aggregate_rock_fragment_volume_working()'s zero-chfrags-rows case) is a valid, correctly
+  # ordered zero-width triplet - pass it through as-is rather than flooring it. Downstream,
+  # fit_percentile_triplet() already has a principled degenerate-interval path for l == h (a
+  # deterministic "always draw exactly r" distribution), so (0, 0, 0) fits every family safely.
+  if (rfv_r == 0) {
+    row[["rfv_r"]] <- 0
+    row[["rfv_l"]] <- 0
+    row[["rfv_h"]] <- 0
+    return(as.data.frame(row))
+  }
+
+  # Handle near-zero (but not exactly zero) values: below this floor, the generic +/-30%
+  # spread-with-0.05-floor calculation two blocks down would produce an invalid low > high
+  # triplet (e.g. rfv_r = 0.005 -> l = max(0.05, rfv_r - spread) = 0.05 > h = min(85, rfv_r +
+  # spread) ~= 0.0065). Not a degenerate-fit concern (see the exact-zero case above) - purely
+  # about keeping the triplet correctly ordered for a real, non-zero, very small measurement.
   if (rfv_r <= 0.01) {
     row[["rfv_r"]] <- 0.1
     row[["rfv_l"]] <- 0.05

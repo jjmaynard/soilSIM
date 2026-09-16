@@ -12,8 +12,14 @@ aggregate_rock_fragment_volume_working(ssurgo_data, verbose = FALSE)
 \item{verbose}{Logical; provide progress messages}
 }
 \value{
-Data frame with aggregated RFV values
+Data frame with aggregated RFV values (0, not \code{NA}, for genuinely fragment-free horizons)
 }
 \description{
-Aggregates rock fragment volume exactly as in working code
+Sums \code{chfrags}' per-fragment-size-class \code{rfv_l}/\code{rfv_r}/\code{rfv_h} values into one horizon-level
+(\code{chkey}) total. A chorizon with zero \code{chfrags} rows (genuinely 0\% rock fragments - common for
+fine-textured horizons) is explicitly set to \code{rfv_l = rfv_r = rfv_h = 0}, distinguishing it from
+a chorizon whose fragment data was never queried at all (which stays \code{NA}) - both would
+otherwise collapse to the same \code{NA} after the aggregate's \code{left_join()}, and downstream
+\code{impute_rfv_values()} treats any \code{NA} as "missing," fabricating a non-zero estimate for what was
+actually a real zero.
 }

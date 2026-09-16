@@ -41,6 +41,8 @@ Other raster-fusion:
 \code{\link{fetch_solus_low_pred_high}()},
 \code{\link{fetch_solus_percentiles}()},
 \code{\link{fetch_solus_percentiles_multiproperty}()},
+\code{\link{fetch_ssurgo_mukey_raster}()},
+\code{\link{fetch_ssurgo_percentiles}()},
 \code{\link{fit_beta_mle_newton_raster}()},
 \code{\link{fit_beta_mom_raster}()},
 \code{\link{fit_gamma_mom_raster}()},
@@ -48,10 +50,12 @@ Other raster-fusion:
 \code{\link{fit_normal_raster}()},
 \code{\link{fuse_adaptive}()},
 \code{\link{percentiles_from_draws}()},
+\code{\link{property_to_sim_column}()},
 \code{\link{quantile_metalog_linear_with_fallback_raster}()},
 \code{\link{remarginalize_awc}()},
 \code{\link{remarginalize_ensemble_to_posterior}()},
 \code{\link{resolve_property_dist}()},
+\code{\link{simulate_ssurgo_mapunit_draws}()},
 \code{\link{solus_depth_window_weights}()},
 \code{\link{wrap_nested_rasters}()}
 }

@@ -52,6 +52,30 @@ test_that("aggregate_rock_fragment_volume_working() sums RFV across fragment-siz
   expect_equal(h2$rfv_r, 4)
 })
 
+test_that("aggregate_rock_fragment_volume_working() sets rfv=0 (not NA) for a chorizon with zero chfrags rows", {
+  # h1 has real chfrags rows; h2 has none (LEFT JOIN produces one all-NA row for it) - a
+  # genuinely 0% rock-fragment horizon, not a "never queried" one. REGRESSION: h2 used to end up
+  # NA here (dropped by filter(!is.na(fragsize_r)) before the left_join()), indistinguishable
+  # from a real query failure, and downstream impute_rfv_values() would fabricate a non-zero
+  # estimate for it.
+  df <- data.frame(
+    chkey = c("h1", "h1", "h2"),
+    fragsize_r = c(5, 20, NA),
+    rfv_l = c(1, 2, NA), rfv_r = c(2, 3, NA), rfv_h = c(3, 4, NA),
+    stringsAsFactors = FALSE
+  )
+  result <- aggregate_rock_fragment_volume_working(df, verbose = FALSE)
+
+  h1 <- result[result$chkey == "h1", ]
+  expect_equal(h1$rfv_r, c(5, 5))
+
+  h2 <- result[result$chkey == "h2", ]
+  expect_equal(nrow(h2), 1)
+  expect_equal(h2$rfv_l, 0)
+  expect_equal(h2$rfv_r, 0)
+  expect_equal(h2$rfv_h, 0)
+})
+
 test_that("aggregate_rock_fragment_volume_working() is a no-op when RFV or fragsize columns are absent", {
   df <- data.frame(chkey = "h1", hzname = "A", stringsAsFactors = FALSE)
   expect_identical(aggregate_rock_fragment_volume_working(df, verbose = FALSE), df)

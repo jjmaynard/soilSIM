@@ -715,12 +715,18 @@ recover_missing_horizon_components <- function(ssurgo_data, all_components, verb
 
 #' Aggregate Rock Fragment Volume (Working Version)
 #'
-#' Aggregates rock fragment volume exactly as in working code
+#' Sums `chfrags`' per-fragment-size-class `rfv_l`/`rfv_r`/`rfv_h` values into one horizon-level
+#' (`chkey`) total. A chorizon with zero `chfrags` rows (genuinely 0% rock fragments - common for
+#' fine-textured horizons) is explicitly set to `rfv_l = rfv_r = rfv_h = 0`, distinguishing it from
+#' a chorizon whose fragment data was never queried at all (which stays `NA`) - both would
+#' otherwise collapse to the same `NA` after the aggregate's `left_join()`, and downstream
+#' `impute_rfv_values()` treats any `NA` as "missing," fabricating a non-zero estimate for what was
+#' actually a real zero.
 #'
 #' @param ssurgo_data SSURGO data frame
 #' @param verbose Logical; provide progress messages
 #'
-#' @return Data frame with aggregated RFV values
+#' @return Data frame with aggregated RFV values (0, not `NA`, for genuinely fragment-free horizons)
 aggregate_rock_fragment_volume_working <- function(ssurgo_data, verbose = FALSE) {
 
   # Check if RFV columns exist
@@ -747,6 +753,17 @@ aggregate_rock_fragment_volume_working <- function(ssurgo_data, verbose = FALSE)
   # Create aggregation data with only available columns
   aggregation_columns <- c("chkey", "fragsize_r", available_rfv_columns)
 
+  # The upstream query LEFT JOINs chfrags onto chorizon, so a chorizon with zero chfrags rows
+  # (genuinely 0% rock fragments - common for fine-textured horizons) still produces one row here,
+  # with fragsize_r/rfv_* all NA. The filter(!is.na(fragsize_r)) below (needed to group real
+  # fragment-size rows correctly) would otherwise drop that chorizon's chkey out of rfv_sum
+  # entirely, making it indistinguishable after the left_join() below from "never queried" (NA)
+  # rather than "genuinely zero" - see aggregate_rock_fragment_volume_working()'s docs.
+  zero_fragment_chkeys <- setdiff(
+    unique(ssurgo_data$chkey),
+    unique(ssurgo_data$chkey[!is.na(ssurgo_data$fragsize_r)])
+  )
+
   # Aggregate RFV by horizon for available columns
   rfv_sum <- ssurgo_data |>
     dplyr::select(dplyr::all_of(aggregation_columns)) |>
@@ -765,6 +782,12 @@ aggregate_rock_fragment_volume_working <- function(ssurgo_data, verbose = FALSE)
                     .names = "{.col}"),
       .groups = 'drop'
     )
+
+  if (length(zero_fragment_chkeys) > 0) {
+    zero_rows <- data.frame(chkey = zero_fragment_chkeys)
+    for (col in available_rfv_columns) zero_rows[[col]] <- 0
+    rfv_sum <- dplyr::bind_rows(rfv_sum, zero_rows)
+  }
 
   # Remove existing RFV columns and join with aggregated data
   ssurgo_data <- ssurgo_data |>

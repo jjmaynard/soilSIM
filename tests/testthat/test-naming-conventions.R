@@ -19,7 +19,7 @@ approved_prefix_regex <- paste0(
   "|^(available_properties|predefined_properties|distributions_for_properties|",
   "rfv_range_category|group_members|ilr_forward|ilr_inverse|van_genuchten|",
   "tri_dist|property_contextual_ranges|CACHE_TTL_SECONDS|SSURGO_SIM_PROPERTY_COLUMNS|",
-  "closest_solus_depth_slice|solus_depth_window_weights)$"
+  "closest_solus_depth_slice|solus_depth_window_weights|property_to_sim_column)$"
 )
 
 # names defined only as deprecation shims are exempt (they intentionally keep the old name)
